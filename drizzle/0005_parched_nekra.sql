@@ -1,0 +1,1 @@
+ALTER TABLE `wf_tasks` ADD `ends_at` text DEFAULT '' NOT NULL;

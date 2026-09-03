@@ -1,0 +1,105 @@
+/* Sidebar scrolling.
+
+   Loaded last, and every selector is deliberately more specific than the base rules in
+   globals.css and reference-theme.css, so this wins the cascade no matter what the
+   other twenty stylesheets do to .side.
+
+   The nav holds 27 entries — roughly 1100px — which is taller than most screens, so the
+   list itself has to scroll while the brand and the status block stay put.
+
+   min-height:0 is the rule that actually does the work: a flex item defaults to
+   min-height:auto and refuses to shrink below its content, so without it overflow-y
+   never engages and the list simply runs off the bottom of the screen. */
+
+.shell > .side {
+  height: 100vh;          /* an explicit box for the children to be measured against */
+  height: 100dvh;         /* mobile browsers: excludes the address bar */
+  max-height: 100vh;
+  overflow: hidden;       /* nothing escapes the sidebar; the nav scrolls instead */
+  display: flex;
+  flex-direction: column;
+}
+
+.shell > .side > .brand,
+.shell > .side > .control {
+  flex: 0 0 auto;         /* pinned: never grow, never shrink */
+}
+
+.shell > .side > nav {
+  flex: 1 1 auto;
+  min-height: 0;          /* the load-bearing line - see above */
+  overflow-y: auto;
+  overflow-x: hidden;
+  overscroll-behavior: contain;   /* scrolling past the end must not scroll the page */
+  -webkit-overflow-scrolling: touch;
+}
+
+/* A visible but quiet scrollbar. Firefox takes the standard properties; Chrome, Edge
+   and Safari need the -webkit- pseudo-elements. */
+.shell > .side > nav {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255, 255, 255, 0.28) transparent;
+}
+.shell > .side > nav::-webkit-scrollbar { width: 8px }
+.shell > .side > nav::-webkit-scrollbar-track { background: transparent }
+.shell > .side > nav::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.24);
+  border-radius: 4px;
+}
+.shell > .side > nav::-webkit-scrollbar-thumb:hover { background: rgba(255, 255, 255, 0.42) }
+
+/* Buttons keep their height instead of being squeezed to fit the available space,
+   which is what makes the content taller than the box and therefore scrollable. */
+.shell > .side > nav > button { flex: 0 0 auto }
+
+/* ---- nav row alignment ----------------------------------------------------------
+
+   Each row is [icon] [label] [optional badge]. Two things threw the alignment off:
+   the icon had a width but no flex-shrink:0, so a long label like "Observations
+   register" squashed it narrower than the icons above and below it; and the label had
+   nowhere to give, so it wrapped onto a second line and pushed the badge off the
+   baseline. The label is now the only part allowed to flex, and the sidebar is a
+   little wider so the longest entry fits on one line to begin with. */
+
+.shell > .side { width: 272px }
+.shell > main { margin-left: 272px; width: calc(100% - 272px) }
+
+.shell > .side > nav > button {
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  width: 100%;
+  text-align: left;
+  line-height: 1.25;
+}
+
+/* the icon keeps its size no matter how long the label is */
+.shell > .side > nav > button > svg {
+  flex: 0 0 17px;
+  width: 17px;
+  height: 17px;
+}
+
+/* the label absorbs the spare space, and truncates rather than wrapping if a future
+   entry is longer than the sidebar */
+.shell > .side > nav > button {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* the badge sits hard right, keeps its shape, and never shrinks */
+.shell > .side > nav > button > i {
+  flex: 0 0 auto;
+  margin-left: auto;
+  font-style: normal;
+  line-height: 1.6;
+  min-width: 18px;
+  text-align: center;
+}
+
+/* the drawer on small screens matches the desktop width; main is full-bleed there */
+@media (max-width: 760px) {
+  .shell > .side { width: 272px }
+  .shell > main { margin-left: 0; width: 100% }
+}

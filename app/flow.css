@@ -1,0 +1,1 @@
+.flowline{display:grid;grid-template-columns:repeat(5,1fr);gap:5px}.flowline b{background:#e8f4f0;color:#0b725d;border-radius:6px;padding:7px 3px;text-align:center;font-size:8px}.detail>footer button:disabled{opacity:.5;background:#eef0ef;color:#6d7774;cursor:not-allowed}

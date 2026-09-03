@@ -1,0 +1,25 @@
+import type { Metadata } from "next";
+import "./globals.css";
+import "./flow.css";
+import "./reference-theme.css";
+import "./workflow.css";
+import "./workbench.css";
+import "./access.css";
+import "./queue-filter.css";
+import "./role-dashboard.css";
+import "./login.css";
+import "./import-centre.css";
+import "./audit-ops.css";
+import "./audit-task-card.css";
+import "./audit-list.css";
+import "./company-setup.css";
+import "./reports-live.css";
+import "./simple-import.css";
+import "./community.css";
+import "./scheduled-payments.css";
+import "./audit-main-tabs.css";
+import "./scheduled-fix.css";
+import "./workforce.css";
+import "./sidebar-scroll.css";
+export const metadata:Metadata={title:"CMG Payment Request",description:"Every audit task, observation, document, and decision in one controlled system.",icons:{icon:"/favicon.svg"}};
+export default function RootLayout({children}:{children:React.ReactNode}){return <html lang="en"><body>{children}</body></html>}

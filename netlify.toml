@@ -1,0 +1,10 @@
+[build]
+  command = "bash scripts/build-verified.sh"
+  publish = "dist/client"
+
+[build.environment]
+  NODE_VERSION = "22"
+
+# This configuration publishes the frontend build on Netlify.
+# The application's D1-backed API routes require Cloudflare-compatible hosting
+# unless they are migrated to Netlify Functions and an external database.

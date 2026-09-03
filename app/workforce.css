@@ -1,0 +1,284 @@
+/* Workforce module — organisation, employees, tasks, tokens, reports.
+   Reuses the tokens defined in globals.css so the module matches the rest of the app. */
+
+.wf-head-tools{display:flex;align-items:flex-end;gap:10px}
+.wf-viewas{font-size:9px;font-weight:800;letter-spacing:1.2px;color:#81918d;display:block}
+.wf-viewas select{display:block;margin-top:5px;border:1px solid var(--line);background:#fff;border-radius:8px;height:38px;padding:0 10px;font-size:11px;max-width:280px}
+.wf-scope{font-size:10px;color:var(--muted);margin:-8px 0 14px}
+.wf-select{border:1px solid var(--line);background:#fff;border-radius:9px;height:39px;padding:0 11px;font-size:11px;color:var(--ink)}
+.wf-select.wide-select{min-width:300px}
+
+/* organisation tree */
+.wf-tree{padding:14px 16px}
+.wf-node{margin-top:8px}
+.wf-card{display:flex;align-items:center;gap:10px;background:#fff;border:1px solid var(--line);border-left:4px solid var(--green);border-radius:10px;padding:10px 12px}
+.wf-card-main{flex:1}
+.wf-card-main b{display:block;font-size:12px}
+.wf-card-main small{display:block;font-size:9px;color:var(--muted);margin-top:2px}
+.wf-toggle{border:0;background:none;display:grid;place-items:center;width:20px;padding:0;color:var(--muted);cursor:pointer}
+.wf-toggle svg{width:15px}
+.wf-dot{width:6px;height:6px;border-radius:50%;background:var(--line);display:block}
+.wf-chip{border-radius:20px;padding:3px 9px;font-size:8px;font-weight:800;letter-spacing:.4px}
+.wf-node-actions{display:flex;gap:6px}
+.wf-node-actions button{display:flex;align-items:center;gap:4px;border:1px solid #bad8cf;background:#eef8f5;color:var(--green);border-radius:7px;padding:6px 9px;font-size:9px;font-weight:700;cursor:pointer}
+.wf-node-actions svg{width:12px}
+.wf-person{width:100%;text-align:left;display:flex;align-items:center;gap:10px;margin-top:6px;background:#fbfdfc;border:1px solid var(--line);border-left:3px solid var(--green);border-radius:9px;padding:9px 12px;cursor:pointer}
+.wf-person:hover{background:#f2f9f6}
+.wf-person i{width:28px;height:28px;border-radius:8px;display:grid;place-items:center;font-style:normal;font-size:10px;font-weight:700}
+.wf-person span{flex:1}
+.wf-person b{display:block;font-size:11px}
+.wf-person small{display:block;font-size:9px;color:var(--muted);margin-top:2px}
+.wf-person em{font-style:normal;font-size:9px;color:var(--muted)}
+
+/* tables */
+table.wf-wide{min-width:1150px}
+.wf-link{border:0;background:none;padding:0;display:flex;align-items:center;gap:7px;color:var(--green);font-size:11px;font-weight:700;cursor:pointer;text-align:left}
+.wf-link.plain{color:var(--ink);font-weight:400}
+.wf-link:hover{text-decoration:underline}
+.wf-link i{width:24px;height:24px;border-radius:7px;background:#e2f0eb;color:var(--green);display:grid;place-items:center}
+.wf-link svg{width:13px}
+.wf-actions{display:flex;gap:5px}
+.wf-actions button{border:1px solid var(--line);background:#fff;border-radius:6px;padding:5px 8px;font-size:9px;font-weight:700;color:var(--ink);cursor:pointer}
+.wf-actions svg{width:12px;display:block}
+.wf-danger-icon{color:var(--red)!important;border-color:#f0d3d2!important;background:#fdf4f4!important}
+.wf-over{display:block;color:var(--red);font-size:9px;margin-top:3px}
+.wf-inline{border:1px solid var(--line);border-radius:6px;padding:5px 6px;font-size:10px;background:#fff;max-width:130px}
+.wf-small{border:1px solid #bad8cf;background:#eef8f5;color:var(--green);border-radius:6px;padding:6px 9px;font-size:9px;font-weight:700;cursor:pointer}
+.wf-empty{font-size:10px;color:var(--muted)}
+.wf-empty.pad{padding:16px 18px}
+.wf-block{margin-top:15px}
+
+/* profile drawer */
+.wf-profile{width:640px}
+.wf-summary{display:grid;grid-template-columns:repeat(5,1fr);gap:8px;margin:4px 0 16px}
+.wf-summary article{background:#f5f8f7;border-radius:8px;padding:10px}
+.wf-summary span{display:block;font-size:9px;color:var(--muted)}
+.wf-summary b{display:block;font:19px Georgia;margin-top:4px}
+.wf-profile-actions{display:flex;gap:8px;margin-bottom:6px}
+.wf-profile-actions>button:not(.primary){border:1px solid var(--line);background:#fff;border-radius:8px;padding:9px 12px;font-size:10px;cursor:pointer}
+.wf-profile .table-wrap table{min-width:640px}
+.wf-profile .detail-body section p.wf-empty{background:none;padding:6px 0}
+
+/* forms */
+.wf-note{font-size:9px;color:var(--muted);background:#f6f8f7;padding:9px;border-radius:6px;margin:0}
+.wf-danger{color:var(--red)!important;border-color:#f0d3d2!important;background:#fdf4f4!important;display:flex;align-items:center;gap:6px;margin-right:auto}
+.wf-danger svg{width:14px}
+.wf-colour{display:flex;align-items:center;gap:7px;flex-wrap:wrap;margin-top:6px}
+.wf-colour input[type=color]{width:44px;height:32px;padding:2px;margin:0;border-radius:7px}
+.wf-colour button{width:22px;height:22px;border-radius:6px;border:2px solid transparent;cursor:pointer}
+.wf-colour button.on{border-color:var(--ink)}
+
+/* reports */
+.wf-filters{display:grid;grid-template-columns:repeat(3,1fr);gap:13px;margin-bottom:15px}
+.wf-filters label{font-size:10px;color:var(--muted)}
+.wf-filters select,.wf-filters input{display:block;width:100%;border:1px solid var(--line);border-radius:7px;padding:9px;margin-top:5px;background:#fff;font-size:11px}
+.wf-report-buttons{grid-column:span 3;display:flex;gap:9px}
+.wf-report-buttons button{cursor:pointer}
+.wf-trail{margin-top:15px}
+.wf-trail .panel-head{margin-bottom:14px}
+
+/* dashboard block */
+.wf-dash-intro{margin-top:26px;border-top:1px solid var(--line);padding-top:20px}
+.wf-dash-intro>button{border:1px solid var(--line);background:#fff;border-radius:8px;padding:9px 12px;font-size:11px;cursor:pointer}
+.metrics.wf-metrics-3{grid-template-columns:repeat(3,1fr)}
+.metrics.wf-metrics-4{grid-template-columns:repeat(4,1fr)}
+.metrics.wf-metrics-5{grid-template-columns:repeat(5,1fr)}
+.wf-block progress,.wf-filters+.panel progress{width:52px;height:5px;accent-color:var(--green);vertical-align:middle;margin-right:5px}
+.table-panel progress{width:52px;height:5px;accent-color:var(--green);vertical-align:middle;margin-right:5px}
+
+@media(max-width:1050px){
+  .wf-summary{grid-template-columns:repeat(3,1fr)}
+  .wf-filters{grid-template-columns:repeat(2,1fr)}
+  .wf-report-buttons{grid-column:span 2}
+  .metrics.wf-metrics-5{grid-template-columns:repeat(3,1fr)}
+}
+@media(max-width:760px){
+  .wf-profile{width:96vw}
+  .wf-summary{grid-template-columns:repeat(2,1fr)}
+  .wf-filters{grid-template-columns:1fr}
+  .wf-report-buttons{grid-column:span 1;flex-direction:column}
+  .metrics.wf-metrics-3,.metrics.wf-metrics-4,.metrics.wf-metrics-5{grid-template-columns:repeat(2,1fr)}
+  .wf-head-tools{flex-direction:column;align-items:stretch;width:100%}
+  .wf-card{flex-wrap:wrap}
+  .wf-node-actions{width:100%;justify-content:flex-end}
+  .wf-select.wide-select{min-width:100%}
+}
+.wf-dash-wrap{padding-top:0}
+
+/* Inline form error, replacing the browser alert() used for blocked role deletions.
+   Matches the existing .login-error treatment so the theme stays consistent. */
+.wf-form-error{grid-column:1/-1;margin:0;color:#a42d32;background:#fff0f0;border:1px solid #f2d5d5;padding:9px 11px;border-radius:8px;font-size:11px}
+/* Sign-out control, sized and bordered like the existing .bell / .hamb header buttons. */
+.signout{width:38px;height:38px;display:grid;place-items:center;border:1px solid var(--line);border-radius:8px;background:#fff;color:var(--muted);cursor:pointer}
+.signout:hover{color:var(--red);border-color:#f0d4d4;background:#fff7f7}
+.signout svg{width:16px}
+
+/* ---------- scale + dossier additions ---------- */
+.wf-state{display:flex;align-items:center;gap:9px;padding:20px;font-size:11px;color:var(--muted)}
+.wf-state-error{color:var(--red)}
+.wf-state-error button{margin-left:10px;border:1px solid #f0d3d2;background:#fdf4f4;color:var(--red);border-radius:7px;padding:6px 10px;font-size:10px;font-weight:700;cursor:pointer}
+.wf-state svg{width:16px}
+.wf-spin{animation:wf-rotate 1s linear infinite}
+@keyframes wf-rotate{to{transform:rotate(360deg)}}
+
+.wf-pager{display:flex;align-items:center;gap:10px;justify-content:flex-end;padding:12px 18px;border-top:1px solid var(--line);font-size:10px;color:var(--muted)}
+.wf-pager button{border:1px solid var(--line);background:#fff;border-radius:7px;padding:7px 12px;font-size:10px;font-weight:700;cursor:pointer}
+.wf-pager button:disabled{opacity:.4;cursor:default}
+.wf-more{margin-top:6px;border:1px dashed #bad8cf;background:#f4faf8;color:var(--green);border-radius:8px;padding:8px 12px;font-size:10px;font-weight:700;cursor:pointer}
+.wf-toggle-on{background:#eef8f5!important;border-color:#bad8cf!important;color:var(--green)!important;font-weight:700}
+
+.wf-avatar{display:grid;place-items:center;font-weight:700;flex:none;overflow:hidden}
+.wf-photo-picker{display:flex;align-items:center;gap:14px;padding:12px;background:#f5f8f7;border-radius:9px}
+.wf-photo-picker>div{display:flex;align-items:center;gap:7px;flex-wrap:wrap}
+.wf-photo-picker small{display:block;width:100%;font-size:9px;color:var(--muted)}
+.wf-photo-picker .wf-small{display:inline-flex;align-items:center;gap:5px}
+.wf-photo-picker .wf-small svg{width:13px}
+
+.wf-dossier-head{display:flex;align-items:center;gap:14px;margin-bottom:16px}
+.wf-dossier-photo{width:72px;height:72px;border-radius:16px;object-fit:cover;flex:none}
+.wf-dossier-initials{display:grid;place-items:center;font:600 24px Georgia}
+.wf-dossier-head>div:nth-child(2){flex:1;display:flex;flex-direction:column;gap:5px;align-items:flex-start}
+.wf-dossier-head b{font-size:15px}
+.wf-dossier-head small{font-size:10px;color:var(--muted)}
+.wf-dossier-tools{display:flex;flex-direction:column;gap:6px}
+.wf-dossier-tools button{display:flex;align-items:center;gap:5px;border:1px solid var(--line);background:#fff;border-radius:7px;padding:7px 10px;font-size:10px;font-weight:700;cursor:pointer}
+.wf-dossier-tools svg{width:13px}
+
+.wf-summary-5{grid-template-columns:repeat(5,1fr)}
+.wf-summary-6{grid-template-columns:repeat(6,1fr)}
+.wf-rates{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin:12px 0}
+.wf-rates label,.wf-rate-line{display:block;font-size:10px;color:var(--muted)}
+.wf-rates b,.wf-rate-line b{color:var(--ink);font-size:13px;margin-left:5px}
+.wf-rates progress,.wf-rate-line progress{display:block;width:100%;height:6px;accent-color:var(--green);margin:6px 0 4px}
+.wf-rates small{font-size:9px;color:var(--muted)}
+.wf-freq{display:flex;gap:8px;flex-wrap:wrap}
+.wf-freq span{background:#f5f8f7;border-radius:7px;padding:7px 11px;font-size:9px;color:var(--muted)}
+.wf-freq b{margin-left:6px;color:var(--ink);font-size:11px}
+.wf-jd{font-size:10px;line-height:1.55;background:#f6f8f7;padding:11px;border-radius:7px;margin:0}
+.wf-jd em{color:var(--muted);font-size:9px}
+
+.wf-tabs{display:flex;gap:5px;border-bottom:1px solid var(--line);margin:18px 0 4px}
+.wf-tabs button{border:0;background:none;padding:9px 12px;font-size:10px;font-weight:700;color:var(--muted);cursor:pointer;border-bottom:2px solid transparent}
+.wf-tabs button.active{color:var(--green);border-bottom-color:var(--green)}
+.wf-reports{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:12px}
+.wf-reports button{display:flex;align-items:center;gap:9px;border:1px solid var(--line);background:#fff;border-radius:9px;padding:9px 11px;text-align:left;cursor:pointer}
+.wf-reports b{display:block;font-size:11px}
+.wf-reports small{display:block;font-size:9px;color:var(--muted)}
+.wf-query-actions{display:flex;gap:7px;margin-right:auto}
+.wf-query-actions button{border:1px solid var(--line);background:#fff;border-radius:7px;padding:9px 12px;font-size:10px;cursor:pointer}
+.wf-setup{text-align:center;padding:44px 24px}
+.wf-setup h2{font:500 21px Georgia;margin:0 0 8px}
+.wf-setup p{font-size:11px;color:var(--muted);max-width:520px;margin:0 auto 18px;line-height:1.6}
+.wf-setup .primary{display:inline-flex;margin:auto}
+.modal.wf-tall{max-height:88vh}
+.wf-filters select+select,.wf-filters input+select{margin-top:6px}
+
+@media(max-width:1050px){
+  .wf-summary-5,.wf-summary-6{grid-template-columns:repeat(3,1fr)}
+  .wf-rates{grid-template-columns:1fr}
+}
+@media(max-width:760px){
+  .wf-summary-5,.wf-summary-6{grid-template-columns:repeat(2,1fr)}
+  .wf-dossier-head{flex-wrap:wrap}
+  .wf-dossier-tools{flex-direction:row;width:100%}
+  .wf-reports{grid-template-columns:1fr}
+  .wf-pager{flex-wrap:wrap}
+}
+
+/* ---------- observations, tagging and import ---------- */
+.wf-tags{display:flex;gap:5px;flex-wrap:wrap}
+.wf-tag{display:inline-flex;align-items:center;gap:5px;border:1px solid #cfe0da;background:#eef7f3;
+  color:#0b5f4d;border-radius:20px;padding:4px 10px;font-size:9px;font-weight:700;cursor:pointer}
+.wf-tag:hover{background:#e2f0eb}
+.wf-tag.on{cursor:default}
+.wf-tag button{border:0;background:none;color:inherit;cursor:pointer;font-size:12px;line-height:1;padding:0}
+.wf-picker{margin-top:6px;border:1px solid var(--line);border-radius:9px;max-height:190px;overflow:auto;background:#fff}
+.wf-picker button{display:block;width:100%;text-align:left;border:0;background:none;padding:8px 11px;cursor:pointer;border-bottom:1px solid #f0f4f2}
+.wf-picker button:hover{background:#f2f9f6}
+.wf-picker b{display:block;font-size:11px}
+.wf-picker small{display:block;font-size:9px;color:var(--muted)}
+.wf-obs-title{font:500 18px Georgia;margin:10px 0 8px}
+.wf-thread{display:flex;flex-direction:column;gap:9px;max-height:330px;overflow:auto;margin-bottom:11px}
+.wf-thread article{background:#f5f8f7;border-radius:10px;padding:10px 12px}
+.wf-thread b{display:block;font-size:9.5px;color:var(--muted);margin-bottom:4px}
+.wf-thread p{margin:0;font-size:11.5px;line-height:1.55;white-space:pre-wrap}
+.wf-thread time{display:block;font-size:8.5px;color:var(--muted);margin-top:5px}
+.wf-composer{display:flex;gap:7px}
+.wf-composer input{flex:1;border:1px solid var(--line);border-radius:9px;padding:10px;font-size:11.5px}
+.wf-composer button{display:inline-flex;align-items:center;gap:6px;border:1px solid var(--green);
+  background:var(--green);color:#fff;border-radius:9px;padding:0 14px;font-size:11px;font-weight:700;cursor:pointer}
+.wf-composer svg{width:14px}
+.wf-filebtn{display:inline-flex;align-items:center;gap:6px;border:1px solid var(--line);background:#fff;
+  border-radius:8px;padding:9px 12px;font-size:11px;font-weight:600;cursor:pointer}
+.wf-filebtn svg{width:14px}
+.wf-format{display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:9px;padding:16px 18px}
+.wf-format>div{background:#f6f8f7;border-radius:8px;padding:10px}
+.wf-format b{font-size:11px;font-family:ui-monospace,monospace}
+.wf-format span{float:right;font-size:8px;font-weight:800;color:var(--muted);letter-spacing:.6px;text-transform:uppercase}
+.wf-format span.req{color:var(--red)}
+.wf-format small{display:block;font-size:9.5px;color:var(--muted);margin-top:5px}
+.wf-format-note{margin:0 18px 16px}
+.wf-import-body{padding:16px 18px}
+.wf-import-body textarea{width:100%;min-height:170px;border:1px solid var(--line);border-radius:10px;
+  padding:12px;font:11.5px ui-monospace,monospace;margin-bottom:11px;resize:vertical}
+
+/* editable import preview and the job description screen */
+table.wf-editgrid input,table.wf-editgrid select{width:100%;min-width:92px;border:1px solid var(--line);
+  border-radius:6px;padding:6px 7px;font-size:10.5px;background:#fff}
+table.wf-editgrid input.bad{border-color:#e8b4b3;background:#fdf6f6}
+table.wf-editgrid td{padding:5px 6px}
+.wf-jd-head{display:flex;align-items:center;gap:16px;padding:18px}
+.wf-jd-head h3{font:500 17px Georgia;margin:6px 0 3px}
+.wf-jd-head small{font-size:10px;color:var(--muted)}
+.wf-jd-counts{margin-left:auto;display:flex;gap:8px;flex-wrap:wrap}
+.wf-jd-counts span{background:#f5f8f7;border-radius:8px;padding:8px 12px;font-size:9px;color:var(--muted);text-align:center}
+.wf-jd-counts b{display:block;font:17px Georgia;color:var(--ink);margin-top:3px}
+.wf-jd-body{padding:16px 18px}
+.wf-picker-list button{display:flex;align-items:center;gap:10px;width:100%;text-align:left;
+  border:0;border-bottom:1px solid var(--line);background:none;padding:11px 16px;cursor:pointer}
+.wf-picker-list button:hover{background:#f4faf8}
+.wf-picker-list b{display:block;font-size:12px}
+.wf-picker-list small{display:block;font-size:9.5px;color:var(--muted)}
+@media(max-width:760px){.wf-jd-head{flex-wrap:wrap}.wf-jd-counts{margin-left:0;width:100%}}
+
+/* attachments */
+.wf-attach{margin-top:18px;padding-top:14px;border-top:1px solid var(--line)}
+.wf-attach h4{font-size:11px;margin:0 0 10px}
+.wf-attach h4 span{color:var(--muted);font-weight:400}
+.wf-attach-add{background:#f5f8f7;border-radius:9px;padding:12px;display:flex;gap:10px;
+  align-items:flex-end;flex-wrap:wrap;margin-bottom:11px}
+.wf-attach-add label{font-size:9.5px;color:var(--muted)}
+.wf-attach-add select{display:block;margin-top:5px;border:1px solid var(--line);border-radius:7px;
+  padding:8px 9px;font-size:11px;background:#fff}
+.wf-attach-add .wf-small{display:inline-flex;align-items:center;gap:6px;padding:9px 12px}
+.wf-attach-add .wf-small svg{width:13px}
+.wf-attach-add small{width:100%;font-size:9px;color:var(--muted);line-height:1.5}
+.wf-attach-link{display:inline-flex;align-items:center;gap:6px;color:var(--green);
+  text-decoration:none;font-weight:600}
+.wf-attach-link:hover{text-decoration:underline}
+.wf-attach-link svg{width:13px;flex:none}
+.wf-attach .wf-actions a{display:inline-grid;place-items:center;border:1px solid var(--line);
+  background:#fff;border-radius:6px;padding:5px 8px;color:var(--ink)}
+.wf-attach .wf-actions svg{width:12px;display:block}
+.wf-attach-count{display:inline-flex;align-items:center;gap:3px;margin-left:6px;font-size:9px;
+  color:var(--muted)}
+.wf-attach-count svg{width:11px}
+@media(max-width:760px){.wf-attach-add{flex-direction:column;align-items:stretch}}
+
+/* Guidance under a locked-down picker, e.g. where new designations are created. */
+.wf-hint{display:block;margin-top:4px;font-size:10px;color:var(--muted,#6b7b76);font-weight:400}
+
+/* Filter row alignment.
+   Every filter holds one control except Employee, which holds a search box and the
+   list of matches. Stacked, that made its cell taller than its neighbours, so the
+   controls either side of it no longer sat on the same line. Side by side, every
+   field is exactly one control tall and the whole row lines up. */
+.wf-filters label{display:flex;flex-direction:column;justify-content:flex-start}
+.wf-filter-pair{display:grid;grid-template-columns:1fr 1fr;gap:8px;align-items:start}
+.wf-filters .wf-filter-pair>input,
+.wf-filters .wf-filter-pair>select,
+.wf-filters .wf-filter-pair input+select{margin-top:5px}
+/* the buttons sit on their own row; keep them off the bottom of the last field */
+.wf-report-buttons{align-items:center;margin-top:2px}
+@media(max-width:520px){.wf-filter-pair{grid-template-columns:1fr}
+  .wf-filters .wf-filter-pair input+select{margin-top:0}}

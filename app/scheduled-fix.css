@@ -1,0 +1,21 @@
+.schedule-tabs{padding:8px;margin-bottom:14px;border:1px solid #dfe5eb;background:#fff;border-radius:12px}
+.schedule-tabs button{cursor:pointer}
+.schedule-tabs button b{margin-left:6px;background:#e7edf3;border-radius:999px;padding:2px 7px}
+.schedule-tabs button.active{background:#0c3b70;color:#fff}
+.schedule-tabs button.active b{background:#ffffff2b}
+.schedule-empty{text-align:center!important;padding:34px!important;color:#718095}
+.schedule-error{display:flex;align-items:center;gap:8px;padding:11px 13px;border:1px solid #efc4c1;background:#fff2f1;color:#a43d38;border-radius:8px;font-size:11px}
+.schedule-error svg{width:17px}
+.schedule-modal button[aria-disabled="true"]{opacity:.78}
+.schedule-modal button[aria-disabled="true"]:after{content:" · complete required fields";font-weight:400}
+.audit-main-tabs button span{display:inline-grid;place-items:center;min-width:20px;height:20px;margin-left:7px;padding:0 6px;border-radius:999px;background:#dbe7f4;color:#0c3b70}
+.audit-main-tabs button.active span{background:#fff;color:#0c3b70}
+
+/* Buttons inherit neither font-family nor font-size from the page, and body sets no
+   size at all, so both tab strips fell back to the browser default (~13.3px Arial)
+   while every other control in the app sits at 10-11px Inter. Bringing them onto the
+   same scale as .wf-tabs and .toolbar buttons. */
+.schedule-tabs button,
+.audit-main-tabs button{font-family:inherit;font-size:11px;font-weight:700;line-height:1.35}
+.schedule-tabs button b,
+.audit-main-tabs button span{font-family:inherit;font-size:10px;font-weight:700}

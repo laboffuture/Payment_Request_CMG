@@ -1,0 +1,43 @@
+{
+  "$schema": "./node_modules/wrangler/config-schema.json",
+
+  // Deployment config for the hosted build. `npm run build` emits its own
+  // dist/server/wrangler.json from vite.config.ts, but that one carries the local
+  // development placeholders (site-creator-d1, a zeroed database_id). This file is the
+  // real one: deploy with `npx wrangler deploy -c wrangler.deploy.jsonc`.
+  //
+  // Deliberately NOT named wrangler.jsonc: @cloudflare/vite-plugin auto-discovers that
+  // name and merges it with the inline config in vite.config.ts, which duplicates
+  // nodejs_compat and stops `npm run dev` from starting at all.
+  "name": "cmg-audit-control",
+  "main": "dist/server/index.js",
+  "compatibility_date": "2026-05-15",
+  "compatibility_flags": ["nodejs_compat"],
+
+  // vinext has already bundled the server, so wrangler uploads it as-is.
+  "no_bundle": true,
+  "rules": [{ "type": "ESModule", "globs": ["**/*.js", "**/*.mjs"] }],
+  "assets": { "directory": "dist/client" },
+  "observability": { "enabled": true },
+
+  // Serve the app from the real hostname. custom_domain makes Cloudflare create and
+  // manage the DNS record and the certificate, which requires cmis.ac.in to be a zone
+  // on this Cloudflare account.
+  "routes": [{ "pattern": "paymentrequest.cmis.ac.in", "custom_domain": true }],
+
+  // database_id comes from `npx wrangler d1 create chandramari-one-task`. The app
+  // refuses to start without this binding rather than quietly running without a
+  // database, so an unreplaced placeholder fails loudly at the first request.
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "chandramari-one-task",
+      "database_id": "PASTE_DATABASE_ID_FROM_WRANGLER_D1_CREATE",
+      "migrations_dir": "drizzle"
+    }
+  ],
+
+  // Invoices, purchase orders and scans. Without this binding attachments still work
+  // but fall back to a database table capped at 700 KB per file instead of 15 MB.
+  "r2_buckets": [{ "binding": "MEDIA", "bucket_name": "cmg-audit-media" }]
+}
