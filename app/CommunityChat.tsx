@@ -47,7 +47,7 @@ export default function CommunityChat({user,flash}:{user:string;flash:(s:string)
  return <div className="page community-page">
   <div className="intro"><div><small>INTERNAL COMMUNITY</small><h2>Fast audit collaboration</h2>
     <p>Tag a team, request data, review evidence and respond internally. Messages are shared and saved.</p></div>
-   <button onClick={()=>load()}><RefreshCw/>Refresh</button></div>
+   <button type="button" className="wf-small intro-action" onClick={()=>load()}><RefreshCw/>Refresh</button></div>
   {error&&<div className="panel company-empty">{error}</div>}
   <div className="community-layout">
    <aside className="panel community-members"><div><Users/><h3>People &amp; teams</h3></div>

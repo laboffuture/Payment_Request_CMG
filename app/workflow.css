@@ -9,9 +9,91 @@
    drawer: four other screens share .detail-body and are already laid out correctly. */
 .workflow-detail .detail-body{padding:0 0 30px}
 .workflow-detail .wf-attach{margin:18px 22px;padding-top:16px}
-.workflow-detail .wf-summary{align-items:flex-start;flex-wrap:wrap}
-.workflow-detail .wf-summary dl{gap:11px 18px}
 .workflow-detail .wf-attach h4,.workflow-detail .wf-history h4{margin:0 0 10px}
 .workflow-detail .wf-work>*+*{margin-top:12px}
 /* names of the documents a requestor picked, before the request is submitted */
 .upload-list{display:block;margin-top:6px;font-size:9px;line-height:1.5;color:var(--muted,#667085);word-break:break-word}
+
+/* Administrator-only delete, set apart from the workflow actions above it so it cannot
+   be mistaken for the next step in the process. */
+.wf-danger-zone{margin:18px 22px 0;padding:14px 16px;border:1px solid #efc4c1;background:#fdf6f5;border-radius:9px}
+.wf-danger-zone h4{margin:0 0 6px;font-size:9px;letter-spacing:.1em;text-transform:uppercase;color:#a43d38}
+.wf-danger-zone p{margin:0 0 10px;font-size:10.5px;line-height:1.55;color:#7a6260}
+.wf-delete-request{display:inline-flex;align-items:center;gap:6px;font-family:inherit;
+  border:1px solid #d9908a;background:#fff;color:#a43d38;border-radius:7px;
+  padding:8px 12px;font-size:10.5px;font-weight:700;cursor:pointer}
+.wf-delete-request:hover{background:#a43d38;color:#fff;border-color:#a43d38}
+.wf-delete-request svg{width:13px;height:13px;flex:none}
+
+/* Payment summary at the top of the drawer.
+
+   .wf-summary is also used by the employee profile, where it is a five-across grid of
+   stat cards - so the two components' rules were overriding each other and neither laid
+   out as intended. Scoping to this drawer settles it by specificity, whatever order the
+   stylesheets happen to load in.
+
+   Horizontal: status, vendor and amount share one line, with the four facts in a single
+   row beneath rather than a cramped 2x2 block. */
+.workflow-detail .wf-summary{display:block;padding:20px 22px}
+.workflow-detail .wf-summary>div:first-child{display:flex;align-items:baseline;
+  gap:10px 14px;flex-wrap:wrap}
+.workflow-detail .wf-summary>div:first-child .badge{flex:none;align-self:center}
+.workflow-detail .wf-summary h3{margin:0;font-size:16px;line-height:1.3;
+  flex:1 1 auto;min-width:0;word-break:break-word}
+.workflow-detail .wf-summary .amount{font:22px Georgia,serif;margin-left:auto;
+  white-space:nowrap;flex:none}
+.workflow-detail .wf-summary dl{display:grid;grid-template-columns:repeat(4,1fr);
+  gap:8px;margin:14px 0 0;min-width:0}
+.workflow-detail .wf-summary dl div{min-width:0}
+.workflow-detail .wf-summary dd{word-break:break-word}
+@media(max-width:620px){
+  .workflow-detail .wf-summary dl{grid-template-columns:repeat(2,1fr)}
+  .workflow-detail .wf-summary .amount{margin-left:0}
+}
+
+/* The employee profile's ".wf-summary span" is more specific than ".badge", so the
+   status pill here was being rendered as a grey 9px block. Restored for this drawer;
+   the colour modifier classes are specific enough to win on their own. */
+.workflow-detail .wf-summary .badge{display:inline-block;font-size:8px;font-weight:800;
+  padding:4px 9px;border-radius:20px;line-height:1.5}
+
+/* Rejection remark box. Sits in place of the reject button until it is sent, so the
+   reason is written at the moment of rejection rather than being optional afterwards. */
+.wf-reject-form{width:100%;display:flex;flex-direction:column;gap:10px}
+.wf-reject-form textarea{min-height:76px;font-family:inherit;font-size:11px;line-height:1.5}
+.wf-reject-form .wf-actions{justify-content:flex-end}
+.wf-reject-form button:disabled{opacity:.5;cursor:not-allowed}
+/* the remark shown back to the requestor */
+.workflow-detail .wf-observation span{display:block;margin-top:6px;font-size:9px;color:#8a7a78}
+
+/* Profile menu on the header avatar.
+   The avatar is now a button, so it needs the app's font declared explicitly - buttons
+   inherit none. The scrim sits behind the panel so a click anywhere closes it. */
+.profile-menu{position:relative;display:inline-flex}
+.profile-menu>.avatar{font-family:inherit;cursor:pointer;border:0}
+.profile-scrim{position:fixed;inset:0;z-index:48;background:none;border:0;padding:0;cursor:default}
+.profile-dropdown{position:absolute;top:calc(100% + 8px);right:0;z-index:49;min-width:210px;
+  background:#fff;border:1px solid var(--line,#e2e9e6);border-radius:10px;
+  box-shadow:0 12px 30px rgba(13,40,35,.16);overflow:hidden;
+  display:flex;flex-direction:column;padding:6px}
+.profile-who{padding:10px 12px 11px;border-bottom:1px solid var(--line,#e2e9e6);margin-bottom:5px}
+.profile-who b{display:block;font-size:12px;color:var(--ink,#17312b)}
+.profile-who small{display:block;font-size:9.5px;color:var(--muted,#71817d);margin-top:2px;word-break:break-all}
+.profile-who i{display:inline-block;margin-top:7px;font-style:normal;font-size:8px;font-weight:800;
+  letter-spacing:.08em;text-transform:uppercase;color:var(--green,#0b725d);
+  background:#e4f3ee;border-radius:20px;padding:3px 8px}
+.profile-dropdown>button{display:flex;align-items:center;gap:9px;width:100%;
+  font-family:inherit;font-size:11px;font-weight:600;color:var(--ink,#17312b);
+  background:none;border:0;border-radius:7px;padding:9px 12px;cursor:pointer;text-align:left}
+.profile-dropdown>button:hover{background:#f1f6f4}
+.profile-dropdown>button svg{width:14px;height:14px;flex:none;color:var(--muted,#71817d)}
+.profile-dropdown>button.profile-signout{color:#a43d38}
+.profile-dropdown>button.profile-signout:hover{background:#fdf1f0}
+.profile-dropdown>button.profile-signout svg{color:#a43d38}
+
+/* The requestor's reply, shown to accounts when a corrected request comes back. */
+.wf-reply{align-items:flex-start}
+.wf-reply small{display:block;font-size:8px;letter-spacing:.08em;text-transform:uppercase;
+  color:#1f6145;margin-bottom:4px}
+.wf-reply b{display:block;font-size:11px;line-height:1.5;color:var(--ink,#17312b)}
+.wf-reply span{display:block;margin-top:6px;font-size:9px;line-height:1.5;color:#6d8279}

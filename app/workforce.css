@@ -282,3 +282,43 @@ table.wf-editgrid td{padding:5px 6px}
 .wf-report-buttons{align-items:center;margin-top:2px}
 @media(max-width:520px){.wf-filter-pair{grid-template-columns:1fr}
   .wf-filters .wf-filter-pair input+select{margin-top:0}}
+
+/* Period picker at the top of the Work screen: sits above the page intro rather than
+   between it and the content. */
+.wf-period-tabs{margin:0 0 4px}
+
+/* Filter panel: fonts, control heights and the report buttons.
+
+   Three separate faults met here. Form controls and buttons inherit no font, so their
+   text fell back to the browser default while the labels around them were Inter. Every
+   lucide icon ships width="24" height="24"; the CSS overrode the width but never the
+   height, so each icon sat in a 24px-tall box and pushed its button taller than its own
+   text. And selects, text inputs and date inputs each pick their own intrinsic height,
+   so no two controls in a row finished at the same size. */
+.wf-filters label,
+.wf-filters select,
+.wf-filters input,
+.wf-report-buttons button{font-family:inherit}
+
+/* one height for every control, whatever kind it is */
+.wf-filters select,
+.wf-filters input{height:34px;line-height:1.2}
+.wf-filter-pair>input,
+.wf-filter-pair>select{height:34px}
+
+.wf-report-buttons button{font-size:11px;line-height:1.2;white-space:nowrap;
+  justify-content:center;min-height:36px}
+.wf-report-buttons button svg{width:15px;height:15px;flex:none}
+
+/* full width once they stack */
+@media(max-width:760px){.wf-report-buttons{align-items:stretch}}
+
+/* .wf-small is the app's secondary button, but it declared no font-family - so its
+   label fell back to the browser default - and sized its icon's width without its
+   height, leaving every lucide glyph in a 24px-tall box that stretched the button.
+   Fixed here rather than per screen, since the class is used in several places. */
+.wf-small{font-family:inherit;line-height:1.2;white-space:nowrap}
+.wf-small svg{width:13px;height:13px;flex:none}
+/* a secondary action sitting beside an intro heading: keep it on one line and stop it
+   stretching to the height of the text block next to it */
+.intro>.intro-action{flex:none;align-self:center}

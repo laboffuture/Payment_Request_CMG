@@ -43,7 +43,7 @@ next-env.d.ts
 
 # working backups taken while making changes
 *.bak
-*.bak[0-9]
+*.bak[0-9]*
 
 # The offline demo file seeds its register with plain-text passwords, including a real
 # address (mustaq@toprockinteriors.com). This repository is public, so it is held back.

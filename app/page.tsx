@@ -1,6 +1,6 @@
 "use client";
 import {useEffect,useMemo,useState} from "react";
-import {AlertTriangle,Bell,Building2,CalendarClock,CalendarDays,CheckCircle2,ChevronDown,CircleDollarSign,ClipboardCheck,Clock3,FileBarChart,FileText,History,Import,LayoutDashboard,LogOut,Menu,MessageSquareText,Plus,ReceiptText,Search,Settings,ShieldCheck,Users,X} from "lucide-react";
+import {AlertTriangle,Building2,CalendarClock,CalendarDays,CheckCircle2,ChevronDown,CircleDollarSign,ClipboardCheck,Clock3,FileBarChart,FileText,History,Import,LayoutDashboard,LogOut,Menu,MessageSquareText,Plus,ReceiptText,Search,Settings,ShieldCheck,Users,X} from "lucide-react";
 import PaymentDetail from "./PaymentDetail";
 import {asDataUrl} from "./Attachments";
 import PaymentWorkbench from "./PaymentWorkbench";
@@ -25,9 +25,9 @@ import {WorkforceOverview,WorkforceReports} from "./WorkforceReports";
 import {auditTasksApi,companiesApi} from "./audit-api";
 import TaskImport from "./TaskImport";
 import JobDescription from "./JobDescription";
-type Payment={id:number;requestNo:string;company:string;vendor:string;amount:number;currency:string;due:string;urgency:string;status:string;owner:string;department:string};
+type Payment={resubmitNote?:string;resubmittedAt?:string;rejectionNote?:string;rejectedBy?:string;rejectedAt?:string;raisedBy?:string;id:number;requestNo:string;company:string;vendor:string;amount:number;currency:string;due:string;urgency:string;status:string;owner:string;department:string};
 export type AuditTask={id:string;title:string;company:string;department:string;kind:"Pre-Audit"|"Post-Audit"|"Meeting"|"Special Audit";status:"Available"|"Accepted"|"In Progress"|"Observation Submitted"|"Response Received"|"Completed";due?:string;assignedTo?:string;plannedStart?:string;plannedEnd?:string;notes?:string;dataProvider?:string};
-type Module="dashboard"|"requests"|"payments"|"scheduled"|"preaudit"|"postaudit"|"specialaudit"|"observations"|"community"|"meetings"|"reports"|"companies"|"users"|"imports"|"organisation"|"employees"|"worktasks"|"workdaily"|"workweekly"|"workmonthly"|"worktokens"|"workimport"|"workjd"|"workreports";
+type Module="dashboard"|"requests"|"payments"|"scheduled"|"preaudit"|"postaudit"|"specialaudit"|"observations"|"community"|"meetings"|"reports"|"companies"|"users"|"imports"|"organisation"|"employees"|"worktasks"|"work"|"worktokens"|"workimport"|"workjd"|"workreports";
 const seed:Payment[]=[];
 const auditSeed:AuditTask[]=[];
 const specialAuditSeed:AuditTask[]=[];
@@ -55,9 +55,7 @@ const workforceNav:{id:Module;label:string;icon:any}[]=[
  {id:"organisation",label:"Organisation",icon:Building2},
  {id:"employees",label:"Employees",icon:Users},
  {id:"worktasks",label:"Tasks",icon:ClipboardCheck},
- {id:"workdaily",label:"Daily work",icon:Clock3},
- {id:"workweekly",label:"Weekly work",icon:CalendarDays},
- {id:"workmonthly",label:"Monthly work",icon:CalendarClock},
+ {id:"work",label:"Work",icon:Clock3},
  {id:"worktokens",label:"Tokens",icon:ReceiptText},
  {id:"workimport",label:"Import tasks",icon:Import},
  {id:"workjd",label:"Job descriptions",icon:FileText},
@@ -65,9 +63,9 @@ const workforceNav:{id:Module;label:string;icon:any}[]=[
 nav.push(...workforceNav);
 const workforceIds=workforceNav.map(n=>n.id);
 const tone:Record<string,string>={"Rejected":"red","Requested":"blue","Accountant Review":"amber","Pre-Audit Queue":"blue","Management Approval":"amber","Management Approval: Yes":"green","Management Approval: No":"red","Audit Rejected":"red","Audit Query":"red","Finance Queue":"violet","Approved by Auditor – Ready to Release":"green","Payment Released":"green","Reconciliation":"green","Audit Accepted":"blue","Audit Cleared":"green"};
-const access:Record<string,Module[]>={Administrator:nav.map(x=>x.id),Requestor:["requests"],Accountant:["dashboard","requests","payments","scheduled","meetings","community","reports","organisation","employees"],Auditor:["dashboard","payments","organisation","employees","worktasks","workdaily","workweekly","workmonthly","worktokens","workimport","workjd","workreports"],Finance:["dashboard","payments","organisation","employees","workreports"],Management:["dashboard","payments",...workforceIds],"Audit Head":nav.map(x=>x.id)};
+const access:Record<string,Module[]>={Administrator:nav.map(x=>x.id),Requestor:["dashboard","requests","organisation","employees","worktokens"],Accountant:["dashboard","requests","payments","scheduled","meetings","community","reports","organisation","employees"],Auditor:["dashboard","payments","organisation","employees","worktasks","work","worktokens","workimport","workjd","workreports"],Finance:["dashboard","payments","organisation","employees","workreports"],Management:["dashboard","payments",...workforceIds],"Audit Head":nav.map(x=>x.id)};
 export default function Home(){
- const[active,setActive]=useState<Module>("dashboard"),[payments,setPayments]=useState(seed),[auditTasks,setAuditTasks]=useState([...auditSeed,...specialAuditSeed]),[company,setCompany]=useState("All companies"),[companies,setCompanies]=useState<{id:string;name:string}[]>([]),[role,setRole]=useState("Audit Head"),[allowedRoles,setAllowedRoles]=useState<string[]>([]),[userName,setUserName]=useState(""),[userEmail,setUserEmail]=useState(""),[search,setSearch]=useState(""),[drawer,setDrawer]=useState<Payment|null>(null),[form,setForm]=useState(false),[passwordOpen,setPasswordOpen]=useState(false),[mobile,setMobile]=useState(false),[profile,setProfile]=useState<string|null>(null),[jdFor,setJdFor]=useState(""),[toast,setToast]=useState(""),[todayLabel,setTodayLabel]=useState(""),[booting,setBooting]=useState(true);
+ const[active,setActive]=useState<Module>("dashboard"),[payments,setPayments]=useState(seed),[auditTasks,setAuditTasks]=useState([...auditSeed,...specialAuditSeed]),[company,setCompany]=useState("All companies"),[companies,setCompanies]=useState<{id:string;name:string}[]>([]),[role,setRole]=useState("Audit Head"),[allowedRoles,setAllowedRoles]=useState<string[]>([]),[userName,setUserName]=useState(""),[userEmail,setUserEmail]=useState(""),[search,setSearch]=useState(""),[drawer,setDrawer]=useState<Payment|null>(null),[form,setForm]=useState(false),[passwordOpen,setPasswordOpen]=useState(false),[profileOpen,setProfileOpen]=useState(false),[mobile,setMobile]=useState(false),[profile,setProfile]=useState<string|null>(null),[jdFor,setJdFor]=useState(""),[period,setPeriod]=useState<"Daily"|"Weekly"|"Monthly">("Daily"),[toast,setToast]=useState(""),[todayLabel,setTodayLabel]=useState(""),[booting,setBooting]=useState(true);
  /* Audit tasks store a companyId; the screens show a company name, so the names are
     resolved once here rather than looked up per row. */
  const loadAuditTasks=async()=>{try{
@@ -82,8 +80,42 @@ export default function Home(){
  useEffect(()=>{if(!userEmail)return;companiesApi.load().then(c=>setCompanies(c.filter(x=>x.active).map(x=>({id:x.id,name:x.name})))).catch(()=>{})},[userEmail]);
  useEffect(()=>{if(!userEmail)return;fetch("/api/payments").then(r=>r.json() as Promise<{payments?:Payment[]}>).then(x=>x.payments?.length&&setPayments([...x.payments,...seed])).catch(()=>{})},[userEmail]);
  const filtered=useMemo(()=>payments.filter(p=>(company==="All companies"||p.company===company)&&(`${p.requestNo} ${p.vendor} ${p.status}`.toLowerCase().includes(search.toLowerCase()))),[payments,company,search]);
+ /* A requestor sees the requests they raised. raisedBy is written server-side from the
+    session, so it cannot be spoofed by the browser. Requests created before this was
+    recorded carry an empty value and belong to nobody. */
+ const mine=useMemo(()=>filtered.filter(p=>(p.raisedBy||"")===userEmail),[filtered,userEmail]);
  const flash=(x:string)=>{setToast(x);setTimeout(()=>setToast(""),2500)};
- const act=async(p:Payment,status:string)=>{const owner=status==="Audit Accepted"?userName||"Assigned Auditor":status==="Approved by Auditor – Ready to Release"?"Accounts & Finance":status==="Payment Released"?userName||"Accounts & Finance":p.owner;setPayments(v=>v.map(x=>x.id===p.id?{...x,status,owner}:x));setDrawer(d=>d?{...d,status,owner}:d);if(p.id>0)await fetch("/api/payments",{method:"PATCH",headers:{"content-type":"application/json"},body:JSON.stringify({id:p.id,status,owner})});flash(`${p.requestNo} moved to ${status}`)};
+ const act=async(p:Payment,status:string,note?:string)=>{
+  const owner=status==="Audit Accepted"?userName||"Assigned Auditor"
+    :status==="Approved by Auditor – Ready to Release"?"Accounts & Finance"
+    :status==="Payment Released"?userName||"Accounts & Finance"
+    :status==="Submitted"?"Accountant queue":p.owner;
+  try{
+   if(p.id>0){
+    const r=await fetch("/api/payments",{method:"PATCH",headers:{"content-type":"application/json"},
+      body:JSON.stringify({id:p.id,status,owner,note})});
+    const b=await r.json().catch(()=>({})) as {error?:string;payment?:Payment};
+    if(!r.ok)throw new Error(b.error||"That change was refused");
+    const saved=b.payment||{...p,status,owner};
+    setPayments(v=>v.map(x=>x.id===p.id?{...x,...saved}:x));
+    setDrawer(d=>d&&d.id===p.id?{...d,...saved}:d);
+   }else{
+    setPayments(v=>v.map(x=>x.id===p.id?{...x,status,owner}:x));
+    setDrawer(d=>d?{...d,status,owner}:d);
+   }
+   flash(status==="Rejected"?`${p.requestNo} sent back to the requestor`
+     :status==="Submitted"?`${p.requestNo} resubmitted to Accounts`
+     :`${p.requestNo} moved to ${status}`);
+  }catch(e){flash(e instanceof Error?e.message:"That change was refused")}};
+ /* Administrator only, and refused again by the server. Documents go with it. */
+ const removeRequest=async(t:Payment)=>{
+  if(!confirm(`Delete ${t.requestNo}?\n\nThe request and every document attached to it are removed for everybody. This cannot be undone.`))return;
+  try{
+   const r=await fetch(`/api/payments?id=${encodeURIComponent(String(t.id))}`,{method:"DELETE"});
+   const body=await r.json().catch(()=>({})) as {error?:string};
+   if(!r.ok)throw new Error(body.error||"That request could not be deleted");
+   setPayments(v=>v.filter(x=>x.id!==t.id));setDrawer(null);flash(`${t.requestNo} deleted`);
+  }catch(e){flash(e instanceof Error?e.message:"That request could not be deleted")}};
  const acceptAuditTask=async(id:string)=>{
    try{await auditTasksApi.update({id,action:"accept"});await loadAuditTasks();
      flash(`${id} accepted and moved to My Tasks`)}
@@ -95,7 +127,7 @@ export default function Home(){
  /* The Accountant reads the organisation chart and the employee register but does not
     change them. The API enforces the same rule, so this only hides controls that would
     be refused anyway rather than being the rule itself. */
- const viewOnly=role==="Accountant";
+ const viewOnly=role==="Accountant"||role==="Requestor";
  const visible=nav.filter(n=>(access[role]||[]).includes(n.id));
  const login=(u:Actor)=>{setUserName(u.name);setUserEmail(u.email);setAllowedRoles(u.roles);setRole(u.roles[0]);setActive(u.roles[0]==="Requestor"?"requests":"dashboard")};
  /* Ask the server who this is. The session cookie is HttpOnly, so the browser cannot
@@ -105,13 +137,13 @@ export default function Home(){
    .then(x=>{if(x.actor)login(x.actor)}).catch(()=>{}).finally(()=>setBooting(false));
   // rendered after mount so the server and client markup cannot disagree on the date
   setTodayLabel(new Date().toLocaleDateString("en-GB",{weekday:"long",day:"numeric",month:"long"}).toUpperCase())},[]);
- const signOut=async()=>{await fetch("/api/auth/session",{method:"DELETE"}).catch(()=>{});setUserName("");setUserEmail("");setAllowedRoles([]);setPayments(seed);setRole("Audit Head");setActive("dashboard")};
- return <WorkforceProvider actor={userName}><div className="shell">{!userName&&!booting&&<LoginOverlay onLogin={login}/>} {mobile&&<button className="scrim" onClick={()=>setMobile(false)}/>}<aside className={mobile?"side open":"side"}><div className="brand"><b>C</b><div><strong>CMG Payment</strong><span>REQUEST</span></div><button onClick={()=>setMobile(false)}><X/></button></div><nav>{visible.map(n=><button key={n.id} className={active===n.id?"active":""} onClick={()=>{setActive(n.id);setMobile(false)}}><n.icon/>{n.label}</button>)}</nav><div className="control"><ShieldCheck/><div><b>Controls active</b><span>Last sync 2 min ago</span></div></div></aside><main><header><div className="heading"><button className="hamb" onClick={()=>setMobile(true)}><Menu/></button><div><small>{todayLabel||"\u00a0"}</small><h1>{nav.find(n=>n.id===active)?.label}</h1></div></div><div className="head-actions"><label><Building2/><select value={company} onChange={e=>setCompany(e.target.value)}>{["All companies",...companies.map(c=>c.name)].map(x=><option key={x}>{x}</option>)}</select><ChevronDown/></label><select value={role} onChange={e=>{const next=e.target.value;setRole(next);setActive(next==="Requestor"?"requests":"dashboard")}}>{allowedRoles.map(x=><option key={x}>{x}</option>)}</select><button className="bell"><Bell/><i>3</i></button><b className="avatar" title={userName}>{userName?userName.split(" ").map(x=>x[0]).join("").slice(0,2):"CM"}</b>{userName&&<button className="signout" onClick={signOut} title="Sign out"><LogOut/></button>}</div></header>
- {active==="dashboard"&&!!userName&&<button className="password-link" onClick={()=>setPasswordOpen(true)}><Settings/>Change my password</button>}
- {active==="dashboard"&&(role==="Accountant"||role==="Auditor"?<RoleDashboard role={role} payments={filtered} auditTasks={auditTasks} open={setDrawer} go={setActive}/>:<Dashboard payments={filtered} go={setActive}/>)}
+ const signOut=async()=>{setProfileOpen(false);await fetch("/api/auth/session",{method:"DELETE"}).catch(()=>{});setUserName("");setUserEmail("");setAllowedRoles([]);setPayments(seed);setRole("Audit Head");setActive("dashboard")};
+ return <WorkforceProvider actor={userName}><div className="shell">{!userName&&!booting&&<LoginOverlay onLogin={login}/>} {mobile&&<button className="scrim" onClick={()=>setMobile(false)}/>}<aside className={mobile?"side open":"side"}><div className="brand"><b>C</b><div><strong>CMG Payment</strong><span>REQUEST</span></div><button onClick={()=>setMobile(false)}><X/></button></div><nav>{visible.map(n=><button key={n.id} className={active===n.id?"active":""} onClick={()=>{setActive(n.id);setMobile(false)}}><n.icon/>{n.label}</button>)}</nav><div className="control"><ShieldCheck/><div><b>Controls active</b><span>Last sync 2 min ago</span></div></div></aside><main><header><div className="heading"><button className="hamb" onClick={()=>setMobile(true)}><Menu/></button><div><small>{todayLabel||"\u00a0"}</small><h1>{nav.find(n=>n.id===active)?.label}</h1></div></div><div className="head-actions"><label><Building2/><select value={company} onChange={e=>setCompany(e.target.value)}>{["All companies",...companies.map(c=>c.name)].map(x=><option key={x}>{x}</option>)}</select><ChevronDown/></label><select value={role} onChange={e=>{const next=e.target.value;setRole(next);setActive(next==="Requestor"?"requests":"dashboard")}}>{allowedRoles.map(x=><option key={x}>{x}</option>)}</select><div className="profile-menu"><button className="avatar" title={userName||"Profile"} aria-haspopup="menu" aria-expanded={profileOpen} onClick={()=>setProfileOpen(v=>!v)}>{userName?userName.split(" ").map(x=>x[0]).join("").slice(0,2):"CM"}</button>{profileOpen&&<><button className="profile-scrim" aria-label="Close profile menu" onClick={()=>setProfileOpen(false)}/><div className="profile-dropdown" role="menu"><div className="profile-who"><b>{userName||"Signed in"}</b><small>{userEmail}</small>{!!role&&<i>{role}</i>}</div><button role="menuitem" onClick={()=>{setProfileOpen(false);setPasswordOpen(true)}}><Settings/>Change password</button>{userName&&<button role="menuitem" className="profile-signout" onClick={()=>{setProfileOpen(false);signOut()}}><LogOut/>Sign out</button>}</div></>}</div></div></header>
+ 
+ {active==="dashboard"&&(role==="Requestor"?<RequestorDashboard rows={mine} open={setDrawer} create={()=>setForm(true)} go={setActive}/>:role==="Accountant"||role==="Auditor"?<RoleDashboard role={role} payments={filtered} auditTasks={auditTasks} open={setDrawer} go={setActive}/>:<Dashboard payments={filtered} go={setActive}/>)}
  {active==="dashboard"&&visible.some(n=>n.id==="organisation")&&<div className="page wf-dash-wrap"><WorkforceOverview openProfile={setProfile} go={()=>setActive("organisation")}/></div>}
- {active==="requests"&&<RequestorWorkspace rows={filtered} open={setDrawer} create={()=>setForm(true)}/>}
- {active==="payments"&&(role==="Auditor"?<AuditQueueHub payments={filtered} tasks={auditTasks} openPayment={setDrawer} accept={acceptAuditTask}/>:<PaymentWorkbench rows={filtered} role={role} search={search} setSearch={setSearch} open={setDrawer} create={()=>setForm(true)}/>)}
+ {active==="requests"&&<RequestorWorkspace rows={role==="Requestor"?mine:filtered} open={setDrawer} create={()=>setForm(true)}/>}
+ {active==="payments"&&(role==="Auditor"?<AuditQueueHub payments={filtered} tasks={auditTasks} openPayment={setDrawer} accept={acceptAuditTask}/>:<PaymentWorkbench onDelete={removeRequest} rows={filtered} role={role} search={search} setSearch={setSearch} open={setDrawer} create={()=>setForm(true)}/>)}
  {active==="scheduled"&&<ScheduledPayments role={role} flash={flash}/>}
  {active==="preaudit"&&<AuditTaskQueue title="Pre-audit tasks" kind="Pre-Audit" tasks={auditTasks} role={role} accept={acceptAuditTask} update={updateAuditTask} openImport={()=>setActive("imports")}/>} 
  {active==="postaudit"&&<AuditTaskQueue title="Post-audit tasks" kind="Post-Audit" tasks={auditTasks} role={role} accept={acceptAuditTask} update={updateAuditTask} openImport={()=>setActive("imports")}/>} 
@@ -126,9 +158,9 @@ export default function Home(){
  {active==="employees"&&<EmployeeDirectory readOnly={viewOnly} openProfile={setProfile} flash={flash}
    openJd={(id:string)=>{setJdFor(id);setActive("workjd")}}/>}
  {active==="worktasks"&&<TaskBoard openProfile={setProfile} flash={flash}/>}
- {active==="workdaily"&&<WorkPeriod frequency="Daily" openProfile={setProfile} flash={flash}/>}
- {active==="workweekly"&&<WorkPeriod frequency="Weekly" openProfile={setProfile} flash={flash}/>}
- {active==="workmonthly"&&<WorkPeriod frequency="Monthly" openProfile={setProfile} flash={flash}/>}
+ {active==="work"&&<WorkPeriod frequency={period} onFrequency={f=>setPeriod(f as "Daily"|"Weekly"|"Monthly")} openProfile={setProfile} flash={flash}/>}
+ 
+ 
  {active==="worktokens"&&<TokenDesk openProfile={setProfile} flash={flash}/>}
  {active==="workimport"&&<TaskImport flash={flash} go={v=>setActive(v as Module)}/>}
  {active==="workjd"&&<JobDescription employeeId={jdFor} openProfile={setProfile}
@@ -140,9 +172,34 @@ export default function Home(){
      notes:"Created from the import centre"});await loadAuditTasks();flash("Audit task created")}
    catch(e){flash(e instanceof Error?e.message:"Could not create the task")}}}/>}
  </main>{profile&&<EmployeeProfile id={profile} close={()=>setProfile(null)} flash={flash} openProfile={setProfile}
-   openJd={(id:string)=>{setProfile(null);setJdFor(id);setActive("workjd")}}/>}{drawer&&<PaymentDetail payment={drawer} role={role} onClose={()=>setDrawer(null)} onAction={(s:string)=>act(drawer,s)}/>} {form&&<PaymentForm companies={companies} close={()=>setForm(false)} added={(p:Payment)=>{setPayments(v=>[p,...v]);setForm(false);flash(`${p.requestNo} submitted successfully`)}}/>}{passwordOpen&&<PasswordReset name={userName} email={userEmail} close={()=>setPasswordOpen(false)} done={()=>{setPasswordOpen(false);flash("Password updated. Please sign in again.");signOut()}}/>}{toast&&<div className="toast"><CheckCircle2/>{toast}</div>}</div></WorkforceProvider>
+   openJd={(id:string)=>{setProfile(null);setJdFor(id);setActive("workjd")}}/>}{drawer&&<PaymentDetail payment={drawer} role={role} onDelete={()=>removeRequest(drawer)} onClose={()=>setDrawer(null)} onAction={(s:string,note?:string)=>act(drawer,s,note)}/>} {form&&<PaymentForm companies={companies} close={()=>setForm(false)} added={(p:Payment)=>{setPayments(v=>[p,...v]);setForm(false);flash(`${p.requestNo} submitted successfully`)}}/>}{passwordOpen&&<PasswordReset name={userName} email={userEmail} close={()=>setPasswordOpen(false)} done={()=>{setPasswordOpen(false);flash("Password updated. Please sign in again.");signOut()}}/>}{toast&&<div className="toast"><CheckCircle2/>{toast}</div>}</div></WorkforceProvider>
 }
 function PasswordReset({name,email,close,done}:{name:string;email:string;close:()=>void;done:()=>void}){const[current,setCurrent]=useState(""),[next,setNext]=useState(""),[confirm,setConfirm]=useState(""),[error,setError]=useState(""),[saving,setSaving]=useState(false);const valid=current.length>=1&&next.length>=10&&/[A-Za-z]/.test(next)&&/[0-9]/.test(next)&&next===confirm;const submit=async(e:React.FormEvent)=>{e.preventDefault();if(!valid)return;setSaving(true);setError("");try{const r=await fetch("/api/auth/change-password",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({current,next})});const data=(await r.json()) as {error?:string};if(!r.ok)throw new Error(data.error||"Unable to update password.");done()}catch(err){setError(err instanceof Error?err.message:"Unable to update password.")}finally{setSaving(false)}};return <><button className="overlay" onClick={close}/><form className="modal password-reset" onSubmit={submit}><header><div><small>ACCOUNT SECURITY</small><h2>Change my password</h2></div><button type="button" onClick={close}><X/></button></header><div className="form"><p className="wide">Signed in as <b>{name}</b></p><label className="wide">Current password<input required autoComplete="current-password" type="password" value={current} onChange={e=>setCurrent(e.target.value)}/></label><label>New password<input required minLength={10} autoComplete="new-password" type="password" value={next} onChange={e=>setNext(e.target.value)}/></label><label>Confirm new password<input required minLength={10} autoComplete="new-password" type="password" value={confirm} onChange={e=>setConfirm(e.target.value)}/></label>{confirm&&next!==confirm&&<p className="wide login-error">Passwords do not match.</p>}{error&&<p className="wide login-error">{error}</p>}</div><footer><button type="button" onClick={close}>Cancel</button><button className="primary" disabled={!valid||saving}>{saving?"Updating…":"Update administrator password"}</button></footer></form></>}
+function RequestorDashboard({rows,open,create,go}:{rows:Payment[];open:(p:Payment)=>void;create:()=>void;go:(m:Module)=>void}){
+ const total=rows.length,released=rows.filter(r=>r.status==="Payment Released").length;
+ const rejected=rows.filter(r=>r.status==="Rejected"||r.status==="Audit Rejected").length;
+ const open_=total-released-rejected;
+ return <div className="page">
+  <Intro eyebrow="MY REQUESTS" title="Your payment requests"
+    sub="Everything you have raised, and where each one has reached."
+    action={<button className="primary" onClick={create}><Plus/>New payment request</button>}/>
+  <div className="metrics">
+   {([["Raised",String(total),"in total","blue"],["In progress",String(open_),"awaiting a decision","amber"],
+     ["Released",String(released),"paid out","green"],["Returned",String(rejected),"need your attention","red"]] as string[][])
+     .map(x=><article className={x[3]} key={x[0]}><span>{x[0]}</span><b>{x[1]}</b><small>{x[2]}</small></article>)}
+  </div>
+  <section className="panel table-panel">
+   <div className="panel-head"><div><small>MY REQUESTS</small><h2>Latest first</h2></div>
+     <button onClick={()=>go("requests")}>View all</button></div>
+   {!rows.length&&<p className="queue-empty">You have not raised a payment request yet.</p>}
+   {!!rows.length&&<div className="table-wrap"><table><thead><tr><th>REQUEST</th><th>VENDOR</th>
+     <th>AMOUNT</th><th>DUE</th><th>STATUS</th></tr></thead><tbody>
+     {rows.slice(0,8).map(r=><tr key={r.id} onClick={()=>open(r)}><td><b>{r.requestNo}</b></td>
+       <td>{r.vendor}</td><td><b>{r.currency} {r.amount.toLocaleString()}</b></td><td>{r.due}</td>
+       <td><span className={`badge ${tone[r.status]||"blue"}`}>{r.status}</span></td></tr>)}
+     </tbody></table></div>}
+  </section></div>;
+}
 function Intro({eyebrow,title,sub,action}:{eyebrow:string;title:string;sub:string;action?:React.ReactNode}){return <div className="intro"><div><small>{eyebrow}</small><h2>{title}</h2><p>{sub}</p></div>{action}</div>}
 function Dashboard({payments,go}:{payments:Payment[];go:(m:Module)=>void}){
  /* Every figure here is counted from the payment requests actually in the database.

@@ -35,7 +35,7 @@ export async function GET(req:Request){
 
 export async function POST(req:Request){
   try{
-    const{response}=await requireAuth(req,"write");
+    const{response}=await requireAuth(req,"token");
     if(response)return response;
     const body=await req.json() as Row;
     if(!str(body.taskType)||!str(body.employeeId))return bad("taskType and employeeId are required");
@@ -48,7 +48,7 @@ export async function POST(req:Request){
 
 export async function PATCH(req:Request){
   try{
-    const{response}=await requireAuth(req,"write");
+    const{response}=await requireAuth(req,"token");
     if(response)return response;
     const body=await req.json() as Row;
     const id=str(body.id);
@@ -61,7 +61,7 @@ export async function PATCH(req:Request){
 
 export async function DELETE(req:Request){
   try{
-    const{response}=await requireAuth(req,"write");
+    const{response}=await requireAuth(req,"token");
     if(response)return response;
     const id=new URL(req.url).searchParams.get("id")||"";
     if(!id)return bad("id is required");
