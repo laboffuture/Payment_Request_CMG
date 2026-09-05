@@ -234,7 +234,7 @@ function FileBox({
   return (
     <label className="upload">
       <Upload />
-      {label}
+      <b>{label}</b>
       <input
         type="file"
         required={required}

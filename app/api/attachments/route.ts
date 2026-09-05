@@ -11,7 +11,7 @@ import type{Row}from"../../../lib/workforce-api";
    delivery order together, and nothing should force a choice between them. */
 export const ATTACH_KINDS=["Invoice","Proforma invoice","Purchase order","Delivery order",
   "Quotation","Contract","Bank/payment proof","Statement","Reconciliation","Photo","Other"];
-const ENTITIES=["payment","batch","ticket","task","observation","employee","audit-task","query"];
+const ENTITIES=["payment","batch","ticket","task","observation","employee","audit-task","query","training"];
 const ALLOWED_MIME=[/^image\//,/^application\/pdf$/,/^application\/vnd\./,/^application\/msword$/,
   /^text\/csv$/,/^text\/plain$/,/^application\/zip$/,/^application\/vnd\.ms-excel$/];
 

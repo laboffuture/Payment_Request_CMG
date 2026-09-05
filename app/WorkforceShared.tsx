@@ -1,7 +1,7 @@
 "use client";
 import{useRef,useState}from"react";
-import{Camera,Loader2,Trash2,X}from"lucide-react";
-import Attachments from"./Attachments";
+import{Camera,Loader2,Trash2,X,Upload}from"lucide-react";
+import Attachments,{asDataUrl} from"./Attachments";
 import{frequencies,initials,normalise,periodOf,photoUrl,priorities,queryStatuses,readable,resizeImage,
   roleTypes,statuses,today,useWorkforce}from"./workforce-store";
 import type{Dept,Employee,Frequency,Priority,Query,QueryStatus,Role,RoleType,Task,Token,WorkStatus}from"./workforce-store";
@@ -259,6 +259,7 @@ export function TokenEditor({token,isNew,close,flash}:{token:Partial<Token>;isNe
   const wf=useWorkforce();
   const [t,setT]=useState<Partial<Token>>(token);
   const [busy,setBusy]=useState(false);
+  const [files,setFiles]=useState<File[]>([]);
   const [people,setPeople]=useState<Employee[]>([]);
   const set=<K extends keyof Token>(k:K,v:Token[K])=>setT(p=>{
     const n:Partial<Token>={...p,[k]:v};
@@ -268,7 +269,15 @@ export function TokenEditor({token,isNew,close,flash}:{token:Partial<Token>;isNe
   const search=async(q:string)=>{if(q.length<2)return setPeople([]);
     try{const r=await wf.api.employees({q,limit:20,active:"1"});setPeople(r.employees)}catch{setPeople([])}};
   const submit=async(e:React.FormEvent)=>{e.preventDefault();setBusy(true);
-    try{await wf.api.saveToken(t,isNew);flash(`${t.number} saved`);close()}
+    try{
+      const saved=await wf.api.saveToken(t,isNew);
+      for(const file of files){
+        try{const dataUrl=await asDataUrl(file);
+          await fetch("/api/attachments",{method:"POST",headers:{"content-type":"application/json"},
+            body:JSON.stringify({entityType:"ticket",entityId:saved.id,kind:"Other",fileName:file.name,dataUrl})});
+        }catch{}}
+      flash(files.length?`${saved.number} saved with ${files.length} document${files.length===1?"":"s"}`:`${saved.number} saved`);
+      close()}
     catch(err){flash(err instanceof Error?err.message:"Could not save")}finally{setBusy(false)}};
   return <><button className="overlay" onClick={close}/><form className="modal" onSubmit={submit}>
     <header><div><small>{isNew?"ISSUE TOKEN":"UPDATE TOKEN"}</small><h2>{t.number||"New token"}</h2></div>
@@ -293,12 +302,16 @@ export function TokenEditor({token,isNew,close,flash}:{token:Partial<Token>;isNe
         {priorities.map(p=><option key={p}>{p}</option>)}</select></label>
       <label>Status<select value={t.status||"Not Started"} onChange={e=>set("status",e.target.value as WorkStatus)}>
         {statuses.filter(s=>s!=="Overdue").map(s=><option key={s}>{s}</option>)}</select></label>
-      <label>Quantity<input type="number" min="0" value={t.qty??0} onChange={e=>set("qty",Number(e.target.value))}/></label>
-      <label>Completed quantity<input type="number" min="0" value={t.done??0} onChange={e=>set("done",Number(e.target.value))}/></label>
       <label className="wide">Remarks<textarea value={t.remarks||""} onChange={e=>set("remarks",e.target.value)}/></label>
-      <p className="wide wf-note">Pending quantity: <b>{Math.max((t.qty||0)-(t.done||0),0)}</b> of {t.qty||0}.</p>
       {!isNew&&t.id&&<div className="wide">
         <Attachments entityType="ticket" entityId={t.id} flash={flash}/></div>}
+      {/* A new token has no id yet, so its documents are collected here and uploaded once
+          it exists. Editing an existing one uses the panel above instead. */}
+      {isNew&&<label className="wide upload">
+        <input type="file" multiple accept="image/*,application/pdf,.doc,.docx,.xls,.xlsx,.csv,.txt,.zip"
+          onChange={e=>setFiles(Array.from(e.target.files||[]))}/>
+        <Upload/><b>Attach supporting documents</b><small>Images, PDF, Word, Excel, CSV or ZIP — up to 15 MB each</small>
+        {files.length>0&&<small className="upload-list">{files.length} file{files.length===1?"":"s"}: {files.map(f=>f.name).join(", ")}</small>}</label>}
     </div>
     <footer>
       {!isNew&&<button type="button" className="wf-danger" onClick={async()=>{

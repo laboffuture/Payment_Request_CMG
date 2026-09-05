@@ -102,3 +102,25 @@
    fell back to the browser default and read noticeably larger. Same metrics for both. */
 .modal footer button{font-family:inherit;font-size:11px;font-weight:700;line-height:1.2;cursor:pointer}
 .modal footer button svg{width:14px;height:14px;flex:none}
+
+/* File upload control.
+
+   The native file input renders as the browser's own "Choose File / no file chosen"
+   widget, which sits at its own size in its own typeface and cannot be styled. Every
+   upload in the app was showing it. The input is now visually hidden but still present
+   and focusable - clicking the label opens the picker as usual - and the label itself
+   becomes the control: an icon, a title, and a line saying what is accepted. */
+.upload{position:relative;display:flex;flex-direction:column;align-items:center;
+  justify-content:center;gap:5px;padding:18px 16px;text-align:center;cursor:pointer;
+  border:1px dashed #a9c8be;border-radius:10px;background:#fbfdfc;
+  transition:background .12s ease,border-color .12s ease}
+.upload:hover{background:#f1f8f5;border-color:var(--green,#0b725d)}
+.upload:focus-within{border-color:var(--green,#0b725d);
+  box-shadow:0 0 0 3px rgba(11,114,93,.14);outline:none}
+/* present for the keyboard and for assistive tech, just not drawn */
+.upload input[type="file"]{position:absolute;width:1px;height:1px;padding:0;margin:-1px;
+  overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}
+.upload svg{width:20px;height:20px;flex:none;color:var(--green,#0b725d)}
+.upload b{font-size:11px;font-weight:700;color:var(--green,#0b725d);line-height:1.35}
+.upload small{display:block;font-size:9px;line-height:1.5;color:#6d7988}
+.upload .upload-list{margin-top:4px;color:var(--ink,#17312b);font-weight:600;word-break:break-word}

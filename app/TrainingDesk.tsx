@@ -1,6 +1,7 @@
 "use client";
 import{useCallback,useEffect,useState}from"react";
-import{Check,GraduationCap,Plus,Star,Trash2,X}from"lucide-react";
+import{Check,GraduationCap,Paperclip,Plus,Star,Trash2,X,Upload}from"lucide-react";
+import Attachments,{asDataUrl}from"./Attachments";
 
 type Training={id:string;ref:string;topic:string;reason:string;employeeName:string;department:string;
   requestedBy:string;status:string;requestedAt:string;acceptedBy:string;acceptedAt:string;
@@ -25,6 +26,8 @@ export default function TrainingDesk({flash}:{flash:(m:string)=>void}){
   const[people,setPeople]=useState<{id:string;name:string;designation:string}[]>([]);
   const[busy,setBusy]=useState(false);
   const[rating,setRating]=useState<{id:string;stars:number;note:string}|null>(null);
+  const[files,setFiles]=useState<File[]>([]);
+  const[docsFor,setDocsFor]=useState<Training|null>(null);
 
   const load=useCallback(async()=>{
     setLoading(true);setError("");
@@ -67,9 +70,18 @@ export default function TrainingDesk({flash}:{flash:(m:string)=>void}){
       const r=await fetch("/api/workforce/training",{method:"POST",
         headers:{"content-type":"application/json"},
         body:JSON.stringify({topic:topic.trim(),reason:reason.trim(),employeeId,deptId})});
-      const b=await r.json().catch(()=>({})) as{error?:string};
+      const b=await r.json().catch(()=>({})) as{error?:string;training?:{id:string}};
       if(!r.ok)throw new Error(b.error||"Could not raise the request");
-      setOpen(false);setTopic("");setReason("");setDeptId("");setEmployeeId("");flash("Training request raised");await load();
+      /* Uploaded after the request exists, because that is when it has the id the
+         documents hang off. A file that is refused does not lose the request. */
+      const id=b.training?.id;
+      if(id)for(const file of files){
+        try{const dataUrl=await asDataUrl(file);
+          await fetch("/api/attachments",{method:"POST",headers:{"content-type":"application/json"},
+            body:JSON.stringify({entityType:"training",entityId:id,kind:"Other",fileName:file.name,dataUrl})});
+        }catch{}}
+      setOpen(false);setTopic("");setReason("");setDeptId("");setEmployeeId("");setFiles([]);
+      flash(files.length?`Training request raised with ${files.length} document${files.length===1?"":"s"}`:"Training request raised");await load();
     }catch(e){flash(e instanceof Error?e.message:"Could not raise the request")}
     finally{setBusy(false)}};
 
@@ -93,6 +105,7 @@ export default function TrainingDesk({flash}:{flash:(m:string)=>void}){
           <button disabled={busy} onClick={()=>send({id:t.id,action:"complete"},"Training marked delivered")}><Check/>Delivered</button>}
         {own&&t.status==="Completed"&&!t.rating&&
           <button disabled={busy} onClick={()=>setRating({id:t.id,stars:5,note:""})}><Star/>Rate it</button>}
+        <button disabled={busy} title="Documents" onClick={()=>setDocsFor(t)}><Paperclip/></button>
         {own&&t.status!=="Completed"&&
           <button className="wf-danger-icon" disabled={busy} title="Withdraw this request"
             onClick={()=>{if(confirm("Withdraw this training request?"))send({id:t.id,action:"cancel"},"Request withdrawn")}}><Trash2/></button>}
@@ -138,11 +151,25 @@ export default function TrainingDesk({flash}:{flash:(m:string)=>void}){
           <label className="wide">Why do you need it? <small className="wf-hint">Optional, but it helps whoever picks it up.</small>
             <textarea value={reason} onChange={e=>setReason(e.target.value)}
               placeholder="What are you stuck on, or what would you do differently afterwards?"/></label>
+          <label className="wide upload">
+            <input type="file" multiple accept="image/*,application/pdf,.doc,.docx,.xls,.xlsx,.csv,.txt,.zip"
+              onChange={e=>setFiles(Array.from(e.target.files||[]))}/>
+            <Upload/><b>Attach anything that helps</b><small>Images, PDF, Word, Excel, CSV or ZIP — up to 15 MB each</small>
+            {files.length>0&&<small className="upload-list">{files.length} file{files.length===1?"":"s"}: {files.map(f=>f.name).join(", ")}</small>}</label>
         </div>
         <footer><button type="button" onClick={()=>setOpen(false)}>Cancel</button>
           <button className="primary" disabled={busy||topic.trim().length<3}>
             <GraduationCap/>{busy?"Sending…":"Raise request"}</button></footer>
       </form></>}
+
+    {docsFor&&<><button className="overlay" onClick={()=>setDocsFor(null)}/>
+      <div className="modal">
+        <header><div><small>{docsFor.ref}</small><h2>Documents</h2></div>
+          <button type="button" onClick={()=>setDocsFor(null)}><X/></button></header>
+        <div className="form"><div className="wide">
+          <Attachments entityType="training" entityId={docsFor.id} flash={flash}/></div></div>
+        <footer><button type="button" onClick={()=>setDocsFor(null)}>Close</button></footer>
+      </div></>}
 
     {rating&&<><button className="overlay" onClick={()=>setRating(null)}/>
       <form className="modal" onSubmit={e=>{e.preventDefault();
