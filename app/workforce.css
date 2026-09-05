@@ -322,3 +322,11 @@ table.wf-editgrid td{padding:5px 6px}
 /* a secondary action sitting beside an intro heading: keep it on one line and stop it
    stretching to the height of the text block next to it */
 .intro>.intro-action{flex:none;align-self:center}
+
+/* Training: star rating */
+.tr-stars{color:#c9a227;letter-spacing:1px;font-size:11px}
+.tr-stars i{color:#d8dee6;font-style:normal}
+.tr-rate{display:flex;gap:4px;margin-top:6px}
+.tr-rate button{font-family:inherit;font-size:20px;line-height:1;border:0;background:none;
+  color:#d8dee6;cursor:pointer;padding:0 2px}
+.tr-rate button.on{color:#c9a227}

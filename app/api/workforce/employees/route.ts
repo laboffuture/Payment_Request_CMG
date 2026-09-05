@@ -64,10 +64,21 @@ export async function PATCH(req:Request){
     const id=str(body.id);
     if(!id)return bad("id is required");
     if(str(body.reportsTo)===id)return bad("An employee cannot report to themselves",409);
-    const row=shape(body);
-    await writeWithAudit([(await getDb()).update(wfEmployees).set(row).where(eq(wfEmployees.id,id))],
-      actorOf(req,body),"employee",id,"Employee updated",row.name);
-    return Response.json({employee:{...row,active:!!row.active}});
+    /* Only what was sent is changed. shape() gives every field a default, so building
+       the update from it turned a partial edit into a wipe: sending {id, phone} blanked
+       the name, code, designation, department and role of whoever was addressed. The
+       edit form always sends the whole record, so the screens were safe - but the API
+       was not, and nothing warned you. */
+    const db=await getDb();
+    const [current]=await db.select().from(wfEmployees).where(eq(wfEmployees.id,id)).limit(1);
+    if(!current)return bad("Not found",404);
+    const shaped=shape({...current,...body});
+    const row=Object.fromEntries(Object.entries(shaped)
+      .filter(([k])=>k==="id"||Object.prototype.hasOwnProperty.call(body,k))) as typeof shaped;
+    if(Object.keys(row).length<2)return bad("Nothing to change");
+    await writeWithAudit([db.update(wfEmployees).set(row).where(eq(wfEmployees.id,id))],
+      actorOf(req,body),"employee",id,"Employee updated",str(row.name,current.name));
+    return Response.json({employee:{...current,...row,active:!!(row.active??current.active)}});
   }catch(e){return oops(e)}}
 
 /* Anyone with task, token or query history is deactivated rather than removed, so

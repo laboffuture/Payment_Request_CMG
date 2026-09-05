@@ -30,6 +30,10 @@ export async function POST(req:Request){
   try{
     const{actor,response}=await requireAuth(req,"write");
     if(response)return response;
+    /* The screen only offers "New schedule request" to accounts, and the rule holds here
+       too: an auditor reviews and updates a batch but does not raise one. */
+    if(!(actor?.roles||[]).some(r=>["Administrator","Audit Head","Accountant"].includes(r)))
+      return bad("Only accounts can raise a scheduled payment batch.",403);
     const body=await req.json() as Row;
     if(!str(body.vendor))return bad("vendor is required");
     if(num(body.requested)<=0)return bad("requested amount must be more than zero");

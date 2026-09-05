@@ -318,3 +318,29 @@ export const wfAttachments=sqliteTable("wf_attachments",{
 export const wfAttachmentBlobs=sqliteTable("wf_attachment_blobs",{
   id:text("id").primaryKey(),
   data:text("data").notNull()});
+
+/* Training requests: somebody asks to be taught a topic, a colleague takes it on and
+   marks it delivered, and the person who asked rates whether it actually helped.
+   requested_by is the signing-in address, so "my requests" works without an employee
+   record having to exist for every account. */
+export const wfTrainings=sqliteTable("wf_trainings",{
+  id:text("id").primaryKey(),
+  ref:text("ref").notNull(),
+  topic:text("topic").notNull(),
+  reason:text("reason").notNull().default(""),
+  employeeId:text("employee_id").notNull().default(""),
+  employeeName:text("employee_name").notNull().default(""),
+  requestedBy:text("requested_by").notNull().default(""),
+  deptId:text("dept_id").notNull().default(""),
+  department:text("department").notNull().default(""),
+  status:text("status").notNull().default("Requested"),
+  requestedAt:text("requested_at").notNull().default(""),
+  acceptedBy:text("accepted_by").notNull().default(""),
+  acceptedAt:text("accepted_at").notNull().default(""),
+  completedBy:text("completed_by").notNull().default(""),
+  completedAt:text("completed_at").notNull().default(""),
+  rating:integer("rating").notNull().default(0),
+  feedback:text("feedback").notNull().default(""),
+  feedbackAt:text("feedback_at").notNull().default("")},
+  t=>[index("wf_train_status_idx").on(t.status),index("wf_train_emp_idx").on(t.employeeId),
+      index("wf_train_by_idx").on(t.requestedBy),index("wf_train_at_idx").on(t.requestedAt),index("wf_train_dept_idx").on(t.deptId)]);

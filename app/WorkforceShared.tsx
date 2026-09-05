@@ -233,24 +233,16 @@ export function TaskEditor({task,isNew,close,flash}:{task:Partial<Task>;isNew:bo
           {t.employeeId&&!people.some(p=>p.id===t.employeeId)&&<option value={t.employeeId}>{t.employeeId} (current)</option>}
           {people.map(p=><option key={p.id} value={p.id}>{p.name} — {p.designation||p.code}</option>)}
         </select></label>
-      <label>Assigned by<input value={t.assignedBy||wf.actor} onChange={e=>set("assignedBy",e.target.value)}/></label>
+      <label>Assigned by<input value={t.assignedBy===undefined?wf.actor:t.assignedBy} onChange={e=>set("assignedBy",e.target.value)}/></label>
       <label>Start date<input type="date" value={t.start||today()} onChange={e=>set("start",e.target.value)}/></label>
       <label>Due date<input type="date" required value={t.due||today()} onChange={e=>set("due",e.target.value)}/></label>
       <label>Status<select value={t.status||"Not Started"} onChange={e=>set("status",e.target.value as WorkStatus)}>
         {statuses.filter(s=>s!=="Overdue").map(s=><option key={s}>{s}</option>)}</select></label>
       <label>Progress<select value={t.progress??0} onChange={e=>set("progress",Number(e.target.value))}>
         {[0,25,50,75,100].map(p=><option key={p} value={p}>{p}%</option>)}</select></label>
-      <label>Quantity<input type="number" min="0" value={t.qty??0} onChange={e=>set("qty",Number(e.target.value))}/></label>
-      <label>Completed quantity<input type="number" min="0" value={t.done??0} onChange={e=>set("done",Number(e.target.value))}/></label>
-      <label className="wide">Expected output<input value={t.expectedOutput||""} onChange={e=>set("expectedOutput",e.target.value)}/></label>
-      <label>Blocker<input value={t.blocker||""} onChange={e=>set("blocker",e.target.value)}/></label>
-      <label>Next action<input value={t.nextAction||""} onChange={e=>set("nextAction",e.target.value)}/></label>
       <label className="wide">Remarks<textarea value={t.remarks||""} onChange={e=>set("remarks",e.target.value)}/></label>
       {!isNew&&t.id&&<div className="wide">
         <Attachments entityType="task" entityId={t.id} flash={flash}/></div>}
-      {t.frequency&&t.frequency!=="One Time"&&<p className="wide wf-note">
-        Recurring: the next {t.frequency.toLowerCase()} occurrence is created automatically once this due date passes.
-        Each occurrence keeps its own progress and remarks.</p>}
     </div>
     <footer>
       {!isNew&&<button type="button" className="wf-danger" onClick={async()=>{
@@ -288,7 +280,7 @@ export function TokenEditor({token,isNew,close,flash}:{token:Partial<Token>;isNe
         <option value="">— select —</option>
         {wf.allRoles.filter(r=>r.type==="Function"||r.type==="Vertical"||r.type==="Group")
           .map(r=><option key={r.id} value={r.id}>{r.name}</option>)}</select></label>
-      <label>Created by<input value={t.createdBy||wf.actor} onChange={e=>set("createdBy",e.target.value)}/></label>
+      <label>Created by<input value={t.createdBy===undefined?wf.actor:t.createdBy} onChange={e=>set("createdBy",e.target.value)}/></label>
       <label className="wide">Assigned employee
         <input placeholder="Type a name to search" onChange={e=>search(e.target.value)}/>
         <select value={t.employeeId||""} onChange={e=>set("employeeId",e.target.value)} required>
@@ -348,7 +340,7 @@ export function QueryEditor({query,isNew,close,flash}:{query:Partial<Query>;isNe
           <option value="">— select an employee —</option>
           {q.employeeId&&!people.some(p=>p.id===q.employeeId)&&<option value={q.employeeId}>{q.employeeId} (current)</option>}
           {people.map(p=><option key={p.id} value={p.id}>{p.name}</option>)}</select></label>
-      <label>Raised by<input value={q.raisedBy||wf.actor} onChange={e=>set("raisedBy",e.target.value)}/></label>
+      <label>Raised by<input value={q.raisedBy===undefined?wf.actor:q.raisedBy} onChange={e=>set("raisedBy",e.target.value)}/></label>
       <label>Priority<select value={q.priority||"Medium"} onChange={e=>set("priority",e.target.value as Priority)}>
         {priorities.map(p=><option key={p}>{p}</option>)}</select></label>
       <label>Status<select value={q.status||"Open"} onChange={e=>set("status",e.target.value as QueryStatus)}>

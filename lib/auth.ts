@@ -46,7 +46,7 @@ const ADMIN_ROLES=["Administrator","Audit Head"];
 /* Tokens are how work is requested of the data-entry team, so a Requestor raises and
    updates them even though they may change nothing else. */
 const TOKEN_ROLES=["Administrator","Audit Head","Management","Accountant","Auditor","Finance","Requestor"];
-const ORG_ROLES=["Administrator","Audit Head","Management","Auditor","Finance"];
+const ORG_ROLES=["Administrator","Audit Head","Management","Finance"];
 
 export const hasWriteRole=(roles:string[]=[])=>roles.some(r=>WRITE_ROLES.includes(r));
 

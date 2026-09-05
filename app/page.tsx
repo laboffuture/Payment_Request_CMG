@@ -1,6 +1,6 @@
 "use client";
 import {useEffect,useMemo,useState} from "react";
-import {AlertTriangle,Building2,CalendarClock,CalendarDays,CheckCircle2,ChevronDown,CircleDollarSign,ClipboardCheck,Clock3,FileBarChart,FileText,History,Import,LayoutDashboard,LogOut,Menu,MessageSquareText,Plus,ReceiptText,Search,Settings,ShieldCheck,Users,X} from "lucide-react";
+import {AlertTriangle,Building2,CalendarClock,CalendarDays,CheckCircle2,ChevronDown,CircleDollarSign,ClipboardCheck,FileBarChart,FileText,History,Import,LayoutDashboard,LogOut,Menu,MessageSquareText,Plus,ReceiptText,Search,Settings,ShieldCheck,Users,X,GraduationCap} from "lucide-react";
 import PaymentDetail from "./PaymentDetail";
 import {asDataUrl} from "./Attachments";
 import PaymentWorkbench from "./PaymentWorkbench";
@@ -10,7 +10,6 @@ import RoleDashboard from "./RoleDashboard";
 import LoginOverlay,{type Actor} from "./LoginOverlay";
 import ImportCentre from "./ImportCentre";
 import AuditTaskQueue from "./AuditTaskQueue";
-import AuditQueueHub from "./AuditQueueHub";
 import CompanySetup from "./CompanySetup";
 import ReportsCentre from "./ReportsCentre";
 import CommunityChat from "./CommunityChat";
@@ -21,13 +20,14 @@ import EmployeeDirectory from "./EmployeeDirectory";
 import {EmployeeProfile} from "./EmployeeProfile";
 import {TaskBoard,WorkPeriod} from "./WorkDesk";
 import TokenDesk from "./TokenDesk";
+import TrainingDesk from "./TrainingDesk";
 import {WorkforceOverview,WorkforceReports} from "./WorkforceReports";
 import {auditTasksApi,companiesApi} from "./audit-api";
 import TaskImport from "./TaskImport";
 import JobDescription from "./JobDescription";
 type Payment={resubmitNote?:string;resubmittedAt?:string;rejectionNote?:string;rejectedBy?:string;rejectedAt?:string;raisedBy?:string;id:number;requestNo:string;company:string;vendor:string;amount:number;currency:string;due:string;urgency:string;status:string;owner:string;department:string};
 export type AuditTask={id:string;title:string;company:string;department:string;kind:"Pre-Audit"|"Post-Audit"|"Meeting"|"Special Audit";status:"Available"|"Accepted"|"In Progress"|"Observation Submitted"|"Response Received"|"Completed";due?:string;assignedTo?:string;plannedStart?:string;plannedEnd?:string;notes?:string;dataProvider?:string};
-type Module="dashboard"|"requests"|"payments"|"scheduled"|"preaudit"|"postaudit"|"specialaudit"|"observations"|"community"|"meetings"|"reports"|"companies"|"users"|"imports"|"organisation"|"employees"|"worktasks"|"work"|"worktokens"|"workimport"|"workjd"|"workreports";
+type Module="dashboard"|"requests"|"payments"|"scheduled"|"preaudit"|"postaudit"|"specialaudit"|"observations"|"community"|"meetings"|"reports"|"companies"|"users"|"imports"|"organisation"|"employees"|"worktasks"|"training"|"worktokens"|"workimport"|"workjd"|"workreports";
 const seed:Payment[]=[];
 const auditSeed:AuditTask[]=[];
 const specialAuditSeed:AuditTask[]=[];
@@ -55,17 +55,17 @@ const workforceNav:{id:Module;label:string;icon:any}[]=[
  {id:"organisation",label:"Organisation",icon:Building2},
  {id:"employees",label:"Employees",icon:Users},
  {id:"worktasks",label:"Tasks",icon:ClipboardCheck},
- {id:"work",label:"Work",icon:Clock3},
  {id:"worktokens",label:"Tokens",icon:ReceiptText},
  {id:"workimport",label:"Import tasks",icon:Import},
  {id:"workjd",label:"Job descriptions",icon:FileText},
+ {id:"training",label:"Training",icon:GraduationCap},
  {id:"workreports",label:"Workforce reports",icon:FileBarChart}];
 nav.push(...workforceNav);
 const workforceIds=workforceNav.map(n=>n.id);
 const tone:Record<string,string>={"Rejected":"red","Requested":"blue","Accountant Review":"amber","Pre-Audit Queue":"blue","Management Approval":"amber","Management Approval: Yes":"green","Management Approval: No":"red","Audit Rejected":"red","Audit Query":"red","Finance Queue":"violet","Approved by Auditor – Ready to Release":"green","Payment Released":"green","Reconciliation":"green","Audit Accepted":"blue","Audit Cleared":"green"};
-const access:Record<string,Module[]>={Administrator:nav.map(x=>x.id),Requestor:["dashboard","requests","organisation","employees","worktokens"],Accountant:["dashboard","requests","payments","scheduled","meetings","community","reports","organisation","employees"],Auditor:["dashboard","payments","organisation","employees","worktasks","work","worktokens","workimport","workjd","workreports"],Finance:["dashboard","payments","organisation","employees","workreports"],Management:["dashboard","payments",...workforceIds],"Audit Head":nav.map(x=>x.id)};
+const access:Record<string,Module[]>={Administrator:nav.map(x=>x.id),Requestor:["dashboard","requests","organisation","employees","worktokens","meetings","community","training","reports"],Accountant:["dashboard","requests","payments","scheduled","organisation","employees","observations","meetings","community","reports","worktasks","training"],Auditor:["dashboard","requests","payments","scheduled","organisation","employees","preaudit","postaudit","specialaudit","observations","meetings","community","reports","worktasks","training"],Finance:["dashboard","payments","organisation","employees","workreports"],Management:["dashboard","payments",...workforceIds],"Audit Head":nav.map(x=>x.id)};
 export default function Home(){
- const[active,setActive]=useState<Module>("dashboard"),[payments,setPayments]=useState(seed),[auditTasks,setAuditTasks]=useState([...auditSeed,...specialAuditSeed]),[company,setCompany]=useState("All companies"),[companies,setCompanies]=useState<{id:string;name:string}[]>([]),[role,setRole]=useState("Audit Head"),[allowedRoles,setAllowedRoles]=useState<string[]>([]),[userName,setUserName]=useState(""),[userEmail,setUserEmail]=useState(""),[search,setSearch]=useState(""),[drawer,setDrawer]=useState<Payment|null>(null),[form,setForm]=useState(false),[passwordOpen,setPasswordOpen]=useState(false),[profileOpen,setProfileOpen]=useState(false),[mobile,setMobile]=useState(false),[profile,setProfile]=useState<string|null>(null),[jdFor,setJdFor]=useState(""),[period,setPeriod]=useState<"Daily"|"Weekly"|"Monthly">("Daily"),[toast,setToast]=useState(""),[todayLabel,setTodayLabel]=useState(""),[booting,setBooting]=useState(true);
+ const[active,setActive]=useState<Module>("dashboard"),[payments,setPayments]=useState(seed),[auditTasks,setAuditTasks]=useState([...auditSeed,...specialAuditSeed]),[company,setCompany]=useState("All companies"),[companies,setCompanies]=useState<{id:string;name:string}[]>([]),[role,setRole]=useState("Audit Head"),[allowedRoles,setAllowedRoles]=useState<string[]>([]),[userName,setUserName]=useState(""),[userEmail,setUserEmail]=useState(""),[search,setSearch]=useState(""),[drawer,setDrawer]=useState<Payment|null>(null),[form,setForm]=useState(false),[passwordOpen,setPasswordOpen]=useState(false),[profileOpen,setProfileOpen]=useState(false),[mobile,setMobile]=useState(false),[profile,setProfile]=useState<string|null>(null),[jdFor,setJdFor]=useState(""),[period,setPeriod]=useState<"Tasks"|"Daily"|"Weekly"|"Monthly">("Tasks"),[toast,setToast]=useState(""),[todayLabel,setTodayLabel]=useState(""),[booting,setBooting]=useState(true);
  /* Audit tasks store a companyId; the screens show a company name, so the names are
     resolved once here rather than looked up per row. */
  const loadAuditTasks=async()=>{try{
@@ -84,6 +84,10 @@ export default function Home(){
     session, so it cannot be spoofed by the browser. Requests created before this was
     recorded carry an empty value and belong to nobody. */
  const mine=useMemo(()=>filtered.filter(p=>(p.raisedBy||"")===userEmail),[filtered,userEmail]);
+ /* Tasks, and the same work seen by day, week or month - one menu entry with the view
+    chosen inside, rather than four entries onto the same register. */
+ const taskTabs=<div className="wf-tabs wf-period-tabs">{(["Tasks","Daily","Weekly","Monthly"] as const)
+   .map(t=><button key={t} className={period===t?"active":""} onClick={()=>setPeriod(t)}>{t}</button>)}</div>;
  const flash=(x:string)=>{setToast(x);setTimeout(()=>setToast(""),2500)};
  const act=async(p:Payment,status:string,note?:string)=>{
   const owner=status==="Audit Accepted"?userName||"Assigned Auditor"
@@ -127,7 +131,7 @@ export default function Home(){
  /* The Accountant reads the organisation chart and the employee register but does not
     change them. The API enforces the same rule, so this only hides controls that would
     be refused anyway rather than being the rule itself. */
- const viewOnly=role==="Accountant"||role==="Requestor";
+ const viewOnly=role==="Accountant"||role==="Requestor"||role==="Auditor";
  const visible=nav.filter(n=>(access[role]||[]).includes(n.id));
  const login=(u:Actor)=>{setUserName(u.name);setUserEmail(u.email);setAllowedRoles(u.roles);setRole(u.roles[0]);setActive(u.roles[0]==="Requestor"?"requests":"dashboard")};
  /* Ask the server who this is. The session cookie is HttpOnly, so the browser cannot
@@ -143,7 +147,7 @@ export default function Home(){
  {active==="dashboard"&&(role==="Requestor"?<RequestorDashboard rows={mine} open={setDrawer} create={()=>setForm(true)} go={setActive}/>:role==="Accountant"||role==="Auditor"?<RoleDashboard role={role} payments={filtered} auditTasks={auditTasks} open={setDrawer} go={setActive}/>:<Dashboard payments={filtered} go={setActive}/>)}
  {active==="dashboard"&&visible.some(n=>n.id==="organisation")&&<div className="page wf-dash-wrap"><WorkforceOverview openProfile={setProfile} go={()=>setActive("organisation")}/></div>}
  {active==="requests"&&<RequestorWorkspace rows={role==="Requestor"?mine:filtered} open={setDrawer} create={()=>setForm(true)}/>}
- {active==="payments"&&(role==="Auditor"?<AuditQueueHub payments={filtered} tasks={auditTasks} openPayment={setDrawer} accept={acceptAuditTask}/>:<PaymentWorkbench onDelete={removeRequest} rows={filtered} role={role} search={search} setSearch={setSearch} open={setDrawer} create={()=>setForm(true)}/>)}
+ {active==="payments"&&<PaymentWorkbench onDelete={removeRequest} rows={filtered} role={role} search={search} setSearch={setSearch} open={setDrawer} create={()=>setForm(true)}/>}
  {active==="scheduled"&&<ScheduledPayments role={role} flash={flash}/>}
  {active==="preaudit"&&<AuditTaskQueue title="Pre-audit tasks" kind="Pre-Audit" tasks={auditTasks} role={role} accept={acceptAuditTask} update={updateAuditTask} openImport={()=>setActive("imports")}/>} 
  {active==="postaudit"&&<AuditTaskQueue title="Post-audit tasks" kind="Post-Audit" tasks={auditTasks} role={role} accept={acceptAuditTask} update={updateAuditTask} openImport={()=>setActive("imports")}/>} 
@@ -157,10 +161,11 @@ export default function Home(){
  {active==="organisation"&&<OrgChart readOnly={viewOnly} openProfile={setProfile} flash={flash}/>}
  {active==="employees"&&<EmployeeDirectory readOnly={viewOnly} openProfile={setProfile} flash={flash}
    openJd={(id:string)=>{setJdFor(id);setActive("workjd")}}/>}
- {active==="worktasks"&&<TaskBoard openProfile={setProfile} flash={flash}/>}
- {active==="work"&&<WorkPeriod frequency={period} onFrequency={f=>setPeriod(f as "Daily"|"Weekly"|"Monthly")} openProfile={setProfile} flash={flash}/>}
+ {active==="worktasks"&&(period==="Tasks"?<TaskBoard tabs={taskTabs} openProfile={setProfile} flash={flash}/>:<WorkPeriod tabs={taskTabs} frequency={period} openProfile={setProfile} flash={flash}/>)}
  
  
+ 
+ {active==="training"&&<TrainingDesk flash={flash}/>}
  {active==="worktokens"&&<TokenDesk openProfile={setProfile} flash={flash}/>}
  {active==="workimport"&&<TaskImport flash={flash} go={v=>setActive(v as Module)}/>}
  {active==="workjd"&&<JobDescription employeeId={jdFor} openProfile={setProfile}

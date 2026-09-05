@@ -11,7 +11,7 @@ const blank=(employeeId:string,deptId:string,actor:string,frequency:Frequency="D
   employeeId,deptId,name:"",frequency,period:periodOf(frequency,today()),start:today(),due:today(),
   priority:"Medium",assignedBy:actor,status:"Not Started",progress:0,qty:0,done:0});
 
-export function TaskBoard({openProfile,flash}:{openProfile:(id:string)=>void;flash:(m:string)=>void}){
+export function TaskBoard({openProfile,flash,tabs}:{tabs?:React.ReactNode;openProfile:(id:string)=>void;flash:(m:string)=>void}){
   const wf=useWorkforce();
   const [raw,setRaw]=useState("");
   const [q,setQ]=useState("");
@@ -28,6 +28,7 @@ export function TaskBoard({openProfile,flash}:{openProfile:(id:string)=>void;fla
   const total=data?.total||0;
 
   return <div className="page">
+    {tabs}
     <div className="intro"><div><small>WORK REGISTER</small><h2>All tasks</h2>
       <p>Filtered and paged on the server across the {wf.deptById(wf.dept)?.name||"selected"} chart.</p></div>
       <button className="primary" onClick={()=>setEdit({isNew:true,task:blank("",wf.dept,wf.actor)})}><Plus/>Assign task</button></div>
@@ -65,7 +66,7 @@ export function TaskBoard({openProfile,flash}:{openProfile:(id:string)=>void;fla
     {edit&&<TaskEditor task={edit.task} isNew={edit.isNew} close={()=>setEdit(null)} flash={flash}/>}
   </div>}
 
-export function WorkPeriod({frequency,flash,openProfile,onFrequency}:{onFrequency?:(f:Frequency)=>void;frequency:Frequency;flash:(m:string)=>void;openProfile:(id:string)=>void}){
+export function WorkPeriod({frequency,flash,openProfile,tabs}:{tabs?:React.ReactNode;frequency:Frequency;flash:(m:string)=>void;openProfile:(id:string)=>void}){
   const wf=useWorkforce();
   const [raw,setRaw]=useState("");
   const [picked,setPicked]=useState("");
@@ -103,13 +104,7 @@ export function WorkPeriod({frequency,flash,openProfile,onFrequency}:{onFrequenc
   const cell=(t:Task)=>frequency==="Daily"?dayLabel(t.due):frequency==="Weekly"?t.period:monthLabel(t.due);
 
   return <div className="page">
-    {/* Daily, weekly and monthly are the same board over a different period. Given an
-        onFrequency handler they are one screen and the period is chosen here. */}
-    {onFrequency&&<div className="wf-tabs wf-period-tabs">
-      {(["Daily","Weekly","Monthly"] as Frequency[]).map(f=>
-        <button key={f} className={frequency===f?"active":""}
-          onClick={()=>onFrequency(f)}>{f}</button>)}
-    </div>}
+    {tabs}
     <div className="intro"><div><small>{frequency.toUpperCase()} UPDATE</small><h2>{frequency} work</h2>
       <p>Pick an employee, review the period, and record progress against each task.</p></div>
       <div className="wf-head-tools">
