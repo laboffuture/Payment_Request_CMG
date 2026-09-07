@@ -2,7 +2,7 @@ import{desc,eq,sql}from"drizzle-orm";
 import{getDb}from"../../../../db";
 import{wfDepartments,wfEmployees,wfObsReplies,wfObsTags,wfObservations,wfQueries,wfRoles,wfTasks,wfTokens}from"../../../../db/schema";
 import{bad,oops}from"../../../../lib/workforce-api";
-import{requireAuth}from"../../../../lib/auth";
+import{requireAuth,seesAllWork}from"../../../../lib/auth";
 
 type Agg=Record<string,number>;
 
@@ -11,7 +11,7 @@ type Agg=Record<string,number>;
    years of task history the employee has. */
 export async function GET(req:Request){
   try{
-    const{response}=await requireAuth(req,"read");
+    const{actor,response}=await requireAuth(req,"read");
     if(response)return response;
     const id=new URL(req.url).searchParams.get("employeeId")||"";
     if(!id)return bad("employeeId is required");
@@ -97,5 +97,11 @@ export async function GET(req:Request){
         responseRate:n((obsAgg[0]||{}).tagged)
           ?Math.round(n((obsAgg[0]||{}).closedTagged)/n((obsAgg[0]||{}).tagged)*100):0},
       observations:taggedObs,
-      tasks:recentTasks,queries:recentQueries,tokens});
+      /* The profile stays readable - role, department, reporting line, the
+         headline figures - but the task list itself belongs to the person it was
+         assigned to, so it is withheld from everyone except them and the roles
+         that oversee the work. */
+      tasks:(seesAllWork(actor?.roles)||actor?.employeeId===id)?recentTasks:[],
+      tasksWithheld:!(seesAllWork(actor?.roles)||actor?.employeeId===id),
+      queries:recentQueries,tokens});
   }catch(e){return oops(e)}}

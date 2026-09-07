@@ -33,9 +33,9 @@ export default function EmployeeDirectory({openProfile,flash,openJd,readOnly}:{r
       flash(out.deactivated?`${e.name} marked inactive, history retained`:`${e.name} deleted`)}
     catch(err){flash(err instanceof Error?err.message:"Could not delete")}};
 
-  const exportPage=()=>csv([["Employee ID","Name","Designation","Department","Reports to","Email","Status"],
+  const exportPage=()=>csv([["Employee ID","Name","Designation","Department","Reports to","Email","Phone","Status"],
     ...rows.map(e=>[e.code,e.name,e.designation,e.department,
-      e.reportsTo||"",e.email,e.active?"Active":"Inactive"])],"employees-page.csv");
+      e.reportsTo||"",e.email,e.phone,e.active?"Active":"Inactive"])],"employees-page.csv");
 
   return <div className="page">
     <div className="intro"><div><small>WORKFORCE</small><h2>Employee register</h2>
@@ -61,13 +61,14 @@ export default function EmployeeDirectory({openProfile,flash,openJd,readOnly}:{r
       :loading&&!rows.length?<Loading/>
       :!rows.length?<Empty label="No employees match this filter."/>
       :<><div className="table-wrap"><table><thead><tr>
-        <th>EMPLOYEE</th><th>ID</th><th>DESIGNATION</th><th>DEPARTMENT</th><th>EMAIL</th><th>STATUS</th><th>ACTIONS</th></tr></thead>
+        <th>EMPLOYEE</th><th>DESIGNATION</th><th>DEPARTMENT</th><th>EMAIL</th><th>PHONE</th><th>STATUS</th><th>ACTIONS</th></tr></thead>
         <tbody>{rows.map(e=>{const r=wf.roleById(e.roleId);return <tr key={e.id}>
           <td><button className="wf-link" onClick={()=>openProfile(e.id)}>
             <Avatar employee={e} size={28} color={r?.color}/>{e.name}</button></td>
-          <td>{e.code}</td><td>{e.designation||"—"}</td>
+          <td>{e.designation||"—"}</td>
           <td>{wf.deptById(e.deptId)?.name||e.department||"—"}</td>
           <td>{e.email||"—"}</td>
+          <td>{e.phone||"—"}</td>
           <td><span className={`badge ${e.active?"green":"red"}`}>{e.active?"Active":"Inactive"}</span></td>
           <td><div className="wf-actions">
             <button onClick={()=>openProfile(e.id)}>Open</button>

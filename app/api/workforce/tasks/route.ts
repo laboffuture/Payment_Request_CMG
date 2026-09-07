@@ -1,11 +1,21 @@
-import{and,asc,count,desc,eq,like,lt,ne,sql}from"drizzle-orm";
+import{and,asc,count,desc,eq,like,lt,ne,or,sql}from"drizzle-orm";
 import{getDb}from"../../../../db";
 import{wfTasks}from"../../../../db/schema";
 import{actorOf,bad,num,oops,page,search,str,writeWithAudit}from"../../../../lib/workforce-api";
 import type{Row}from"../../../../lib/workforce-api";
-import{requireAuth}from"../../../../lib/auth";
+import{hasWriteRole,requireAuth,seesAllWork}from"../../../../lib/auth";
 
 const today=()=>new Date().toISOString().slice(0,10);
+
+/* Who may change this particular task: the person it was given to, the person who
+   gave it out, and the roles that oversee the work. Mirrors what GET will show, so
+   nobody is left looking at a task they cannot touch - or touching one they
+   cannot see. */
+type Actorish={name?:string;employeeId?:string;roles?:string[]}|null;
+const ownsTask=(actor:Actorish,t:{employeeId?:string;assignedBy?:string|null})=>{
+  const emp=str(actor?.employeeId);
+  const who=str(actor?.name).trim().toLowerCase();
+  return(!!emp&&t.employeeId===emp)||(!!who&&str(t.assignedBy).trim().toLowerCase()===who)};
 const shape=(t:Row)=>({id:str(t.id),seriesId:str(t.seriesId),name:str(t.name),description:str(t.description),
   frequency:str(t.frequency,"Daily"),period:str(t.period),start:str(t.start),due:str(t.due),
   priority:str(t.priority,"Medium"),employeeId:str(t.employeeId),deptId:str(t.deptId,"d-group"),
@@ -16,8 +26,24 @@ const shape=(t:Row)=>({id:str(t.id),seriesId:str(t.seriesId),name:str(t.name),de
 
 export async function GET(req:Request){
   try{
-    const{response}=await requireAuth(req,"read");
+    const{actor,response}=await requireAuth(req,"read");
     if(response)return response;
+
+    /* A task belongs to the person it was assigned to. Everybody else's work is not
+       theirs to see, so the list is narrowed here rather than in the browser - an
+       employeeId in the query cannot widen it, only narrow it further.
+
+       The roles that assign and oversee the work still see all of it; without that
+       nobody could check whether anything was actually being done. */
+    const seesEverything=seesAllWork(actor?.roles);
+    const mine=str(actor?.employeeId);
+    /* Whoever handed the task out keeps sight of it too - an Accountant may assign
+       work without being one of the roles that sees everything, and would otherwise
+       lose the task the moment they created it. assignedBy carries the name. */
+    const who=str(actor?.name).trim().toLowerCase();
+    if(!seesEverything&&!mine&&!who)
+      // a login with no employee record and no name has no work of its own to show
+      return Response.json({tasks:[],total:0,limit:0,offset:0,scoped:true});
     const url=new URL(req.url);
     const{limit,offset}=page(url);
     const db=await getDb();
@@ -30,6 +56,9 @@ export async function GET(req:Request){
     const q=search(url.searchParams.get("q"));
     const filters=[
       employeeId?eq(wfTasks.employeeId,employeeId):undefined,
+      seesEverything?undefined:or(
+        mine?eq(wfTasks.employeeId,mine):undefined,
+        who?sql`lower(${wfTasks.assignedBy}) = ${who}`:undefined),
       deptId?eq(wfTasks.deptId,deptId):undefined,
       frequency?eq(wfTasks.frequency,frequency):undefined,
       status==="Overdue"?and(lt(wfTasks.due,today()),ne(wfTasks.status,"Completed"),ne(wfTasks.status,"Cancelled"))
@@ -41,7 +70,7 @@ export async function GET(req:Request){
     const [rows,[total]]=await Promise.all([
       db.select().from(wfTasks).where(where).orderBy(desc(wfTasks.due)).limit(limit).offset(offset),
       db.select({n:count()}).from(wfTasks).where(where)]);
-    return Response.json({tasks:rows,total:total?.n??0,limit,offset});
+    return Response.json({tasks:rows,total:total?.n??0,limit,offset,scoped:!seesEverything});
   }catch(e){return oops(e)}}
 
 export async function POST(req:Request){
@@ -59,24 +88,47 @@ export async function POST(req:Request){
 
 export async function PATCH(req:Request){
   try{
-    const{response}=await requireAuth(req,"write");
+    /* Only "read" here: the person the task was given to must be able to move it on
+       even when their role cannot otherwise change data. Anyone else still needs a
+       write role, checked below once we know whose task this is. */
+    const{actor,response}=await requireAuth(req,"read");
     if(response)return response;
     const body=await req.json() as Row;
     const id=str(body.id);
     if(!id)return bad("id is required");
-    const row=shape(body);
-    await writeWithAudit([(await getDb()).update(wfTasks).set(row).where(eq(wfTasks.id,id))],
-      actorOf(req,body),"task",id,"Task updated",`${row.name} · ${row.status} ${row.progress}%`);
-    return Response.json({task:row});
+
+    const db=await getDb();
+    const [current]=await db.select().from(wfTasks).where(eq(wfTasks.id,id)).limit(1);
+    if(!current)return bad("Not found",404);
+    const mine=!!actor?.employeeId&&current.employeeId===actor.employeeId;
+    if(!mine&&!hasWriteRole(actor?.roles))
+      return bad("That task belongs to somebody else.",403);
+    if(!seesAllWork(actor?.roles)&&!ownsTask(actor,current))
+      return bad("That task belongs to somebody else.",403);
+
+    /* Merge onto what is stored. shape() fills every absent field with a default, so
+       writing it whole would blank whatever the caller happened not to send. */
+    const shaped=shape({...current,...body});
+    const row=Object.fromEntries(Object.entries(shaped)
+      .filter(([k])=>k==="updatedAt"||Object.prototype.hasOwnProperty.call(body,k))) as typeof shaped;
+    await writeWithAudit([db.update(wfTasks).set(row).where(eq(wfTasks.id,id))],
+      actorOf(req,body),"task",id,"Task updated",
+      `${shaped.name} · ${shaped.status} ${shaped.progress}%`);
+    return Response.json({task:{...current,...row}});
   }catch(e){return oops(e)}}
 
 export async function DELETE(req:Request){
   try{
-    const{response}=await requireAuth(req,"write");
+    const{actor,response}=await requireAuth(req,"write");
     if(response)return response;
     const id=new URL(req.url).searchParams.get("id")||"";
     if(!id)return bad("id is required");
-    await writeWithAudit([(await getDb()).delete(wfTasks).where(eq(wfTasks.id,id))],
+    const db=await getDb();
+    const [current]=await db.select().from(wfTasks).where(eq(wfTasks.id,id)).limit(1);
+    if(!current)return bad("Not found",404);
+    if(!seesAllWork(actor?.roles)&&!ownsTask(actor,current))
+      return bad("That task belongs to somebody else.",403);
+    await writeWithAudit([db.delete(wfTasks).where(eq(wfTasks.id,id))],
       actorOf(req),"task",id,"Task deleted",id);
     return Response.json({deleted:true});
   }catch(e){return oops(e)}}

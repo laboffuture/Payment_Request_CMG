@@ -203,6 +203,7 @@ export function TaskEditor({task,isNew,close,flash}:{task:Partial<Task>;isNew:bo
   const wf=useWorkforce();
   const [t,setT]=useState<Partial<Task>>(task);
   const [busy,setBusy]=useState(false);
+  const [files,setFiles]=useState<File[]>([]);
   const [people,setPeople]=useState<Employee[]>([]);
   const set=<K extends keyof Task>(k:K,v:Task[K])=>setT(p=>{
     const n:Partial<Task>={...p,[k]:v};
@@ -214,7 +215,16 @@ export function TaskEditor({task,isNew,close,flash}:{task:Partial<Task>;isNew:bo
     if(q.length<2)return setPeople([]);
     try{const r=await wf.api.employees({q,limit:20,active:"1"});setPeople(r.employees)}catch{setPeople([])}};
   const submit=async(e:React.FormEvent)=>{e.preventDefault();setBusy(true);
-    try{await wf.api.saveTask(normalise(t as Task),isNew);flash(isNew?`${t.name} assigned`:`${t.name} updated`);close()}
+    try{
+      const saved=await wf.api.saveTask(normalise(t as Task),isNew);
+      for(const file of files){
+        try{const dataUrl=await asDataUrl(file);
+          await fetch("/api/attachments",{method:"POST",headers:{"content-type":"application/json"},
+            body:JSON.stringify({entityType:"task",entityId:saved.id,kind:"Other",fileName:file.name,dataUrl})});
+        }catch{}}
+      flash(files.length?`${t.name} saved with ${files.length} document${files.length===1?"":"s"}`
+        :isNew?`${t.name} assigned`:`${t.name} updated`);
+      close()}
     catch(err){flash(err instanceof Error?err.message:"Could not save")}finally{setBusy(false)}};
 
   return <><button className="overlay" onClick={close}/><form className="modal wf-tall" onSubmit={submit}>
@@ -243,6 +253,14 @@ export function TaskEditor({task,isNew,close,flash}:{task:Partial<Task>;isNew:bo
       <label className="wide">Remarks<textarea value={t.remarks||""} onChange={e=>set("remarks",e.target.value)}/></label>
       {!isNew&&t.id&&<div className="wide">
         <Attachments entityType="task" entityId={t.id} flash={flash}/></div>}
+      {/* A new task has no id yet, so its documents are collected here and uploaded once
+          it exists. Editing an existing one uses the panel above instead. */}
+      {isNew&&<label className="wide upload">
+        <input type="file" multiple accept="image/*,application/pdf,.doc,.docx,.xls,.xlsx,.csv,.txt,.zip"
+          onChange={e=>setFiles(Array.from(e.target.files||[]))}/>
+        <Upload/><b>Attach supporting documents</b>
+        <small>Images, PDF, Word, Excel, CSV or ZIP — up to 15 MB each</small>
+        {files.length>0&&<small className="upload-list">{files.length} file{files.length===1?"":"s"}: {files.map(f=>f.name).join(", ")}</small>}</label>}
     </div>
     <footer>
       {!isNew&&<button type="button" className="wf-danger" onClick={async()=>{
