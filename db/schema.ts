@@ -2,6 +2,7 @@ import{sql}from"drizzle-orm";import{index,integer,real,sqliteTable,text}from"dri
 export const paymentRequests=sqliteTable("payment_requests",{id:integer("id").primaryKey({autoIncrement:true}),requestNo:text("request_no").notNull().unique(),company:text("company").notNull(),department:text("department").notNull(),vendor:text("vendor").notNull(),amount:real("amount").notNull(),currency:text("currency").notNull(),due:text("due_date").notNull(),urgency:text("urgency").notNull().default("Normal"),status:text("status").notNull().default("Submitted"),owner:text("owner").notNull().default("Accountant queue"),description:text("description").notNull().default(""),createdAt:text("created_at").notNull().default(sql`CURRENT_TIMESTAMP`),updatedAt:text("updated_at").notNull().default(sql`CURRENT_TIMESTAMP`),
   raisedBy:text("raised_by").notNull().default(""),
   poNumber:text("po_number").notNull().default(""),
+  nature:text("nature").notNull().default(""),
   rejectionNote:text("rejection_note").notNull().default(""),
   rejectedBy:text("rejected_by").notNull().default(""),
   rejectedAt:text("rejected_at").notNull().default(""),
