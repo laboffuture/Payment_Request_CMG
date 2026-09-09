@@ -1,8 +1,9 @@
 "use client";
+import{useOptions}from"./options-store";
 import{useCallback,useEffect,useRef,useState}from"react";
 import{Download,FileText,Paperclip,Trash2,Upload}from"lucide-react";
 
-export const ATTACH_KINDS=["Invoice","Proforma invoice","Purchase order","Delivery order",
+export const ATTACH_FALLBACK=["Invoice","Proforma invoice","Purchase order","Delivery order",
   "Quotation","Contract","Bank/payment proof","Statement","Reconciliation","Photo","Other"];
 
 export type Attachment={id:string;kind:string;fileName:string;mime:string;bytes:number;
@@ -20,6 +21,7 @@ export const asDataUrl=(file:File)=>new Promise<string>((resolve,reject)=>{
    all, and the same panel serves tickets, tasks, batches and observations. */
 export default function Attachments({entityType,entityId,flash,readOnly}:{
   entityType:string;entityId:string;flash:(m:string)=>void;readOnly?:boolean}){
+  const kinds=useOptions("attachment.kind",ATTACH_FALLBACK);
   const [rows,setRows]=useState<Attachment[]>([]);
   const [kind,setKind]=useState("Invoice");
   const [limit,setLimit]=useState(0);
@@ -75,7 +77,7 @@ export default function Attachments({entityType,entityId,flash,readOnly}:{
     {!readOnly&&<div className="wf-attach-add">
       <label>Document type
         <select value={kind} onChange={e=>setKind(e.target.value)}>
-          {ATTACH_KINDS.map(k=><option key={k}>{k}</option>)}</select></label>
+          {kinds.map(k=><option key={k}>{k}</option>)}</select></label>
       <button type="button" className="wf-small" disabled={busy}
         onClick={()=>input.current?.click()}>
         <Upload/>{busy?"Uploading…":"Choose files"}</button>

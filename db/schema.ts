@@ -4,20 +4,39 @@ export const paymentRequests=sqliteTable("payment_requests",{id:integer("id").pr
   poNumber:text("po_number").notNull().default(""),
   nature:text("nature").notNull().default(""),
   tds:text("tds").notNull().default(""),
+  extra:text("extra").notNull().default(""),
   rejectionNote:text("rejection_note").notNull().default(""),
   rejectedBy:text("rejected_by").notNull().default(""),
   rejectedAt:text("rejected_at").notNull().default(""),
   resubmitNote:text("resubmit_note").notNull().default(""),
   resubmittedAt:text("resubmitted_at").notNull().default("")});
-/* The kinds of payment a request can be raised for. Maintained by an administrator
-   rather than written into the form, because which kinds exist changes with the
-   business. Requests keep the name they were raised with, so retiring one here never
-   rewrites history. */
-export const paymentNatures=sqliteTable("payment_natures",{
+/* Master data an administrator maintains from the Settings screen.
+
+   setting_options holds the choices behind a dropdown; which dropdowns exist is a
+   registry in the code, because each one is wired to a place in a form. Only lists
+   that are pure vocabulary appear there - a workflow status is not one of these,
+   since the code branches on its value.
+
+   setting_fields holds extra fields added to a form. Their values ride along with the
+   record they were filled in on, so retiring a field never rewrites old records. */
+export const settingOptions=sqliteTable("setting_options",{
   id:text("id").primaryKey(),
+  listId:text("list_id").notNull(),
   name:text("name").notNull(),
   position:integer("position").notNull().default(0),
-  active:integer("active").notNull().default(1)});
+  active:integer("active").notNull().default(1)},
+  t=>[index("set_opt_list_idx").on(t.listId,t.position)]);
+
+export const settingFields=sqliteTable("setting_fields",{
+  id:text("id").primaryKey(),
+  form:text("form").notNull(),
+  label:text("label").notNull(),
+  type:text("type").notNull().default("text"),
+  options:text("options").notNull().default(""),
+  required:integer("required").notNull().default(0),
+  position:integer("position").notNull().default(0),
+  active:integer("active").notNull().default(1)},
+  t=>[index("set_fld_form_idx").on(t.form,t.position)]);
 
 export const auditLogs=sqliteTable("audit_logs",{id:integer("id").primaryKey({autoIncrement:true}),recordId:integer("record_id").notNull(),action:text("action").notNull(),previousValue:text("previous_value").notNull().default(""),newValue:text("new_value").notNull().default(""),actor:text("actor").notNull().default("Demo user"),createdAt:text("created_at").notNull().default(sql`CURRENT_TIMESTAMP`)});
 export const adminCredentials=sqliteTable("admin_credentials",{id:integer("id").primaryKey({autoIncrement:true}),email:text("email").notNull().unique(),passwordHash:text("password_hash").notNull(),salt:text("salt").notNull(),updatedAt:text("updated_at").notNull().default(sql`CURRENT_TIMESTAMP`)});

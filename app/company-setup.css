@@ -1,21 +1,2 @@
 .company-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}.company-grid article{padding:0}.company-grid article>div{display:flex;align-items:center;gap:9px;padding:15px;border-bottom:1px solid #e7ebf0}.company-grid article i{width:34px;height:34px;display:grid;place-items:center;border-radius:8px;background:#edf3f9;color:#244d7b}.company-grid article i svg{width:17px}.company-grid h3{font-size:13px;margin:0}.company-grid small{font-size:8px;color:#778394}.company-grid em{margin-left:auto}.company-grid dl{display:grid;grid-template-columns:1fr 1fr;margin:0;padding:12px 15px;gap:9px}.company-grid dl div{min-width:0}.company-grid dt{font-size:7px;color:#85909f;text-transform:uppercase}.company-grid dd{font-size:9px;margin:3px 0 0;overflow:hidden;text-overflow:ellipsis}.company-grid footer{display:flex;gap:7px;padding:11px 15px;border-top:1px solid #e7ebf0}.company-grid footer button{display:flex;align-items:center;gap:5px;border:1px solid #c9d2dc;background:#f6f8fa;border-radius:6px;padding:7px 9px;font-size:8px;font-weight:800}.company-grid footer svg{width:13px}.company-grid .delete-company{color:#a8332b;background:#fff6f5;border-color:#efc5c0}.company-empty{padding:30px;text-align:center;color:#748091}@media(max-width:1000px){.company-grid{grid-template-columns:1fr 1fr}}@media(max-width:620px){.company-grid{grid-template-columns:1fr}}
 
-/* Nature of payment master, administrator only */
-.nature-master{margin-top:18px;padding:0}
-.nature-master .panel-head{padding:14px 17px;margin:0}
-.nature-note{margin:0;padding:0 17px 12px;font-size:11px;color:#667085}
-.nature-add{display:flex;gap:8px;padding:0 17px 14px}
-.nature-add input{flex:1;max-width:340px;border:1px solid var(--line);border-radius:7px;
-  padding:9px 11px;font-size:11px;background:#fff}
-.nature-add button{white-space:nowrap}
-.nature-add button svg{width:14px;height:14px}
-.nature-error{margin:0;padding:0 17px 12px;font-size:11px;color:var(--red)}
-.nature-list{list-style:none;margin:0;padding:0;border-top:1px solid var(--line)}
-.nature-list li{display:flex;align-items:center;gap:10px;padding:11px 17px;
-  border-bottom:1px solid #edf1ef;font-size:12px}
-.nature-list li>span{flex:1}
-.nature-list li>button{border:1px solid var(--line);background:#fff;border-radius:6px;
-  padding:6px 9px;font-size:10px;cursor:pointer;display:flex;align-items:center;gap:5px}
-.nature-list li>button svg{width:12px;height:12px}
-.nature-list li>button:disabled{opacity:.5;cursor:not-allowed}
-.nature-empty{color:var(--muted);font-size:11px}

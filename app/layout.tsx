@@ -20,6 +20,7 @@ import "./scheduled-payments.css";
 import "./audit-main-tabs.css";
 import "./scheduled-fix.css";
 import "./workforce.css";
+import "./settings.css";
 import "./sidebar-scroll.css";
 export const metadata:Metadata={title:"CMG Payment Request",description:"Every audit task, observation, document, and decision in one controlled system.",icons:{icon:"/favicon.svg"}};
 export default function RootLayout({children}:{children:React.ReactNode}){return <html lang="en"><body>{children}</body></html>}

@@ -1,0 +1,46 @@
+/* Settings: master data for an administrator */
+.settings-tabs{display:flex;gap:6px;margin-bottom:14px}
+.settings-tabs button{border:1px solid var(--line);background:#fff;border-radius:8px;
+  padding:8px 13px;font-size:11px;cursor:pointer;color:#667085}
+.settings-tabs button.active{background:#0b1d3a;border-color:#0b1d3a;color:#fff;font-weight:600}
+.settings-body{display:grid;grid-template-columns:230px 1fr;gap:14px;align-items:start}
+.settings-side{display:flex;flex-direction:column;gap:6px}
+.settings-side button{text-align:left;border:1px solid var(--line);background:#fff;
+  border-radius:9px;padding:10px 12px;cursor:pointer}
+.settings-side button.active{border-color:#0b1d3a;box-shadow:inset 3px 0 #c9a227}
+.settings-side b{display:block;font-size:12px;font-weight:600}
+.settings-side small{display:block;font-size:10px;color:var(--muted);margin-top:2px}
+.settings-main{padding:0;overflow:hidden}
+.settings-main .panel-head{padding:14px 17px;margin:0}
+.settings-note{margin:0;padding:0 17px 12px;font-size:11px;color:#667085;max-width:60ch}
+.settings-add{display:flex;gap:8px;padding:0 17px 14px}
+.settings-add input{flex:1;max-width:360px;border:1px solid var(--line);border-radius:7px;
+  padding:9px 11px;font-size:11px;background:#fff}
+.settings-field-add{display:grid;grid-template-columns:1fr 160px;gap:10px;padding:0 17px 15px;
+  align-items:end}
+.settings-field-add label{font-size:10px;color:var(--muted)}
+.settings-field-add .wide{grid-column:span 2}
+.settings-field-add input[type=text],.settings-field-add input:not([type]),
+.settings-field-add select{display:block;width:100%;border:1px solid var(--line);
+  border-radius:7px;padding:9px 10px;margin-top:5px;font-size:11px;background:#fff}
+.settings-check{display:flex;align-items:center;gap:7px;font-size:11px;color:var(--ink)}
+.settings-check input{margin:0}
+.settings-field-add>button{grid-column:span 2;justify-self:start}
+.settings-add button svg,.settings-field-add button svg{width:14px;height:14px}
+.settings-error{margin:0;padding:0 17px 12px;font-size:11px;color:var(--red)}
+.settings-list{list-style:none;margin:0;padding:0;border-top:1px solid var(--line)}
+.settings-list li{display:flex;align-items:center;gap:10px;padding:11px 17px;
+  border-bottom:1px solid #edf1ef;font-size:12px}
+.settings-list li>span{flex:1}
+.settings-list li>span small{display:block;font-size:10px;color:var(--muted);margin-top:2px}
+.settings-req{font-style:normal;font-size:9px;color:#b86b08;margin-left:6px}
+.settings-list li>button{border:1px solid var(--line);background:#fff;border-radius:6px;
+  padding:6px 9px;font-size:10px;cursor:pointer;display:flex;align-items:center;gap:5px}
+.settings-list li>button svg{width:12px;height:12px}
+.settings-list li>button:disabled{opacity:.5;cursor:not-allowed}
+.settings-list li>button.settings-delete:hover{border-color:var(--red);color:var(--red)}
+.settings-empty{color:var(--muted);font-size:11px}
+@media(max-width:900px){.settings-body{grid-template-columns:1fr}
+  .settings-side{flex-direction:row;flex-wrap:wrap}
+  .settings-field-add{grid-template-columns:1fr}
+  .settings-field-add .wide,.settings-field-add>button{grid-column:span 1}}

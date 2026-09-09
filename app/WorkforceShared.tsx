@@ -1,4 +1,5 @@
 "use client";
+import{useOptions}from"./options-store";
 import{useRef,useState}from"react";
 import{Camera,Loader2,Trash2,X,Upload}from"lucide-react";
 import Attachments,{asDataUrl} from"./Attachments";
@@ -200,6 +201,7 @@ export function EmployeeEditor({employee,close,flash}:{employee:Partial<Employee
 
 /* ---------- task editor ---------- */
 export function TaskEditor({task,isNew,close,flash}:{task:Partial<Task>;isNew:boolean;close:()=>void;flash:(m:string)=>void}){
+  const priorityChoices=useOptions("task.priority",priorities);
   const wf=useWorkforce();
   const [t,setT]=useState<Partial<Task>>(task);
   const [busy,setBusy]=useState(false);
@@ -235,7 +237,7 @@ export function TaskEditor({task,isNew,close,flash}:{task:Partial<Task>;isNew:bo
       <label>Frequency<select value={t.frequency||"Daily"} onChange={e=>set("frequency",e.target.value as Frequency)}>
         {frequencies.map(f=><option key={f}>{f}</option>)}</select></label>
       <label>Priority<select value={t.priority||"Medium"} onChange={e=>set("priority",e.target.value as Priority)}>
-        {priorities.map(p=><option key={p}>{p}</option>)}</select></label>
+        {priorityChoices.map(p=><option key={p}>{p}</option>)}</select></label>
       <label className="wide">Assigned employee
         <input placeholder="Type a name to search" onChange={e=>search(e.target.value)}/>
         <select value={t.employeeId||""} onChange={e=>set("employeeId",e.target.value)} required>
@@ -274,6 +276,7 @@ export function TaskEditor({task,isNew,close,flash}:{task:Partial<Task>;isNew:bo
 
 /* ---------- token editor ---------- */
 export function TokenEditor({token,isNew,close,flash}:{token:Partial<Token>;isNew:boolean;close:()=>void;flash:(m:string)=>void}){
+  const priorityChoices=useOptions("task.priority",priorities);
   const wf=useWorkforce();
   const [t,setT]=useState<Partial<Token>>(token);
   const [busy,setBusy]=useState(false);
@@ -317,7 +320,7 @@ export function TokenEditor({token,isNew,close,flash}:{token:Partial<Token>;isNe
       <label>Created date<input type="date" value={t.created||today()} onChange={e=>set("created",e.target.value)}/></label>
       <label>Reference / batch<input value={t.reference||""} onChange={e=>set("reference",e.target.value)}/></label>
       <label>Priority<select value={t.priority||"Medium"} onChange={e=>set("priority",e.target.value as Priority)}>
-        {priorities.map(p=><option key={p}>{p}</option>)}</select></label>
+        {priorityChoices.map(p=><option key={p}>{p}</option>)}</select></label>
       <label>Status<select value={t.status||"Not Started"} onChange={e=>set("status",e.target.value as WorkStatus)}>
         {statuses.filter(s=>s!=="Overdue").map(s=><option key={s}>{s}</option>)}</select></label>
       <label className="wide">Remarks<textarea value={t.remarks||""} onChange={e=>set("remarks",e.target.value)}/></label>
@@ -343,6 +346,7 @@ export function TokenEditor({token,isNew,close,flash}:{token:Partial<Token>;isNe
 
 /* ---------- query editor ---------- */
 export function QueryEditor({query,isNew,close,flash}:{query:Partial<Query>;isNew:boolean;close:()=>void;flash:(m:string)=>void}){
+  const priorityChoices=useOptions("task.priority",priorities);
   const wf=useWorkforce();
   const [q,setQ]=useState<Partial<Query>>(query);
   const [busy,setBusy]=useState(false);
@@ -373,7 +377,7 @@ export function QueryEditor({query,isNew,close,flash}:{query:Partial<Query>;isNe
           {people.map(p=><option key={p.id} value={p.id}>{p.name}</option>)}</select></label>
       <label>Raised by<input value={q.raisedBy===undefined?wf.actor:q.raisedBy} onChange={e=>set("raisedBy",e.target.value)}/></label>
       <label>Priority<select value={q.priority||"Medium"} onChange={e=>set("priority",e.target.value as Priority)}>
-        {priorities.map(p=><option key={p}>{p}</option>)}</select></label>
+        {priorityChoices.map(p=><option key={p}>{p}</option>)}</select></label>
       <label>Status<select value={q.status||"Open"} onChange={e=>set("status",e.target.value as QueryStatus)}>
         {queryStatuses.map(s=><option key={s}>{s}</option>)}</select></label>
       <label>Response due<input type="date" value={q.dueAt||""} onChange={e=>set("dueAt",e.target.value)}/></label>
