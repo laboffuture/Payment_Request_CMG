@@ -94,7 +94,7 @@ export default function ScheduledPayments({
   );
   return (
     <div className="page scheduled">
-      <div className="intro">
+      <div className="intro intro-lead">
         <div>
           <small>SCHEDULED PAYMENT CONTROL</small>
           <h2>Scheduled payment requests</h2>
