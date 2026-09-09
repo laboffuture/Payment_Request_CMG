@@ -9,6 +9,16 @@ export const paymentRequests=sqliteTable("payment_requests",{id:integer("id").pr
   rejectedAt:text("rejected_at").notNull().default(""),
   resubmitNote:text("resubmit_note").notNull().default(""),
   resubmittedAt:text("resubmitted_at").notNull().default("")});
+/* The kinds of payment a request can be raised for. Maintained by an administrator
+   rather than written into the form, because which kinds exist changes with the
+   business. Requests keep the name they were raised with, so retiring one here never
+   rewrites history. */
+export const paymentNatures=sqliteTable("payment_natures",{
+  id:text("id").primaryKey(),
+  name:text("name").notNull(),
+  position:integer("position").notNull().default(0),
+  active:integer("active").notNull().default(1)});
+
 export const auditLogs=sqliteTable("audit_logs",{id:integer("id").primaryKey({autoIncrement:true}),recordId:integer("record_id").notNull(),action:text("action").notNull(),previousValue:text("previous_value").notNull().default(""),newValue:text("new_value").notNull().default(""),actor:text("actor").notNull().default("Demo user"),createdAt:text("created_at").notNull().default(sql`CURRENT_TIMESTAMP`)});
 export const adminCredentials=sqliteTable("admin_credentials",{id:integer("id").primaryKey({autoIncrement:true}),email:text("email").notNull().unique(),passwordHash:text("password_hash").notNull(),salt:text("salt").notNull(),updatedAt:text("updated_at").notNull().default(sql`CURRENT_TIMESTAMP`)});
 
