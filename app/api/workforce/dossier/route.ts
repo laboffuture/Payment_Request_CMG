@@ -1,6 +1,6 @@
 import{desc,eq,sql}from"drizzle-orm";
 import{getDb}from"../../../../db";
-import{wfDepartments,wfEmployees,wfObsReplies,wfObsTags,wfObservations,wfQueries,wfRoles,wfTasks,wfTokens}from"../../../../db/schema";
+import{wfDepartments,wfEmployees,wfQueries,wfRoles,wfTasks,wfTokens}from"../../../../db/schema";
 import{bad,oops}from"../../../../lib/workforce-api";
 import{requireAuth,seesAllWork}from"../../../../lib/auth";
 
@@ -21,7 +21,7 @@ export async function GET(req:Request){
     const [employee]=await db.select().from(wfEmployees).where(eq(wfEmployees.id,id)).limit(1);
     if(!employee)return bad("Employee not found",404);
 
-    const [taskAgg,queryAgg,tokenAgg,recentTasks,recentQueries,tokens,role,dept,manager,reports,obsAgg,taggedObs]=await Promise.all([
+    const [taskAgg,queryAgg,tokenAgg,recentTasks,recentQueries,tokens,role,dept,manager,reports]=await Promise.all([
       db.all<Agg>(sql`SELECT
           COUNT(*) AS total,
           SUM(CASE WHEN status='Completed' THEN 1 ELSE 0 END) AS completed,
@@ -52,21 +52,7 @@ export async function GET(req:Request){
         ?db.select({id:wfEmployees.id,name:wfEmployees.name}).from(wfEmployees).where(eq(wfEmployees.id,employee.reportsTo)).limit(1)
         :Promise.resolve([]),
       db.select({id:wfEmployees.id,name:wfEmployees.name,code:wfEmployees.code,photoAt:wfEmployees.photoAt})
-        .from(wfEmployees).where(eq(wfEmployees.reportsTo,id)).limit(50),
-      // observations this person is tagged on, resolved through the indexed join table
-      db.all<Agg>(sql`SELECT
-          COUNT(*) AS tagged,
-          SUM(CASE WHEN o.status IN ('Open','Acknowledged') THEN 1 ELSE 0 END) AS openTagged,
-          SUM(CASE WHEN o.status IN ('Resolved','Closed') THEN 1 ELSE 0 END) AS closedTagged,
-          SUM(CASE WHEN o.status IN ('Open','Acknowledged') AND o.target<>'' AND o.target<${today}
-            THEN 1 ELSE 0 END) AS overdueTagged,
-          (SELECT COUNT(*) FROM wf_obs_replies WHERE employee_id=${id}) AS replies
-        FROM wf_obs_tags t JOIN wf_observations o ON o.id=t.observation_id
-        WHERE t.employee_id=${id}`),
-      db.all<Record<string,unknown>>(sql`SELECT o.id, o.ref, o.title, o.risk, o.status, o.target,
-          o.reply_count AS replyCount, o.raised_by AS raisedBy, o.raised_at AS raisedAt
-        FROM wf_obs_tags t JOIN wf_observations o ON o.id=t.observation_id
-        WHERE t.employee_id=${id} ORDER BY o.raised_at DESC LIMIT 25`)]);
+        .from(wfEmployees).where(eq(wfEmployees.reportsTo,id)).limit(50)]);
 
     const t=taskAgg[0]||{};
     const q=queryAgg[0]||{};
@@ -91,12 +77,6 @@ export async function GET(req:Request){
         followUpCount:n(q.followUpCount),
         resolutionRate:n(q.raised)?Math.round(n(q.resolved)/n(q.raised)*100):0},
       tokenStats:{tokens:n(k.tokens),qty:n(k.qty),done:n(k.done),pending:Math.max(n(k.qty)-n(k.done),0)},
-      observationStats:{tagged:n((obsAgg[0]||{}).tagged),open:n((obsAgg[0]||{}).openTagged),
-        closed:n((obsAgg[0]||{}).closedTagged),overdue:n((obsAgg[0]||{}).overdueTagged),
-        replies:n((obsAgg[0]||{}).replies),
-        responseRate:n((obsAgg[0]||{}).tagged)
-          ?Math.round(n((obsAgg[0]||{}).closedTagged)/n((obsAgg[0]||{}).tagged)*100):0},
-      observations:taggedObs,
       /* The profile stays readable - role, department, reporting line, the
          headline figures - but the task list itself belongs to the person it was
          assigned to, so it is withheld from everyone except them and the roles

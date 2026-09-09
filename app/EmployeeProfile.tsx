@@ -27,7 +27,6 @@ export function EmployeeProfile({id,close,flash,openProfile,openJd}:{
         <div className="detail-body"><ErrorBlock message={error||"Record not found"} retry={wf.refresh}/></div></>
     :(()=>{
       const{employee:e,role,department,manager,directReports,performance:p,queryStats:qs,tokenStats:ts}=data;
-      const os=data.observationStats||{tagged:0,open:0,closed:0,overdue:0,replies:0,responseRate:0};
       const jd=e.jd||role?.jd||"";
       const finished=p.onTime+p.late;
       return <>
@@ -94,20 +93,10 @@ export function EmployeeProfile({id,close,flash,openProfile,openJd}:{
             <progress value={qs.resolutionRate} max={100}/></label>
         </section>
 
-        <section><h4>Observations tagged to this employee</h4>
-          <div className="wf-summary wf-summary-5">
-            {[["Tagged",os.tagged],["Open",os.open],["Overdue",os.overdue],
-              ["Closed out",os.closed],["Replies written",os.replies]]
-              .map(x=><article key={String(x[0])}><span>{x[0]}</span><b>{x[1]}</b></article>)}
-          </div>
-          <label className="wf-rate-line">Response rate <b>{os.responseRate}%</b>
-            <progress value={os.responseRate} max={100}/></label>
-        </section>
 
         <Attachments entityType="employee" entityId={e.id} flash={flash}/>
         <div className="wf-tabs">
           {([["work",`Work (${data.tasks.length})`],["queries",`Queries (${data.queries.length})`],
-            ["observations",`Observations (${os.tagged})`],
             ["tokens",`Tokens (${ts.tokens})`],["team",`Team (${directReports.length})`]] as [Tab,string][])
             .map(([k,label])=><button key={k} className={tab===k?"active":""} onClick={()=>setTab(k)}>{label}</button>)}
         </div>
@@ -131,20 +120,6 @@ export function EmployeeProfile({id,close,flash,openProfile,openJd}:{
         </>}
 
         {tab==="queries"&&<QueryTable rows={data.queries} open={q=>setQueryEdit({query:q,isNew:false})}/>}
-        {tab==="observations"&&((data.observations||[]).length
-          ?<section><h4>Observation register</h4>
-            <div className="table-wrap wf-table"><table><thead><tr>
-              <th>REF</th><th>OBSERVATION</th><th>RISK</th><th>TARGET</th><th>REPLIES</th><th>STATUS</th></tr></thead>
-              <tbody>{(data.observations||[]).map(o=><tr key={o.id}>
-                <td><b>{o.ref}</b></td><td>{o.title}</td>
-                <td><span className={`badge ${o.risk.toLowerCase()}`}>{o.risk}</span></td>
-                <td>{o.target&&o.target<today()&&o.status==="Open"
-                  ?<span className="badge red">{o.target}</span>:o.target||"—"}</td>
-                <td>{o.replyCount}</td>
-                <td><span className={`badge ${o.status==="Resolved"||o.status==="Closed"?"green"
-                  :o.status==="Acknowledged"?"blue":"amber"}`}>{o.status}</span></td></tr>)}</tbody>
-            </table></div></section>
-          :<Empty label="No observations tagged to this employee."/>)}
         {tab==="tokens"&&<TokenTable rows={data.tokens} stats={ts}/>}
         {tab==="team"&&(directReports.length
           ?<div className="wf-reports">{directReports.map(r=><button key={r.id} onClick={()=>openProfile(r.id)}>
