@@ -255,6 +255,7 @@ export const wfAuditTasks=sqliteTable("wf_audit_tasks",{
   plannedEnd:text("planned_end").notNull().default(""),
   notes:text("notes").notNull().default(""),
   dataProvider:text("data_provider").notNull().default(""),
+  attendees:text("attendees").notNull().default(""),   // employee ids, comma separated
   createdAt:text("created_at").notNull().default(""),
   acceptedAt:text("accepted_at").notNull().default(""),
   completedAt:text("completed_at").notNull().default("")},

@@ -25,7 +25,7 @@ import {WorkforceOverview,WorkforceReports} from "./WorkforceReports";
 import {auditTasksApi,companiesApi} from "./audit-api";
 import JobDescription from "./JobDescription";
 type Payment={createdAt?:string;nature?:string;poNumber?:string;resubmitNote?:string;resubmittedAt?:string;rejectionNote?:string;rejectedBy?:string;rejectedAt?:string;raisedBy?:string;id:number;requestNo:string;company:string;vendor:string;amount:number;currency:string;due:string;urgency:string;status:string;owner:string;department:string};
-export type AuditTask={id:string;title:string;company:string;department:string;kind:"Pre-Audit"|"Post-Audit"|"Meeting"|"Special Audit";status:"Available"|"Accepted"|"In Progress"|"Observation Submitted"|"Response Received"|"Completed";due?:string;assignedTo?:string;plannedStart?:string;plannedEnd?:string;notes?:string;dataProvider?:string};
+export type AuditTask={attendees?:string;id:string;title:string;company:string;department:string;kind:"Pre-Audit"|"Post-Audit"|"Meeting"|"Special Audit";status:"Available"|"Accepted"|"In Progress"|"Observation Submitted"|"Response Received"|"Completed";due?:string;assignedTo?:string;plannedStart?:string;plannedEnd?:string;notes?:string;dataProvider?:string};
 type Module="dashboard"|"requests"|"payments"|"scheduled"|"preaudit"|"postaudit"|"specialaudit"|"observations"|"community"|"meetings"|"reports"|"companies"|"users"|"imports"|"organisation"|"employees"|"worktasks"|"training"|"worktokens"|"workjd"|"workreports";
 const seed:Payment[]=[];
 const auditSeed:AuditTask[]=[];
@@ -71,7 +71,7 @@ export default function Home(){
    const name=new Map(co.map(c=>[c.id,c.name]));
    setAuditTasks(d.tasks.map(t=>({id:t.id,title:t.title,company:name.get(t.companyId)||t.companyId||"—",
      department:t.department,kind:t.kind as AuditTask["kind"],status:t.status as AuditTask["status"],
-     due:t.due,assignedTo:t.assignedTo,plannedStart:t.plannedStart,plannedEnd:t.plannedEnd,
+     due:t.due,assignedTo:t.assignedTo,attendees:t.attendees,plannedStart:t.plannedStart,plannedEnd:t.plannedEnd,
      notes:t.notes,dataProvider:t.dataProvider})))}catch{}};
  useEffect(()=>{if(!userEmail)return;loadAuditTasks()},[userEmail]);
  // the company selector is driven by the companies actually in the database, not a fixed list
@@ -121,7 +121,7 @@ export default function Home(){
   }catch(e){flash(e instanceof Error?e.message:"That request could not be deleted")}};
  /* Meetings and audit tasks are the same record with a different kind, so one handler
     serves every queue. */
- const createAuditTask=async(kind:AuditTask["kind"],t:{title:string;department:string;companyId:string;due:string;notes:string})=>{
+ const createAuditTask=async(kind:AuditTask["kind"],t:{title:string;department:string;companyId:string;due:string;notes:string;attendees?:string})=>{
   try{await auditTasksApi.create({...t,kind,status:"Available"});await loadAuditTasks();
    flash(`${kind==="Meeting"?"Meeting":kind+" task"} created`)}
   catch(e){flash(e instanceof Error?e.message:"Could not create it")}};
