@@ -34,6 +34,9 @@ const specialAuditSeed:AuditTask[]=[];
    chat, companies, the audit queues, meetings and the scorecard still read browser
    state — their tables and APIs are ready but the screens are not yet wired, so they
    are held back rather than shown as if they saved. */
+/* This order is the menu order: `visible` filters this list, so every role sees the
+   screens in the same sequence and only the ones it may reach. The work people do
+   daily comes first; setup and reference screens sit below. */
 const nav:{id:Module;label:string;icon:any}[]=([
   ["dashboard","Dashboard",LayoutDashboard],
   ["requests","My payment requests",FileText],
@@ -43,23 +46,26 @@ const nav:{id:Module;label:string;icon:any}[]=([
   ["postaudit","Post-audit tasks",ShieldCheck],
   ["specialaudit","Special audits",AlertTriangle],
   ["meetings","Meetings",CalendarDays],
-  
+  ["worktasks","Tasks",ClipboardCheck],
+  ["worktokens","Tokens",ReceiptText],
+  ["training","Training",GraduationCap],
+  // below here: reference and setup, reached far less often
   ["community","Community chat",MessageSquareText],
   ["reports","Reports centre",FileBarChart],
   ["companies","Companies",Building2],
   ["users","Users & access",Users],
-  ["imports","Import centre",Import]] as [Module,string,any][])
+  ["imports","Import centre",Import],
+  ["organisation","Organisation",Building2],
+  ["employees","Employees",Users],
+  ["workjd","Job descriptions",FileText],
+  ["workreports","Workforce reports",FileBarChart]] as [Module,string,any][])
   .map(([id,label,icon])=>({id,label,icon}));
-const workforceNav:{id:Module;label:string;icon:any}[]=[
- {id:"organisation",label:"Organisation",icon:Building2},
- {id:"employees",label:"Employees",icon:Users},
- {id:"worktasks",label:"Tasks",icon:ClipboardCheck},
- {id:"worktokens",label:"Tokens",icon:ReceiptText},
- {id:"workjd",label:"Job descriptions",icon:FileText},
- {id:"training",label:"Training",icon:GraduationCap},
- {id:"workreports",label:"Workforce reports",icon:FileBarChart}];
-nav.push(...workforceNav);
-const workforceIds=workforceNav.map(n=>n.id);
+
+/* The workforce screens as a set. Management's access is defined as "the workforce
+   modules" rather than a list, so the group is still named even though the menu no
+   longer keeps them together. */
+const workforceIds:Module[]=["organisation","employees","worktasks","worktokens","workjd",
+  "training","workreports"];
 const tone:Record<string,string>={"Rejected":"red","Requested":"blue","Accountant Review":"amber","Pre-Audit Queue":"blue","Management Approval":"amber","Management Approval: Yes":"green","Management Approval: No":"red","Audit Rejected":"red","Audit Query":"red","Finance Queue":"violet","Approved by Auditor – Ready to Release":"green","Payment Released":"green","Reconciliation":"green","Audit Accepted":"blue","Audit Cleared":"green"};
 const access:Record<string,Module[]>={Administrator:nav.map(x=>x.id),Requestor:["dashboard","requests","organisation","employees","worktokens","meetings","community","training","reports"],Accountant:["dashboard","requests","payments","scheduled","organisation","employees","meetings","community","reports","worktasks","training"],Auditor:["dashboard","requests","payments","scheduled","organisation","employees","preaudit","postaudit","specialaudit","meetings","community","reports","worktasks","training"],Finance:["dashboard","payments","organisation","employees","workreports"],Management:["dashboard","payments",...workforceIds],"Audit Head":nav.map(x=>x.id)};
 export default function Home(){
