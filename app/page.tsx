@@ -52,13 +52,13 @@ const nav:{id:Module;label:string;icon:any}[]=([
   // below here: reference and setup, reached far less often
   ["community","Community chat",MessageSquareText],
   ["reports","Reports centre",FileBarChart],
-  ["settings","Settings",SlidersHorizontal],
   ["companies","Companies",Building2],
   ["users","Users & access",Users],
   ["imports","Import centre",Import],
   ["organisation","Organisation",Building2],
   ["employees","Employees",Users],
-  ["workreports","Workforce reports",FileBarChart]] as [Module,string,any][])
+  ["workreports","Workforce reports",FileBarChart],
+  ["settings","Settings",SlidersHorizontal]] as [Module,string,any][])
   .map(([id,label,icon])=>({id,label,icon}));
 
 /* The workforce screens as a set. Management's access is defined as "the workforce
