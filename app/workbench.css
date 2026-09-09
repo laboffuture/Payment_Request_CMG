@@ -13,3 +13,14 @@
   width:26px;height:26px;padding:0;cursor:pointer}
 .wb-delete:hover{background:#a43d38;border-color:#a43d38;color:#fff}
 .wb-delete svg{width:13px;height:13px}
+
+/* Due-date range in the workbench toolbar */
+.wb-tools .wb-range{display:flex;align-items:center;gap:6px;border:1px solid #d0d5dd;
+  background:#fff;border-radius:6px;padding:0 8px;min-width:auto;max-width:none;flex:none}
+.wb-tools .wb-range>span{font-size:9px;font-weight:800;letter-spacing:.06em;color:#8a93a3}
+.wb-tools .wb-range>i{font-style:normal;font-size:9px;color:#98a2b3}
+.wb-tools .wb-range input[type=date]{border:0;outline:0;padding:7px 2px;font-size:10px;
+  width:auto;background:none;color:inherit}
+.wb-tools .wb-range .wb-range-clear{border:0;background:none;padding:0 2px;font-size:13px;
+  line-height:1;color:#98a2b3;cursor:pointer}
+.wb-tools .wb-range .wb-range-clear:hover{color:var(--red)}
