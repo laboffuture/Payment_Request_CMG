@@ -10,7 +10,7 @@ const shape=(c:Row)=>({id:str(c.id),name:str(c.name),code:str(c.code),
   reminderDays:Math.max(0,Math.min(num(c.reminderDays)||2,90)),
   escalationDays:Math.max(0,Math.min(num(c.escalationDays)||5,90)),
   managementEmail:str(c.managementEmail).slice(0,200),
-  active:c.active===false?0:1,position:num(c.position)});
+  active:c.active===false?0:1,position:num(c.position),extra:str(c.extra)});
 
 export async function GET(req:Request){
   try{

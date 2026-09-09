@@ -1,6 +1,7 @@
 "use client";
+import{ExtraFields,packExtra,unpackExtra,useExtraFields}from"./ExtraFields";
 import{useOptions}from"./options-store";
-import{useRef,useState}from"react";
+import{useEffect,useRef,useState}from"react";
 import{Camera,Loader2,Trash2,X,Upload}from"lucide-react";
 import Attachments,{asDataUrl} from"./Attachments";
 import{frequencies,initials,normalise,periodOf,photoUrl,priorities,queryStatuses,readable,resizeImage,
@@ -148,6 +149,9 @@ export function RoleEditor({role,close,flash}:{role:Partial<Role>;close:()=>void
 
 /* ---------- employee editor ---------- */
 export function EmployeeEditor({employee,close,flash}:{employee:Partial<Employee>;close:()=>void;flash:(m:string)=>void}){
+  const xFields=useExtraFields("employee");
+  const[xVals,setXVals]=useState<Record<string,string>>({});
+  useEffect(()=>{setXVals(unpackExtra((employee as {extra?:string}).extra))},[employee]);
   const wf=useWorkforce();
   const [e,setE]=useState<Partial<Employee>>(employee);
   const [busy,setBusy]=useState(false);
@@ -155,7 +159,7 @@ export function EmployeeEditor({employee,close,flash}:{employee:Partial<Employee
   const isNew=!employee.code||!!employee.id?.startsWith("new-");
   const set=<K extends keyof Employee>(k:K,v:Employee[K])=>setE(p=>({...p,[k]:v}));
   const submit=async(ev:React.FormEvent)=>{ev.preventDefault();setBusy(true);
-    try{const saved=await wf.api.saveEmployee({...e,id:isNew?undefined:e.id},isNew);
+    try{const saved=await wf.api.saveEmployee({...e,extra:packExtra(xFields,xVals),id:isNew?undefined:e.id} as typeof e,isNew);
       flash(`${saved.name} saved`);close()}
     catch(err){flash(err instanceof Error?err.message:"Could not save")}finally{setBusy(false)}};
   // manager options are searched server-side rather than pre-loading the register
@@ -194,6 +198,7 @@ export function EmployeeEditor({employee,close,flash}:{employee:Partial<Employee
         <option>Active</option><option>Inactive</option></select></label>
       <label className="wide">Job description<textarea value={e.jd||""} onChange={x=>set("jd",x.target.value)}
         placeholder="Leave blank to inherit the job description from the role."/></label>
+          <ExtraFields form="employee" values={xVals} onChange={setXVals}/>
     </div>
     <footer><button type="button" onClick={close}>Cancel</button>
       <button className="primary" disabled={busy||!e.name||!e.code||!e.roleId}>{busy?"Saving…":"Save employee"}</button></footer>
@@ -201,6 +206,9 @@ export function EmployeeEditor({employee,close,flash}:{employee:Partial<Employee
 
 /* ---------- task editor ---------- */
 export function TaskEditor({task,isNew,close,flash}:{task:Partial<Task>;isNew:boolean;close:()=>void;flash:(m:string)=>void}){
+  const xFields=useExtraFields("task");
+  const[xVals,setXVals]=useState<Record<string,string>>({});
+  useEffect(()=>{setXVals(unpackExtra((task as {extra?:string}).extra))},[task]);
   const priorityChoices=useOptions("task.priority",priorities);
   const wf=useWorkforce();
   const [t,setT]=useState<Partial<Task>>(task);
@@ -218,7 +226,7 @@ export function TaskEditor({task,isNew,close,flash}:{task:Partial<Task>;isNew:bo
     try{const r=await wf.api.employees({q,limit:20,active:"1"});setPeople(r.employees)}catch{setPeople([])}};
   const submit=async(e:React.FormEvent)=>{e.preventDefault();setBusy(true);
     try{
-      const saved=await wf.api.saveTask(normalise(t as Task),isNew);
+      const saved=await wf.api.saveTask({...normalise(t as Task),extra:packExtra(xFields,xVals)} as Task,isNew);
       for(const file of files){
         try{const dataUrl=await asDataUrl(file);
           await fetch("/api/attachments",{method:"POST",headers:{"content-type":"application/json"},
@@ -263,6 +271,7 @@ export function TaskEditor({task,isNew,close,flash}:{task:Partial<Task>;isNew:bo
         <Upload/><b>Attach supporting documents</b>
         <small>Images, PDF, Word, Excel, CSV or ZIP — up to 15 MB each</small>
         {files.length>0&&<small className="upload-list">{files.length} file{files.length===1?"":"s"}: {files.map(f=>f.name).join(", ")}</small>}</label>}
+          <ExtraFields form="task" values={xVals} onChange={setXVals}/>
     </div>
     <footer>
       {!isNew&&<button type="button" className="wf-danger" onClick={async()=>{
@@ -276,6 +285,9 @@ export function TaskEditor({task,isNew,close,flash}:{task:Partial<Task>;isNew:bo
 
 /* ---------- token editor ---------- */
 export function TokenEditor({token,isNew,close,flash}:{token:Partial<Token>;isNew:boolean;close:()=>void;flash:(m:string)=>void}){
+  const xFields=useExtraFields("token");
+  const[xVals,setXVals]=useState<Record<string,string>>({});
+  useEffect(()=>{setXVals(unpackExtra((token as {extra?:string}).extra))},[token]);
   const priorityChoices=useOptions("task.priority",priorities);
   const wf=useWorkforce();
   const [t,setT]=useState<Partial<Token>>(token);
@@ -291,7 +303,7 @@ export function TokenEditor({token,isNew,close,flash}:{token:Partial<Token>;isNe
     try{const r=await wf.api.employees({q,limit:20,active:"1"});setPeople(r.employees)}catch{setPeople([])}};
   const submit=async(e:React.FormEvent)=>{e.preventDefault();setBusy(true);
     try{
-      const saved=await wf.api.saveToken(t,isNew);
+      const saved=await wf.api.saveToken({...t,extra:packExtra(xFields,xVals)} as typeof t,isNew);
       for(const file of files){
         try{const dataUrl=await asDataUrl(file);
           await fetch("/api/attachments",{method:"POST",headers:{"content-type":"application/json"},
@@ -333,6 +345,7 @@ export function TokenEditor({token,isNew,close,flash}:{token:Partial<Token>;isNe
           onChange={e=>setFiles(Array.from(e.target.files||[]))}/>
         <Upload/><b>Attach supporting documents</b><small>Images, PDF, Word, Excel, CSV or ZIP — up to 15 MB each</small>
         {files.length>0&&<small className="upload-list">{files.length} file{files.length===1?"":"s"}: {files.map(f=>f.name).join(", ")}</small>}</label>}
+          <ExtraFields form="token" values={xVals} onChange={setXVals}/>
     </div>
     <footer>
       {!isNew&&<button type="button" className="wf-danger" onClick={async()=>{
@@ -346,6 +359,9 @@ export function TokenEditor({token,isNew,close,flash}:{token:Partial<Token>;isNe
 
 /* ---------- query editor ---------- */
 export function QueryEditor({query,isNew,close,flash}:{query:Partial<Query>;isNew:boolean;close:()=>void;flash:(m:string)=>void}){
+  const xFields=useExtraFields("query");
+  const[xVals,setXVals]=useState<Record<string,string>>({});
+  useEffect(()=>{setXVals(unpackExtra((query as {extra?:string}).extra))},[query]);
   const priorityChoices=useOptions("task.priority",priorities);
   const wf=useWorkforce();
   const [q,setQ]=useState<Partial<Query>>(query);
@@ -355,7 +371,7 @@ export function QueryEditor({query,isNew,close,flash}:{query:Partial<Query>;isNe
   const search=async(v:string)=>{if(v.length<2)return setPeople([]);
     try{const r=await wf.api.employees({q:v,limit:20,active:"1"});setPeople(r.employees)}catch{setPeople([])}};
   const submit=async(e:React.FormEvent)=>{e.preventDefault();setBusy(true);
-    try{await wf.api.saveQuery(q,isNew);flash(isNew?"Query raised":"Query updated");close()}
+    try{await wf.api.saveQuery({...q,extra:packExtra(xFields,xVals)} as typeof q,isNew);flash(isNew?"Query raised":"Query updated");close()}
     catch(err){flash(err instanceof Error?err.message:"Could not save")}finally{setBusy(false)}};
   const act=async(action:"follow-up"|"resolve"|"reopen")=>{
     setBusy(true);
@@ -386,6 +402,7 @@ export function QueryEditor({query,isNew,close,flash}:{query:Partial<Query>;isNe
         placeholder="Filled in when the query is closed out."/></label>
       {!isNew&&<p className="wide wf-note">Followed up <b>{q.followUps||0}</b> time{q.followUps===1?"":"s"}.
         {q.lastFollowUpAt?` Last follow-up ${new Date(q.lastFollowUpAt).toLocaleDateString("en-GB")}.`:""}</p>}
+          <ExtraFields form="query" values={xVals} onChange={setXVals}/>
     </div>
     <footer>
       {!isNew&&<div className="wf-query-actions">

@@ -10,7 +10,7 @@ const shape=(q:Row)=>({id:str(q.id),ref:str(q.ref),title:str(q.title),detail:str
   raisedBy:str(q.raisedBy),employeeId:str(q.employeeId),taskId:str(q.taskId),deptId:str(q.deptId,"d-group"),
   priority:str(q.priority,"Medium"),status:str(q.status,"Open"),raisedAt:str(q.raisedAt)||now(),
   dueAt:str(q.dueAt),followUps:num(q.followUps),lastFollowUpAt:str(q.lastFollowUpAt),
-  resolvedAt:str(q.resolvedAt),resolution:str(q.resolution)});
+  resolvedAt:str(q.resolvedAt),resolution:str(q.resolution),extra:str(q.extra)});
 
 export async function GET(req:Request){
   try{

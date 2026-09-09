@@ -8,7 +8,7 @@ import{requireAuth}from"../../../../lib/auth";
 const shape=(t:Row)=>({id:str(t.id),number:str(t.number),taskType:str(t.taskType),created:str(t.created),
   createdBy:str(t.createdBy),employeeId:str(t.employeeId),functionRoleId:str(t.functionRoleId),
   deptId:str(t.deptId,"d-group"),priority:str(t.priority,"Medium"),reference:str(t.reference),
-  qty:num(t.qty),done:num(t.done),status:str(t.status,"Not Started"),remarks:str(t.remarks)});
+  qty:num(t.qty),done:num(t.done),status:str(t.status,"Not Started"),remarks:str(t.remarks),extra:str(t.extra)});
 
 export async function GET(req:Request){
   try{

@@ -1,4 +1,5 @@
 "use client";
+import{ExtraFields,packExtra,useExtraFields}from"./ExtraFields";
 import{useCallback,useEffect,useState}from"react";
 import{Check,GraduationCap,Paperclip,Plus,Star,Trash2,X,Upload}from"lucide-react";
 import Attachments,{asDataUrl}from"./Attachments";
@@ -24,6 +25,8 @@ export default function TrainingDesk({flash}:{flash:(m:string)=>void}){
   const[employeeId,setEmployeeId]=useState("");
   const[depts,setDepts]=useState<{id:string;name:string}[]>([]);
   const[people,setPeople]=useState<{id:string;name:string;designation:string}[]>([]);
+  const xFields=useExtraFields("training");
+  const[xVals,setXVals]=useState<Record<string,string>>({});
   const[busy,setBusy]=useState(false);
   const[rating,setRating]=useState<{id:string;stars:number;note:string}|null>(null);
   const[files,setFiles]=useState<File[]>([]);
@@ -69,7 +72,8 @@ export default function TrainingDesk({flash}:{flash:(m:string)=>void}){
     try{
       const r=await fetch("/api/workforce/training",{method:"POST",
         headers:{"content-type":"application/json"},
-        body:JSON.stringify({topic:topic.trim(),reason:reason.trim(),employeeId,deptId})});
+        body:JSON.stringify({topic:topic.trim(),reason:reason.trim(),employeeId,deptId,
+            extra:packExtra(xFields,xVals)})});
       const b=await r.json().catch(()=>({})) as{error?:string;training?:{id:string}};
       if(!r.ok)throw new Error(b.error||"Could not raise the request");
       /* Uploaded after the request exists, because that is when it has the id the
@@ -156,7 +160,8 @@ export default function TrainingDesk({flash}:{flash:(m:string)=>void}){
               onChange={e=>setFiles(Array.from(e.target.files||[]))}/>
             <Upload/><b>Attach anything that helps</b><small>Images, PDF, Word, Excel, CSV or ZIP — up to 15 MB each</small>
             {files.length>0&&<small className="upload-list">{files.length} file{files.length===1?"":"s"}: {files.map(f=>f.name).join(", ")}</small>}</label>
-        </div>
+              <ExtraFields form="training" values={xVals} onChange={setXVals}/>
+    </div>
         <footer><button type="button" onClick={()=>setOpen(false)}>Cancel</button>
           <button className="primary" disabled={busy||topic.trim().length<3}>
             <GraduationCap/>{busy?"Sending…":"Raise request"}</button></footer>

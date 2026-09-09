@@ -20,7 +20,15 @@ export const isKnownList=(id:string)=>OPTION_LISTS.some(l=>l.id===id);
 
 /* Forms that accept extra fields. Same reasoning: the form has to render them. */
 export const FIELD_FORMS=[
-  {id:"payment",label:"Payment request form"},
+  {id:"payment",   label:"Payment request"},
+  {id:"scheduled", label:"Scheduled payment"},
+  {id:"audittask", label:"Audit task and meeting"},
+  {id:"task",      label:"Task"},
+  {id:"token",     label:"Token"},
+  {id:"query",     label:"Query"},
+  {id:"employee",  label:"Employee"},
+  {id:"training",  label:"Training request"},
+  {id:"company",   label:"Company"},
 ] as const;
 
 export const isKnownForm=(id:string)=>FIELD_FORMS.some(f=>f.id===id);

@@ -44,3 +44,10 @@
   .settings-side{flex-direction:row;flex-wrap:wrap}
   .settings-field-add{grid-template-columns:1fr}
   .settings-field-add .wide,.settings-field-add>button{grid-column:span 1}}
+
+/* Extra field values shown back on a record */
+.extra-values{list-style:none;margin:10px 0 0;padding:0;display:grid;gap:6px}
+.extra-values li{display:flex;justify-content:space-between;gap:12px;font-size:11px;
+  border-top:1px solid #edf1ef;padding-top:6px}
+.extra-values span{color:var(--muted)}
+.extra-values b{font-weight:600}

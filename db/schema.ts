@@ -77,7 +77,8 @@ export const wfEmployees=sqliteTable("wf_employees",{
   photoAt:text("photo_at").notNull().default(""),
   active:integer("active").notNull().default(1),
   joined:text("joined").notNull().default(""),
-  companyId:text("company_id").notNull().default("c-trg")},
+  companyId:text("company_id").notNull().default("c-trg"),
+  extra:text("extra").notNull().default("")},
   t=>[index("wf_emp_role_idx").on(t.roleId),index("wf_emp_dept_idx").on(t.deptId),
       index("wf_emp_reports_idx").on(t.reportsTo),index("wf_emp_name_idx").on(t.name),
       index("wf_emp_active_idx").on(t.active),
@@ -116,7 +117,8 @@ export const wfTasks=sqliteTable("wf_tasks",{
   nextAction:text("next_action").notNull().default(""),
   completedAt:text("completed_at").notNull().default(""),
   endsAt:text("ends_at").notNull().default(""),
-  updatedAt:text("updated_at").notNull().default("")},
+  updatedAt:text("updated_at").notNull().default(""),
+  extra:text("extra").notNull().default("")},
   t=>[index("wf_task_emp_idx").on(t.employeeId),index("wf_task_dept_idx").on(t.deptId),
       index("wf_task_due_idx").on(t.due),index("wf_task_status_idx").on(t.status),
       index("wf_task_series_idx").on(t.seriesId),index("wf_task_emp_freq_idx").on(t.employeeId,t.frequency),
@@ -137,7 +139,8 @@ export const wfTokens=sqliteTable("wf_tokens",{
   qty:integer("qty").notNull().default(0),
   done:integer("done").notNull().default(0),
   status:text("status").notNull().default("Not Started"),
-  remarks:text("remarks").notNull().default("")},
+  remarks:text("remarks").notNull().default(""),
+  extra:text("extra").notNull().default("")},
   t=>[index("wf_token_emp_idx").on(t.employeeId),index("wf_token_dept_idx").on(t.deptId),
       index("wf_token_status_idx").on(t.status)]);
 
@@ -158,7 +161,8 @@ export const wfQueries=sqliteTable("wf_queries",{
   followUps:integer("follow_ups").notNull().default(0),
   lastFollowUpAt:text("last_follow_up_at").notNull().default(""),
   resolvedAt:text("resolved_at").notNull().default(""),
-  resolution:text("resolution").notNull().default("")},
+  resolution:text("resolution").notNull().default(""),
+  extra:text("extra").notNull().default("")},
   t=>[index("wf_query_emp_idx").on(t.employeeId),index("wf_query_dept_idx").on(t.deptId),
       index("wf_query_status_idx").on(t.status),index("wf_query_raised_idx").on(t.raisedAt)]);
 
@@ -268,7 +272,8 @@ export const wfCompanies=sqliteTable("wf_companies",{
   escalationDays:integer("escalation_days").notNull().default(5),
   managementEmail:text("management_email").notNull().default(""),
   active:integer("active").notNull().default(1),
-  position:integer("position").notNull().default(0)},
+  position:integer("position").notNull().default(0),
+  extra:text("extra").notNull().default("")},
   t=>[index("wf_co_active_idx").on(t.active)]);
 
 export const wfAuditTasks=sqliteTable("wf_audit_tasks",{
@@ -288,7 +293,8 @@ export const wfAuditTasks=sqliteTable("wf_audit_tasks",{
   attendees:text("attendees").notNull().default(""),   // employee ids, comma separated
   createdAt:text("created_at").notNull().default(""),
   acceptedAt:text("accepted_at").notNull().default(""),
-  completedAt:text("completed_at").notNull().default("")},
+  completedAt:text("completed_at").notNull().default(""),
+  extra:text("extra").notNull().default("")},
   t=>[index("wf_at_kind_idx").on(t.kind),index("wf_at_status_idx").on(t.status),
       index("wf_at_company_idx").on(t.companyId),index("wf_at_assigned_idx").on(t.assignedTo),
       index("wf_at_kind_status_idx").on(t.kind,t.status)]);
@@ -308,7 +314,8 @@ export const wfBatches=sqliteTable("wf_batches",{
   proof:text("proof").notNull().default(""),
   raisedBy:text("raised_by").notNull().default(""),
   createdAt:text("created_at").notNull().default(""),
-  releasedAt:text("released_at").notNull().default("")},
+  releasedAt:text("released_at").notNull().default(""),
+  extra:text("extra").notNull().default("")},
   t=>[index("wf_batch_status_idx").on(t.status),index("wf_batch_created_idx").on(t.createdAt)]);
 
 /* One thread for everyone, plus direct messages: a row with to_employee set is
@@ -374,6 +381,7 @@ export const wfTrainings=sqliteTable("wf_trainings",{
   completedAt:text("completed_at").notNull().default(""),
   rating:integer("rating").notNull().default(0),
   feedback:text("feedback").notNull().default(""),
-  feedbackAt:text("feedback_at").notNull().default("")},
+  feedbackAt:text("feedback_at").notNull().default(""),
+  extra:text("extra").notNull().default("")},
   t=>[index("wf_train_status_idx").on(t.status),index("wf_train_emp_idx").on(t.employeeId),
       index("wf_train_by_idx").on(t.requestedBy),index("wf_train_at_idx").on(t.requestedAt),index("wf_train_dept_idx").on(t.deptId)]);

@@ -22,7 +22,7 @@ const shape=(t:Row)=>({id:str(t.id),seriesId:str(t.seriesId),name:str(t.name),de
   assignedBy:str(t.assignedBy),expectedOutput:str(t.expectedOutput),remarks:str(t.remarks),
   status:str(t.status,"Not Started"),progress:num(t.progress),qty:num(t.qty),done:num(t.done),
   blocker:str(t.blocker),nextAction:str(t.nextAction),completedAt:str(t.completedAt),
-  updatedAt:new Date().toISOString()});
+  updatedAt:new Date().toISOString(),extra:str(t.extra)});
 
 export async function GET(req:Request){
   try{

@@ -1,4 +1,5 @@
 "use client";
+import { ExtraFields, packExtra, useExtraFields } from "./ExtraFields";
 import { useCallback, useEffect, useState } from "react";
 import { AlertCircle, CheckCircle2, FileCheck2, Plus, Upload, X } from "lucide-react";
 import { batchesApi } from "./audit-api";
@@ -9,6 +10,7 @@ type Status =
   | "Approved – Ready to Release"
   | "Released";
 type Batch = {
+  extra?: string;
   id: string;
   vendor: string;
   requested: number;
@@ -59,7 +61,7 @@ export default function ScheduledPayments({
     setBusy(true);
     try {
       await batchesApi.create({ vendor: b.vendor, requested: b.requested, statement: b.statement,
-        reconciliation: b.reconciliation, gl: b.gl || "" });
+        reconciliation: b.reconciliation, gl: b.gl || "" , extra: b.extra || ""});
       await load(); setForm(false); flash("Batch raised and sent to the audit queue");
     } catch (e) { flash(e instanceof Error ? e.message : "Could not raise that batch") }
     finally { setBusy(false) }
@@ -251,6 +253,8 @@ function Create({
   close: () => void;
   done: (b: Batch) => void;
 }) {
+  const xFields = useExtraFields("scheduled");
+  const [xVals, setXVals] = useState<Record<string, string>>({});
   const [vendor, setVendor] = useState(""),
     [amount, setAmount] = useState(0),
     [statement, setStatement] = useState(""),
@@ -265,7 +269,7 @@ function Create({
     if (!statement) return setError("Attach the Vendor Statement.");
     if (!recon) return setError("Attach the Reconciliation Statement.");
     setError("");
-    done({id: "SCH-2026-" + Date.now().toString().slice(-6), vendor: vendor.trim(), requested: amount, statement, reconciliation: recon, gl: gl || undefined, status: "Audit Queue"});
+    done({id: "SCH-2026-" + Date.now().toString().slice(-6), vendor: vendor.trim(), requested: amount, statement, reconciliation: recon, gl: gl || undefined, status: "Audit Queue", extra: packExtra(xFields, xVals)});
   };
   return (
     <>
@@ -325,7 +329,8 @@ function Create({
           />
           <FileBox label="Our GL" name={gl} set={setGl} />
           {error && <div className="schedule-error wide" role="alert"><AlertCircle />{error}</div>}
-        </div>
+                <ExtraFields form="scheduled" values={xVals} onChange={setXVals} />
+      </div>
         <footer>
           <button type="button" onClick={close}>
             Cancel

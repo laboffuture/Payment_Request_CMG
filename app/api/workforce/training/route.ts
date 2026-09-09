@@ -68,7 +68,7 @@ export async function POST(req:Request){
       employeeId,employeeName,deptId,department,
       requestedBy:str(actor?.email),status:"Requested",requestedAt:at,
       acceptedBy:"",acceptedAt:"",completedBy:"",completedAt:"",
-      rating:0,feedback:"",feedbackAt:""};
+      rating:0,feedback:"",feedbackAt:"",extra:str(body.extra)};
     await db.insert(wfTrainings).values(row);
     return Response.json({training:row},{status:201});
   }catch(e){return oops(e)}}

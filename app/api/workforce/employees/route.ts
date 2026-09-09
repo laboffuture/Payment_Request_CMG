@@ -9,7 +9,7 @@ const shape=(e:Row)=>({id:str(e.id),code:str(e.code),name:str(e.name),designatio
   roleId:str(e.roleId),deptId:str(e.deptId,"d-group"),department:str(e.department),
   reportsTo:nullable(e.reportsTo),email:str(e.email),phone:str(e.phone),jd:str(e.jd),
   photoAt:str(e.photoAt),active:e.active===false?0:1,joined:str(e.joined),
-  companyId:str(e.companyId,"c-trg")});
+  companyId:str(e.companyId,"c-trg"),extra:str(e.extra)});
 
 /* Always paginated and always filtered in SQL. The directory never pulls the whole
    register into the browser, so headcount does not change page weight. */

@@ -41,7 +41,8 @@ export async function POST(req:Request){
       vendor:str(body.vendor),requested:num(body.requested),approved:null,
       currency:str(body.currency,"AED"),companyId:str(body.companyId),
       statement:str(body.statement),reconciliation:str(body.reconciliation),gl:str(body.gl),
-      status:QUEUE,reason:"",proof:"",raisedBy:actor?.name||"",createdAt:now(),releasedAt:""};
+      status:QUEUE,reason:"",proof:"",raisedBy:actor?.name||"",createdAt:now(),releasedAt:"",
+      extra:str(body.extra)};
     await writeWithAudit([(await getDb()).insert(wfBatches).values(row)],
       actorOf(req,body),"batch",row.id,"Batch raised",`${row.vendor} · ${row.requested}`);
     return Response.json({batch:row},{status:201});

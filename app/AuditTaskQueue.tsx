@@ -1,10 +1,14 @@
 "use client";
+import{ExtraFields,packExtra}from"./ExtraFields";
+import{useExtraFields}from"./ExtraFields";
 import{CalendarClock,CheckCircle2,Download,Import,Plus,Search,X}from"lucide-react";
 import{useMemo,useState}from"react";import type{AuditTask}from"./page";
 import{useAsync,useWorkforce}from"./workforce-store";
 import type{Employee}from"./workforce-store";
 type Tab="Queue"|"Accepted & In Progress"|"Completed";
-export default function AuditTaskQueue({title,kind,tasks,role,accept,update,openImport,create,companies=[],departments=[]}:{companies?:{id:string;name:string}[];departments?:string[];create?:(t:{title:string;department:string;companyId:string;due:string;notes:string;attendees?:string})=>Promise<void>|void;title:string;kind:AuditTask["kind"];tasks:AuditTask[];role:string;accept:(id:string)=>void;update:(id:string,status:AuditTask["status"])=>void;openImport:(kind:string)=>void}){const[tab,setTab]=useState<Tab>("Queue"),[open,setOpen]=useState(false),[busy,setBusy]=useState(false),[form,setForm]=useState({title:"",department:"",companyId:"",due:"",notes:""}),[guests,setGuests]=useState<{id:string;name:string}[]>([]),[term,setTerm]=useState(""),[search,setSearch]=useState(""),[dept,setDept]=useState("All departments"),[entity,setEntity]=useState("All companies");const wf=useWorkforce();
+export default function AuditTaskQueue({title,kind,tasks,role,accept,update,openImport,create,companies=[],departments=[]}:{companies?:{id:string;name:string}[];departments?:string[];create?:(t:{title:string;department:string;companyId:string;due:string;notes:string;attendees?:string;extra?:string})=>Promise<void>|void;title:string;kind:AuditTask["kind"];tasks:AuditTask[];role:string;accept:(id:string)=>void;update:(id:string,status:AuditTask["status"])=>void;openImport:(kind:string)=>void}){const[tab,setTab]=useState<Tab>("Queue"),[open,setOpen]=useState(false),[busy,setBusy]=useState(false),[form,setForm]=useState({title:"",department:"",companyId:"",due:"",notes:""}),[guests,setGuests]=useState<{id:string;name:string}[]>([]),[term,setTerm]=useState(""),[search,setSearch]=useState(""),[dept,setDept]=useState("All departments"),[entity,setEntity]=useState("All companies");const wf=useWorkforce();
+  const xFields=useExtraFields("audittask");
+  const[xVals,setXVals]=useState<Record<string,string>>({});
   const{data:found}=useAsync(()=>wf.api.employees({q:term,limit:25,active:"1"}),[term],term.length>1);
   const matches=(found?.employees||[]).filter(p=>!guests.some(g=>g.id===p.id));
   const addGuest=(p:Employee)=>{setGuests(v=>v.concat([{id:p.id,name:p.name}]));setTerm("")};
@@ -29,7 +33,7 @@ export default function AuditTaskQueue({title,kind,tasks,role,accept,update,open
     <form className="modal" onSubmit={async e=>{e.preventDefault();
       if(!form.title.trim()||!create)return; setBusy(true);
       try{await create({...form,title:form.title.trim(),
-          attendees:guests.map(g=>g.id).join(",")}); setOpen(false);
+          attendees:guests.map(g=>g.id).join(","),extra:packExtra(xFields,xVals)}); setOpen(false);
         setForm({title:"",department:"",companyId:"",due:"",notes:""});setGuests([]);setTerm("");}
       finally{setBusy(false)}}}>
       <header><div><small>AUDIT DEPARTMENT</small>
@@ -62,7 +66,7 @@ export default function AuditTaskQueue({title,kind,tasks,role,accept,update,open
         <label className="wide">Notes<textarea value={form.notes}
           onChange={e=>setForm({...form,notes:e.target.value})}
           placeholder={kind==="Meeting"?"Agenda, attendees, anything to prepare":"What needs checking, and against what evidence"}/></label>
-      </div>
+      <ExtraFields form="audittask" values={xVals} onChange={setXVals}/></div>
       <footer><button type="button" onClick={()=>setOpen(false)}>Cancel</button>
         <button className="primary" disabled={busy||!form.title.trim()}>
           <Plus/>{busy?"Saving…":"Create"}</button></footer>
