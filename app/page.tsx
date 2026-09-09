@@ -154,12 +154,12 @@ export default function Home(){
  {active==="requests"&&<RequestorWorkspace rows={role==="Requestor"?mine:filtered} open={setDrawer} create={()=>setForm(true)}/>}
  {active==="payments"&&<PaymentWorkbench onDelete={removeRequest} rows={filtered} role={role} search={search} setSearch={setSearch} open={setDrawer} create={()=>setForm(true)}/>}
  {active==="scheduled"&&<ScheduledPayments role={role} flash={flash}/>}
- {active==="preaudit"&&<AuditTaskQueue title="Pre-audit tasks" kind="Pre-Audit" companies={companies} create={(t)=>createAuditTask("Pre-Audit",t)} tasks={auditTasks} role={role} accept={acceptAuditTask} update={updateAuditTask} openImport={()=>setActive("imports")}/>} 
- {active==="postaudit"&&<AuditTaskQueue title="Post-audit tasks" kind="Post-Audit" companies={companies} create={(t)=>createAuditTask("Post-Audit",t)} tasks={auditTasks} role={role} accept={acceptAuditTask} update={updateAuditTask} openImport={()=>setActive("imports")}/>} 
- {active==="specialaudit"&&<AuditTaskQueue title="Special audit tasks" kind="Special Audit" companies={companies} create={(t)=>createAuditTask("Special Audit",t)} tasks={auditTasks} role={role} accept={acceptAuditTask} update={updateAuditTask} openImport={()=>setActive("imports")}/>} 
+ {active==="preaudit"&&<AuditTaskQueue departments={departments} title="Pre-audit tasks" kind="Pre-Audit" companies={companies} create={(t)=>createAuditTask("Pre-Audit",t)} tasks={auditTasks} role={role} accept={acceptAuditTask} update={updateAuditTask} openImport={()=>setActive("imports")}/>} 
+ {active==="postaudit"&&<AuditTaskQueue departments={departments} title="Post-audit tasks" kind="Post-Audit" companies={companies} create={(t)=>createAuditTask("Post-Audit",t)} tasks={auditTasks} role={role} accept={acceptAuditTask} update={updateAuditTask} openImport={()=>setActive("imports")}/>} 
+ {active==="specialaudit"&&<AuditTaskQueue departments={departments} title="Special audit tasks" kind="Special Audit" companies={companies} create={(t)=>createAuditTask("Special Audit",t)} tasks={auditTasks} role={role} accept={acceptAuditTask} update={updateAuditTask} openImport={()=>setActive("imports")}/>} 
  {active==="observations"&&<Observations/>}
  {active==="community"&&<CommunityChat user={userName} flash={flash}/>}
- {active==="meetings"&&<AuditTaskQueue title="Meeting tasks" kind="Meeting" companies={companies} create={(t)=>createAuditTask("Meeting",t)} tasks={auditTasks} role={role} accept={acceptAuditTask} update={updateAuditTask} openImport={()=>setActive("imports")}/>} 
+ {active==="meetings"&&<AuditTaskQueue departments={departments} title="Meeting tasks" kind="Meeting" companies={companies} create={(t)=>createAuditTask("Meeting",t)} tasks={auditTasks} role={role} accept={acceptAuditTask} update={updateAuditTask} openImport={()=>setActive("imports")}/>} 
  {active==="reports"&&<ReportsCentre payments={payments} tasks={auditTasks} flash={flash}/>}
  {active==="companies"&&<CompanySetup/>}
  {active==="users"&&<AccessSetup/>}
