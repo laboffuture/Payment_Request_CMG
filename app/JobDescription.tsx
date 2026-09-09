@@ -1,6 +1,6 @@
 "use client";
 import{useEffect,useState}from"react";
-import{FileDown,Pencil,Search,Upload}from"lucide-react";
+import{FileDown,Pencil,Search}from"lucide-react";
 import{csv,dayLabel,liveStatus,monthLabel,statusTone,timeliness,timelinessTone,today,
   useAsync,useWorkforce}from"./workforce-store";
 import type{Employee,Frequency,Task}from"./workforce-store";
@@ -11,8 +11,8 @@ const RHYTHMS:Frequency[]=["Daily","Weekly","Monthly","One Time"];
 /* One screen per person: who they are, what the role holds them accountable for,
    and every task they carry broken out by rhythm. Reached from the JD button on the
    chart, the register and the profile. */
-export default function JobDescription({employeeId,openProfile,go,flash}:{
-  employeeId:string;openProfile:(id:string)=>void;go:(v:string)=>void;flash:(m:string)=>void}){
+export default function JobDescription({employeeId,openProfile,flash}:{
+  employeeId:string;openProfile:(id:string)=>void;flash:(m:string)=>void}){
   const wf=useWorkforce();
   const [picked,setPicked]=useState(employeeId);
   const [raw,setRaw]=useState("");
@@ -76,7 +76,6 @@ export default function JobDescription({employeeId,openProfile,go,flash}:{
       <div className="wf-head-tools">
         <button onClick={()=>setPicked("")}>Someone else</button>
         <button onClick={exportAll}><FileDown/>Export</button>
-        <button onClick={()=>go("workimport")}><Upload/>Import tasks</button>
         <button className="primary" onClick={()=>openProfile(e.id)}>Full profile</button>
       </div></div>
 

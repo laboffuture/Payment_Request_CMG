@@ -159,7 +159,6 @@ type Api={
   saveObservation:(o:Partial<Omit<Observation,"tags">>&{tags?:string[];action?:string},isNew:boolean)=>Promise<Observation>;
   removeObservation:(id:string)=>Promise<unknown>;
   addReply:(observationId:string,text:string,employeeId?:string)=>Promise<ObsReply>;
-  importTasks:(rows:ImportRow[])=>Promise<ImportResult>;
   seed:(force?:boolean)=>Promise<unknown>};
 
 type Ctx={ready:boolean;loading:boolean;error:string;
@@ -246,7 +245,6 @@ export function WorkforceProvider({actor,children}:{actor:string;children:React.
     removeObservation:async id=>await drop("/observations",{id}),
     addReply:async(observationId,text,employeeId)=>(await send("/observations/replies","POST",
       {observationId,text,employeeId,authorName:who.current})).reply,
-    importTasks:async rows=>await send("/tasks/import","POST",{rows}),
     seed:async force=>{const body=await asJson(await fetch(`${BASE}/seed${force?"?force=1":""}`,{method:"POST"}));
       setVersion(v=>v+1);return body}}),[send,drop]);
 

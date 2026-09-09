@@ -23,11 +23,10 @@ import TokenDesk from "./TokenDesk";
 import TrainingDesk from "./TrainingDesk";
 import {WorkforceOverview,WorkforceReports} from "./WorkforceReports";
 import {auditTasksApi,companiesApi} from "./audit-api";
-import TaskImport from "./TaskImport";
 import JobDescription from "./JobDescription";
 type Payment={createdAt?:string;nature?:string;poNumber?:string;resubmitNote?:string;resubmittedAt?:string;rejectionNote?:string;rejectedBy?:string;rejectedAt?:string;raisedBy?:string;id:number;requestNo:string;company:string;vendor:string;amount:number;currency:string;due:string;urgency:string;status:string;owner:string;department:string};
 export type AuditTask={id:string;title:string;company:string;department:string;kind:"Pre-Audit"|"Post-Audit"|"Meeting"|"Special Audit";status:"Available"|"Accepted"|"In Progress"|"Observation Submitted"|"Response Received"|"Completed";due?:string;assignedTo?:string;plannedStart?:string;plannedEnd?:string;notes?:string;dataProvider?:string};
-type Module="dashboard"|"requests"|"payments"|"scheduled"|"preaudit"|"postaudit"|"specialaudit"|"observations"|"community"|"meetings"|"reports"|"companies"|"users"|"imports"|"organisation"|"employees"|"worktasks"|"training"|"worktokens"|"workimport"|"workjd"|"workreports";
+type Module="dashboard"|"requests"|"payments"|"scheduled"|"preaudit"|"postaudit"|"specialaudit"|"observations"|"community"|"meetings"|"reports"|"companies"|"users"|"imports"|"organisation"|"employees"|"worktasks"|"training"|"worktokens"|"workjd"|"workreports";
 const seed:Payment[]=[];
 const auditSeed:AuditTask[]=[];
 const specialAuditSeed:AuditTask[]=[];
@@ -56,7 +55,6 @@ const workforceNav:{id:Module;label:string;icon:any}[]=[
  {id:"employees",label:"Employees",icon:Users},
  {id:"worktasks",label:"Tasks",icon:ClipboardCheck},
  {id:"worktokens",label:"Tokens",icon:ReceiptText},
- {id:"workimport",label:"Import tasks",icon:Import},
  {id:"workjd",label:"Job descriptions",icon:FileText},
  {id:"training",label:"Training",icon:GraduationCap},
  {id:"workreports",label:"Workforce reports",icon:FileBarChart}];
@@ -174,9 +172,7 @@ export default function Home(){
  
  {active==="training"&&<TrainingDesk flash={flash}/>}
  {active==="worktokens"&&<TokenDesk openProfile={setProfile} flash={flash}/>}
- {active==="workimport"&&<TaskImport flash={flash} go={v=>setActive(v as Module)}/>}
- {active==="workjd"&&<JobDescription employeeId={jdFor} openProfile={setProfile}
-   go={v=>setActive(v as Module)} flash={flash}/>}
+ {active==="workjd"&&<JobDescription employeeId={jdFor} openProfile={setProfile} flash={flash}/>}
  {active==="workreports"&&<WorkforceReports openProfile={setProfile} flash={flash}/>}
  {active==="imports"&&<ImportCentre flash={flash} onImport={async(kind,assigned,dataProvider)=>{
    try{await auditTasksApi.create({title:`Imported ${kind} task`,kind,department:"Finance",
