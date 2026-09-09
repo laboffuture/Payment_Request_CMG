@@ -2,7 +2,7 @@
 import {AlertTriangle,CheckCircle2,ChevronDown,CircleDollarSign,Clock3,Download,FileCheck2,Plus,Search,ShieldCheck,Trash2,WalletCards} from "lucide-react";
 import {csv} from "./workforce-store";
 import {useMemo,useState} from "react";
-type Payment={id:number;requestNo:string;company:string;vendor:string;amount:number;currency:string;due:string;urgency:string;status:string;owner:string;department:string;nature?:string;poNumber?:string;raisedBy?:string;createdAt?:string};
+type Payment={id:number;requestNo:string;company:string;vendor:string;amount:number;currency:string;due:string;urgency:string;status:string;owner:string;department:string;nature?:string;tds?:string;poNumber?:string;raisedBy?:string;createdAt?:string};
 const queues=[
  ["All","All requests"],["AccountsAvailable","Accounts available"],["AccountsMine","My Accounts tasks"],["AuditAvailable","Audit available"],["AuditMine","My Audit tasks"],["Observations","Audit observations"],["Recheck","Audit reconfirmation"],["Finance","Finance release"],["Closed","Completed"]
 ] as const;
@@ -12,16 +12,16 @@ export default function PaymentWorkbench({rows,role,search,setSearch,open,create
  const match=(p:Payment)=>tab==="All"||tab==="AccountsAvailable"&&["Submitted","Requested"].includes(p.status)||tab==="AccountsMine"&&["Accountant Accepted","Accountant Review"].includes(p.status)||tab==="AuditAvailable"&&p.status==="Pre-Audit Queue"||tab==="AuditMine"&&p.status==="Audit Accepted"||tab==="Observations"&&p.status==="Observation – Accounts Action"||tab==="Recheck"&&p.status==="Audit Reconfirmation"||tab==="Finance"&&["Approved by Auditor – Ready to Release","Management Approval: Yes","Finance Queue"].includes(p.status)||tab==="Closed"&&["Audit Closed","Payment Released","Reconciliation"].includes(p.status);
  const shown=useMemo(()=>rows.filter(p=>match(p)&&(department==="All departments"||p.department===department)),[rows,tab,department]);
  const download=()=>{
-  const head=["Request","Status","Company","Department","Vendor","Nature","PO number",
+  const head=["Request","Status","Company","Department","Vendor","Nature","TDS","PO number",
     "Currency","Amount","Due","Urgency","Owner","Raised by","Raised on"];
-  const body=shown.map(p=>[p.requestNo,p.status,p.company,p.department,p.vendor,p.nature||"",
+  const body=shown.map(p=>[p.requestNo,p.status,p.company,p.department,p.vendor,p.nature||"",p.tds||"",
     p.poNumber||"",p.currency,p.amount,p.due,p.urgency,p.owner,p.raisedBy||"",
     (p.createdAt||"").slice(0,10)]);
   const total=shown.reduce((n,p)=>n+(Number(p.amount)||0),0);
   /* Currencies are mixed in these queues, so the total is only meaningful when one
      is in play - otherwise the figure would silently add dirhams to rupees. */
   const only=Array.from(new Set(shown.map(p=>p.currency)));
-  const foot=only.length===1?[[],["","","","","","","",only[0],total,"","","","",""]]:[];
+  const foot=only.length===1?[[],["","","","","","","","",only[0],total,"","","","",""]]:[];
   const queue=(queues.find(([k])=>k===tab)||["","All requests"])[1];
   const slug=(s:string)=>s.toLowerCase().replace(/[^a-z0-9]+/g,"-").replace(/^-|-$/g,"");
   csv([head,...body,...foot],

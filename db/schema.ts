@@ -3,6 +3,7 @@ export const paymentRequests=sqliteTable("payment_requests",{id:integer("id").pr
   raisedBy:text("raised_by").notNull().default(""),
   poNumber:text("po_number").notNull().default(""),
   nature:text("nature").notNull().default(""),
+  tds:text("tds").notNull().default(""),
   rejectionNote:text("rejection_note").notNull().default(""),
   rejectedBy:text("rejected_by").notNull().default(""),
   rejectedAt:text("rejected_at").notNull().default(""),
