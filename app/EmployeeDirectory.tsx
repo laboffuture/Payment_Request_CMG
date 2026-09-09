@@ -7,8 +7,8 @@ import{Avatar,EmployeeEditor,Empty,ErrorBlock,Loading,Pager}from"./WorkforceShar
 
 const LIMIT=25;
 
-export default function EmployeeDirectory({openProfile,flash,openJd,readOnly}:{readOnly?:boolean;
-  openProfile:(id:string)=>void;flash:(m:string)=>void;openJd?:(id:string)=>void}){
+export default function EmployeeDirectory({openProfile,flash,readOnly}:{readOnly?:boolean;
+  openProfile:(id:string)=>void;flash:(m:string)=>void}){
   const wf=useWorkforce();
   const [raw,setRaw]=useState("");
   const [q,setQ]=useState("");
@@ -72,7 +72,6 @@ export default function EmployeeDirectory({openProfile,flash,openJd,readOnly}:{r
           <td><span className={`badge ${e.active?"green":"red"}`}>{e.active?"Active":"Inactive"}</span></td>
           <td><div className="wf-actions">
             <button onClick={()=>openProfile(e.id)}>Open</button>
-            {openJd&&<button onClick={()=>openJd(e.id)}>JD</button>}
             {!readOnly&&<><button onClick={()=>setEdit({...e})}><Pencil/></button>
             <button className="wf-danger-icon" onClick={()=>remove(e)}><Trash2/></button></>}
           </div></td></tr>})}</tbody></table></div>

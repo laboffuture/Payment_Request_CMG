@@ -1,6 +1,6 @@
 "use client";
 import{useState}from"react";
-import{FileDown,FileText,MessageSquareWarning,Pencil,Plus,X}from"lucide-react";
+import{FileDown,MessageSquareWarning,Pencil,Plus,X}from"lucide-react";
 import{csv,dayLabel,liveStatus,monthLabel,photoUrl,readable,stamp,statusTone,timeliness,timelinessTone,
   today,useAsync,useWorkforce}from"./workforce-store";
 import type{Employee,Frequency,Query,Task,Token}from"./workforce-store";
@@ -9,9 +9,8 @@ import Attachments from"./Attachments";
 
 type Tab="work"|"queries"|"observations"|"tokens"|"team";
 
-export function EmployeeProfile({id,close,flash,openProfile,openJd}:{
-  id:string;close:()=>void;flash:(m:string)=>void;openProfile:(id:string)=>void;
-  openJd?:(id:string)=>void}){
+export function EmployeeProfile({id,close,flash,openProfile}:{
+  id:string;close:()=>void;flash:(m:string)=>void;openProfile:(id:string)=>void;}){
   const wf=useWorkforce();
   const [tab,setTab]=useState<Tab>("work");
   const [taskEdit,setTaskEdit]=useState<{task:Partial<Task>;isNew:boolean}|null>(null);
@@ -47,7 +46,6 @@ export function EmployeeProfile({id,close,flash,openProfile,openJd}:{
             <small>{e.code} · {department?.name||e.department||"—"}</small>
           </div>
           <div className="wf-dossier-tools">
-            {openJd&&<button onClick={()=>openJd(e.id)}><FileText/>JD</button>}
             <button onClick={()=>setEmpEdit({...e})}><Pencil/>Edit</button>
             <button onClick={()=>csv([["Task","Frequency","Period","Due","Status","Timeliness","Progress %","Remarks"],
               ...data.tasks.map(t=>[t.name,t.frequency,t.period,t.due,liveStatus(t),timeliness(t),t.progress,t.remarks])],
