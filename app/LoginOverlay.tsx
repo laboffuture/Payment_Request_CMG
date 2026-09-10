@@ -9,7 +9,7 @@ export type Actor={userId:string;email:string;name:string;roles:string[];employe
    browser storage: the cookie is the session, and the server decides on every single
    request whether it is still valid, so a deactivation or a password change takes
    effect immediately rather than whenever the tab is next closed. */
-export default function LoginOverlay({onLogin}:{onLogin:(actor:Actor)=>void}){
+export default function LoginOverlay({onLogin,note=""}:{onLogin:(actor:Actor)=>void;note?:string}){
   const [email,setEmail]=useState(""),[password,setPassword]=useState("");
   const [show,setShow]=useState(false),[error,setError]=useState(""),[busy,setBusy]=useState(false);
   // the account was created with a temporary password and cannot be used until it is replaced
@@ -94,6 +94,7 @@ export default function LoginOverlay({onLogin}:{onLogin:(actor:Actor)=>void}){
               type={show?"text":"password"} autoComplete="current-password"/>
             <button type="button" aria-label="Show password" onClick={()=>setShow(!show)}>
               {show?<EyeOff/>:<Eye/>}</button></div></label>
+          {!!note&&!error&&<div className="login-note">{note}</div>}
           {error&&<div className="login-error">{error}</div>}
           <button className="login-submit" disabled={busy}>
             <LockKeyhole/>{busy?"Signing in…":"Sign in to workspace"}</button>

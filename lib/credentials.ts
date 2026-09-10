@@ -9,7 +9,12 @@
 
 const enc=new TextEncoder();
 export const SESSION_COOKIE="cot_session";
-export const SESSION_HOURS=12;
+export const SESSION_HOURS=12;          // idle time before a session stops working
+/* The cookie is kept far longer than the session it carries. It is only a bearer
+   token - the row in wf_sessions decides whether it still works, and that row moves
+   forward as the person keeps working. On the same twelve-hour clock the browser would
+   throw the cookie away mid-session and renewing the row could not help. */
+export const COOKIE_DAYS=30;
 export const DEFAULT_ITERATIONS=120000;
 
 const toHex=(buf:ArrayBuffer)=>Array.from(new Uint8Array(buf))

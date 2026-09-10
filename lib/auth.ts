@@ -1,7 +1,7 @@
 import{and,eq,gt}from"drizzle-orm";
 import{getDb}from"../db";
 import{wfSessions,wfUsers}from"../db/schema";
-import{SESSION_COOKIE,SESSION_HOURS,randomHex,readCookie}from"./credentials";
+import{COOKIE_DAYS,SESSION_COOKIE,SESSION_HOURS,randomHex,readCookie}from"./credentials";
 export*from"./credentials";
 
 /* ---------- sessions ---------- */
@@ -14,7 +14,7 @@ export async function createSession(user:{id:string;email:string;roles:string}){
   const expires=new Date(now.getTime()+SESSION_HOURS*3600000);
   await db.insert(wfSessions).values({token,userId:user.id,email:user.email,roles:user.roles,
     createdAt:now.toISOString(),expiresAt:expires.toISOString(),lastSeenAt:now.toISOString()});
-  return{token,maxAge:SESSION_HOURS*3600}}
+  return{token,maxAge:COOKIE_DAYS*24*3600}}
 
 export async function destroySession(token:string){
   if(!token)return;
@@ -23,6 +23,8 @@ export async function destroySession(token:string){
 
 /* Resolves the caller. Returns null when there is no valid session, when it has
    expired, or when the account behind it has since been deactivated. */
+const RENEW_AFTER=15*60*1000;   // rewrite the session at most every 15 minutes
+
 export async function currentActor(req:Request):Promise<Actor|null>{
   const token=readCookie(req,SESSION_COOKIE);
   if(!token)return null;
@@ -33,6 +35,22 @@ export async function currentActor(req:Request):Promise<Actor|null>{
   if(!row)return null;
   const [user]=await db.select().from(wfUsers).where(eq(wfUsers.id,row.userId)).limit(1);
   if(!user||!user.active)return null;
+
+  /* The window runs from the last request, not from signing in. Without this a session
+     died twelve hours after sign-in however hard the person was working, which is what
+     put "Sign in to continue" in front of people mid-task.
+
+     The row is only rewritten once the seen time is more than RENEW_AFTER old. D1 runs
+     one query at a time, so writing on every request would put a write in front of
+     every read the application makes. */
+  const seen=Date.parse(row.lastSeenAt||row.createdAt||now);
+  if(Date.now()-seen>RENEW_AFTER){
+    const fresh=new Date();
+    await db.update(wfSessions)
+      .set({lastSeenAt:fresh.toISOString(),
+            expiresAt:new Date(fresh.getTime()+SESSION_HOURS*3600000).toISOString()})
+      .where(eq(wfSessions.token,token));
+  }
   return{userId:user.id,email:user.email,name:user.name,employeeId:user.employeeId,
     roles:JSON.parse(user.roles||"[]") as string[]}}
 
