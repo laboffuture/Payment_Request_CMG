@@ -10,7 +10,7 @@ import type{Employee}from"./workforce-store";
    schedules rather than four that behaved the same way. */
 const RAISED_ON_MEETINGS=["Meeting","Task","Token","Training"] as const;
 type Tab="Queue"|"Accepted & In Progress"|"Completed";
-export default function AuditTaskQueue({title,kind,tasks,role,accept,update,openImport,create,companies=[],departments=[]}:{companies?:{id:string;name:string}[];departments?:string[];create?:(t:{title:string;department:string;companyId:string;due:string;notes:string;attendees?:string;extra?:string;kind?:string})=>Promise<void>|void;title:string;kind:AuditTask["kind"];tasks:AuditTask[];role:string;accept:(id:string)=>void;update:(id:string,status:AuditTask["status"])=>void;openImport:(kind:string)=>void}){const[tab,setTab]=useState<Tab>("Queue"),[open,setOpen]=useState(false),[busy,setBusy]=useState(false),[form,setForm]=useState({title:"",department:"",companyId:"",due:"",notes:"",kind:"Meeting"}),[guests,setGuests]=useState<{id:string;name:string}[]>([]),[term,setTerm]=useState(""),[search,setSearch]=useState(""),[dept,setDept]=useState("All departments"),[entity,setEntity]=useState("All companies");const wf=useWorkforce();
+export default function AuditTaskQueue({title,kind,tasks,role,accept,update,openImport,create,companies=[]}:{companies?:{id:string;name:string}[];create?:(t:{title:string;department:string;companyId:string;due:string;notes:string;attendees?:string;extra?:string;kind?:string})=>Promise<void>|void;title:string;kind:AuditTask["kind"];tasks:AuditTask[];role:string;accept:(id:string)=>void;update:(id:string,status:AuditTask["status"])=>void;openImport:(kind:string)=>void}){const[tab,setTab]=useState<Tab>("Queue"),[open,setOpen]=useState(false),[busy,setBusy]=useState(false),[form,setForm]=useState({title:"",department:"",companyId:"",due:"",notes:"",kind:"Meeting"}),[guests,setGuests]=useState<{id:string;name:string}[]>([]),[term,setTerm]=useState(""),[search,setSearch]=useState(""),[dept,setDept]=useState("All departments"),[entity,setEntity]=useState("All companies");const wf=useWorkforce();
   const xFields=useExtraFields("audittask");
   const[xVals,setXVals]=useState<Record<string,string>>({});
   const{data:found}=useAsync(()=>wf.api.employees({q:term,limit:25,active:"1"}),[term],term.length>1);
@@ -50,9 +50,6 @@ export default function AuditTaskQueue({title,kind,tasks,role,accept,update,open
         <label className="wide">{kind!=="Meeting"?"Task title":form.kind==="Meeting"?"What is the meeting about?":`What is the ${form.kind.toLowerCase()} for?`}
           <input required value={form.title} onChange={e=>setForm({...form,title:e.target.value})}
             placeholder={kind!=="Meeting"?"e.g. Vendor onboarding controls":form.kind==="Training"?"e.g. Fire safety refresher":form.kind==="Token"?"e.g. Petty cash token":form.kind==="Task"?"e.g. Reconcile vendor statements":"e.g. Monthly audit closing"}/></label>
-        <label>Department<select value={form.department} onChange={e=>setForm({...form,department:e.target.value})}>
-          <option value="">— any —</option>
-          {departments.map(d=><option key={d}>{d}</option>)}</select></label>
         {kind==="Meeting"&&<label className="wide">Who is attending?
           <input value={term} onChange={e=>setTerm(e.target.value)}
             placeholder="Type a name to search, then pick from the list"/>
