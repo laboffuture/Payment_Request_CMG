@@ -21,14 +21,11 @@ import {WorkforceProvider} from "./workforce-store";
 import OrgChart from "./OrgChart";
 import EmployeeDirectory from "./EmployeeDirectory";
 import {EmployeeProfile} from "./EmployeeProfile";
-import {TaskBoard,WorkPeriod} from "./WorkDesk";
-import TokenDesk from "./TokenDesk";
-import TrainingDesk from "./TrainingDesk";
 import {WorkforceOverview,WorkforceReports} from "./WorkforceReports";
 import {auditTasksApi,companiesApi} from "./audit-api";
 type Payment={createdAt?:string;tds?:string;nature?:string;poNumber?:string;resubmitNote?:string;resubmittedAt?:string;rejectionNote?:string;rejectedBy?:string;rejectedAt?:string;raisedBy?:string;id:number;requestNo:string;company:string;vendor:string;amount:number;currency:string;due:string;urgency:string;status:string;owner:string;department:string};
-export type AuditTask={attendees?:string;id:string;title:string;company:string;department:string;kind:"Pre-Audit"|"Post-Audit"|"Meeting"|"Special Audit";status:"Available"|"Accepted"|"In Progress"|"Observation Submitted"|"Response Received"|"Completed";due?:string;assignedTo?:string;plannedStart?:string;plannedEnd?:string;notes?:string;dataProvider?:string};
-type Module="dashboard"|"requests"|"payments"|"scheduled"|"preaudit"|"postaudit"|"specialaudit"|"community"|"meetings"|"reports"|"companies"|"settings"|"users"|"imports"|"organisation"|"employees"|"worktasks"|"training"|"worktokens"|"workreports";
+export type AuditTask={attendees?:string;id:string;title:string;company:string;department:string;kind:"Pre-Audit"|"Post-Audit"|"Meeting"|"Special Audit"|"Task"|"Token"|"Training";status:"Available"|"Accepted"|"In Progress"|"Observation Submitted"|"Response Received"|"Completed";due?:string;assignedTo?:string;plannedStart?:string;plannedEnd?:string;notes?:string;dataProvider?:string};
+type Module="dashboard"|"requests"|"payments"|"scheduled"|"preaudit"|"postaudit"|"specialaudit"|"community"|"meetings"|"reports"|"companies"|"settings"|"users"|"imports"|"organisation"|"employees"|"workreports";
 const seed:Payment[]=[];
 const auditSeed:AuditTask[]=[];
 const specialAuditSeed:AuditTask[]=[];
@@ -48,9 +45,6 @@ const nav:{id:Module;label:string;icon:any}[]=([
   ["postaudit","Post-audit tasks",ShieldCheck],
   ["specialaudit","Special audits",AlertTriangle],
   ["meetings","Meetings",CalendarDays],
-  ["worktasks","Tasks",ClipboardCheck],
-  ["worktokens","Tokens",ReceiptText],
-  ["training","Training",GraduationCap],
   // below here: reference and setup, reached far less often
   ["community","Community chat",MessageSquareText],
   ["reports","Reports centre",FileBarChart],
@@ -66,11 +60,11 @@ const nav:{id:Module;label:string;icon:any}[]=([
 /* The workforce screens as a set. Management's access is defined as "the workforce
    modules" rather than a list, so the group is still named even though the menu no
    longer keeps them together. */
-const workforceIds:Module[]=["organisation","employees","worktasks","worktokens","training","workreports"];
+const workforceIds:Module[]=["organisation","employees","workreports"];
 const tone:Record<string,string>={"Rejected":"red","Requested":"blue","Accountant Review":"amber","Pre-Audit Queue":"blue","Management Approval":"amber","Management Approval: Yes":"green","Management Approval: No":"red","Audit Rejected":"red","Audit Query":"red","Finance Queue":"violet","Approved by Auditor – Ready to Release":"green","Payment Released":"green","Reconciliation":"green","Audit Accepted":"blue","Audit Cleared":"green"};
-const access:Record<string,Module[]>={Administrator:nav.map(x=>x.id),Requestor:["dashboard","requests","organisation","employees","worktokens","meetings","community","training","reports"],Accountant:["dashboard","requests","payments","scheduled","organisation","employees","meetings","community","reports","worktasks","training"],Auditor:["dashboard","requests","payments","scheduled","organisation","employees","preaudit","postaudit","specialaudit","meetings","community","reports","worktasks","training"],Finance:["dashboard","payments","organisation","employees","workreports"],Management:["dashboard","payments",...workforceIds],"Audit Head":nav.filter(x=>x.id!=="settings").map(x=>x.id)};
+const access:Record<string,Module[]>={Administrator:nav.map(x=>x.id),Requestor:["dashboard","requests","organisation","employees","meetings","community","reports"],Accountant:["dashboard","requests","payments","scheduled","organisation","employees","meetings","community","reports"],Auditor:["dashboard","requests","payments","scheduled","organisation","employees","preaudit","postaudit","specialaudit","meetings","community","reports"],Finance:["dashboard","payments","organisation","employees","workreports"],Management:["dashboard","payments",...workforceIds],"Audit Head":nav.filter(x=>x.id!=="settings").map(x=>x.id)};
 export default function Home(){
- const[active,setActive]=useState<Module>("dashboard"),[payments,setPayments]=useState(seed),[auditTasks,setAuditTasks]=useState([...auditSeed,...specialAuditSeed]),[company,setCompany]=useState("All companies"),[companies,setCompanies]=useState<{id:string;name:string}[]>([]),[departments,setDepartments]=useState<string[]>([]),[natures,setNatures]=useState<string[]>([]),[currencies,setCurrencies]=useState<string[]>([]),[tdsChoices,setTdsChoices]=useState<string[]>([]),[masterVersion,setMasterVersion]=useState(0),[role,setRole]=useState("Audit Head"),[allowedRoles,setAllowedRoles]=useState<string[]>([]),[userName,setUserName]=useState(""),[userEmail,setUserEmail]=useState(""),[search,setSearch]=useState(""),[drawer,setDrawer]=useState<Payment|null>(null),[form,setForm]=useState(false),[passwordOpen,setPasswordOpen]=useState(false),[profileOpen,setProfileOpen]=useState(false),[mobile,setMobile]=useState(false),[profile,setProfile]=useState<string|null>(null),[period,setPeriod]=useState<"Tasks"|"Daily"|"Weekly"|"Monthly">("Tasks"),[toast,setToast]=useState(""),[todayLabel,setTodayLabel]=useState(""),[booting,setBooting]=useState(true);
+ const[active,setActive]=useState<Module>("dashboard"),[payments,setPayments]=useState(seed),[auditTasks,setAuditTasks]=useState([...auditSeed,...specialAuditSeed]),[company,setCompany]=useState("All companies"),[companies,setCompanies]=useState<{id:string;name:string}[]>([]),[departments,setDepartments]=useState<string[]>([]),[natures,setNatures]=useState<string[]>([]),[currencies,setCurrencies]=useState<string[]>([]),[tdsChoices,setTdsChoices]=useState<string[]>([]),[masterVersion,setMasterVersion]=useState(0),[role,setRole]=useState("Audit Head"),[allowedRoles,setAllowedRoles]=useState<string[]>([]),[userName,setUserName]=useState(""),[userEmail,setUserEmail]=useState(""),[search,setSearch]=useState(""),[drawer,setDrawer]=useState<Payment|null>(null),[form,setForm]=useState(false),[passwordOpen,setPasswordOpen]=useState(false),[profileOpen,setProfileOpen]=useState(false),[mobile,setMobile]=useState(false),[profile,setProfile]=useState<string|null>(null),[toast,setToast]=useState(""),[todayLabel,setTodayLabel]=useState(""),[booting,setBooting]=useState(true);
  /* Audit tasks store a companyId; the screens show a company name, so the names are
     resolved once here rather than looked up per row. */
  const loadAuditTasks=async()=>{try{
@@ -101,8 +95,6 @@ export default function Home(){
  const mine=useMemo(()=>filtered.filter(p=>(p.raisedBy||"")===userEmail),[filtered,userEmail]);
  /* Tasks, and the same work seen by day, week or month - one menu entry with the view
     chosen inside, rather than four entries onto the same register. */
- const taskTabs=<div className="wf-tabs wf-period-tabs">{(["Tasks","Daily","Weekly","Monthly"] as const)
-   .map(t=><button key={t} className={period===t?"active":""} onClick={()=>setPeriod(t)}>{t}</button>)}</div>;
  const flash=(x:string)=>{setToast(x);setTimeout(()=>setToast(""),2500)};
  const act=async(p:Payment,status:string,note?:string)=>{
   const owner=status==="Audit Accepted"?userName||"Assigned Auditor"
@@ -137,9 +129,9 @@ export default function Home(){
   }catch(e){flash(e instanceof Error?e.message:"That request could not be deleted")}};
  /* Meetings and audit tasks are the same record with a different kind, so one handler
     serves every queue. */
- const createAuditTask=async(kind:AuditTask["kind"],t:{title:string;department:string;companyId:string;due:string;notes:string;attendees?:string;extra?:string})=>{
-  try{await auditTasksApi.create({...t,kind,status:"Available"});await loadAuditTasks();
-   flash(`${kind==="Meeting"?"Meeting":kind+" task"} created`)}
+ const createAuditTask=async(kind:AuditTask["kind"],t:{title:string;department:string;companyId:string;due:string;notes:string;attendees?:string;extra?:string;kind?:string})=>{
+  try{await auditTasksApi.create({...t,kind:t.kind||kind,status:"Available"});await loadAuditTasks();
+   flash(`${t.kind&&t.kind!=="Meeting"?t.kind:kind==="Meeting"?"Meeting":kind+" task"} created`)}
   catch(e){flash(e instanceof Error?e.message:"Could not create it")}};
  const acceptAuditTask=async(id:string)=>{
    try{await auditTasksApi.update({id,action:"accept"});await loadAuditTasks();
@@ -181,12 +173,9 @@ export default function Home(){
  {active==="users"&&<AccessSetup/>}
  {active==="organisation"&&<OrgChart readOnly={viewOnly} openProfile={setProfile} flash={flash}/>}
  {active==="employees"&&<EmployeeDirectory readOnly={viewOnly} openProfile={setProfile} flash={flash}/>}
- {active==="worktasks"&&(period==="Tasks"?<TaskBoard tabs={taskTabs} openProfile={setProfile} flash={flash}/>:<WorkPeriod tabs={taskTabs} frequency={period} openProfile={setProfile} flash={flash}/>)}
  
  
  
- {active==="training"&&<TrainingDesk flash={flash}/>}
- {active==="worktokens"&&<TokenDesk openProfile={setProfile} flash={flash}/>}
  {active==="workreports"&&<WorkforceReports openProfile={setProfile} flash={flash}/>}
  {active==="imports"&&<ImportCentre flash={flash} onImport={async(kind,assigned,dataProvider)=>{
    try{await auditTasksApi.create({title:`Imported ${kind} task`,kind,department:"Finance",

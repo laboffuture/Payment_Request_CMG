@@ -5,8 +5,12 @@ import{CalendarClock,CheckCircle2,Download,Import,Plus,Search,X}from"lucide-reac
 import{useMemo,useState}from"react";import type{AuditTask}from"./page";
 import{useAsync,useWorkforce}from"./workforce-store";
 import type{Employee}from"./workforce-store";
+/* Tasks, tokens and training had screens of their own. They are raised on the meeting
+   form now and listed beside meetings, so one screen holds everything the audit team
+   schedules rather than four that behaved the same way. */
+const RAISED_ON_MEETINGS=["Meeting","Task","Token","Training"] as const;
 type Tab="Queue"|"Accepted & In Progress"|"Completed";
-export default function AuditTaskQueue({title,kind,tasks,role,accept,update,openImport,create,companies=[],departments=[]}:{companies?:{id:string;name:string}[];departments?:string[];create?:(t:{title:string;department:string;companyId:string;due:string;notes:string;attendees?:string;extra?:string})=>Promise<void>|void;title:string;kind:AuditTask["kind"];tasks:AuditTask[];role:string;accept:(id:string)=>void;update:(id:string,status:AuditTask["status"])=>void;openImport:(kind:string)=>void}){const[tab,setTab]=useState<Tab>("Queue"),[open,setOpen]=useState(false),[busy,setBusy]=useState(false),[form,setForm]=useState({title:"",department:"",companyId:"",due:"",notes:""}),[guests,setGuests]=useState<{id:string;name:string}[]>([]),[term,setTerm]=useState(""),[search,setSearch]=useState(""),[dept,setDept]=useState("All departments"),[entity,setEntity]=useState("All companies");const wf=useWorkforce();
+export default function AuditTaskQueue({title,kind,tasks,role,accept,update,openImport,create,companies=[],departments=[]}:{companies?:{id:string;name:string}[];departments?:string[];create?:(t:{title:string;department:string;companyId:string;due:string;notes:string;attendees?:string;extra?:string;kind?:string})=>Promise<void>|void;title:string;kind:AuditTask["kind"];tasks:AuditTask[];role:string;accept:(id:string)=>void;update:(id:string,status:AuditTask["status"])=>void;openImport:(kind:string)=>void}){const[tab,setTab]=useState<Tab>("Queue"),[open,setOpen]=useState(false),[busy,setBusy]=useState(false),[form,setForm]=useState({title:"",department:"",companyId:"",due:"",notes:"",kind:"Meeting"}),[guests,setGuests]=useState<{id:string;name:string}[]>([]),[term,setTerm]=useState(""),[search,setSearch]=useState(""),[dept,setDept]=useState("All departments"),[entity,setEntity]=useState("All companies");const wf=useWorkforce();
   const xFields=useExtraFields("audittask");
   const[xVals,setXVals]=useState<Record<string,string>>({});
   const{data:found}=useAsync(()=>wf.api.employees({q:term,limit:25,active:"1"}),[term],term.length>1);
@@ -20,7 +24,7 @@ export default function AuditTaskQueue({title,kind,tasks,role,accept,update,open
     return (ids:string)=>ids.split(",").map(x=>x.trim()).filter(Boolean)
       .map(id=>m.get(id)||id);
   },[roster]);
-  const base=tasks.filter(t=>t.kind===kind),rows=useMemo(()=>base.filter(t=>(tab==="Queue"?t.status==="Available":tab==="Completed"?t.status==="Completed":!["Available","Completed"].includes(t.status))&&(dept==="All departments"||t.department===dept)&&(entity==="All companies"||t.company===entity)&&`${t.id} ${t.title} ${t.company} ${t.department}`.toLowerCase().includes(search.toLowerCase())),[base,tab,search,dept,entity]);return <div className="page audit-list-page"><div className="intro"><div><small>AUDIT DEPARTMENT</small><h2>{title}</h2><p>Queue, accepted work in progress, and completed tasks in one consistent list.</p></div><div className="audit-list-actions">
+  const base=tasks.filter(t=>kind==="Meeting"?(RAISED_ON_MEETINGS as readonly string[]).includes(t.kind):t.kind===kind),rows=useMemo(()=>base.filter(t=>(tab==="Queue"?t.status==="Available":tab==="Completed"?t.status==="Completed":!["Available","Completed"].includes(t.status))&&(dept==="All departments"||t.department===dept)&&(entity==="All companies"||t.company===entity)&&`${t.id} ${t.title} ${t.company} ${t.department}`.toLowerCase().includes(search.toLowerCase())),[base,tab,search,dept,entity]);return <div className="page audit-list-page"><div className="intro"><div><small>AUDIT DEPARTMENT</small><h2>{title}</h2><p>Queue, accepted work in progress, and completed tasks in one consistent list.</p></div><div className="audit-list-actions">
    {create&&role!=="Requestor"&&<button className="primary" onClick={()=>setOpen(true)}><Plus/>New {kind==="Meeting"?"meeting":kind.toLowerCase()+" task"}</button>}
    {role==="Audit Head"&&<><a href="/audit-program-import-template.xlsx" download><Download/>Format</a><button className="primary" onClick={()=>openImport(kind)}><Import/>Import Excel</button></>}</div></div><section className="panel audit-list"><div className="audit-list-tabs">{(["Queue","Accepted & In Progress","Completed"] as Tab[]).map(x=><button className={tab===x?"active":""} onClick={()=>setTab(x)} key={x}>{x}<i>{base.filter(t=>x==="Queue"?t.status==="Available":x==="Completed"?t.status==="Completed":!["Available","Completed"].includes(t.status)).length}</i></button>)}</div><div className="audit-list-tools"><label><Search/><input value={search} onChange={e=>setSearch(e.target.value)} placeholder="Search task, company or department"/></label><select value={dept} onChange={e=>setDept(e.target.value)}><option>All departments</option>{Array.from(new Set(base.map(t=>t.department))).map(x=><option key={x}>{x}</option>)}</select><select value={entity} onChange={e=>setEntity(e.target.value)}><option>All companies</option>{Array.from(new Set(base.map(t=>t.company))).map(x=><option key={x}>{x}</option>)}</select></div><div className="table-wrap"><table><thead><tr><th>PROGRAM / TASK</th><th>COMPANY / DEPT</th><th>AUDIT TYPE</th><th>PLANNED TIME</th><th>{kind==="Meeting"?"ATTENDING":"ASSIGNED TO"}</th><th>CURRENT STATUS</th><th>NEXT ACTION</th></tr></thead><tbody>{rows.map(t=><tr key={t.id}><td><b>{t.id}</b><small>{t.title}</small></td><td>{t.company}<small>{t.department}</small></td><td>{t.kind}<small>{t.dataProvider?`Provider: ${t.dataProvider}`:"Evidence required"}</small></td><td><b>{t.plannedStart||t.due||"Not set"}</b><small>to {t.plannedEnd||t.due||"Not set"}</small></td><td>{kind==="Meeting"
               ?(()=>{const who=nameOf(t.attendees||"");
@@ -32,16 +36,20 @@ export default function AuditTaskQueue({title,kind,tasks,role,accept,update,open
     <form className="modal" onSubmit={async e=>{e.preventDefault();
       if(!form.title.trim()||!create)return; setBusy(true);
       try{await create({...form,title:form.title.trim(),
-          attendees:guests.map(g=>g.id).join(","),extra:packExtra(xFields,xVals)}); setOpen(false);
-        setForm({title:"",department:"",companyId:"",due:"",notes:""});setGuests([]);setTerm("");}
+          attendees:guests.map(g=>g.id).join(","),extra:packExtra(xFields,xVals),
+          kind:kind==="Meeting"?form.kind:kind}); setOpen(false);
+        setForm({title:"",department:"",companyId:"",due:"",notes:"",kind:"Meeting"});setGuests([]);setTerm("");}
       finally{setBusy(false)}}}>
       <header><div><small>AUDIT DEPARTMENT</small>
-        <h2>New {kind==="Meeting"?"meeting":kind.toLowerCase()+" task"}</h2></div>
+        <h2>New {kind!=="Meeting"?kind.toLowerCase()+" task":form.kind==="Meeting"?"meeting":form.kind.toLowerCase()}</h2></div>
         <button type="button" onClick={()=>setOpen(false)}><X/></button></header>
       <div className="form">
-        <label className="wide">{kind==="Meeting"?"What is the meeting about?":"Task title"}
+        {kind==="Meeting"&&<label>What is this?
+          <select value={form.kind} onChange={e=>setForm({...form,kind:e.target.value})}>
+            {RAISED_ON_MEETINGS.map(k=><option key={k}>{k}</option>)}</select></label>}
+        <label className="wide">{kind!=="Meeting"?"Task title":form.kind==="Meeting"?"What is the meeting about?":`What is the ${form.kind.toLowerCase()} for?`}
           <input required value={form.title} onChange={e=>setForm({...form,title:e.target.value})}
-            placeholder={kind==="Meeting"?"e.g. Monthly audit closing":"e.g. Vendor onboarding controls"}/></label>
+            placeholder={kind!=="Meeting"?"e.g. Vendor onboarding controls":form.kind==="Training"?"e.g. Fire safety refresher":form.kind==="Token"?"e.g. Petty cash token":form.kind==="Task"?"e.g. Reconcile vendor statements":"e.g. Monthly audit closing"}/></label>
         <label>Department<select value={form.department} onChange={e=>setForm({...form,department:e.target.value})}>
           <option value="">— any —</option>
           {departments.map(d=><option key={d}>{d}</option>)}</select></label>

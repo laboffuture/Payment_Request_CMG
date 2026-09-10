@@ -5,7 +5,9 @@ import{requireAuth}from"../../../../lib/auth";
 import{actorOf,bad,oops,page,search,str,writeWithAudit}from"../../../../lib/workforce-api";
 import type{Row}from"../../../../lib/workforce-api";
 
-const KINDS=["Pre-Audit","Post-Audit","Special Audit","Meeting"];
+/* Tasks, tokens and training were screens of their own. They are raised from the
+   meeting form now, which is why the kind says which of them it is. */
+const KINDS=["Pre-Audit","Post-Audit","Special Audit","Meeting","Task","Token","Training"];
 const STATUS=["Available","Accepted","In Progress","Observation Submitted","Response Received","Completed"];
 const now=()=>new Date().toISOString();
 const shape=(t:Row)=>({id:str(t.id),ref:str(t.ref),title:str(t.title),kind:str(t.kind,"Pre-Audit"),
