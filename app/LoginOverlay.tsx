@@ -53,7 +53,7 @@ export default function LoginOverlay({onLogin,note=""}:{onLogin:(actor:Actor)=>v
 
   return <div className="login-screen">
     <section className="login-story">
-      <div className="login-mark">C</div>
+      <div className="login-mark"><img src="/logo.png" alt="Chandramani Group"/></div>
       <p>CMG AUDIT CONTROL</p>
       <h1>One payment journey.<br/>Clear ownership at every step.</h1>
       <p className="login-lead">Request, accounts verification, audit approval, observations

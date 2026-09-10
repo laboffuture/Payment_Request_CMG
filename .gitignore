@@ -50,3 +50,6 @@ next-env.d.ts
 # Scrub those seed accounts before adding it.
 /preview/
 tsconfig.tsbuildinfo
+
+# Source artwork. The web-sized copy lives in public/.
+/IMAGES/
