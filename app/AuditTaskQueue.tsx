@@ -14,10 +14,9 @@ export default function AuditTaskQueue({title,kind,tasks,role,accept,update,open
   const addGuest=(p:Employee)=>{setGuests(v=>v.concat([{id:p.id,name:p.name}]));setTerm("")};
   /* Attendees are stored as employee ids, so the list needs names to show. One
      request covers every row, and only the meetings screen asks for it. */
-  const{data:roster}=useAsync(()=>wf.api.employees({limit:300,active:"1"}),
-    [wf.version],kind==="Meeting");
+  const{data:roster}=useAsync(()=>wf.api.allEmployees(),[wf.version],kind==="Meeting");
   const nameOf=useMemo(()=>{
-    const m=new Map((roster?.employees||[]).map(p=>[p.id,p.name]));
+    const m=new Map((roster||[]).map(p=>[p.id,p.name]));
     return (ids:string)=>ids.split(",").map(x=>x.trim()).filter(Boolean)
       .map(id=>m.get(id)||id);
   },[roster]);

@@ -128,6 +128,7 @@ export type ListParams={q?:string;deptId?:string;roleId?:string;employeeId?:stri
 
 type Api={
   employees:(p?:ListParams)=>Promise<{employees:Employee[];total:number}>;
+  allEmployees:()=>Promise<Employee[]>;
   employee:(id:string)=>Promise<Employee>;
   dossier:(id:string)=>Promise<Dossier>;
   summary:()=>Promise<Summary>;
@@ -208,6 +209,18 @@ export function WorkforceProvider({actor,children}:{actor:string;children:React.
 
   const api=useMemo<Api>(()=>({
     employees:async p=>await asJson(await fetch(`${BASE}/employees${qs({limit:50,...p})}`)),
+    /* The register hands back at most 200 rows a page. Anything that needs the whole
+       chart - a name lookup, a picker - has to walk the pages, or it silently stops at
+       200 and the people past that simply are not there. */
+    allEmployees:async()=>{
+      const out:Employee[]=[];
+      for(let offset=0;offset<5000;offset+=200){
+        const page=await asJson(await fetch(`${BASE}/employees${qs({limit:200,offset,active:"1"})}`)) as {employees?:Employee[]};
+        const got=page.employees||[];
+        out.push(...got);
+        if(got.length<200)break;
+      }
+      return out},
     employee:async id=>(await asJson(await fetch(`${BASE}/employees${qs({id})}`))).employee,
     dossier:async id=>await asJson(await fetch(`${BASE}/dossier${qs({employeeId:id})}`)),
     summary:async()=>await asJson(await fetch(`${BASE}/summary`)),

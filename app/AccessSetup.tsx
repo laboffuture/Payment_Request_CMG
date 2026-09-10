@@ -1,6 +1,19 @@
 "use client";
 import{Check,KeyRound,Plus,Power,Trash2,UserRound,X}from"lucide-react";
 import{useCallback,useEffect,useState}from"react";
+
+/* Walks the register's pages. It returns at most 200 rows at a time, and there are
+   more people than that, so a single request would leave logins showing no name. */
+async function loadEveryEmployee(){
+  const out:Person[]=[];
+  for(let offset=0;offset<5000;offset+=200){
+    const r=await fetch(`/api/workforce/employees?active=1&limit=200&offset=${offset}`);
+    const d=await r.json() as{employees?:Person[]};
+    const got=d.employees||[];
+    out.push(...got);
+    if(got.length<200)break;
+  }
+  return{employees:out}}
 import{accountsApi,type Account}from"./audit-api";
 
 /* Real logins, from wf_users through /api/auth/users.
@@ -31,7 +44,7 @@ export default function AccessSetup(){
    try{
      const[u,p]=await Promise.all([
        accountsApi.load(),
-       fetch("/api/workforce/employees?limit=200&active=1").then(r=>r.json() as Promise<{employees?:Person[]}>)]);
+       loadEveryEmployee()]);
      setUsers(u.users);setPeople(p.employees||[])}
    catch(e){setError(e instanceof Error?e.message:"Could not load accounts")}
    finally{setLoading(false)}},[]);
@@ -64,7 +77,6 @@ export default function AccessSetup(){
    finally{setBusy(false)}};
 
  const withLogin=new Set(users.map(u=>u.employeeId).filter(Boolean));
- const available=people.filter(p=>!withLogin.has(p.id));
 
  return <div className="page access-page">
   <div className="access-head"><div><small>ACCESS CONTROL</small><h2>Users and role configuration</h2>
@@ -110,32 +122,58 @@ export default function AccessSetup(){
      {!users.length&&<tr><td colSpan={6}>No logins yet. Use Add user to create the first one.</td></tr>}
     </tbody></table></section>):<RoleMatrix/>}
 
-  {show&&<Editor people={available} busy={busy} close={()=>setShow(false)} saveUser={create}/>}
+  {show&&<Editor taken={withLogin} busy={busy} close={()=>setShow(false)} saveUser={create}/>}
  </div>}
 
 /* Creating a login. The person is chosen from the register rather than typed, because
    the server refuses an account that is not attached to an employee record. */
-function Editor({people,busy,close,saveUser}:{people:Person[];busy:boolean;close:()=>void;
+function Editor({taken,busy,close,saveUser}:{taken:Set<string>;busy:boolean;close:()=>void;
   saveUser:(u:{name:string;email:string;employeeId:string;roles:string[]})=>void}){
  const[employeeId,setEmployeeId]=useState(""),[email,setEmail]=useState(""),[roles,setRoles]=useState<string[]>([]);
- const person=people.find(p=>p.id===employeeId);
+ /* There are more people on the chart than one dropdown can hold, and the register
+    caps a page at 200, so the whole list can no longer be handed to this screen. The
+    search runs on the server - name, employee code or department - so it reaches
+    everybody however many there are. */
+ const[term,setTerm]=useState(""),[found,setFound]=useState<Person[]>([]);
+ const[person,setPerson]=useState<Person|null>(null);
+ const[looking,setLooking]=useState(false);
+ useEffect(()=>{
+  const q=term.trim();
+  if(q.length<2){setFound([]);return}
+  let live=true;setLooking(true);
+  const t=setTimeout(()=>{          // one request per pause, not per keystroke
+    fetch(`/api/workforce/employees?active=1&limit=25&q=${encodeURIComponent(q)}`)
+      .then(r=>r.json() as Promise<{employees?:Person[]}>)
+      .then(d=>{if(live){setFound((d.employees||[]).filter(x=>!taken.has(x.id)));setLooking(false)}})
+      .catch(()=>{if(live)setLooking(false)});
+  },250);
+  return()=>{live=false;clearTimeout(t)};
+ },[term,taken]);
  const toggle=(v:string)=>setRoles(r=>r.includes(v)?r.filter(x=>x!==v):[...r,v]);
- const pick=(id:string)=>{setEmployeeId(id);
-   const p=people.find(x=>x.id===id);
-   if(p?.email&&!email)setEmail(p.email)};     // prefill from the employee record
+ const pick=(p:Person)=>{setEmployeeId(p.id);setPerson(p);setTerm("");setFound([]);
+   if(p.email&&!email)setEmail(p.email)};     // prefill from the employee record
  const ready=!!employeeId&&/.+@.+\..+/.test(email)&&roles.length>0;
  return <><button className="overlay" onClick={close}/>
   <aside className="access-editor">
    <header><div><small>USER ACCESS</small><h2>{person?.name||"Add new user"}</h2></div>
     <button onClick={close}><X/></button></header>
    <div>
-    <label>Person on the organisation chart
-     <select value={employeeId} onChange={e=>pick(e.target.value)}>
-      <option value="">Select a person…</option>
-      {people.map(p=><option key={p.id} value={p.id}>
-        {p.name}{p.department?` — ${p.department}`:""}{p.code?` (${p.code})`:""}</option>)}</select></label>
-    {!people.length&&<p className="queue-empty">Everybody on the chart already has a login. Add the
-      person under Employees first.</p>}
+       <label>Person on the organisation chart
+        {person
+          ?<span className="access-picked"><b>{person.name}</b>
+             <small>{[person.department,person.code].filter(Boolean).join(" · ")}</small>
+             <button type="button" onClick={()=>{setPerson(null);setEmployeeId("")}}>Change</button></span>
+          :<input value={term} onChange={e=>setTerm(e.target.value)}
+             placeholder="Search by name, employee code or department"/>}
+        {!person&&!!found.length&&<div className="wf-picker">{found.map(p=>
+          <button type="button" key={p.id} onClick={()=>pick(p)}>
+            <b>{p.name}</b><small>{[p.department,p.code].filter(Boolean).join(" · ")}</small></button>)}</div>}
+       </label>
+       {!person&&term.trim().length>=2&&!found.length&&!looking&&
+         <p className="queue-empty">Nobody without a login matches that. They may already have one, or
+           need adding under Employees first.</p>}
+       {!person&&term.trim().length<2&&
+         <p className="queue-empty">Type two letters or more to search everybody on the chart.</p>}
     <label>Work email<input type="email" value={email} onChange={e=>setEmail(e.target.value)}
       placeholder="name@company.com"/></label>
     <p className="queue-empty">A temporary password is generated when you save, shown once, and

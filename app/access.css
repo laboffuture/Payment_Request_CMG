@@ -22,3 +22,13 @@
 .user-table td>.you-marker+button{margin-left:6px}
 /* if a narrow column ever wraps them onto two lines, keep the lines apart too */
 .user-table td>button,.user-table .you-marker{margin-bottom:2px}
+
+/* The person picker on a new login: a search rather than a dropdown of everybody */
+.access-editor .wf-picker{margin-top:6px;max-height:210px}
+.access-picked{display:flex;align-items:center;gap:10px;border:1px solid var(--line);
+  background:#fafbfc;border-radius:8px;padding:9px 11px;margin-top:5px}
+.access-picked b{font-size:12px;font-weight:600}
+.access-picked small{flex:1;font-size:10px;color:var(--muted)}
+.access-picked button{border:1px solid var(--line);background:#fff;border-radius:6px;
+  padding:5px 9px;font-size:10px;cursor:pointer}
+.access-picked button:hover{border-color:#0b1d3a}
