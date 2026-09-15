@@ -2,3 +2,15 @@
 .rd-kpis.six{grid-template-columns:repeat(6,1fr)}.user-performance{margin-top:12px;padding:0}.performance-table{display:grid;grid-template-columns:2fr repeat(3,1fr);font-size:9px}.performance-table>*{padding:9px 15px;border-top:1px solid #edf0f4}.performance-table>b{background:#f7f9fb;color:#687486}.performance-table .late{color:#b3372a;font-weight:800}.audit-actions{display:flex;gap:8px}.audit-actions select{border:1px solid #d1d8e0;border-radius:7px;background:#fff;padding:8px;font-size:10px}.audit-task-section{padding:0;margin-bottom:12px}.audit-task-section>.cards{padding:14px}.queue-empty{padding:24px;text-align:center;color:#758092;font-size:10px}
 @media(max-width:1100px){.rd-kpis.six{grid-template-columns:repeat(3,1fr)}}@media(max-width:900px){.rd-kpis,.rd-kpis.six{grid-template-columns:repeat(2,1fr)}.rd-grid{grid-template-columns:1fr}}@media(max-width:600px){.rd-row{grid-template-columns:1fr auto}.rd-row em{grid-column:1/-1}.rd-kpis,.rd-kpis.six{grid-template-columns:1fr 1fr}}
 .password-link{float:right;margin:12px 26px -8px 0;border:1px solid #d2dae3;background:#fff;color:#23456d;border-radius:7px;padding:7px 10px;display:flex;align-items:center;gap:6px;font-size:9px;font-weight:800}.password-link svg{width:14px}.password-reset{width:min(520px,92vw)}
+
+/* Payment completion card. The label was 9px and sat inline beside the 44px score, so
+   it hung at the bottom corner of the number. It now has its own line above the score,
+   the score and its /100 share a baseline, and the small text is a size up. Loaded after
+   reference-theme.css, so these win over its overrides. */
+.health>div>small{display:block;font-size:11px;font-weight:700;letter-spacing:.08em;margin:0 0 6px}
+.health>div>b{font-size:44px;line-height:1;margin:0 4px 0 0;vertical-align:baseline}
+.health>div>span{font-size:15px;vertical-align:baseline}
+.health p{font-size:12px;margin:8px 0 0}
+.health label{font-size:11px}
+.health label span{align-items:baseline;margin-bottom:6px}
+.health label b{font-size:12px}
