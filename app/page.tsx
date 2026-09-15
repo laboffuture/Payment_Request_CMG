@@ -203,7 +203,7 @@ export default function Home(){
  {active==="dashboard"&&(role==="Requestor"?<RequestorDashboard rows={mine} open={setDrawer} create={()=>setForm(true)} go={setActive}/>:role==="Accountant"||role==="Auditor"?<RoleDashboard role={role} payments={filtered} auditTasks={auditTasks} open={setDrawer} go={setActive}/>:<Dashboard payments={filtered} go={setActive}/>)}
  {active==="dashboard"&&visible.some(n=>n.id==="organisation")&&<div className="page wf-dash-wrap"><WorkforceOverview openProfile={setProfile} go={()=>setActive("organisation")}/></div>}
  {active==="requests"&&<RequestorWorkspace rows={role==="Requestor"?mine:filtered} open={setDrawer} create={()=>setForm(true)}/>}
- {active==="payments"&&<PaymentWorkbench onDelete={removeRequest} rows={filtered} role={role} search={search} setSearch={setSearch} open={setDrawer} create={()=>setForm(true)}/>}
+ {active==="payments"&&<PaymentWorkbench departments={departments} companies={companies.map(c=>c.name)} onDelete={removeRequest} rows={filtered} role={role} search={search} setSearch={setSearch} open={setDrawer} create={()=>setForm(true)}/>}
  {active==="scheduled"&&<ScheduledPayments role={role} flash={flash}/>}
  {active==="preaudit"&&<AuditTaskQueue title="Pre-audit tasks" kind="Pre-Audit" companies={companies} create={(t)=>createAuditTask("Pre-Audit",t)} tasks={auditTasks} role={role} accept={acceptAuditTask} update={updateAuditTask} openImport={()=>setActive("imports")}/>} 
  {active==="postaudit"&&<AuditTaskQueue title="Post-audit tasks" kind="Post-Audit" companies={companies} create={(t)=>createAuditTask("Post-Audit",t)} tasks={auditTasks} role={role} accept={acceptAuditTask} update={updateAuditTask} openImport={()=>setActive("imports")}/>} 
