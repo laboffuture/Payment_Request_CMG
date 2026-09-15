@@ -51,3 +51,9 @@
   border-top:1px solid #edf1ef;padding-top:6px}
 .extra-values span{color:var(--muted)}
 .extra-values b{font-weight:600}
+
+/* Report centre tabs sit on the page's own gutter, above whichever report is open */
+.report-centre-tabs{max-width:1500px;margin:auto;padding:24px 28px 0}
+.report-centre-tabs .settings-tabs{margin-bottom:0}
+.report-centre-tabs+.page{padding-top:16px}
+@media(max-width:900px){.report-centre-tabs{padding:18px 16px 0}}

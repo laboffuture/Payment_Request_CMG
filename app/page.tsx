@@ -25,7 +25,7 @@ import {WorkforceOverview,WorkforceReports} from "./WorkforceReports";
 import {auditTasksApi,companiesApi} from "./audit-api";
 type Payment={createdAt?:string;tds?:string;nature?:string;poNumber?:string;resubmitNote?:string;resubmittedAt?:string;rejectionNote?:string;rejectedBy?:string;rejectedAt?:string;raisedBy?:string;id:number;requestNo:string;company:string;vendor:string;amount:number;currency:string;due:string;urgency:string;status:string;owner:string;department:string};
 export type AuditTask={attendees?:string;id:string;title:string;company:string;department:string;kind:"Pre-Audit"|"Post-Audit"|"Meeting"|"Special Audit"|"Task"|"Token"|"Training";status:"Available"|"Accepted"|"In Progress"|"Observation Submitted"|"Response Received"|"Completed";due?:string;assignedTo?:string;plannedStart?:string;plannedEnd?:string;notes?:string;dataProvider?:string};
-type Module="dashboard"|"requests"|"payments"|"scheduled"|"preaudit"|"postaudit"|"specialaudit"|"community"|"meetings"|"reports"|"companies"|"settings"|"users"|"imports"|"organisation"|"employees"|"workreports";
+type Module="dashboard"|"requests"|"payments"|"scheduled"|"preaudit"|"postaudit"|"specialaudit"|"community"|"meetings"|"reports"|"companies"|"settings"|"users"|"imports"|"organisation"|"employees";
 const seed:Payment[]=[];
 const auditSeed:AuditTask[]=[];
 const specialAuditSeed:AuditTask[]=[];
@@ -47,22 +47,21 @@ const nav:{id:Module;label:string;icon:any}[]=([
   ["meetings","Meetings",CalendarDays],
   // below here: reference and setup, reached far less often
   ["community","Community chat",MessageSquareText],
-  ["reports","Reports centre",FileBarChart],
+  ["reports","Report centre",FileBarChart],
   ["companies","Companies",Building2],
   ["users","Users & access",Users],
   ["imports","Import centre",Import],
   ["organisation","Organisation",Building2],
   ["employees","Employees",Users],
-  ["workreports","Workforce reports",FileBarChart],
   ["settings","Settings",SlidersHorizontal]] as [Module,string,any][])
   .map(([id,label,icon])=>({id,label,icon}));
 
 /* The workforce screens as a set. Management's access is defined as "the workforce
    modules" rather than a list, so the group is still named even though the menu no
    longer keeps them together. */
-const workforceIds:Module[]=["organisation","employees","workreports"];
+const workforceIds:Module[]=["organisation","employees","reports"];
 const tone:Record<string,string>={"Rejected":"red","Requested":"blue","Accountant Review":"amber","Pre-Audit Queue":"blue","Management Approval":"amber","Management Approval: Yes":"green","Management Approval: No":"red","Audit Rejected":"red","Audit Query":"red","Finance Queue":"violet","Approved by Auditor – Ready to Release":"green","Payment Released":"green","Reconciliation":"green","Audit Accepted":"blue","Audit Cleared":"green"};
-const access:Record<string,Module[]>={Administrator:nav.map(x=>x.id),Requestor:["dashboard","requests","organisation","employees","meetings","community","reports"],Accountant:["dashboard","requests","payments","scheduled","organisation","employees","meetings","community","reports"],Auditor:["dashboard","requests","payments","scheduled","organisation","employees","preaudit","postaudit","specialaudit","meetings","community","reports"],Finance:["dashboard","payments","organisation","employees","workreports"],Management:["dashboard","payments",...workforceIds],"Audit Head":nav.filter(x=>x.id!=="settings").map(x=>x.id)};
+const access:Record<string,Module[]>={Administrator:nav.map(x=>x.id),Requestor:["dashboard","requests","organisation","employees","meetings","community","reports"],Accountant:["dashboard","requests","payments","scheduled","organisation","employees","meetings","community","reports"],Auditor:["dashboard","requests","payments","scheduled","organisation","employees","preaudit","postaudit","specialaudit","meetings","community","reports"],Finance:["dashboard","payments","organisation","employees","reports"],Management:["dashboard","payments",...workforceIds],"Audit Head":nav.filter(x=>x.id!=="settings").map(x=>x.id)};
 export default function Home(){
  const[active,setActive]=useState<Module>("dashboard"),[payments,setPayments]=useState(seed),[auditTasks,setAuditTasks]=useState([...auditSeed,...specialAuditSeed]),[company,setCompany]=useState("All companies"),[companies,setCompanies]=useState<{id:string;name:string}[]>([]),[departments,setDepartments]=useState<string[]>([]),[natures,setNatures]=useState<string[]>([]),[currencies,setCurrencies]=useState<string[]>([]),[tdsChoices,setTdsChoices]=useState<string[]>([]),[masterVersion,setMasterVersion]=useState(0),[role,setRole]=useState("Audit Head"),[allowedRoles,setAllowedRoles]=useState<string[]>([]),[userName,setUserName]=useState(""),[userEmail,setUserEmail]=useState(""),[search,setSearch]=useState(""),[drawer,setDrawer]=useState<Payment|null>(null),[form,setForm]=useState(false),[passwordOpen,setPasswordOpen]=useState(false),[profileOpen,setProfileOpen]=useState(false),[mobile,setMobile]=useState(false),[profile,setProfile]=useState<string|null>(null),[toast,setToast]=useState(""),[todayLabel,setTodayLabel]=useState(""),[booting,setBooting]=useState(true),[expired,setExpired]=useState(false);
  /* Audit tasks store a companyId; the screens show a company name, so the names are
@@ -189,7 +188,7 @@ export default function Home(){
  {active==="specialaudit"&&<AuditTaskQueue title="Special audit tasks" kind="Special Audit" companies={companies} create={(t)=>createAuditTask("Special Audit",t)} tasks={auditTasks} role={role} accept={acceptAuditTask} update={updateAuditTask} openImport={()=>setActive("imports")}/>} 
  {active==="community"&&<CommunityChat user={userName} flash={flash}/>}
  {active==="meetings"&&<AuditTaskQueue title="Meeting tasks" kind="Meeting" companies={companies} create={(t)=>createAuditTask("Meeting",t)} tasks={auditTasks} role={role} accept={acceptAuditTask} update={updateAuditTask} openImport={()=>setActive("imports")}/>} 
- {active==="reports"&&<ReportsCentre payments={payments} tasks={auditTasks} flash={flash}/>}
+ {active==="reports"&&<ReportCentre role={role} payments={payments} tasks={auditTasks} openProfile={setProfile} flash={flash}/>}
  {active==="companies"&&<CompanySetup />}
  {active==="settings"&&<SettingsDesk changed={()=>{refreshOptions();refreshFields();setMasterVersion(n=>n+1)}}/>}
  {active==="users"&&<AccessSetup/>}
@@ -198,7 +197,6 @@ export default function Home(){
  
  
  
- {active==="workreports"&&<WorkforceReports openProfile={setProfile} flash={flash}/>}
  {active==="imports"&&<ImportCentre flash={flash} onImport={async(kind,assigned,dataProvider)=>{
    try{await auditTasksApi.create({title:`Imported ${kind} task`,kind,department:"Finance",
      status:assigned?"Accepted":"Available",assignedTo:assigned||"",dataProvider:dataProvider||"",
@@ -315,3 +313,28 @@ function PaymentForm({close,added,companies,departments,natures,currencies,tdsCh
    They upload here, once the request exists and has the id they hang off, so everyone
    who opens it afterwards sees the same list. */
 for(const file of files){try{const dataUrl=await asDataUrl(file);await fetch("/api/attachments",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({entityType:"payment",entityId:String(p.id),kind:"Other",fileName:file.name,dataUrl})});}catch{}}setSaving(false);added(p)};return <><button className="overlay" onClick={close}/><form className="modal" onSubmit={submit}><header><div><small>NEW REQUEST</small><h2>Create payment request</h2></div><button type="button" onClick={close}><X/></button></header><div className="form">{[["Company","company"],["Department","department"],["Nature of payment","nature"],["TDS applicable","tds"],["Vendor / beneficiary","vendor"],["PO number","poNumber"],["Amount","amount"],["Due date","due"]].map(([label,key])=><label className={key==="vendor"?"wide":""} key={key}>{label}{key==="company"?<select value={v.company} onChange={e=>setV({...v,company:e.target.value})}>{companies.map(c=><option key={c.id}>{c.name}</option>)}</select>:key==="department"?<select value={v.department} onChange={e=>setV({...v,department:e.target.value})}>{departments.map(x=><option key={x}>{x}</option>)}</select>:key==="nature"?<select value={v.nature} onChange={ev=>setV({...v,nature:ev.target.value})}>{natures.map(x=><option key={x}>{x}</option>)}</select>:key==="tds"?<select value={v.tds} onChange={ev=>setV({...v,tds:ev.target.value})}>{tdsChoices.map(x=><option key={x}>{x}</option>)}</select>:<input required type={key==="amount"?"number":key==="due"?"date":"text"} value={(v as any)[key]} onChange={e=>setV({...v,[key]:e.target.value})}/>}</label>)}<label>Currency<select value={v.currency} onChange={e=>setV({...v,currency:e.target.value})}>{currencies.map(x=><option key={x}>{x}</option>)}</select></label><ExtraFields form="payment" values={extra} onChange={setExtra}/><label className="wide">Description<textarea value={v.description} onChange={e=>setV({...v,description:e.target.value})}/></label><label className="upload wide"><input type="file" multiple accept="image/*,application/pdf,.doc,.docx,.xls,.xlsx,.csv,.txt,.zip" onChange={e=>setFiles(Array.from(e.target.files||[]))}/><Upload/><b>Attach supporting documents</b><small>Images, PDF, Word, Excel, CSV or ZIP — up to 15 MB each</small>{files.length>0&&<small className="upload-list">{files.length} file{files.length===1?"":"s"}: {files.map(f=>f.name).join(", ")}</small>}</label></div><footer><button type="button" onClick={close}>Cancel</button><button className="primary" disabled={saving}>{saving?"Submitting…":"Submit to accountant"}</button></footer></form></>}
+
+/* Report centre: the payment and audit report, and the workforce report, under one
+   menu entry.
+
+   They used to be two modules reaching different people. Payments and audit went to
+   Requestors, Accountants and Auditors; the workforce report - every employee's task
+   position across the group - went to Finance and Management. Merging them must not
+   hand the workforce figures to a Requestor, whose own tasks are private to them, so
+   each tab stays with the roles that could open it before. A role with both sees tabs;
+   a role with one goes straight to it. */
+const PAYMENT_REPORT_ROLES=["Administrator","Audit Head","Requestor","Accountant","Auditor"];
+const WORKFORCE_REPORT_ROLES=["Administrator","Audit Head","Finance","Management"];
+function ReportCentre({role,payments,tasks,openProfile,flash}:{role:string;payments:Payment[];
+  tasks:AuditTask[];openProfile:(id:string)=>void;flash:(m:string)=>void}){
+ const pay=PAYMENT_REPORT_ROLES.includes(role),work=WORKFORCE_REPORT_ROLES.includes(role);
+ const[tab,setTab]=useState<"payments"|"workforce">(pay?"payments":"workforce");
+ const shown=tab==="payments"&&pay?"payments":work?"workforce":pay?"payments":null;
+ return <div className="report-centre">
+  {pay&&work&&<div className="report-centre-tabs"><div className="settings-tabs">
+   <button className={shown==="payments"?"active":""} onClick={()=>setTab("payments")}>Payments &amp; audit</button>
+   <button className={shown==="workforce"?"active":""} onClick={()=>setTab("workforce")}>Workforce</button>
+  </div></div>}
+  {shown==="payments"&&<ReportsCentre payments={payments} tasks={tasks} flash={flash}/>}
+  {shown==="workforce"&&<WorkforceReports openProfile={openProfile} flash={flash}/>}
+ </div>}
