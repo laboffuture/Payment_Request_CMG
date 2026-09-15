@@ -16,3 +16,19 @@
 .simple-upload label svg{width:15px;height:15px;flex:none}
 @media(max-width:520px){.simple-upload{padding:24px 16px}
   .simple-upload label,.simple-upload button{display:flex;width:100%;margin:10px 0 0}}
+
+/* Role-based employee list. reference-theme.css strips the padding from every .panel and
+   this one never added its own, so the heading, the note and the name chips touched the
+   border. The people icon had a width but no height, sitting in a 24px box that pulled
+   the heading row out of line. The eyebrow now stacks cleanly over the heading, and the
+   8-9px text is brought up to match the rest of the page. */
+.panel.employee-master{padding:16px 18px}
+.employee-master>div:first-child{gap:11px;align-items:center}
+.employee-master>div:first-child>svg{width:22px;height:22px;flex:none}
+.employee-master>div:first-child>span{display:flex;flex-direction:column;gap:3px;min-width:0}
+.employee-master small{display:block;font-size:10px;font-weight:700;letter-spacing:.08em;line-height:1.2}
+.employee-master h3{margin:0;font-size:14px;line-height:1.25}
+.employee-master p{font-size:11.5px;line-height:1.5;margin:12px 0}
+.employee-master>div:last-child{gap:7px}
+.employee-master>div:last-child span{font-size:11px;padding:6px 11px;line-height:1.2}
+@media(max-width:520px){.panel.employee-master{padding:14px}}
