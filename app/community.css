@@ -21,3 +21,52 @@
 @media(max-width:760px){
   .chat-compose>.primary{align-self:auto;padding:10px 16px}
 }
+
+/* Community, filling the screen.
+
+   The layout was a fixed 650px, so a tall screen left empty space under the chat and a
+   short one pushed the compose box below the fold. The page now takes the window height
+   under the header and the conversation scrolls inside it, with the compose row always
+   at the bottom. It also runs full width rather than stopping at the 1500px other pages
+   use. Inside, the text was 7-10px against the 11-13px everywhere else, three icons had a
+   width and no height (each sat in a 24px box, knocking its row out of line), and every
+   message stretched to 70% however short it was. */
+.page.community-page{display:flex;flex-direction:column;max-width:none;box-sizing:border-box;
+  height:calc(100vh - 62px);height:calc(100dvh - 62px);padding-bottom:20px}
+.page.community-page>.intro{flex:none}
+.community-layout{flex:1;min-height:0;height:auto;grid-template-columns:260px 1fr;gap:14px}
+.community-members,.community-chat{min-height:0}
+
+.community-members{overflow:auto;display:flex;flex-direction:column;gap:2px;padding:12px}
+.community-members>div{padding:4px 8px 11px;margin-bottom:6px;border-bottom:1px solid var(--line)}
+.community-members h3{font-size:13px;font-weight:600;margin:0}
+.community-members svg{width:17px;height:17px;flex:none;color:#244e7c}
+.community-members button{font-family:inherit;font-size:12px;color:var(--ink);padding:8px 9px;gap:10px;cursor:pointer}
+.community-members button:hover{background:#f4f7fb}
+.community-members button span{width:30px;height:30px;flex:none;font-size:10px;font-weight:700}
+
+.chat-head{padding:14px 18px;gap:11px}
+.chat-head svg{width:20px;height:20px;flex:none}
+.chat-head b{font-size:13px}
+.chat-head small{font-size:11px;margin-top:2px}
+
+.chat-stream{display:flex;flex-direction:column;padding:18px 20px}
+.chat-stream article{align-self:flex-start;min-width:180px;max-width:68%;padding:11px 13px;margin-bottom:10px}
+.chat-stream article.mine{align-self:flex-end}
+.chat-stream article>div{align-items:baseline;gap:14px}
+.chat-stream b{font-size:12px}
+.chat-stream time{font-size:10px;white-space:nowrap}
+.chat-stream article>span{font-size:10.5px;gap:4px;margin-top:5px}
+.chat-stream article>span svg{width:12px;height:12px;flex:none}
+.chat-stream p{font-size:12.5px;margin:6px 0 0;white-space:pre-wrap;word-break:break-word}
+
+.chat-compose{padding:12px 16px;grid-template-columns:210px 1fr auto;gap:10px}
+.chat-compose select,.chat-compose textarea{font-size:12px}
+.chat-compose>.primary{font-size:12px}
+
+@media(max-width:760px){
+  .page.community-page{display:block;height:auto}
+  .community-layout{grid-template-columns:1fr}
+  .chat-stream article{max-width:90%}
+  .chat-compose{grid-template-columns:1fr}
+}
