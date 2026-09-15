@@ -330,3 +330,15 @@ table.wf-editgrid td{padding:5px 6px}
 .tr-rate button{font-family:inherit;font-size:20px;line-height:1;border:0;background:none;
   color:#d8dee6;cursor:pointer;padding:0 2px}
 .tr-rate button.on{color:#c9a227}
+
+/* Report filters panel. reference-theme.css takes the padding off every .panel, because
+   most panels pad their own heading row - but this one has no heading row, so its six
+   fields and three buttons sat flush against the border. It gets its padding back here,
+   with a selector that outranks .panel whatever order the sheets load in. The rows align
+   on their input boxes rather than their labels, the employee search and its list share
+   a top edge, and the report buttons sit apart from the filters. */
+.panel.wf-filters{padding:16px 18px;align-items:end;row-gap:14px}
+.wf-filters .wf-filter-pair>input,
+.wf-filters .wf-filter-pair>select{margin-top:5px}
+.panel.wf-filters .wf-report-buttons{margin-top:2px;padding-top:14px;border-top:1px solid var(--line)}
+@media(max-width:760px){.panel.wf-filters{padding:14px}}
