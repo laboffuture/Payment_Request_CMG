@@ -2,6 +2,7 @@ import{and,count,desc,eq,like,or}from"drizzle-orm";
 import{getDb}from"../../../../db";
 import{wfAuditTasks}from"../../../../db/schema";
 import{hasWriteRole,requireAuth}from"../../../../lib/auth";
+import{emailsForEmployees,emailsForRoles,moduleForKind,notify}from"../../../../lib/notify";
 import{actorOf,bad,oops,page,search,str,writeWithAudit}from"../../../../lib/workforce-api";
 import type{Row}from"../../../../lib/workforce-api";
 
@@ -14,7 +15,7 @@ const shape=(t:Row)=>({id:str(t.id),ref:str(t.ref),title:str(t.title),kind:str(t
   companyId:str(t.companyId),department:str(t.department),status:str(t.status,"Available"),
   assignedTo:str(t.assignedTo),due:str(t.due),plannedStart:str(t.plannedStart),
   plannedEnd:str(t.plannedEnd),notes:str(t.notes),dataProvider:str(t.dataProvider),
-  attendees:str(t.attendees),
+  attendees:str(t.attendees),raisedByEmail:str(t.raisedByEmail),
   createdAt:str(t.createdAt)||now(),acceptedAt:str(t.acceptedAt),completedAt:str(t.completedAt),extra:str(t.extra)});
 
 export async function GET(req:Request){
@@ -58,9 +59,20 @@ export async function POST(req:Request){
     if(!MEETING_KINDS.includes(str(body.kind,"Pre-Audit"))&&!hasWriteRole(actor?.roles))
       return bad("Your role cannot create audit programmes.",403);
     const id=str(body.id)||`AT-${Date.now().toString(36)}`;
-    const row=shape({...body,id,ref:str(body.ref)||`AUD-${Date.now().toString(36).toUpperCase()}`});
+    const row=shape({...body,id,raisedByEmail:actor?.email||"",ref:str(body.ref)||`AUD-${Date.now().toString(36).toUpperCase()}`});
     await writeWithAudit([(await getDb()).insert(wfAuditTasks).values(row)],
       actorOf(req,body),"audit-task",id,"Audit task created",`${row.ref} · ${row.title}`);
+    /* The people invited hear about it. An audit programme with nobody named goes to
+       the auditors whose queue it lands in. */
+    const attendeeIds=(row.attendees||"").split(",").map(x=>x.trim()).filter(Boolean);
+    const invited=attendeeIds.length?await emailsForEmployees(attendeeIds)
+      :MEETING_KINDS.includes(row.kind)?[]:await emailsForRoles(["Auditor","Audit Head"]);
+    await notify(invited,{
+      title:attendeeIds.length
+        ?`${actor?.name||"Someone"} added you to a ${row.kind.toLowerCase()}: ${row.title}`
+        :`New ${row.kind} task: ${row.title}`,
+      body:[row.due?`Due ${row.due}`:"",row.notes].filter(Boolean).join(" · "),
+      module:moduleForKind(row.kind),recordId:row.id},actor?.email);
     return Response.json({task:row},{status:201});
   }catch(e){return oops(e)}}
 
@@ -69,7 +81,7 @@ export async function POST(req:Request){
    the second gets a clear 409 rather than silently stealing it. */
 export async function PATCH(req:Request){
   try{
-    const{actor,response}=await requireAuth(req,"write");
+    const{actor,response}=await requireAuth(req,"read");
     if(response)return response;
     const body=await req.json() as Row;
     const id=str(body.id);
@@ -78,6 +90,15 @@ export async function PATCH(req:Request){
     const [existing]=await db.select().from(wfAuditTasks).where(eq(wfAuditTasks.id,id)).limit(1);
     if(!existing)return bad("Not found",404);
     const action=str(body.action);
+    /* The people invited to a meeting, task, token or training may accept or complete
+       it, whatever their role - an invitation that the invitee cannot answer is not one.
+       Anything else still needs a role that changes data. */
+    if(!hasWriteRole(actor?.roles)){
+      const invitee=MEETING_KINDS.includes(existing.kind)&&!!actor?.employeeId
+        &&(existing.attendees||"").split(",").map(x=>x.trim()).includes(actor.employeeId);
+      if(!invitee||(action!=="accept"&&action!=="complete"))
+        return bad("Your role cannot change this data.",403);
+    }
     let row=shape({...existing,...body,id});
     if(action==="accept"){
       if(existing.status!=="Available")
@@ -90,6 +111,16 @@ export async function PATCH(req:Request){
       actorOf(req,body),"audit-task",id,
       action==="accept"?"Audit task accepted":action==="complete"?"Audit task completed":"Audit task updated",
       `${row.ref} · ${row.status}`);
+    /* Accepting tells the person who raised it; completing tells them and everyone
+       who was invited. */
+    if(action==="accept"||action==="complete"){
+      const attendeeIds=(existing.attendees||"").split(",").map(x=>x.trim()).filter(Boolean);
+      const others=action==="complete"?await emailsForEmployees(attendeeIds):[];
+      await notify([existing.raisedByEmail||"",...others],{
+        title:action==="accept"?`${actor?.name||"Someone"} accepted ${row.title}`:`${row.title} is completed`,
+        body:`${row.kind}${action==="complete"&&actor?.name?` · closed by ${actor.name}`:""}`,
+        module:moduleForKind(row.kind),recordId:row.id},actor?.email);
+    }
     return Response.json({task:row});
   }catch(e){return oops(e)}}
 

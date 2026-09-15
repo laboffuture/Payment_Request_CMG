@@ -1,0 +1,16 @@
+/* The bell and its list */
+.note-menu{position:relative}
+.bell{cursor:pointer}
+.bell svg{height:16px}
+.bell i{width:auto;min-width:16px;height:16px;padding:0 4px;border-radius:9px;font:700 9px/16px Inter,system-ui,sans-serif;text-align:center;display:block}
+.note-panel{position:absolute;right:0;top:44px;width:min(360px,92vw);max-height:460px;overflow:auto;background:#fff;border:1px solid var(--line);border-radius:10px;box-shadow:0 16px 40px #0d282333;z-index:60}
+.note-panel header{position:sticky;top:0;display:flex;justify-content:space-between;align-items:center;padding:11px 13px;background:#fff;border-bottom:1px solid var(--line)}
+.note-panel header b{font-size:12px}
+.note-panel header button{border:0;background:none;color:var(--green);font-size:11px;font-weight:600;cursor:pointer}
+.note-panel>button{display:block;width:100%;text-align:left;border:0;border-bottom:1px solid #eef1f4;background:#fff;padding:10px 13px;cursor:pointer}
+.note-panel>button:hover{background:#f7faf9}
+.note-panel>button.unread{background:#f3f7fd;box-shadow:inset 3px 0 #3f70c7}
+.note-panel>button b{display:block;font-size:12px;font-weight:600;color:var(--ink)}
+.note-panel>button small{display:block;font-size:11px;color:#667085;margin-top:2px}
+.note-panel>button time{display:block;font-size:10px;color:#98a2b3;margin-top:4px}
+.note-empty{margin:0;padding:18px 14px;font-size:11px;color:var(--muted)}

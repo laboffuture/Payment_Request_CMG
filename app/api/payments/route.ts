@@ -3,6 +3,7 @@ import{getDb}from"../../../db";
 import{auditLogs,paymentRequests,wfAttachments}from"../../../db/schema";
 import{deleteFile}from"../../../lib/storage";
 import{hasWriteRole,requireAuth}from"../../../lib/auth";
+import{emailsForRoles,notify,rolesActingOn}from"../../../lib/notify";
 import{bad,oops,str}from"../../../lib/workforce-api";
 
 /* Payment requests.
@@ -44,6 +45,11 @@ export async function POST(req:Request){
         .values({...p,amount,raisedBy:actor?.email||""}).returning();
     await db.insert(auditLogs).values({recordId:payment.id,action:"Payment submitted",
       actor:actor?.name||actor?.email||"system",newValue:payment.status});
+    /* A new request waits on accounts. */
+    await notify(await emailsForRoles(["Accountant"]),{
+      title:`New payment request ${payment.requestNo}`,
+      body:`${payment.vendor} · ${payment.currency} ${Number(payment.amount).toLocaleString()} · raised by ${actor?.name||actor?.email||"a requestor"}`,
+      module:"payments",recordId:String(payment.id)},actor?.email);
     return Response.json({payment},{status:201});
   }catch(e){return oops(e)}}
 
@@ -92,6 +98,17 @@ export async function PATCH(req:Request){
         :isResubmit?"Corrected and resubmitted":"Status changed",
       actor:actor?.name||actor?.email||"system",previousValue:old.status,
       newValue:remark?`${status} — ${remark}`:status});
+    /* Tell whoever the request now waits on, and keep the person who raised it informed
+       of every move - a rejection most of all, with the reason. */
+    const waitingOn=rolesActingOn(status);
+    if(waitingOn.length)await notify(await emailsForRoles(waitingOn),{
+      title:`${payment.requestNo} is waiting for ${waitingOn[0]==="Finance"?"release":waitingOn[0]==="Auditor"?"audit":waitingOn[0]==="Management"?"management approval":"accounts"}`,
+      body:`${payment.vendor} · ${payment.currency} ${Number(payment.amount).toLocaleString()} · ${status}`,
+      module:"payments",recordId:String(payment.id)},actor?.email);
+    await notify([old.raisedBy||""],{
+      title:status==="Rejected"?`${payment.requestNo} was sent back to you`:`Your request ${payment.requestNo}: ${status}`,
+      body:remark||`${payment.vendor} · ${payment.currency} ${Number(payment.amount).toLocaleString()}`,
+      module:"payments",recordId:String(payment.id)},actor?.email);
     return Response.json({payment});
   }catch(e){return oops(e)}}
 

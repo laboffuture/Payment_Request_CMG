@@ -2,6 +2,7 @@ import{count,desc,eq}from"drizzle-orm";
 import{getDb}from"../../../../db";
 import{wfBatches}from"../../../../db/schema";
 import{requireAuth}from"../../../../lib/auth";
+import{emailsForRoles,notify}from"../../../../lib/notify";
 import{actorOf,bad,num,oops,page,str,writeWithAudit}from"../../../../lib/workforce-api";
 import type{Row}from"../../../../lib/workforce-api";
 
@@ -41,10 +42,14 @@ export async function POST(req:Request){
       vendor:str(body.vendor),requested:num(body.requested),approved:null,
       currency:str(body.currency,"AED"),companyId:str(body.companyId),
       statement:str(body.statement),reconciliation:str(body.reconciliation),gl:str(body.gl),
-      status:QUEUE,reason:"",proof:"",raisedBy:actor?.name||"",createdAt:now(),releasedAt:"",
+      status:QUEUE,reason:"",proof:"",raisedBy:actor?.name||"",createdAt:now(),releasedAt:"",raiserEmail:actor?.email||"",
       extra:str(body.extra)};
     await writeWithAudit([(await getDb()).insert(wfBatches).values(row)],
       actorOf(req,body),"batch",row.id,"Batch raised",`${row.vendor} · ${row.requested}`);
+    await notify(await emailsForRoles(["Auditor","Audit Head"]),{
+      title:`New scheduled payment for audit: ${row.vendor}`,
+      body:`${row.currency} ${Number(row.requested).toLocaleString()} · raised by ${actor?.name||"accounts"}`,
+      module:"scheduled",recordId:row.id},actor?.email);
     return Response.json({batch:row},{status:201});
   }catch(e){return oops(e)}}
 
@@ -92,5 +97,19 @@ export async function PATCH(req:Request){
     await writeWithAudit([db.update(wfBatches).set(patch).where(eq(wfBatches.id,id))],
       actorOf(req,body),"batch",id,`Batch ${action}`,
       `${b.vendor} · ${patch.status}${actor?" by "+actor.name:""}`);
+    /* A resubmission goes back to audit; every other decision goes to whoever raised
+       the batch, with the reason when there is one. */
+    const amount=`${b.currency} ${Number(patch.approved??b.requested).toLocaleString()}`;
+    if(action==="resubmit")
+      await notify(await emailsForRoles(["Auditor","Audit Head"]),{
+        title:`Scheduled payment resubmitted: ${b.vendor}`,body:amount,
+        module:"scheduled",recordId:id},actor?.email);
+    else await notify([b.raiserEmail||""],{
+      title:action==="accept"?`Audit picked up your scheduled payment: ${b.vendor}`
+        :action==="approve"?`Approved, ready to release: ${b.vendor}`
+        :action==="reject"?`Scheduled payment sent back: ${b.vendor}`
+        :`Scheduled payment released: ${b.vendor}`,
+      body:patch.reason?`${amount} · ${String(patch.reason)}`:amount,
+      module:"scheduled",recordId:id},actor?.email);
     return Response.json({batch:{...b,...patch}});
   }catch(e){return oops(e)}}

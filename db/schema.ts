@@ -162,7 +162,8 @@ export const wfQueries=sqliteTable("wf_queries",{
   lastFollowUpAt:text("last_follow_up_at").notNull().default(""),
   resolvedAt:text("resolved_at").notNull().default(""),
   resolution:text("resolution").notNull().default(""),
-  extra:text("extra").notNull().default("")},
+  extra:text("extra").notNull().default(""),
+  raiserEmail:text("raiser_email").notNull().default("")},
   t=>[index("wf_query_emp_idx").on(t.employeeId),index("wf_query_dept_idx").on(t.deptId),
       index("wf_query_status_idx").on(t.status),index("wf_query_raised_idx").on(t.raisedAt)]);
 
@@ -294,7 +295,8 @@ export const wfAuditTasks=sqliteTable("wf_audit_tasks",{
   createdAt:text("created_at").notNull().default(""),
   acceptedAt:text("accepted_at").notNull().default(""),
   completedAt:text("completed_at").notNull().default(""),
-  extra:text("extra").notNull().default("")},
+  extra:text("extra").notNull().default(""),
+  raisedByEmail:text("raised_by_email").notNull().default("")},
   t=>[index("wf_at_kind_idx").on(t.kind),index("wf_at_status_idx").on(t.status),
       index("wf_at_company_idx").on(t.companyId),index("wf_at_assigned_idx").on(t.assignedTo),
       index("wf_at_kind_status_idx").on(t.kind,t.status)]);
@@ -315,7 +317,8 @@ export const wfBatches=sqliteTable("wf_batches",{
   raisedBy:text("raised_by").notNull().default(""),
   createdAt:text("created_at").notNull().default(""),
   releasedAt:text("released_at").notNull().default(""),
-  extra:text("extra").notNull().default("")},
+  extra:text("extra").notNull().default(""),
+  raiserEmail:text("raiser_email").notNull().default("")},
   t=>[index("wf_batch_status_idx").on(t.status),index("wf_batch_created_idx").on(t.createdAt)]);
 
 /* One thread for everyone, plus direct messages: a row with to_employee set is
@@ -385,3 +388,16 @@ export const wfTrainings=sqliteTable("wf_trainings",{
   extra:text("extra").notNull().default("")},
   t=>[index("wf_train_status_idx").on(t.status),index("wf_train_emp_idx").on(t.employeeId),
       index("wf_train_by_idx").on(t.requestedBy),index("wf_train_at_idx").on(t.requestedAt),index("wf_train_dept_idx").on(t.deptId)]);
+
+/* One message for one person: a record that now needs them, or has moved on. Addressed
+   by login email. Unread while read_at is empty. */
+export const wfNotifications=sqliteTable("wf_notifications",{
+  id:text("id").primaryKey(),
+  recipient:text("recipient").notNull(),
+  title:text("title").notNull(),
+  body:text("body").notNull().default(""),
+  module:text("module").notNull().default(""),
+  recordId:text("record_id").notNull().default(""),
+  createdAt:text("created_at").notNull(),
+  readAt:text("read_at").notNull().default("")},
+  t=>[index("wf_notif_recipient_idx").on(t.recipient,t.readAt,t.createdAt)]);

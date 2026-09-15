@@ -4,10 +4,11 @@ import{wfQueries}from"../../../../db/schema";
 import{actorOf,bad,num,oops,page,search,str,writeWithAudit}from"../../../../lib/workforce-api";
 import type{Row}from"../../../../lib/workforce-api";
 import{requireAuth}from"../../../../lib/auth";
+import{emailsForEmployees,notify}from"../../../../lib/notify";
 
 const now=()=>new Date().toISOString();
 const shape=(q:Row)=>({id:str(q.id),ref:str(q.ref),title:str(q.title),detail:str(q.detail),
-  raisedBy:str(q.raisedBy),employeeId:str(q.employeeId),taskId:str(q.taskId),deptId:str(q.deptId,"d-group"),
+  raisedBy:str(q.raisedBy),raiserEmail:str(q.raiserEmail),employeeId:str(q.employeeId),taskId:str(q.taskId),deptId:str(q.deptId,"d-group"),
   priority:str(q.priority,"Medium"),status:str(q.status,"Open"),raisedAt:str(q.raisedAt)||now(),
   dueAt:str(q.dueAt),followUps:num(q.followUps),lastFollowUpAt:str(q.lastFollowUpAt),
   resolvedAt:str(q.resolvedAt),resolution:str(q.resolution),extra:str(q.extra)});
@@ -37,14 +38,17 @@ export async function GET(req:Request){
 
 export async function POST(req:Request){
   try{
-    const{response}=await requireAuth(req,"write");
+    const{actor,response}=await requireAuth(req,"write");
     if(response)return response;
     const body=await req.json() as Row;
     if(!str(body.title)||!str(body.employeeId))return bad("title and employeeId are required");
     const id=str(body.id)||`Q-${Date.now().toString(36)}`;
-    const row=shape({...body,id,ref:str(body.ref)||`QRY-${Date.now().toString(36).toUpperCase()}`});
+    const row=shape({...body,id,raiserEmail:actor?.email||"",ref:str(body.ref)||`QRY-${Date.now().toString(36).toUpperCase()}`});
     await writeWithAudit([(await getDb()).insert(wfQueries).values(row)],
       actorOf(req,body),"query",id,"Query raised",`${row.ref} · ${row.title}`);
+    await notify(await emailsForEmployees([row.employeeId]),{
+      title:`A query was raised to you: ${row.title}`,body:row.detail||"",
+      module:"employees",recordId:id},actor?.email);
     return Response.json({query:row},{status:201});
   }catch(e){return oops(e)}}
 
@@ -52,7 +56,7 @@ export async function POST(req:Request){
    field writes, so the follow-up count and resolution date cannot drift. */
 export async function PATCH(req:Request){
   try{
-    const{response}=await requireAuth(req,"write");
+    const{actor,response}=await requireAuth(req,"write");
     if(response)return response;
     const body=await req.json() as Row;
     const id=str(body.id);
@@ -73,6 +77,13 @@ export async function PATCH(req:Request){
       actorOf(req,body),"query",id,
       action==="follow-up"?"Query followed up":action==="resolve"?"Query resolved":"Query updated",
       `${row.ref} · ${row.status}`);
+    if(action==="resolve")
+      await notify([existing.raiserEmail||""],{title:`Query resolved: ${row.title}`,
+        body:row.resolution||"",module:"employees",recordId:id},actor?.email);
+    else if(action==="follow-up"||action==="reopen")
+      await notify(await emailsForEmployees([existing.employeeId]),{
+        title:action==="reopen"?`Query reopened: ${row.title}`:`Follow-up on your query: ${row.title}`,
+        body:row.detail||"",module:"employees",recordId:id},actor?.email);
     return Response.json({query:row});
   }catch(e){return oops(e)}}
 
