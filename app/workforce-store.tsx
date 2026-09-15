@@ -180,7 +180,12 @@ export function WorkforceProvider({actor,children}:{actor:string;children:React.
 
   /* Bootstrap pulls only departments, roles and a headcount. Tasks, tokens, queries
      and photos are never part of page load; they are fetched per screen. */
+  /* Waits for somebody to be signed in, and runs again when they are. It used to fire
+     once as the page opened - before sign-in, so with no session - and store the
+     server's "Sign in to continue" as its error. Signing in did not reset it, so the
+     org chart kept showing that message with a Try again until it was pressed. */
   useEffect(()=>{
+    if(!actor){setError("");setLoading(false);return}
     let dead=false;
     (async()=>{
       setLoading(true);setError("");
@@ -194,7 +199,7 @@ export function WorkforceProvider({actor,children}:{actor:string;children:React.
         setDept(d=>d&&(data.departments||[]).some((x:Dept)=>x.id===d)?d:(data.departments?.[0]?.id||""));
       }catch(e){if(!dead)setError(e instanceof Error?e.message:"Could not load the workforce structure")}
       finally{if(!dead)setLoading(false)}})();
-    return()=>{dead=true}},[version]);
+    return()=>{dead=true}},[version,actor]);
 
   const send=useCallback(async(path:string,method:string,body?:unknown)=>{
     const res=await fetch(`${BASE}${path}`,{method,headers:{"content-type":"application/json"},
