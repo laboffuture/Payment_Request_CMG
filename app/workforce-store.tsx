@@ -27,6 +27,9 @@ export type Query={id:string;ref:string;title:string;detail:string;raisedBy:stri
   lastFollowUpAt:string;resolvedAt:string;resolution:string};
 export type ObsTag={id:string;name:string};
 export type ObsReply={id:string;observationId:string;employeeId:string;authorName:string;text:string;at:string};
+export type Observation={id:string;ref:string;title:string;detail:string;deptId:string;taskId:string;
+  risk:Priority;status:"Open"|"Acknowledged"|"Resolved"|"Closed";raisedBy:string;raisedAt:string;
+  target:string;resolvedAt:string;resolution:string;replyCount:number;lastReplyAt:string;tags:ObsTag[]};
 export type ImportRow={line:number;name:string;employee:string;frequency:string;due:string;
   ends?:string;jd?:string;priority?:string;status?:string;qty?:number;done?:number;
   progress?:number;expectedOutput?:string;remarks?:string};
@@ -151,6 +154,11 @@ type Api={
   removeQuery:(id:string)=>Promise<unknown>;
   uploadPhoto:(employeeId:string,dataUrl:string)=>Promise<{photoAt:string}>;
   removePhoto:(employeeId:string)=>Promise<unknown>;
+  observations:(p?:ListParams&{taggedTo?:string})=>Promise<{observations:Observation[];total:number}>;
+  observation:(id:string)=>Promise<{observation:Observation;replies:ObsReply[]}>;
+  saveObservation:(o:Partial<Omit<Observation,"tags">>&{tags?:string[];action?:string},isNew:boolean)=>Promise<Observation>;
+  removeObservation:(id:string)=>Promise<unknown>;
+  addReply:(observationId:string,text:string,employeeId?:string)=>Promise<ObsReply>;
   seed:(force?:boolean)=>Promise<unknown>};
 
 type Ctx={ready:boolean;loading:boolean;error:string;
@@ -248,6 +256,12 @@ export function WorkforceProvider({actor,children}:{actor:string;children:React.
     removeQuery:async id=>await drop("/queries",{id}),
     uploadPhoto:async(employeeId,dataUrl)=>await send("/photo","PUT",{employeeId,dataUrl}),
     removePhoto:async employeeId=>await drop("/photo",{employeeId}),
+    observations:async p=>await asJson(await fetch(`${BASE}/observations${qs({limit:25,...p})}`)),
+    observation:async id=>await asJson(await fetch(`${BASE}/observations${qs({id})}`)),
+    saveObservation:async(o,isNew)=>(await send("/observations",isNew?"POST":"PATCH",o)).observation,
+    removeObservation:async id=>await drop("/observations",{id}),
+    addReply:async(observationId,text,employeeId)=>(await send("/observations/replies","POST",
+      {observationId,text,employeeId,authorName:who.current})).reply,
     seed:async force=>{const body=await asJson(await fetch(`${BASE}/seed${force?"?force=1":""}`,{method:"POST"}));
       setVersion(v=>v+1);return body}}),[send,drop]);
 

@@ -203,7 +203,8 @@ export const wfObservations=sqliteTable("wf_observations",{
   resolvedAt:text("resolved_at").notNull().default(""),
   resolution:text("resolution").notNull().default(""),
   replyCount:integer("reply_count").notNull().default(0),
-  lastReplyAt:text("last_reply_at").notNull().default("")},
+  lastReplyAt:text("last_reply_at").notNull().default(""),
+  raisedByEmail:text("raised_by_email").notNull().default("")},
   t=>[index("wf_obs_dept_idx").on(t.deptId),index("wf_obs_status_idx").on(t.status),
       index("wf_obs_raised_idx").on(t.raisedAt),index("wf_obs_task_idx").on(t.taskId)]);
 
