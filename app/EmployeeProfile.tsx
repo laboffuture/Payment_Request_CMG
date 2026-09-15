@@ -12,7 +12,7 @@ type Tab="work"|"queries"|"observations"|"tokens"|"team";
 export function EmployeeProfile({id,close,flash,openProfile}:{
   id:string;close:()=>void;flash:(m:string)=>void;openProfile:(id:string)=>void;}){
   const wf=useWorkforce();
-  const [tab,setTab]=useState<Tab>("work");
+  const [tab,setTab]=useState<Tab>("queries");
   const [taskEdit,setTaskEdit]=useState<{task:Partial<Task>;isNew:boolean}|null>(null);
   const [queryEdit,setQueryEdit]=useState<{query:Partial<Query>;isNew:boolean}|null>(null);
   const [empEdit,setEmpEdit]=useState<Partial<Employee>|null>(null);
@@ -94,31 +94,12 @@ export function EmployeeProfile({id,close,flash,openProfile}:{
 
         <Attachments entityType="employee" entityId={e.id} flash={flash}/>
         <div className="wf-tabs">
-          {([["work",`Work (${data.tasks.length})`],["queries",`Queries (${data.queries.length})`],
-            ["tokens",`Tokens (${ts.tokens})`],["team",`Team (${directReports.length})`]] as [Tab,string][])
+          {([["queries",`Queries (${data.queries.length})`],["team",`Team (${directReports.length})`]] as [Tab,string][])
             .map(([k,label])=><button key={k} className={tab===k?"active":""} onClick={()=>setTab(k)}>{label}</button>)}
         </div>
 
-        {tab==="work"&&<>
-          <div className="wf-profile-actions">
-            <button className="primary" onClick={()=>setTaskEdit({isNew:true,task:{
-              employeeId:e.id,deptId:e.deptId,name:"",frequency:"Daily",due:today(),start:today(),
-              priority:"Medium",status:"Not Started",progress:0,qty:0,done:0,assignedBy:wf.actor}})}>
-              <Plus/>Assign task</button>
-            <button onClick={()=>setQueryEdit({isNew:true,query:{employeeId:e.id,deptId:e.deptId,
-              title:"",priority:"Medium",status:"Open",raisedBy:wf.actor}})}>
-              <MessageSquareWarning/>Raise query</button>
-          </div>
-          {(["Daily","Weekly","Monthly","One Time"] as Frequency[]).map(f=>{
-            const rows=data.tasks.filter(t=>t.frequency===f);
-            return rows.length?<WorkTable key={f} title={`${f} work`} kind={f} rows={rows}
-              open={t=>setTaskEdit({task:t,isNew:false})}/>:null})}
-          {!data.tasks.length&&<Empty label="No tasks assigned yet."/>}
-          {data.tasks.length>=60&&<p className="wf-note">Showing the 60 most recent tasks. Use Workforce reports for the full history.</p>}
-        </>}
 
         {tab==="queries"&&<QueryTable rows={data.queries} open={q=>setQueryEdit({query:q,isNew:false})}/>}
-        {tab==="tokens"&&<TokenTable rows={data.tokens} stats={ts}/>}
         {tab==="team"&&(directReports.length
           ?<div className="wf-reports">{directReports.map(r=><button key={r.id} onClick={()=>openProfile(r.id)}>
               <Avatar employee={r} size={30}/><span><b>{r.name}</b><small>{r.code}</small></span></button>)}</div>

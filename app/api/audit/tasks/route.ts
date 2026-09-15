@@ -1,7 +1,7 @@
 import{and,count,desc,eq,like,or}from"drizzle-orm";
 import{getDb}from"../../../../db";
 import{wfAuditTasks}from"../../../../db/schema";
-import{requireAuth}from"../../../../lib/auth";
+import{hasWriteRole,requireAuth}from"../../../../lib/auth";
 import{actorOf,bad,oops,page,search,str,writeWithAudit}from"../../../../lib/workforce-api";
 import type{Row}from"../../../../lib/workforce-api";
 
@@ -43,13 +43,20 @@ export async function GET(req:Request){
     return Response.json({tasks:rows,total:total?.n??0,limit,offset});
   }catch(e){return oops(e)}}
 
+/* Anyone signed in may raise a meeting, a task, a token or a training request - the
+   training and token desks these replaced let a Requestor do that, and folding them in
+   must not take it away. Audit programmes stay with the roles that can change data. */
+const MEETING_KINDS=["Meeting","Task","Token","Training"];
+
 export async function POST(req:Request){
   try{
-    const{response}=await requireAuth(req,"write");
+    const{actor,response}=await requireAuth(req,"read");
     if(response)return response;
     const body=await req.json() as Row;
     if(!str(body.title))return bad("title is required");
     if(KINDS.indexOf(str(body.kind,"Pre-Audit"))<0)return bad(`kind must be one of ${KINDS.join(", ")}`);
+    if(!MEETING_KINDS.includes(str(body.kind,"Pre-Audit"))&&!hasWriteRole(actor?.roles))
+      return bad("Your role cannot create audit programmes.",403);
     const id=str(body.id)||`AT-${Date.now().toString(36)}`;
     const row=shape({...body,id,ref:str(body.ref)||`AUD-${Date.now().toString(36).toUpperCase()}`});
     await writeWithAudit([(await getDb()).insert(wfAuditTasks).values(row)],
