@@ -47,7 +47,7 @@ export function EmployeeProfile({id,close,flash,openProfile}:{
           </div>
           <div className="wf-dossier-tools">
             <button onClick={()=>setEmpEdit({...e})}><Pencil/>Edit</button>
-            <button onClick={()=>csv([["Task","Frequency","Period","Due","Status","Timeliness","Progress %","Remarks"],
+            <button className="wf-small" onClick={()=>csv([["Task","Frequency","Period","Due","Status","Timeliness","Progress %","Remarks"],
               ...data.tasks.map(t=>[t.name,t.frequency,t.period,t.due,liveStatus(t),timeliness(t),t.progress,t.remarks])],
               `${e.code}-record.csv`)}><FileDown/>Export</button>
           </div>

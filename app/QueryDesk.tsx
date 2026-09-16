@@ -37,7 +37,7 @@ export default function QueryDesk({openProfile,flash}:{openProfile:(id:string)=>
       <label><Search/><input value={raw} onChange={e=>setRaw(e.target.value)} placeholder="Search query or reference"/></label>
       <select className="wf-select" value={status} onChange={e=>{setStatus(e.target.value);setOffset(0)}}>
         <option value="">All statuses</option>{queryStatuses.map(s=><option key={s}>{s}</option>)}</select>
-      <button onClick={()=>csv([["Ref","Query","Against","Raised by","Raised","Follow-ups","Last follow-up","Status","Resolved","Resolution"],
+      <button className="wf-small" onClick={()=>csv([["Ref","Query","Against","Raised by","Raised","Follow-ups","Last follow-up","Status","Resolved","Resolution"],
         ...rows.map(x=>[x.ref,x.title,x.employeeId,x.raisedBy,x.raisedAt,x.followUps,x.lastFollowUpAt,
           x.status,x.resolvedAt,x.resolution])],"queries-page.csv")}>Export page</button>
     </div>

@@ -342,3 +342,14 @@ table.wf-editgrid td{padding:5px 6px}
 .wf-filters .wf-filter-pair>select{margin-top:5px}
 .panel.wf-filters .wf-report-buttons{margin-top:2px;padding-top:14px;border-top:1px solid var(--line)}
 @media(max-width:760px){.panel.wf-filters{padding:14px}}
+
+/* The tools beside a page heading: an export and a primary action. The export carried no
+   class at all, so it fell back to the browser's own button next to a styled one. Both
+   are given the same height and centred on it, rather than being hung from their
+   baselines at whatever height their own padding produced. */
+.wf-head-tools{align-items:center}
+.wf-head-tools>button{min-height:34px;display:inline-flex;align-items:center;gap:6px;
+  justify-content:center;white-space:nowrap}
+.wf-head-tools>.wf-small{padding:0 13px;font-size:11px}
+.wf-head-tools>.primary{padding:0 14px;font-size:11px}
+@media(max-width:760px){.wf-head-tools>button{width:100%}}

@@ -34,7 +34,7 @@ export default function ObservationDesk({openProfile,flash,canManage=true}:{open
     <div className="intro"><div><small>OBSERVATIONS</small><h2>Raised and answered</h2>
       <p>Tag the people who need to answer. Everyone tagged sees the thread and can reply.</p></div>
       <div className="wf-head-tools">
-        <button onClick={()=>csv([["Ref","Area","Header","Summary","Potential risk or impact","Stakeholder",
+        <button className="wf-small" onClick={()=>csv([["Ref","Area","Header","Summary","Potential risk or impact","Stakeholder",
           "Root cause","Value of transaction","Risk rating","Stakeholder response and action plan",
           "Responsibility","Target date","Status","Tagged","Raised by","Raised","Replies","Resolution"],
           ...rows.map(o=>[o.ref,o.area,o.title,o.detail,o.impact,o.stakeholder,o.rootCause,
