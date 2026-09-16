@@ -5,6 +5,7 @@ import{deleteFile}from"../../../lib/storage";
 import{hasWriteRole,requireAuth}from"../../../lib/auth";
 import{emailsForRoles,notify,rolesActingOn}from"../../../lib/notify";
 import{REQUIRED_ON_SAVE,labelFor,ruleFor}from"../../../lib/payment-fields";
+import{rememberVendor}from"../../../lib/vendors";
 import type{FieldKey}from"../../../lib/payment-fields";
 import{bad,oops,str}from"../../../lib/workforce-api";
 
@@ -75,6 +76,9 @@ export async function POST(req:Request){
       title:`New payment request ${payment.requestNo}`,
       body:`${payment.vendor} · ${payment.currency} ${Number(payment.amount).toLocaleString()} · raised by ${actor?.name||actor?.email||"a requestor"}`,
       module:"payments",recordId:String(payment.id)},actor?.email);
+    /* A vendor the register does not hold yet is added, so the next requestor is offered
+       it rather than typing it again - and spelling it differently. */
+    await rememberVendor(String(p.vendor||""),actor?.email);
     return Response.json({payment},{status:201});
   }catch(e){return oops(e)}}
 

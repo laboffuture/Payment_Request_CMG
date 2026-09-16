@@ -416,3 +416,14 @@ export const wfNotifications=sqliteTable("wf_notifications",{
   createdAt:text("created_at").notNull(),
   readAt:text("read_at").notNull().default("")},
   t=>[index("wf_notif_recipient_idx").on(t.recipient,t.readAt,t.createdAt)]);
+
+/* The people we pay. The payment form suggests from here as a requestor types, and a
+   name it does not yet hold is added when a request uses it - so the register fills
+   itself rather than needing to be maintained by hand. */
+export const wfVendors=sqliteTable("wf_vendors",{
+  id:text("id").primaryKey(),
+  name:text("name").notNull(),
+  active:integer("active").notNull().default(1),
+  createdAt:text("createdAt").notNull().default(""),
+  createdBy:text("createdBy").notNull().default("")},
+  t=>[index("wf_vendor_active_idx").on(t.active,t.name)]);
