@@ -3,13 +3,15 @@ import{getDb}from"../../../../../db";
 import{wfObsReplies,wfObsTags,wfObservations}from"../../../../../db/schema";
 import{actorOf,bad,oops,str,writeWithAudit}from"../../../../../lib/workforce-api";
 import type{Row}from"../../../../../lib/workforce-api";
-import{hasWriteRole,requireAuth}from"../../../../../lib/auth";
+import{canSeeObservations,hasWriteRole,requireAuth}from"../../../../../lib/auth";
 import{emailsForEmployees,notify}from"../../../../../lib/notify";
 
 export async function GET(req:Request){
   try{
-    const{response}=await requireAuth(req,"read");
+    const{actor,response}=await requireAuth(req,"read");
     if(response)return response;
+    if(!canSeeObservations(actor?.roles))
+      return bad("The observation register is for administration, accounts and audit.",403);
     const id=new URL(req.url).searchParams.get("observationId")||"";
     if(!id)return bad("observationId is required");
     const db=await getDb();
@@ -38,6 +40,10 @@ export async function POST(req:Request){
     const tagged=(await db.select({e:wfObsTags.employeeId}).from(wfObsTags)
       .where(eq(wfObsTags.observationId,observationId))).map(t=>t.e);
     const isTagged=!!actor?.employeeId&&tagged.includes(actor.employeeId);
+    /* A person tagged on an observation may still answer it even if the register is not
+       on their menu - being asked to respond is what makes the reply theirs to give. */
+    if(!isTagged&&!canSeeObservations(actor?.roles))
+      return bad("The observation register is for administration, accounts and audit.",403);
     if(!isTagged&&!hasWriteRole(actor?.roles))
       return bad("Only the people tagged on this observation can reply to it.",403);
     const at=new Date().toISOString();

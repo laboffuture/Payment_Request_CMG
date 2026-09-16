@@ -3,7 +3,7 @@ import{getDb}from"../../../../db";
 import{wfEmployees,wfObsReplies,wfObsTags,wfObservations}from"../../../../db/schema";
 import{actorOf,bad,num,oops,page,search,str,writeWithAudit}from"../../../../lib/workforce-api";
 import type{Row}from"../../../../lib/workforce-api";
-import{requireAuth}from"../../../../lib/auth";
+import{canSeeObservations,requireAuth}from"../../../../lib/auth";
 import{emailsForEmployees,notify}from"../../../../lib/notify";
 
 const now=()=>new Date().toISOString();
@@ -32,8 +32,10 @@ async function decorate(rows:{id:string}[]){
 
 export async function GET(req:Request){
   try{
-    const{response}=await requireAuth(req,"read");
+    const{actor,response}=await requireAuth(req,"read");
     if(response)return response;
+    if(!canSeeObservations(actor?.roles))
+      return bad("The observation register is for administration, accounts and audit.",403);
     const url=new URL(req.url);
     const db=await getDb();
     const id=url.searchParams.get("id");
@@ -78,6 +80,8 @@ export async function POST(req:Request){
   try{
     const{actor,response}=await requireAuth(req,"write");
     if(response)return response;
+    if(!canSeeObservations(actor?.roles))
+      return bad("The observation register is for administration, accounts and audit.",403);
     const body=await req.json() as Row;
     if(!str(body.title))return bad("title is required");
     const tagged=Array.isArray(body.tags)?(body.tags as string[]).slice(0,50):[];
@@ -105,6 +109,8 @@ export async function PATCH(req:Request){
   try{
     const{actor,response}=await requireAuth(req,"write");
     if(response)return response;
+    if(!canSeeObservations(actor?.roles))
+      return bad("The observation register is for administration, accounts and audit.",403);
     const body=await req.json() as Row;
     const id=str(body.id);
     if(!id)return bad("id is required");
@@ -140,8 +146,10 @@ export async function PATCH(req:Request){
 
 export async function DELETE(req:Request){
   try{
-    const{response}=await requireAuth(req,"write");
+    const{actor,response}=await requireAuth(req,"write");
     if(response)return response;
+    if(!canSeeObservations(actor?.roles))
+      return bad("The observation register is for administration, accounts and audit.",403);
     const id=new URL(req.url).searchParams.get("id")||"";
     if(!id)return bad("id is required");
     const db=await getDb();

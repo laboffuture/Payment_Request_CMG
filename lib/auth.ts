@@ -68,6 +68,12 @@ const ORG_ROLES=["Administrator","Audit Head","Management","Finance"];
 
 export const hasWriteRole=(roles:string[]=[])=>roles.some(r=>WRITE_ROLES.includes(r));
 
+/* The observation register belongs to the people who raise and answer findings:
+   administration, accounts and audit. Checked on the server as well as the menu, so
+   hiding the entry is not the only thing keeping anybody out. */
+const OBSERVATION_ROLES=["Administrator","Audit Head","Auditor","Accountant"];
+export const canSeeObservations=(roles:string[]=[])=>roles.some(r=>OBSERVATION_ROLES.includes(r));
+
 /* Work is private to the person it was assigned to. These are the roles that hand
    the work out and answer for it, so they keep sight of all of it; everybody else
    sees their own. Kept here so the routes cannot drift apart on who is who. */
