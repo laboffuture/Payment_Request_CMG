@@ -15,6 +15,7 @@ export const OPTION_LISTS=[
   {id:"payment.terms",    label:"Payment terms",     where:"Payment request form"},
   {id:"attachment.kind",  label:"Document type",     where:"Every attachment upload"},
   {id:"task.priority",    label:"Task priority",     where:"Tasks and work"},
+  {id:"audittask.frequency",label:"How often",        where:"Meetings, tasks, tokens and training"},
 ] as const;
 
 export const isKnownList=(id:string)=>OPTION_LISTS.some(l=>l.id===id);

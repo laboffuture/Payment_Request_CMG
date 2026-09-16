@@ -311,7 +311,8 @@ export const wfAuditTasks=sqliteTable("wf_audit_tasks",{
   acceptedAt:text("accepted_at").notNull().default(""),
   completedAt:text("completed_at").notNull().default(""),
   extra:text("extra").notNull().default(""),
-  raisedByEmail:text("raised_by_email").notNull().default("")},
+  raisedByEmail:text("raised_by_email").notNull().default(""),
+  frequency:text("frequency").notNull().default("")},
   t=>[index("wf_at_kind_idx").on(t.kind),index("wf_at_status_idx").on(t.status),
       index("wf_at_company_idx").on(t.companyId),index("wf_at_assigned_idx").on(t.assignedTo),
       index("wf_at_kind_status_idx").on(t.kind,t.status)]);

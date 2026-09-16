@@ -15,7 +15,7 @@ const shape=(t:Row)=>({id:str(t.id),ref:str(t.ref),title:str(t.title),kind:str(t
   companyId:str(t.companyId),department:str(t.department),status:str(t.status,"Available"),
   assignedTo:str(t.assignedTo),due:str(t.due),plannedStart:str(t.plannedStart),
   plannedEnd:str(t.plannedEnd),notes:str(t.notes),dataProvider:str(t.dataProvider),
-  attendees:str(t.attendees),raisedByEmail:str(t.raisedByEmail),
+  attendees:str(t.attendees),raisedByEmail:str(t.raisedByEmail),frequency:str(t.frequency),
   createdAt:str(t.createdAt)||now(),acceptedAt:str(t.acceptedAt),completedAt:str(t.completedAt),extra:str(t.extra)});
 
 export async function GET(req:Request){
