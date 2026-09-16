@@ -329,7 +329,7 @@ function AuditLog(){
 
 function Detail({p,close,act}:any){const buttons=()=>{if(p.status==="Requested"||p.status==="Accountant Review")return <><button onClick={()=>act("Audit Rejected")}>Reject</button><button className="primary" onClick={()=>act("Pre-Audit Queue")}>Accept & send to audit</button></>;if(p.status==="Pre-Audit Queue")return <button className="primary" onClick={()=>act("Audit Accepted")}>Accept audit</button>;if(p.status==="Audit Accepted"||p.status==="Audit Query")return <><button onClick={()=>act("Audit Rejected")}>Reject</button><button className="primary" onClick={()=>act("Management Approval")}>Approve audit</button></>;if(p.status==="Management Approval")return <><button onClick={()=>act("Management Approval: No")}>Approval not obtained</button><button className="primary" onClick={()=>act("Management Approval: Yes")}>Approval obtained — Yes</button></>;if(p.status==="Management Approval: Yes"||p.status==="Finance Queue")return <button className="primary" onClick={()=>act("Payment Released")}>Finance: release payment</button>;if(p.status==="Management Approval: No")return <button disabled>Finance release locked</button>;return <button className="primary" onClick={()=>act("Reconciliation")}>Send to reconciliation</button>};return <><button className="overlay" onClick={close}/><aside className="detail"><header><div><small>PAYMENT REQUEST</small><h2>{p.requestNo}</h2></div><button onClick={close}><X/></button></header><div className="detail-body"><span className={`badge ${tone[p.status]||"blue"}`}>{p.status}</span><h3>{p.vendor}</h3><b className="amount">{p.currency} {p.amount.toLocaleString()}</b><div className="facts">{[["Company",p.company],["Department",p.department],["Due date",p.due],["Urgency",p.urgency],["Owner",p.owner],["Budget","Available"]].map(x=><label key={x[0]}>{x[0]}<b>{x[1]}</b></label>)}</div><section><h4>Controlled payment flow</h4><div className="flowline"><b>Requested</b><b>Accounts</b><b>Audit</b><b>Management</b><b>Finance</b></div><p>Finance release is locked until Management Approval is explicitly marked Yes.</p></section><section><h4>Verification checklist</h4>{["Invoice and PO match","Budget code confirmed","Bank details verified","Supporting evidence complete"].map((x,i)=><label className="check" key={x}><input type="checkbox" defaultChecked={i<3}/>{x}</label>)}</section><section><h4>Audit trail</h4><p>All acceptance, approval, rejection and release actions are time-stamped.</p><p>Old documents remain retained when newer versions are uploaded.</p></section></div><footer>{buttons()}</footer></aside></>}
 function PaymentForm({close,added,companies,departments,natures,currencies,tdsChoices,termsChoices}:{close:()=>void;added:(p:Payment)=>void;companies:{id:string;name:string}[];departments:string[];natures:string[];currencies:string[];tdsChoices:string[];termsChoices:string[]}){
- const extraFields=useExtraFields("payment");const[v,setV]=useState({company:companies[0]?.name||"",vendor:"",amount:"",currency:currencies[0]||"",department:departments[0]||"",due:"",description:"",poNumber:"",nature:natures[0]||"",tds:"No",projectCode:"",invoiceNumber:"",invoiceDate:"",paymentTerms:"",period:""});const[extra,setExtra]=useState<Record<string,string>>({});const[vendorHints,setVendorHints]=useState<string[]>([]);const[files,setFiles]=useState<File[]>([]);const[saving,setSaving]=useState(false);useEffect(()=>{if(natures.length&&!natures.includes(v.nature))
+ const extraFields=useExtraFields("payment");const[v,setV]=useState({company:companies[0]?.name||"",vendor:"",amount:"",currency:currencies[0]||"",department:departments[0]||"",due:"",description:"",poNumber:"",nature:natures[0]||"",tds:"No",projectCode:"",invoiceNumber:"",invoiceDate:"",paymentTerms:"",period:""});const[extra,setExtra]=useState<Record<string,string>>({});const[vendorHints,setVendorHints]=useState<string[]>([]);const[vendorOpen,setVendorOpen]=useState(false);const[files,setFiles]=useState<File[]>([]);const[saving,setSaving]=useState(false);useEffect(()=>{if(natures.length&&!natures.includes(v.nature))
   setV(c=>({...c,nature:natures[0]}))},[natures,v.nature]);
  useEffect(()=>{if(currencies.length&&!currencies.includes(v.currency))
   setV(c=>({...c,currency:currencies[0]}))},[currencies,v.currency]);
@@ -361,7 +361,7 @@ for(const file of files){try{const dataUrl=await asDataUrl(file);await fetch("/a
    const choices=key==="company"?companies.map(c=>c.name):key==="department"?departments
      :key==="nature"?natures:key==="tds"?tdsChoices:key==="currency"?currencies
      :key==="paymentTerms"?termsChoices:null;
-   return <label className={key==="vendor"?"wide":""} key={key}>
+   return <label className={key==="vendor"?"wide vendor-field":""} key={key}>
      {labelFor(v.nature,key)}{!must&&<i className="field-optional">optional</i>}
      {choices
        ?<select required={must} value={(v as any)[key]}
@@ -369,12 +369,19 @@ for(const file of files){try{const dataUrl=await asDataUrl(file);await fetch("/a
           {(!must||!(v as any)[key])&&<option value="">— choose —</option>}
           {choices.map(o=><option key={o}>{o}</option>)}</select>
        :<input required={must} value={(v as any)[key]}
-          list={key==="vendor"?"vendor-names":undefined}
           autoComplete={key==="vendor"?"off":undefined}
+          onFocus={key==="vendor"?()=>setVendorOpen(true):undefined}
+          onBlur={key==="vendor"?()=>setTimeout(()=>setVendorOpen(false),120):undefined}
           type={key==="amount"?"number":key==="due"||key==="invoiceDate"?"date":"text"}
-          onChange={e=>setV({...v,[key]:e.target.value})}/>}
-     {key==="vendor"&&<datalist id="vendor-names">
-       {vendorHints.map(n=><option key={n} value={n}/>)}</datalist>}
+          onChange={e=>{setV({...v,[key]:e.target.value});if(key==="vendor")setVendorOpen(true)}}/>}
+     {/* Drawn here rather than left to the browser's own suggestion box, which filters
+         the list again by its own rules and is inconsistent about capitals. Whatever the
+         register matched is what is offered. */}
+     {key==="vendor"&&vendorOpen&&!!vendorHints.length&&
+       <div className="wf-picker vendor-picker">{vendorHints.map(n=>
+         <button type="button" key={n}
+           onMouseDown={e=>{e.preventDefault();setV({...v,vendor:n});setVendorOpen(false)}}>
+           <b>{n}</b></button>)}</div>}
      {key==="department"&&!!departmentsFor(v.nature)&&
        <small className="field-hint">Usually {departmentsFor(v.nature)}</small>}
    </label>})}
