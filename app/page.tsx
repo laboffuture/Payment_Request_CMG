@@ -44,7 +44,7 @@ const nav:{id:Module;label:string;icon:any}[]=([
   ["requests","My payment requests",FileText],
   ["payments","Accounts / Audit queues",CircleDollarSign],
   ["scheduled","Scheduled payments",CalendarClock],
-  ["accountsreceived","Accounts received",ReceiptText],
+  ["accountsreceived","Accounts Receivable",ReceiptText],
   ["preaudit","Pre-audit tasks",ClipboardCheck],
   ["postaudit","Post-audit tasks",ShieldCheck],
   ["specialaudit","Special audits",AlertTriangle],
