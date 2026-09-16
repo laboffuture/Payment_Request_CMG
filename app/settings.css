@@ -103,3 +103,17 @@
 .rq-table th:nth-child(9),.rq-table td:nth-child(9){width:10%}
 .rq-table td:nth-child(3),.rq-table td:nth-child(7){overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .rq-actor small{display:block;font-size:9px;color:#98a2b3;margin-top:2px}
+
+/* The download button sits in a .panel-head, where both globals.css and reference-theme.css
+   target `.panel-head button` - a more specific selector than a bare .wf-small - so it was
+   being stripped of its green skin and handed the neutral panel-head one instead. .wf-small
+   also never declares a display, so the icon sat on the text baseline, riding low and butted
+   up against the label with no gap. Scoped to the panel so it wins on specificity rather than
+   relying on file order, and sized on both axes because the lucide markup carries its own
+   width="24" height="24" - setting width alone leaves a 24px-tall icon stretching the button. */
+.rq-table .panel-head .wf-small{display:inline-flex;align-items:center;gap:6px;
+  border:1px solid #bad8cf;background:#eef8f5;color:var(--green);border-radius:6px;
+  padding:7px 11px;font-size:9px;font-weight:700;line-height:1.2;white-space:nowrap;cursor:pointer}
+.rq-table .panel-head .wf-small svg{width:13px;height:13px;flex:none}
+.rq-table .panel-head .wf-small:hover:not(:disabled){background:#e3f3ee;border-color:#9ecabd}
+.rq-table .panel-head .wf-small:disabled{opacity:.45;cursor:not-allowed}
