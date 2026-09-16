@@ -4,6 +4,8 @@ import{auditLogs,paymentRequests,wfAttachments}from"../../../db/schema";
 import{deleteFile}from"../../../lib/storage";
 import{hasWriteRole,requireAuth}from"../../../lib/auth";
 import{emailsForRoles,notify,rolesActingOn}from"../../../lib/notify";
+import{REQUIRED_ON_SAVE,labelFor,ruleFor}from"../../../lib/payment-fields";
+import type{FieldKey}from"../../../lib/payment-fields";
 import{bad,oops,str}from"../../../lib/workforce-api";
 
 /* Payment requests.
@@ -35,9 +37,32 @@ export async function POST(req:Request){
     if(response)return response;
     const p=(await req.json()) as typeof paymentRequests.$inferInsert&{amount?:number};
     const amount=Number(p.amount);
-    if(!p.vendor||!p.company||!Number.isFinite(amount)||amount<=0)
-      return bad("A company, a vendor and an amount above zero are required");
+    /* The beneficiary is not named here any more: whether a request needs one depends on
+       its payment type, and the rules below decide it. A statutory payment has no vendor
+       to name. What stays is what no rule can express - an amount that is a real number
+       above zero. */
+    if(!p.company||!Number.isFinite(amount)||amount<=0)
+      return bad("A company and an amount above zero are required");
     if(p.status&&STATUSES.indexOf(String(p.status))<0)return bad("Unknown status");
+
+    /* The payment type decides which fields a request must carry. Enforced here as well
+       as on the form: a field the type hides is cleared rather than trusted, so a value
+       cannot be smuggled in against a type that does not use it. */
+    const nature=String(p.nature||"");
+    const missing:string[]=[];
+    for(const field of REQUIRED_ON_SAVE as FieldKey[]){
+      const need=ruleFor(nature,field);
+      const raw=(p as Record<string,unknown>)[field];
+      const value=String(raw??"").trim();
+      if(need==="M"&&!value)missing.push(labelFor(nature,field));
+      /* Absent means empty, not missing-from-the-row: vendor, department and currency are
+         NOT NULL columns with no default, so a type that asks for none of them - a
+         statutory payment has no vendor - would otherwise fail on insert. */
+      if(need==="H")(p as Record<string,unknown>)[field]="";
+      else if(field!=="amount"&&(raw===undefined||raw===null))(p as Record<string,unknown>)[field]="";
+    }
+    if(missing.length)
+      return bad(`${nature||"This payment type"} needs ${missing.join(", ")}.`,422);
     const db=await getDb();
     /* Taken from the session, never the request body, so a client cannot claim somebody
          else raised it. */

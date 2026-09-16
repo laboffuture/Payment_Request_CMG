@@ -57,3 +57,8 @@
 .report-centre-tabs .settings-tabs{margin-bottom:0}
 .report-centre-tabs+.page{padding-top:16px}
 @media(max-width:900px){.report-centre-tabs{padding:18px 16px 0}}
+
+/* Payment request form: which fields are optional, and where a type is usually raised */
+.form label>.field-optional{font-style:normal;font-size:9px;font-weight:700;color:#98a2b3;
+  margin-left:6px;letter-spacing:.04em;text-transform:uppercase}
+.form label>.field-hint{display:block;font-size:10px;color:#98a2b3;margin-top:4px}
