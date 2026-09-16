@@ -29,3 +29,31 @@
 .wb-actor small{display:block;font-size:9px;color:#98a2b3;margin-top:2px}
 .wb-remark{max-width:220px;color:#667085}
 .wb-remark:not(:empty){overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+
+/* Queue columns.
+
+   The table only had a minimum total width, so the browser sized each column to its
+   widest cell: one long vendor name - "SKYRAMS OUTDOOR ADVERTISINGS INDIA PRIVATE
+   LIMITED" - stretched that column and squeezed the rest. The nine columns are given
+   shares instead, so a long name is trimmed rather than pushing everything else aside.
+   The full text stays available on hover. */
+.wb-panel table{min-width:1180px;table-layout:fixed}
+.wb-panel th,.wb-panel td{overflow-wrap:anywhere}
+.wb-panel th:nth-child(1),.wb-panel td:nth-child(1){width:11%}   /* request */
+.wb-panel th:nth-child(2),.wb-panel td:nth-child(2){width:13%}   /* company / dept */
+.wb-panel th:nth-child(3),.wb-panel td:nth-child(3){width:12%}   /* vendor */
+.wb-panel th:nth-child(4),.wb-panel td:nth-child(4){width:8%;text-align:right}
+.wb-panel th:nth-child(5),.wb-panel td:nth-child(5){width:7%;white-space:nowrap}
+.wb-panel th:nth-child(6),.wb-panel td:nth-child(6){width:11%}   /* verified by */
+.wb-panel th:nth-child(7),.wb-panel td:nth-child(7){width:14%}   /* remarks */
+.wb-panel th:nth-child(8),.wb-panel td:nth-child(8){width:12%}   /* current step */
+.wb-panel th:nth-child(9),.wb-panel td:nth-child(9){width:12%}   /* next action */
+
+/* The two columns that carry free text are trimmed to one line rather than growing. */
+.wb-panel td:nth-child(3),.wb-panel td:nth-child(6){overflow:hidden;text-overflow:ellipsis;
+  white-space:nowrap}
+.wb-panel td:nth-child(2) small,.wb-panel td:nth-child(6) small{overflow:hidden;
+  text-overflow:ellipsis;white-space:nowrap}
+.wb-panel td:nth-child(1) b{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;display:block}
+.wb-panel .wb-remark{max-width:none}
+.wb-panel td:nth-child(4) b{white-space:nowrap}
