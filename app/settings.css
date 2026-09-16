@@ -69,3 +69,10 @@
   box-shadow:0 12px 30px #0d282326}
 .form .vendor-picker button{padding:8px 11px}
 .form .vendor-picker b{font-size:11.5px;font-weight:500}
+
+/* A module that exists but is waiting on its format */
+.awaiting-format{padding:22px 24px;max-width:70ch}
+.awaiting-format h3{margin:0 0 8px;font:600 16px Georgia}
+.awaiting-format p{margin:0 0 10px;font-size:12px;line-height:1.55;color:#667085}
+.awaiting-format .awaiting-note{margin:0;padding-top:10px;border-top:1px solid var(--line);
+  font-size:11px;color:#98a2b3}
