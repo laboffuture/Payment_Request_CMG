@@ -24,3 +24,8 @@
 .wb-tools .wb-range .wb-range-clear{border:0;background:none;padding:0 2px;font-size:13px;
   line-height:1;color:#98a2b3;cursor:pointer}
 .wb-tools .wb-range .wb-range-clear:hover{color:var(--red)}
+
+/* Who acted, and what they said, in the queue */
+.wb-actor small{display:block;font-size:9px;color:#98a2b3;margin-top:2px}
+.wb-remark{max-width:220px;color:#667085}
+.wb-remark:not(:empty){overflow:hidden;text-overflow:ellipsis;white-space:nowrap}

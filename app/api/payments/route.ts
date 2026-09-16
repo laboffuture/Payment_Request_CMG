@@ -120,7 +120,11 @@ export async function PATCH(req:Request){
       :old.status==="Rejected"
       ?{rejectionNote:"",rejectedBy:"",rejectedAt:"",resubmitNote:"",resubmittedAt:""}:{};
     const[payment]=await db.update(paymentRequests)
-      .set({status,owner:str(owner,old.owner).slice(0,120),updatedAt:now,...rejectionFields})
+      /* Who moved it on and what they said, kept on the request so the queue can show it
+         without reading the trail once per row. */
+      .set({status,owner:str(owner,old.owner).slice(0,120),updatedAt:now,
+        lastActionBy:actor?.name||actor?.email||"",lastActionNote:remark,lastActionAt:now,
+        ...rejectionFields})
       .where(eq(paymentRequests.id,Number(id))).returning();
     await db.insert(auditLogs).values({recordId:Number(id),
       action:status==="Rejected"?"Rejected with remarks"
