@@ -28,8 +28,12 @@ export async function GET(req:Request){
   try{
     const{response}=await requireAuth(req,"read");
     if(response)return response;
+    /* The window is org-wide and only then filtered to the reader, so it has to be wide
+       enough to still contain an individual's older requests. At 50 a requestor's own
+       work fell out of view once the group as a whole passed fifty - invisible while the
+       register is small, and indistinguishable from a paging bug once it is not. */
     return Response.json({payments:await (await getDb()).select().from(paymentRequests)
-      .orderBy(desc(paymentRequests.id)).limit(50)});
+      .orderBy(desc(paymentRequests.id)).limit(500)});
   }catch{return Response.json({payments:[]})}}
 
 export async function POST(req:Request){
