@@ -209,7 +209,16 @@ export const wfObservations=sqliteTable("wf_observations",{
   resolution:text("resolution").notNull().default(""),
   replyCount:integer("reply_count").notNull().default(0),
   lastReplyAt:text("last_reply_at").notNull().default(""),
-  raisedByEmail:text("raised_by_email").notNull().default("")},
+  raisedByEmail:text("raised_by_email").notNull().default(""),
+  /* The observation sheet: where it was found, what it could cost, who was spoken to,
+     why it happened, what it was worth, who owns the fix and what they promised. */
+  area:text("area").notNull().default(""),
+  impact:text("impact").notNull().default(""),
+  stakeholder:text("stakeholder").notNull().default(""),
+  rootCause:text("root_cause").notNull().default(""),
+  transactionValue:text("transaction_value").notNull().default(""),
+  responsibility:text("responsibility").notNull().default(""),
+  actionPlan:text("action_plan").notNull().default("")},
   t=>[index("wf_obs_dept_idx").on(t.deptId),index("wf_obs_status_idx").on(t.status),
       index("wf_obs_raised_idx").on(t.raisedAt),index("wf_obs_task_idx").on(t.taskId)]);
 

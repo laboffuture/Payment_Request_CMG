@@ -34,10 +34,13 @@ export default function ObservationDesk({openProfile,flash,canManage=true}:{open
     <div className="intro"><div><small>OBSERVATIONS</small><h2>Raised and answered</h2>
       <p>Tag the people who need to answer. Everyone tagged sees the thread and can reply.</p></div>
       <div className="wf-head-tools">
-        <button onClick={()=>csv([["Ref","Observation","Risk","Status","Tagged","Raised by","Raised",
-          "Target","Replies","Resolution"],
-          ...rows.map(o=>[o.ref,o.title,o.risk,o.status,o.tags.map(t=>t.name).join("; "),
-            o.raisedBy,stamp(o.raisedAt),o.target,o.replyCount,o.resolution])],"observations.csv")}>
+        <button onClick={()=>csv([["Ref","Area","Header","Summary","Potential risk or impact","Stakeholder",
+          "Root cause","Value of transaction","Risk rating","Stakeholder response and action plan",
+          "Responsibility","Target date","Status","Tagged","Raised by","Raised","Replies","Resolution"],
+          ...rows.map(o=>[o.ref,o.area,o.title,o.detail,o.impact,o.stakeholder,o.rootCause,
+            o.transactionValue,o.risk,o.actionPlan,o.responsibility,o.target,o.status,
+            o.tags.map(t=>t.name).join("; "),o.raisedBy,stamp(o.raisedAt),o.replyCount,o.resolution])],
+          "observations.csv")}>
           Export page</button>
         {canManage&&<button className="primary" onClick={()=>setCompose(true)}><MessageSquareWarning/>Raise observation</button>}
       </div></div>
@@ -98,6 +101,13 @@ export function ObservationEditor({observation,close,flash}:{
   const [detail,setDetail]=useState(observation?.detail||"");
   const [risk,setRisk]=useState<Priority>(observation?.risk||"Medium");
   const [target,setTarget]=useState(observation?.target||shift(today(),7));
+  const [area,setArea]=useState(observation?.area||"");
+  const [impact,setImpact]=useState(observation?.impact||"");
+  const [stakeholder,setStakeholder]=useState(observation?.stakeholder||"");
+  const [rootCause,setRootCause]=useState(observation?.rootCause||"");
+  const [transactionValue,setTransactionValue]=useState(observation?.transactionValue||"");
+  const [responsibility,setResponsibility]=useState(observation?.responsibility||"");
+  const [actionPlan,setActionPlan]=useState(observation?.actionPlan||"");
   const [tags,setTags]=useState<{id:string;name:string}[]>(observation?.tags||[]);
   const [term,setTerm]=useState("");
   const [busy,setBusy]=useState(false);
@@ -113,6 +123,7 @@ export function ObservationEditor({observation,close,flash}:{
     try{
       const rest=observation?{...observation,tags:undefined}:{};
       await wf.api.saveObservation({...rest,title,detail,risk,target,
+        area,impact,stakeholder,rootCause,transactionValue,responsibility,actionPlan,
         deptId:wf.dept,raisedBy:wf.actor,tags:tags.map(t=>t.id)},isNew);
       flash(isNew?`Observation sent to ${tags.length} employee${tags.length===1?"":"s"}`:"Observation updated");
       close()}
@@ -123,13 +134,31 @@ export function ObservationEditor({observation,close,flash}:{
     <header><div><small>{isNew?"RAISE OBSERVATION":"EDIT OBSERVATION"}</small>
       <h2>{title||"New observation"}</h2></div><button type="button" onClick={close}><X/></button></header>
     <div className="form">
-      <label className="wide">Observation<input required value={title} onChange={e=>setTitle(e.target.value)}
-        placeholder="What needs attention?"/></label>
-      <label>Risk<select value={risk} onChange={e=>setRisk(e.target.value as Priority)}>
+      <label>Area<input value={area} onChange={e=>setArea(e.target.value)}
+        placeholder="e.g. Petty cash, Labour payment"/></label>
+      <label>Value of transaction<input value={transactionValue}
+        onChange={e=>setTransactionValue(e.target.value)} placeholder="e.g. AED 42,000"/></label>
+      <label className="wide">Header<input required value={title} onChange={e=>setTitle(e.target.value)}
+        placeholder="e.g. No credit approval"/></label>
+      <label className="wide">Summary of observation or opportunity
+        <textarea value={detail} onChange={e=>setDetail(e.target.value)}
+        placeholder="What was found, and where."/></label>
+      <label className="wide">Potential risk or impact
+        <textarea value={impact} onChange={e=>setImpact(e.target.value)}
+        placeholder="What it could cost if it is left."/></label>
+      <label className="wide">Root cause<textarea value={rootCause}
+        onChange={e=>setRootCause(e.target.value)} placeholder="e.g. No approval matrix"/></label>
+      <label className="wide">Stakeholder<input value={stakeholder}
+        onChange={e=>setStakeholder(e.target.value)}
+        placeholder="Who was spoken to, and how - meeting, discussion or email"/></label>
+      <label>Risk rating<select value={risk} onChange={e=>setRisk(e.target.value as Priority)}>
         {priorities.map(p=><option key={p}>{p}</option>)}</select></label>
-      <label>Response due<input type="date" value={target} onChange={e=>setTarget(e.target.value)}/></label>
-      <label className="wide">Detail<textarea value={detail} onChange={e=>setDetail(e.target.value)}
-        placeholder="Give enough context for the people you tag to act on it."/></label>
+      <label>Responsibility<input value={responsibility}
+        onChange={e=>setResponsibility(e.target.value)} placeholder="e.g. Accounts team"/></label>
+      <label>Target date<input type="date" value={target} onChange={e=>setTarget(e.target.value)}/></label>
+      <label className="wide">Stakeholder written response with action plan
+        <textarea value={actionPlan} onChange={e=>setActionPlan(e.target.value)}
+        placeholder="Filled in once the stakeholder has answered."/></label>
       <label className="wide">Tag employees
         <input value={term} onChange={e=>setTerm(e.target.value)}
           placeholder="Type a name to search, then pick from the list"/>
@@ -188,10 +217,16 @@ function ObservationThread({id,close,flash,openProfile,canManage=true}:{canManag
         <h3 className="wf-obs-title">{o.title}</h3>
         {o.detail&&<p className="wf-jd">{o.detail}</p>}
         <div className="facts">
-          {[["Raised by",o.raisedBy||"—"],["Raised",stamp(o.raisedAt)],
-            ["Response due",o.target||"—"],["Replies",String(o.replyCount)]]
+          {[["Area",o.area||"—"],["Value of transaction",o.transactionValue||"—"],
+            ["Responsibility",o.responsibility||"—"],["Stakeholder",o.stakeholder||"—"],
+            ["Raised by",o.raisedBy||"—"],["Raised",stamp(o.raisedAt)],
+            ["Target date",o.target||"—"],["Replies",String(o.replyCount)]]
             .map(f=><label key={f[0]}>{f[0]}<b>{f[1]}</b></label>)}
         </div>
+        {!!o.impact&&<section><h4>Potential risk or impact</h4><p className="wf-jd">{o.impact}</p></section>}
+        {!!o.rootCause&&<section><h4>Root cause</h4><p className="wf-jd">{o.rootCause}</p></section>}
+        {!!o.actionPlan&&<section><h4>Stakeholder response and action plan</h4>
+          <p className="wf-jd">{o.actionPlan}</p></section>}
         <section><h4>Tagged employees</h4>
           <div className="wf-tags">{o.tags.map(t=>
             <button key={t.id} className="wf-tag" onClick={()=>openProfile(t.id)}>{t.name}</button>)}</div>
