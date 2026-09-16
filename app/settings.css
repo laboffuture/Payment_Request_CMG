@@ -80,3 +80,26 @@
 /* A form that could not be saved says so, where it was filled in */
 .form .form-error{margin:0;padding:10px 12px;border-radius:7px;background:#fdf0ef;
   border:1px solid #f0c4c0;color:#b3372a;font-size:11.5px;line-height:1.5}
+
+/* How far a request has travelled, shown the same way in the queue and in the
+   requestor's own list. Six pips, filled to the stage reached, with the stage named
+   beneath so the row reads without counting them. */
+.stage-track{display:flex;flex-wrap:wrap;gap:3px;align-items:center}
+.stage-track i{width:12px;height:4px;border-radius:2px;background:#e4e7ec;flex:none}
+.stage-track i.on{background:#1e7a52}
+.stage-track small{flex-basis:100%;font-size:9px;color:var(--muted);margin-top:3px}
+
+/* The requestor's list, in the same shape as the queue */
+.rq-table table{min-width:1120px;table-layout:fixed}
+.rq-table th,.rq-table td{overflow-wrap:anywhere}
+.rq-table th:nth-child(1),.rq-table td:nth-child(1){width:11%}
+.rq-table th:nth-child(2),.rq-table td:nth-child(2){width:13%}
+.rq-table th:nth-child(3),.rq-table td:nth-child(3){width:12%}
+.rq-table th:nth-child(4),.rq-table td:nth-child(4){width:9%;text-align:right}
+.rq-table th:nth-child(5),.rq-table td:nth-child(5){width:7%;white-space:nowrap}
+.rq-table th:nth-child(6),.rq-table td:nth-child(6){width:11%}
+.rq-table th:nth-child(7),.rq-table td:nth-child(7){width:13%}
+.rq-table th:nth-child(8),.rq-table td:nth-child(8){width:14%}
+.rq-table th:nth-child(9),.rq-table td:nth-child(9){width:10%}
+.rq-table td:nth-child(3),.rq-table td:nth-child(7){overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.rq-actor small{display:block;font-size:9px;color:#98a2b3;margin-top:2px}

@@ -1,5 +1,53 @@
 "use client";
 import{CheckCircle2,Clock3,FileText,Plus}from"lucide-react";
-type P={id:number;requestNo:string;company:string;vendor:string;amount:number;currency:string;due:string;urgency:string;status:string;owner:string;department:string};
-export default function RequestorWorkspace({rows,open,create}:{rows:P[];open:(p:P)=>void;create:()=>void}){const mine=rows.slice(0,6);return <div className="page rq-page"><div className="rq-head"><div><small>PAYMENT REQUESTOR</small><h2>My payment requests</h2><p>Create requests and track status. Accounts and Audit actions are not available in this view.</p></div><button className="primary" onClick={create}><Plus/>Request payment</button></div><div className="rq-metrics"><article><FileText/><b>{mine.length}</b><span>Total requests</span></article><article><Clock3/><b>{mine.filter(x=>!["Payment Released","Reconciliation","Audit Closed"].includes(x.status)).length}</b><span>In progress</span></article><article><CheckCircle2/><b>{mine.filter(x=>["Payment Released","Reconciliation","Audit Closed"].includes(x.status)).length}</b><span>Completed</span></article></div><section className="panel rq-list"><div className="panel-head"><div><small>STATUS TRACKER</small><h2>Your recent requests</h2></div></div>{mine.map(p=><button key={p.id} onClick={()=>open(p)}><div><b>{p.requestNo}</b><span>{p.vendor} · {p.company}</span></div><strong>{p.currency} {p.amount.toLocaleString()}</strong><Status value={p.status}/><em>View status</em></button>)}</section></div>}
-function Status({value}:{value:string}){const steps=["Requested","Accounts","Audit","Correction","Finance","Closed"];let n=value.includes("Released")||value.includes("Closed")||value==="Reconciliation"?6:value.includes("Finance")||value.includes("Management")?5:value.includes("Observation")||value.includes("Reconfirmation")?4:value.includes("Audit")||value==="Pre-Audit Queue"?3:value.includes("Account")||value==="Submitted"?2:1;return <div className="rq-status"><span>{value}</span><div>{steps.map((s,i)=><i className={i<n?"on":""} key={s}/>)}</div></div>}
+import{STAGES,isFinished,stageIndex}from"../lib/payment-stages";
+
+/* The requestor's own view. It carries the same columns as the accounts and audit queue
+   so a request reads the same wherever it is seen - except the next action, which is an
+   instruction to accounts or audit and none of the requestor's business. */
+
+type P={id:number;requestNo:string;company:string;vendor:string;amount:number;currency:string;
+  due:string;urgency:string;status:string;owner:string;department:string;
+  lastActionBy?:string;lastActionNote?:string;lastActionAt?:string;
+  rejectionNote?:string;resubmitNote?:string};
+
+const statusTone=(s:string)=>/reject|query/i.test(s)?"red"
+  :/released|approved|cleared/i.test(s)?"green"
+  :/observation|correction|reconfirm/i.test(s)?"amber":"blue";
+
+export default function RequestorWorkspace({rows,open,create}:{rows:P[];open:(p:P)=>void;create:()=>void}){
+  const mine=rows.slice(0,6);
+  return <div className="page rq-page">
+    <div className="rq-head"><div><small>PAYMENT REQUESTOR</small><h2>My payment requests</h2>
+      <p>Create requests and track status. Accounts and Audit actions are not available in this view.</p></div>
+      <button className="primary" onClick={create}><Plus/>Request payment</button></div>
+    <div className="rq-metrics">
+      <article><FileText/><b>{rows.length}</b><span>Total requests</span></article>
+      <article><Clock3/><b>{rows.filter(x=>!isFinished(x.status)).length}</b><span>In progress</span></article>
+      <article><CheckCircle2/><b>{rows.filter(x=>isFinished(x.status)).length}</b><span>Completed</span></article>
+    </div>
+    <section className="panel table-panel rq-table">
+      <div className="panel-head"><div><small>STATUS TRACKER</small><h2>Your recent requests</h2></div></div>
+      <div className="table-wrap"><table><thead><tr>
+        <th>REQUEST</th><th>COMPANY / DEPT</th><th>VENDOR</th><th>AMOUNT</th><th>DUE</th>
+        <th>VERIFIED BY</th><th>REMARKS</th><th>CURRENT STEP</th><th>STATUS TRACKER</th>
+      </tr></thead>
+      <tbody>{mine.map(p=><tr key={p.id} onClick={()=>open(p)}>
+        <td><b>{p.requestNo}</b><small>{p.urgency} priority</small></td>
+        <td>{p.company}<small>{p.department}</small></td>
+        <td title={p.vendor}>{p.vendor}</td>
+        <td><b>{p.currency} {p.amount.toLocaleString()}</b></td>
+        <td>{p.due}</td>
+        <td className="rq-actor">{p.lastActionBy||"—"}
+          {p.lastActionAt&&<small>{new Date(p.lastActionAt).toLocaleDateString("en-GB",{day:"numeric",month:"short"})}</small>}</td>
+        <td className="rq-remark" title={p.lastActionNote||p.rejectionNote||p.resubmitNote||""}>
+          {p.lastActionNote||p.rejectionNote||p.resubmitNote||"—"}</td>
+        <td><span className={`badge ${statusTone(p.status)}`}>{p.status}</span></td>
+        <td><div className="stage-track" title={`${STAGES[stageIndex(p.status)]} — step ${stageIndex(p.status)+1} of ${STAGES.length}`}>
+          {STAGES.map((st,i)=><i key={st} className={i<=stageIndex(p.status)?"on":""}/>)}
+          <small>{STAGES[stageIndex(p.status)]}</small></div></td>
+      </tr>)}</tbody></table>
+      {!mine.length&&<div className="wb-empty"><FileText/><b>No requests yet</b>
+        <span>Use Request payment to raise your first one.</span></div>}</div>
+    </section>
+  </div>}

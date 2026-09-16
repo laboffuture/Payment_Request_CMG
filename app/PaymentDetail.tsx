@@ -1,4 +1,5 @@
 "use client";
+import{STAGES as stages,stageIndex}from"../lib/payment-stages";
 import{useMemo,useState}from"react";
 import{AlertTriangle,Check,Clock3,FileCheck2,Paperclip,ShieldCheck,X}from"lucide-react";
 import Attachments from"./Attachments";
@@ -9,11 +10,11 @@ const statusTone=(s:string)=>/reject|query/i.test(s)?"red"
   :/released|approved|cleared/i.test(s)?"green"
   :/observation|correction|reconfirm/i.test(s)?"amber":"blue";
 const stamp=(v:string)=>v?new Date(v).toLocaleDateString("en-GB",{day:"2-digit",month:"short",year:"numeric"}):"";
-const stages=["Requested","Accounts","Audit","Correction","Recheck","Release"];
+
 export default function PaymentDetail({payment:p,role,onClose,onAction,onDelete}:{payment:Payment;role:string;onClose:()=>void;onAction:(s:string,note?:string)=>void;onDelete?:()=>void}){
  const accountQueue=["Submitted","Requested"].includes(p.status),accountWork=["Accountant Accepted","Accountant Review"].includes(p.status),auditQueue=p.status==="Pre-Audit Queue",auditWork=p.status==="Audit Accepted",correction=p.status==="Observation – Accounts Action",recheck=p.status==="Audit Reconfirmation",approved=p.status==="Approved by Auditor – Ready to Release",released=p.status==="Payment Released";
  const[rejecting,setRejecting]=useState(false),[remark,setRemark]=useState(""),[fixing,setFixing]=useState(false),[fixNote,setFixNote]=useState(""),[stageNote,setStageNote]=useState(""),[checks,setChecks]=useState<Record<string,boolean>>({}),[observation,setObservation]=useState("Supporting documents do not reconcile with the ledger balance."),[proof,setProof]=useState("");
- const active=useMemo(()=>released?5:approved?5:recheck?4:correction?3:auditWork||auditQueue?2:accountWork||accountQueue?1:0,[p.status]);
+ const active=useMemo(()=>stageIndex(p.status),[p.status]);
  /* Each stage belongs to one role. An administrator or audit head may also act, so a
     request is never stuck because the responsible person is unavailable. */
  const can=(r:string)=>role===r||role==="Administrator"||role==="Audit Head";
