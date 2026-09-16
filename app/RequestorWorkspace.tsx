@@ -1,5 +1,6 @@
 "use client";
-import{CheckCircle2,Clock3,FileText,Plus}from"lucide-react";
+import{CheckCircle2,Clock3,Download,FileText,Plus}from"lucide-react";
+import{csv}from"./workforce-store";
 import{STAGES,isFinished,stageIndex}from"../lib/payment-stages";
 
 /* The requestor's own view. It carries the same columns as the accounts and audit queue
@@ -8,6 +9,7 @@ import{STAGES,isFinished,stageIndex}from"../lib/payment-stages";
 
 type P={id:number;requestNo:string;company:string;vendor:string;amount:number;currency:string;
   due:string;urgency:string;status:string;owner:string;department:string;
+  nature?:string;tds?:string;poNumber?:string;createdAt?:string;
   lastActionBy?:string;lastActionNote?:string;lastActionAt?:string;
   rejectionNote?:string;resubmitNote?:string};
 
@@ -17,6 +19,16 @@ const statusTone=(s:string)=>/reject|query/i.test(s)?"red"
 
 export default function RequestorWorkspace({rows,open,create}:{rows:P[];open:(p:P)=>void;create:()=>void}){
   const mine=rows.slice(0,6);
+  /* The table shows the six most recent; the report covers every request they have
+     raised. A download that quietly stopped at six would be read as the whole record. */
+  const download=()=>csv([
+    ["Request","Status","Stage","Company","Department","Vendor","Nature","TDS","PO number",
+     "Currency","Amount","Due","Verified by","Remarks","Raised on"],
+    ...rows.map(p=>[p.requestNo,p.status,STAGES[stageIndex(p.status)],p.company,p.department,
+      p.vendor,p.nature||"",p.tds||"",p.poNumber||"",p.currency,p.amount,p.due,
+      p.lastActionBy||"",p.lastActionNote||p.rejectionNote||p.resubmitNote||"",
+      (p.createdAt||"").slice(0,10)])],
+    `my-payment-requests-${new Date().toISOString().slice(0,10)}.csv`);
   return <div className="page rq-page">
     <div className="rq-head"><div><small>PAYMENT REQUESTOR</small><h2>My payment requests</h2>
       <p>Create requests and track status. Accounts and Audit actions are not available in this view.</p></div>
@@ -27,7 +39,10 @@ export default function RequestorWorkspace({rows,open,create}:{rows:P[];open:(p:
       <article><CheckCircle2/><b>{rows.filter(x=>isFinished(x.status)).length}</b><span>Completed</span></article>
     </div>
     <section className="panel table-panel rq-table">
-      <div className="panel-head"><div><small>STATUS TRACKER</small><h2>Your recent requests</h2></div></div>
+      <div className="panel-head"><div><small>STATUS TRACKER</small><h2>Your recent requests</h2></div>
+        <button className="wf-small" onClick={download} disabled={!rows.length}
+          title={rows.length?`Download all ${rows.length} of your requests as a spreadsheet`:"You have not raised a request yet"}>
+          <Download/>Download report</button></div>
       <div className="table-wrap"><table><thead><tr>
         <th>REQUEST</th><th>COMPANY / DEPT</th><th>VENDOR</th><th>AMOUNT</th><th>DUE</th>
         <th>VERIFIED BY</th><th>REMARKS</th><th>CURRENT STEP</th><th>STATUS TRACKER</th>
