@@ -65,10 +65,32 @@ export async function POST(req:Request){
     if(missing.length)
       return bad(`${nature||"This payment type"} needs ${missing.join(", ")}.`,422);
     const db=await getDb();
-    /* Taken from the session, never the request body, so a client cannot claim somebody
-         else raised it. */
-      const[payment]=await db.insert(paymentRequests)
-        .values({...p,amount,raisedBy:actor?.email||""}).returning();
+
+    /* The request number is the server's to give. The browser used to invent one -
+       "PAY-2026-" and a random number between 1050 and 1149 - against a column that must
+       be unique, so with two dozen requests already in that range roughly one submission
+       in four collided and the insert was refused. The number now follows the highest
+       already issued, and a collision between two people submitting at the same moment is
+       retried rather than thrown at the requestor. */
+    const year=new Date().getFullYear();
+    const issued=await db.select({no:paymentRequests.requestNo}).from(paymentRequests);
+    let next=issued.reduce((top,r)=>{
+      const m=/^PAY-\d{4}-(\d+)$/.exec(r.no||"");
+      return m?Math.max(top,Number(m[1])):top},1049)+1;
+
+    let payment;
+    for(let attempt=0;attempt<6&&!payment;attempt++){
+      try{
+        [payment]=await db.insert(paymentRequests)
+          .values({...p,amount,requestNo:`PAY-${year}-${next}`,raisedBy:actor?.email||""})
+          .returning();
+      }catch(e){
+        const taken=String(e).toLowerCase().includes("unique");
+        if(!taken||attempt===5)throw e;
+        next++;                       // somebody else took it between the read and the write
+      }
+    }
+    if(!payment)return bad("Could not issue a request number. Please try again.",503);
     await db.insert(auditLogs).values({recordId:payment.id,action:"Payment submitted",
       actor:actor?.name||actor?.email||"system",newValue:payment.status});
     /* A new request waits on accounts. */

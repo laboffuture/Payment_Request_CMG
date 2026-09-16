@@ -76,3 +76,7 @@
 .awaiting-format p{margin:0 0 10px;font-size:12px;line-height:1.55;color:#667085}
 .awaiting-format .awaiting-note{margin:0;padding-top:10px;border-top:1px solid var(--line);
   font-size:11px;color:#98a2b3}
+
+/* A form that could not be saved says so, where it was filled in */
+.form .form-error{margin:0;padding:10px 12px;border-radius:7px;background:#fdf0ef;
+  border:1px solid #f0c4c0;color:#b3372a;font-size:11.5px;line-height:1.5}

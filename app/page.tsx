@@ -332,7 +332,7 @@ function AuditLog(){
 
 function Detail({p,close,act}:any){const buttons=()=>{if(p.status==="Requested"||p.status==="Accountant Review")return <><button onClick={()=>act("Audit Rejected")}>Reject</button><button className="primary" onClick={()=>act("Pre-Audit Queue")}>Accept & send to audit</button></>;if(p.status==="Pre-Audit Queue")return <button className="primary" onClick={()=>act("Audit Accepted")}>Accept audit</button>;if(p.status==="Audit Accepted"||p.status==="Audit Query")return <><button onClick={()=>act("Audit Rejected")}>Reject</button><button className="primary" onClick={()=>act("Management Approval")}>Approve audit</button></>;if(p.status==="Management Approval")return <><button onClick={()=>act("Management Approval: No")}>Approval not obtained</button><button className="primary" onClick={()=>act("Management Approval: Yes")}>Approval obtained — Yes</button></>;if(p.status==="Management Approval: Yes"||p.status==="Finance Queue")return <button className="primary" onClick={()=>act("Payment Released")}>Finance: release payment</button>;if(p.status==="Management Approval: No")return <button disabled>Finance release locked</button>;return <button className="primary" onClick={()=>act("Reconciliation")}>Send to reconciliation</button>};return <><button className="overlay" onClick={close}/><aside className="detail"><header><div><small>PAYMENT REQUEST</small><h2>{p.requestNo}</h2></div><button onClick={close}><X/></button></header><div className="detail-body"><span className={`badge ${tone[p.status]||"blue"}`}>{p.status}</span><h3>{p.vendor}</h3><b className="amount">{p.currency} {p.amount.toLocaleString()}</b><div className="facts">{[["Company",p.company],["Department",p.department],["Due date",p.due],["Urgency",p.urgency],["Owner",p.owner],["Budget","Available"]].map(x=><label key={x[0]}>{x[0]}<b>{x[1]}</b></label>)}</div><section><h4>Controlled payment flow</h4><div className="flowline"><b>Requested</b><b>Accounts</b><b>Audit</b><b>Management</b><b>Finance</b></div><p>Finance release is locked until Management Approval is explicitly marked Yes.</p></section><section><h4>Verification checklist</h4>{["Invoice and PO match","Budget code confirmed","Bank details verified","Supporting evidence complete"].map((x,i)=><label className="check" key={x}><input type="checkbox" defaultChecked={i<3}/>{x}</label>)}</section><section><h4>Audit trail</h4><p>All acceptance, approval, rejection and release actions are time-stamped.</p><p>Old documents remain retained when newer versions are uploaded.</p></section></div><footer>{buttons()}</footer></aside></>}
 function PaymentForm({close,added,companies,departments,natures,currencies,tdsChoices,termsChoices}:{close:()=>void;added:(p:Payment)=>void;companies:{id:string;name:string}[];departments:string[];natures:string[];currencies:string[];tdsChoices:string[];termsChoices:string[]}){
- const extraFields=useExtraFields("payment");const[v,setV]=useState({company:companies[0]?.name||"",vendor:"",amount:"",currency:currencies[0]||"",department:departments[0]||"",due:"",description:"",poNumber:"",nature:natures[0]||"",tds:"No",projectCode:"",invoiceNumber:"",invoiceDate:"",paymentTerms:"",period:""});const[extra,setExtra]=useState<Record<string,string>>({});const[vendorHints,setVendorHints]=useState<string[]>([]);const[vendorOpen,setVendorOpen]=useState(false);const[files,setFiles]=useState<File[]>([]);const[saving,setSaving]=useState(false);useEffect(()=>{if(natures.length&&!natures.includes(v.nature))
+ const extraFields=useExtraFields("payment");const[v,setV]=useState({company:companies[0]?.name||"",vendor:"",amount:"",currency:currencies[0]||"",department:departments[0]||"",due:"",description:"",poNumber:"",nature:natures[0]||"",tds:"No",projectCode:"",invoiceNumber:"",invoiceDate:"",paymentTerms:"",period:""});const[extra,setExtra]=useState<Record<string,string>>({});const[vendorHints,setVendorHints]=useState<string[]>([]);const[failed,setFailed]=useState("");const[vendorOpen,setVendorOpen]=useState(false);const[files,setFiles]=useState<File[]>([]);const[saving,setSaving]=useState(false);useEffect(()=>{if(natures.length&&!natures.includes(v.nature))
   setV(c=>({...c,nature:natures[0]}))},[natures,v.nature]);
  useEffect(()=>{if(currencies.length&&!currencies.includes(v.currency))
   setV(c=>({...c,currency:currencies[0]}))},[currencies,v.currency]);
@@ -352,7 +352,26 @@ function PaymentForm({close,added,companies,departments,natures,currencies,tdsCh
      .then(r=>r.json() as Promise<{vendors?:{name:string}[]}>)
      .then(d=>{if(live)setVendorHints((d.vendors||[]).map(x=>x.name))}).catch(()=>{})},200);
    return()=>{live=false;clearTimeout(t)}},[v.vendor]);
-  const submit=async(e:any)=>{e.preventDefault();if(saving)return;setSaving(true);let p:any={...v,extra:packExtra(extraFields,extra),amount:Number(v.amount),requestNo:`PAY-2026-${1050+Math.floor(Math.random()*100)}`,status:"Submitted",owner:"Accountant queue",urgency:"Normal",id:Date.now()};try{let r=await fetch("/api/payments",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify(p)});if(r.ok)p=((await r.json()) as {payment:Payment}).payment}catch{}/* The documents were collected and then dropped: the input had no handler, so nothing
+  const submit=async(e:any)=>{e.preventDefault();if(saving)return;setSaving(true);setFailed("");
+ /* The number comes back from the server, which owns it. */
+ let p:any={...v,extra:packExtra(extraFields,extra),amount:Number(v.amount),
+   status:"Submitted",owner:"Accountant queue",urgency:"Normal"};
+ try{
+   const r=await fetch("/api/payments",{method:"POST",headers:{"content-type":"application/json"},
+     body:JSON.stringify(p)});
+   const answer=await r.json().catch(()=>({})) as {payment?:Payment;error?:string};
+   /* A failure used to be swallowed: the request was reported as submitted and added to
+      the list from the browser's own copy, so it looked raised until the page was
+      reloaded and it was not there. */
+   if(!r.ok||!answer.payment){
+     setFailed(answer.error||"The request could not be saved. Nothing has been submitted.");
+     setSaving(false);return;
+   }
+   p=answer.payment;
+ }catch{
+   setFailed("Could not reach the server. Nothing has been submitted.");
+   setSaving(false);return;
+ }/* The documents were collected and then dropped: the input had no handler, so nothing
    ever reached the server and Accounts and Audit opened the request to find it empty.
    They upload here, once the request exists and has the id they hang off, so everyone
    who opens it afterwards sees the same list. */
@@ -392,6 +411,7 @@ for(const file of files){try{const dataUrl=await asDataUrl(file);await fetch("/a
  <label className="wide">{labelFor(v.nature,"description")}
    <textarea required={ruleFor(v.nature,"description")==="M"} value={v.description}
      onChange={e=>setV({...v,description:e.target.value})}/></label>
+ {!!failed&&<p className="wide form-error">{failed}</p>}
  <label className="upload wide">
    <input type="file" multiple required={ruleFor(v.nature,"documents")==="M"&&!files.length}
      accept="image/*,application/pdf,.doc,.docx,.xls,.xlsx,.csv,.txt,.zip"
