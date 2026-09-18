@@ -104,6 +104,19 @@
 .rq-table td:nth-child(3),.rq-table td:nth-child(7){overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .rq-actor small{display:block;font-size:9px;color:#98a2b3;margin-top:2px}
 
+/* The search strip, shaped like the one on the audit lists so the two screens read the
+   same way. Sits inside the panel between the heading and the table. */
+.rq-tools{display:flex;gap:9px;align-items:center;padding:11px 16px;background:#f9fafc;
+  border-bottom:1px solid #e4e7ec;border-top:1px solid #eef0f4}
+.rq-tools label{display:flex;align-items:center;flex:1;max-width:520px;border:1px solid #d0d7e0;
+  background:#fff;border-radius:7px;padding:0 10px}
+.rq-tools label svg{width:15px;height:15px;flex:none;color:#8b96a5}
+.rq-tools input{width:100%;border:0;outline:0;padding:10px;font-size:10px;font-family:inherit}
+.rq-clear{border:1px solid #d0d7e0;background:#fff;border-radius:7px;padding:8px 11px;
+  font-size:9px;font-weight:700;color:#1b3a66;white-space:nowrap;cursor:pointer;font-family:inherit}
+.rq-clear:hover{border-color:#9ecabd;background:#f2f9f7}
+@media(max-width:700px){.rq-tools{flex-wrap:wrap}.rq-tools label{min-width:100%}}
+
 /* The download button sits in a .panel-head, where both globals.css and reference-theme.css
    target `.panel-head button` - a more specific selector than a bare .wf-small - so it was
    being stripped of its green skin and handed the neutral panel-head one instead. .wf-small
