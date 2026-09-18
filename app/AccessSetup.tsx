@@ -1,5 +1,5 @@
 "use client";
-import{Check,KeyRound,Plus,Power,Trash2,UserRound,X}from"lucide-react";
+import{Check,Download,KeyRound,Plus,Power,Trash2,UserRound,X}from"lucide-react";
 import{useCallback,useEffect,useState}from"react";
 
 /* Walks the register's pages. It returns at most 200 rows at a time, and there are
@@ -15,6 +15,7 @@ async function loadEveryEmployee(){
   }
   return{employees:out}}
 import{accountsApi,type Account}from"./audit-api";
+import{csv}from"./workforce-store";
 
 /* Real logins, from wf_users through /api/auth/users.
 
@@ -36,6 +37,23 @@ export default function AccessSetup(){
  const[loading,setLoading]=useState(true),[error,setError]=useState(""),[busy,setBusy]=useState(false);
  const[issued,setIssued]=useState<{email:string;password:string}|null>(null);
  const[me,setMe]=useState("");
+
+ /* Every account, not the visible tab: the other tab lists roles rather than people, and
+    a report that quietly followed the tab would be read as the whole register. The values
+    are the ones the table shows - the person with their department, "Never" for an account
+    that has not signed in - so the file and the screen cannot disagree. Blank, not the "—"
+    the table draws: that is a placeholder for the eye, not a value for a spreadsheet. */
+ const download=()=>csv([
+   ["Name","Email","Roles","Person","Department","Employee ID","Last sign-in","Status",
+    "Must change password"],
+   ...users.map(u=>{
+     const person=people.find(p=>p.id===u.employeeId);
+     return [u.name,u.email,u.roles.join(", "),person?.name||"",person?.department||"",
+       u.employeeId||"",
+       u.lastLoginAt?new Date(u.lastLoginAt).toLocaleDateString("en-GB",
+         {day:"2-digit",month:"short",year:"numeric"}):"Never",
+       u.active?"Active":"Disabled",u.mustChange?"Yes":"No"]})],
+   `user-access-${new Date().toISOString().slice(0,10)}.csv`);
  useEffect(()=>{fetch("/api/auth/session").then(r=>r.json() as Promise<{actor?:{email:string}|null}>)
    .then(d=>setMe(d.actor?.email||"")).catch(()=>{})},[]);
 
@@ -82,7 +100,11 @@ export default function AccessSetup(){
   <div className="access-head"><div><small>ACCESS CONTROL</small><h2>Users and role configuration</h2>
     <p>Create a login for somebody on an organisation chart and assign their roles. The first
      password is generated and must be changed at first sign-in.</p></div>
-   <button className="primary" disabled={busy||loading} onClick={()=>setShow(true)}><Plus/>Add user</button></div>
+   <div className="access-head-actions">
+    <button className="wf-small" onClick={download} disabled={!users.length}
+      title={users.length?`Download all ${users.length} accounts as a spreadsheet`
+        :"There are no accounts to download"}><Download/>Download report</button>
+    <button className="primary" disabled={busy||loading} onClick={()=>setShow(true)}><Plus/>Add user</button></div></div>
 
   {error&&<div className="panel company-empty">{error}</div>}
   {issued&&<div className="panel company-empty"><b>Login created for {issued.email}</b>
