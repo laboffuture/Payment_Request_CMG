@@ -6,6 +6,7 @@ import "./workflow.css";
 import "./workbench.css";
 import "./access.css";
 import "./queue-filter.css";
+import "./receivables.css";
 import "./role-dashboard.css";
 import "./login.css";
 import "./import-centre.css";

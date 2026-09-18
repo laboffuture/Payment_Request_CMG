@@ -431,3 +431,41 @@ export const wfVendors=sqliteTable("wf_vendors",{
   createdAt:text("createdAt").notNull().default(""),
   createdBy:text("createdBy").notNull().default("")},
   t=>[index("wf_vendor_active_idx").on(t.active,t.name)]);
+
+/* Accounts Receivable: one row per job, carried from the notification that a job
+   exists through to audit verification. The stage is the row's position in
+   lib/receivable-stages.ts - kept as the text of the stage rather than a number so
+   a row read straight out of the database still says what it means. */
+export const wfReceivables=sqliteTable("wf_receivables",{
+  id:text("id").primaryKey(),
+  ref:text("ref").notNull(),
+  stage:text("stage").notNull().default("Job Notification"),
+  // stage 1: the notification itself
+  customer:text("customer").notNull().default(""),
+  companyId:text("company_id").notNull().default(""),
+  department:text("department").notNull().default(""),
+  description:text("description").notNull().default(""),
+  notifiedOn:text("notified_on").notNull().default(""),
+  // stage 2: the job as CRM knows it
+  crmJobNo:text("crm_job_no").notNull().default(""),
+  crmOwner:text("crm_owner").notNull().default(""),
+  crmAt:text("crm_at").notNull().default(""),
+  // stage 3: what was sold against that job
+  soNo:text("so_no").notNull().default(""),
+  amount:real("amount").notNull().default(0),
+  currency:text("currency").notNull().default("AED"),
+  soAt:text("so_at").notNull().default(""),
+  // stage 4: audit
+  submittedAt:text("submitted_at").notNull().default(""),
+  verifiedBy:text("verified_by").notNull().default(""),
+  verifiedAt:text("verified_at").notNull().default(""),
+  remarks:text("remarks").notNull().default(""),
+  /* Why it came back and when. Kept on the row rather than only in the audit log
+     because the person correcting it needs to read it on the entry itself. */
+  returnNote:text("return_note").notNull().default(""),
+  returnedAt:text("returned_at").notNull().default(""),
+  raisedByEmail:text("raised_by_email").notNull().default(""),
+  createdAt:text("created_at").notNull().default(""),
+  updatedAt:text("updated_at").notNull().default("")},
+  t=>[index("wf_recv_stage_idx").on(t.stage),index("wf_recv_company_idx").on(t.companyId),
+      index("wf_recv_created_idx").on(t.createdAt),index("wf_recv_ref_idx").on(t.ref)]);

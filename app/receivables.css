@@ -1,0 +1,95 @@
+/* Accounts Receivable.
+
+   Borrows the shell's tokens rather than naming colours, so this screen follows the
+   theme with everything else. The stage tints are the one exception: they carry
+   meaning - how far along an entry is - and are read left to right, cool to green. */
+
+.recv-flow{display:flex;flex-wrap:wrap;gap:.5rem;margin:0 0 1rem}
+.recv-stage{position:relative;flex:1 1 9rem;min-width:9rem;display:flex;flex-direction:column;
+  gap:.15rem;padding:.7rem .85rem;border:1px solid var(--line,#e4e7ec);border-radius:.75rem;
+  background:var(--card,#fff);cursor:pointer;text-align:left;transition:border-color .15s,box-shadow .15s}
+.recv-stage:hover{border-color:var(--accent,#2563eb)}
+.recv-stage.on{border-color:var(--accent,#2563eb);box-shadow:0 0 0 1px var(--accent,#2563eb) inset}
+.recv-stage b{font-size:1.35rem;line-height:1.1}
+.recv-stage span{font-size:.75rem;color:var(--muted,#667085)}
+/* The arrow sits between cards and must not widen them, nor be read aloud as content. */
+.recv-arrow{position:absolute;right:-.45rem;top:50%;width:.9rem;height:.9rem;
+  transform:translateY(-50%);color:var(--muted,#98a2b3);z-index:1}
+@media(max-width:700px){.recv-arrow{display:none}}
+
+.recv-head{display:flex;flex-wrap:wrap;align-items:center;gap:.6rem;margin-bottom:.75rem}
+.recv-head h3{display:flex;align-items:center;gap:.4rem;margin:0;flex:1 1 auto}
+.recv-head h3 i{font-style:normal;font-size:.75rem;padding:.1rem .45rem;border-radius:999px;
+  background:var(--chip,#f2f4f7);color:var(--muted,#667085)}
+.recv-search{display:flex;align-items:center;gap:.4rem;padding:.4rem .6rem;border-radius:.6rem;
+  border:1px solid var(--line,#e4e7ec);background:var(--card,#fff);flex:1 1 16rem;max-width:26rem}
+.recv-search svg{width:1rem;height:1rem;color:var(--muted,#98a2b3);flex:none}
+.recv-search input{border:0;outline:0;background:none;width:100%;font:inherit;color:inherit}
+.recv-search button{border:0;background:none;cursor:pointer;color:var(--muted,#98a2b3);display:flex}
+.recv-search button svg{width:.9rem;height:.9rem}
+
+.recv-rows{display:flex;flex-direction:column;gap:.4rem}
+.recv-row{display:grid;grid-template-columns:10rem 1fr 11rem 9rem 10rem;gap:.75rem;align-items:center;
+  padding:.7rem .85rem;border:1px solid var(--line,#e4e7ec);border-radius:.7rem;background:var(--card,#fff);
+  cursor:pointer;text-align:left;font:inherit;color:inherit}
+.recv-row:hover{border-color:var(--accent,#2563eb)}
+.recv-ref{display:flex;flex-direction:column}
+.recv-ref small{color:var(--muted,#667085)}
+.recv-desc{display:flex;flex-direction:column;gap:.2rem;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.recv-back{display:flex;align-items:center;gap:.3rem;font-style:normal;font-size:.72rem;color:#b42318}
+.recv-back svg{width:.8rem;height:.8rem;flex:none}
+.recv-nums{display:flex;flex-direction:column;font-size:.75rem;color:var(--muted,#667085)}
+.recv-amt{font-variant-numeric:tabular-nums;font-weight:600}
+@media(max-width:900px){
+  .recv-row{grid-template-columns:1fr auto;grid-auto-rows:min-content;row-gap:.35rem}
+  .recv-desc,.recv-nums{grid-column:1/-1;white-space:normal}}
+
+/* Stage tints: 0 notified, 1 in CRM, 2 sold, 3 with audit, 4 verified. */
+.recv-tag{display:inline-flex;align-items:center;gap:.3rem;justify-self:start;padding:.2rem .6rem;
+  border-radius:999px;font-size:.72rem;font-weight:600;background:#f2f4f7;color:#344054}
+.recv-tag svg{width:.85rem;height:.85rem}
+.recv-tag.s0{background:#f2f4f7;color:#344054}
+.recv-tag.s1{background:#eff4ff;color:#175cd3}
+.recv-tag.s2{background:#f4f3ff;color:#5925dc}
+.recv-tag.s3{background:#fffaeb;color:#b54708}
+.recv-tag.s4{background:#ecfdf3;color:#027a48}
+.recv-tag.big{font-size:.8rem;padding:.3rem .75rem;margin:0 0 .75rem}
+
+.recv-drawer{position:fixed;inset:0;z-index:60;display:flex;justify-content:flex-end}
+.recv-scrim{position:absolute;inset:0;border:0;padding:0;background:rgba(16,24,40,.45);cursor:pointer}
+.recv-drawer aside{position:relative;width:min(30rem,100%);height:100%;overflow-y:auto;padding:1.25rem;
+  background:var(--card,#fff);box-shadow:-12px 0 32px rgba(16,24,40,.12)}
+.recv-drawer header{display:flex;align-items:flex-start;justify-content:space-between;gap:1rem;margin-bottom:.75rem}
+.recv-drawer header small{font-size:.7rem;letter-spacing:.08em;color:var(--muted,#667085)}
+.recv-drawer header h3{margin:.1rem 0 0}
+.recv-drawer header button{border:0;background:none;cursor:pointer;color:var(--muted,#667085);display:flex}
+
+.recv-facts{display:flex;flex-direction:column;gap:.55rem;margin:0 0 1rem}
+.recv-facts>div{display:grid;grid-template-columns:8.5rem 1fr;gap:.5rem;align-items:start}
+.recv-facts dt{font-size:.78rem;color:var(--muted,#667085)}
+.recv-facts dd{margin:0;display:flex;align-items:center;gap:.35rem;word-break:break-word}
+.recv-facts dd svg{width:.9rem;height:.9rem;color:var(--muted,#98a2b3);flex:none}
+
+.recv-act{display:flex;flex-direction:column;gap:.65rem}
+.recv-act label{display:flex;flex-direction:column;gap:.25rem;font-size:.78rem;color:var(--muted,#667085)}
+.recv-act input,.recv-act select,.recv-act textarea{padding:.5rem .6rem;border-radius:.5rem;
+  border:1px solid var(--line,#e4e7ec);background:var(--card,#fff);font:inherit;color:inherit}
+.recv-act textarea{resize:vertical}
+.recv-two{display:grid;grid-template-columns:1fr 1fr;gap:.6rem}
+.recv-act .primary{display:inline-flex;align-items:center;justify-content:center;gap:.4rem}
+.recv-hint{margin:0;font-size:.82rem;color:var(--muted,#667085)}
+
+.recv-return{display:flex;flex-direction:column;gap:.5rem;margin-top:.5rem;padding-top:.85rem;
+  border-top:1px dashed var(--line,#e4e7ec)}
+.recv-return b{display:flex;align-items:center;gap:.35rem;font-size:.82rem}
+.recv-return b svg{width:.9rem;height:.9rem}
+.recv-return select,.recv-return textarea{padding:.5rem .6rem;border-radius:.5rem;
+  border:1px solid var(--line,#e4e7ec);background:var(--card,#fff);font:inherit;color:inherit}
+.recv-return .danger{color:#b42318;border-color:#fecdca}
+.recv-return .danger:disabled{opacity:.5;cursor:not-allowed}
+
+.recv-back-note{display:flex;gap:.45rem;margin:0 0 1rem;padding:.6rem .7rem;border-radius:.6rem;
+  background:#fef3f2;color:#912018;font-size:.82rem}
+.recv-back-note svg{width:.95rem;height:.95rem;flex:none;margin-top:.1rem}
+.recv-empty{margin:.5rem 0;color:var(--muted,#667085);font-size:.88rem}
+.recv-error{margin:.25rem 0;color:#b42318;font-size:.85rem}

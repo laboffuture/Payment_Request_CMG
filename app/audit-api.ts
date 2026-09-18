@@ -64,3 +64,24 @@ export const accountsApi={
   update:async(body:Record<string,unknown>)=>await send("/api/auth/users","PATCH",body),
   remove:async(id:string)=>await asJson(await fetch(`/api/auth/users?id=${encodeURIComponent(id)}`,
     {method:"DELETE"}))};
+
+export type Receivable={id:string;ref:string;stage:string;customer:string;companyId:string;
+  department:string;description:string;notifiedOn:string;crmJobNo:string;crmOwner:string;crmAt:string;
+  soNo:string;amount:number;currency:string;soAt:string;submittedAt:string;verifiedBy:string;
+  verifiedAt:string;remarks:string;returnNote:string;returnedAt:string;raisedByEmail:string;
+  createdAt:string;updatedAt:string};
+
+/* Accounts Receivable. The stage moves are a PATCH rather than a field the client
+   sets, because the server decides what the next stage is - see the route. */
+export const receivablesApi={
+  load:async(params:Record<string,string|number>={})=>{
+    const u=new URLSearchParams();
+    Object.entries(params).forEach(([k,v])=>{if(v!==""&&v!==undefined)u.set(k,String(v))});
+    const q=u.toString();
+    return asJson<{receivables:Receivable[];total:number}>(
+      await fetch(`/api/receivables${q?`?${q}`:""}`))},
+  create:async(r:Partial<Receivable>)=>(await send("/api/receivables","POST",r)).receivable as Receivable,
+  advance:async(id:string,fields:Partial<Receivable>={})=>
+    (await send("/api/receivables","PATCH",{id,action:"advance",...fields})).receivable as Receivable,
+  sendBack:async(id:string,stage:string,note:string)=>
+    (await send("/api/receivables","PATCH",{id,action:"return",stage,note})).receivable as Receivable};
