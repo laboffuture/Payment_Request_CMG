@@ -47,6 +47,18 @@ export const PAYMENT_TYPES:Record<string,Rule>={
     departments:"Accounts / Finance / HR / Admin",
     labels:{period:"Tax period"},
     need:{tds:"C",vendor:"C",period:"M"}},
+  /* Was a module of its own, backed by wf_batches. What it asked for was a vendor, an
+     amount, a currency and two statements - a vendor statement and a reconciliation -
+     with the GL optional. Two separately mandated attachments cannot be expressed here,
+     since the model has a single documents key, so the label names both and documents
+     stays mandatory. No PO or invoice: these were settled against a statement, not an
+     invoice. */
+  "Scheduled Payment":{
+    departments:"Accounts / Finance",
+    labels:{documents:"Vendor statement and reconciliation statement",
+      period:"Statement period"},
+    need:{tds:"C",vendor:"M",period:"M",poNumber:"H",projectCode:"H",
+      paymentTerms:"H",invoiceNumber:"H",invoiceDate:"H"}},
 };
 
 const LABELS:Record<FieldKey,string>={

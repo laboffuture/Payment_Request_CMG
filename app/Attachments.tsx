@@ -19,8 +19,16 @@ export const asDataUrl=(file:File)=>new Promise<string>((resolve,reject)=>{
 /* Attach as many documents as the record needs. Nothing is compulsory: a payment
    request might carry an invoice, a purchase order and a delivery order, or none at
    all, and the same panel serves tickets, tasks, batches and observations. */
-export default function Attachments({entityType,entityId,flash,readOnly}:{
+/* An error page from a proxy (e.g. nginx's 413) is HTML, not JSON. */
+const readJson=async(res:Response)=>{
+  try{return await res.json() as{error?:string}}catch{return{} as{error?:string}}};
+
+export default function Attachments({entityType,entityId,flash:hostFlash,readOnly}:{
   entityType:string;entityId:string;flash:(m:string)=>void;readOnly?:boolean}){
+  /* The outcome is also shown inside the panel. Some hosts pass a no-op flash, and an
+     upload that fails without a word looks exactly like the button doing nothing. */
+  const [notice,setNotice]=useState<{text:string;error:boolean}|null>(null);
+  const flash=(m:string,error=false)=>{setNotice({text:m,error});hostFlash(m)};
   const kinds=useOptions("attachment.kind",ATTACH_FALLBACK);
   const [rows,setRows]=useState<Attachment[]>([]);
   const [kind,setKind]=useState("Invoice");
@@ -46,20 +54,30 @@ export default function Attachments({entityType,entityId,flash,readOnly}:{
      a failure on one does not abandon the rest. */
   const upload=async(files:FileList|null)=>{
     if(!files||!files.length)return;
+    if(!entityId){flash("Save this record before attaching files",true);return}
     setBusy(true);
+    setNotice(null);
     let ok=0;
+    const failed:string[]=[];
     for(const file of Array.from(files)){
       try{
+        if(limit&&file.size>limit)
+          throw new Error(`${file.name} is ${readable(file.size)}; the limit is ${readable(limit)}`);
         const dataUrl=await asDataUrl(file);
         const res=await fetch("/api/attachments",{method:"POST",
           headers:{"content-type":"application/json"},
           body:JSON.stringify({entityType,entityId,kind,fileName:file.name,dataUrl})});
-        const body=await res.json() as{error?:string};
-        if(!res.ok)throw new Error(body?.error||`${file.name} was refused`);
+        const body=await readJson(res);
+        if(!res.ok)throw new Error(body?.error||(res.status===413
+          ?`${file.name} is too large to upload`
+          :res.status===401||res.status===403?"Your session has expired - sign in again"
+          :`${file.name} was refused (HTTP ${res.status})`));
         ok++;
-      }catch(e){flash(e instanceof Error?e.message:`Could not attach ${file.name}`)}
+      }catch(e){failed.push(e instanceof Error?e.message:`Could not attach ${file.name}`)}
     }
-    if(ok)flash(`${ok} file${ok===1?"":"s"} attached`);
+    if(failed.length)
+      flash((ok?`${ok} attached. `:"")+`Not attached: ${failed.join("; ")}`,true);
+    else if(ok)flash(`${ok} file${ok===1?"":"s"} attached`);
     setBusy(false);
     load()};
 
@@ -67,9 +85,9 @@ export default function Attachments({entityType,entityId,flash,readOnly}:{
     if(!confirm(`Remove ${a.fileName}?`))return;
     try{
       const res=await fetch(`/api/attachments?id=${encodeURIComponent(a.id)}`,{method:"DELETE"});
-      if(!res.ok)throw new Error(((await res.json()) as{error?:string})?.error||"Could not remove it");
+      if(!res.ok)throw new Error((await readJson(res))?.error||"Could not remove it");
       flash(`${a.fileName} removed`);load();
-    }catch(e){flash(e instanceof Error?e.message:"Could not remove it")}};
+    }catch(e){flash(e instanceof Error?e.message:"Could not remove it",true)}};
 
   return <section className="wf-attach">
     <h4>Attachments{rows.length?<span> · {rows.length}</span>:null}</h4>
@@ -87,6 +105,8 @@ export default function Attachments({entityType,entityId,flash,readOnly}:{
       <small>Attach as many as you need — invoice, proforma, purchase order, delivery
         order, bank proof. All optional{limit?`, up to ${readable(limit)} each`:""}.</small>
     </div>}
+    {notice&&<p role={notice.error?"alert":"status"} style={{margin:"6px 0",fontSize:13,
+      color:notice.error?"#b42318":"#067647"}}>{notice.text}</p>}
 
     {loading?<p className="wf-empty">Loading attachments…</p>
     :!rows.length?<p className="wf-empty">Nothing attached yet.</p>

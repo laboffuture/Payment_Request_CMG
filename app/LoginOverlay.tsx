@@ -1,6 +1,6 @@
 "use client";
 import {useState} from "react";
-import {CheckCircle2,Eye,EyeOff,LockKeyhole,ShieldCheck} from "lucide-react";
+import {Eye,EyeOff,LockKeyhole} from "lucide-react";
 
 export type Actor={userId:string;email:string;name:string;roles:string[];employeeId:string};
 
@@ -54,18 +54,13 @@ export default function LoginOverlay({onLogin,note=""}:{onLogin:(actor:Actor)=>v
   return <div className="login-screen">
     <section className="login-story">
       <div className="login-mark"><img src="/logo.png" alt="Chandramani Group"/></div>
-      <p>CMG AUDIT CONTROL</p>
+      <p>CMG PAYMENT REQUEST</p>
       <h1>One payment journey.<br/>Clear ownership at every step.</h1>
       <p className="login-lead">Request, accounts verification, audit approval, observations
-        and payment release—connected in one controlled workspace.</p>
-      <div className="login-points">
-        <span><CheckCircle2/>Department-specific dashboards</span>
-        <span><CheckCircle2/>Evidence and observation trail</span>
-        <span><CheckCircle2/>Finance release after audit approval</span></div>
+        and payment release connected in one controlled workspace.</p>
       <div className="login-flow"><b>Request</b><i/><b>Accounts</b><i/><b>Audit</b><i/><b>Release</b></div>
     </section>
     <section className="login-card">
-      <div className="secure"><ShieldCheck/> SECURE WORKSPACE</div>
       {mustChange?<>
         <h2>Choose your password</h2>
         <p>This account was opened with a temporary password. Set your own to continue.</p>
@@ -84,12 +79,12 @@ export default function LoginOverlay({onLogin,note=""}:{onLogin:(actor:Actor)=>v
             <LockKeyhole/>{busy?"Saving…":"Set password and continue"}</button>
         </form>
       </>:<>
-        <h2>Welcome back</h2>
+        <h2>WELCOME BACK</h2>
         <p>Sign in once. Your dashboard and permitted actions will open automatically.</p>
         <form onSubmit={submit}>
-          <label>Work email<input required aria-label="Work email" value={email}
+          <label>WORK EMAIL<input required aria-label="Work email" value={email}
             onChange={e=>setEmail(e.target.value)} type="email" autoComplete="username"/></label>
-          <label>Password<div className="password">
+          <label>PASSWORD<div className="password">
             <input required aria-label="Password" value={password} onChange={e=>setPassword(e.target.value)}
               type={show?"text":"password"} autoComplete="current-password"/>
             <button type="button" aria-label="Show password" onClick={()=>setShow(!show)}>
@@ -97,7 +92,7 @@ export default function LoginOverlay({onLogin,note=""}:{onLogin:(actor:Actor)=>v
           {!!note&&!error&&<div className="login-note">{note}</div>}
           {error&&<div className="login-error">{error}</div>}
           <button className="login-submit" disabled={busy}>
-            <LockKeyhole/>{busy?"Signing in…":"Sign in to workspace"}</button>
+            <LockKeyhole/>{busy?"SIGNING IN…":"SIGN IN"}</button>
         </form>
       </>}
     </section>

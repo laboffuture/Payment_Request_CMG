@@ -1,6 +1,6 @@
 import{and,desc,eq}from"drizzle-orm";
 import{getDb}from"../../../db";
-import{wfAttachments}from"../../../db/schema";
+import{settingOptions,wfAttachments}from"../../../db/schema";
 import{requireAuth}from"../../../lib/auth";
 import{actorOf,bad,oops,str}from"../../../lib/workforce-api";
 import{deleteFile,getFile,putFile,storageLimit,usingObjectStore}from"../../../lib/storage";
@@ -14,6 +14,39 @@ export const ATTACH_KINDS=["Invoice","Proforma invoice","Purchase order","Delive
 const ENTITIES=["payment","batch","ticket","task","observation","employee","audit-task","query","training"];
 const ALLOWED_MIME=[/^image\//,/^application\/pdf$/,/^application\/vnd\./,/^application\/msword$/,
   /^text\/csv$/,/^text\/plain$/,/^application\/zip$/,/^application\/vnd\.ms-excel$/];
+
+/* Browsers report a file's type from the operating system, which is unreliable: Windows
+   sends .zip as application/x-zip-compressed, and a machine with no handler for .csv or
+   .docx sends an empty type that FileReader turns into application/octet-stream. The
+   upload picker accepts these extensions, so the server must too - the extension
+   decides whenever the reported type is missing or one of those variants. */
+const MIME_BY_EXT:Record<string,string>={
+  pdf:"application/pdf",png:"image/png",jpg:"image/jpeg",jpeg:"image/jpeg",gif:"image/gif",
+  webp:"image/webp",heic:"image/heic",heif:"image/heif",bmp:"image/bmp",tif:"image/tiff",
+  tiff:"image/tiff",doc:"application/msword",
+  docx:"application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+  xls:"application/vnd.ms-excel",
+  xlsx:"application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+  csv:"text/csv",txt:"text/plain",zip:"application/zip"};
+const VAGUE_MIME=/^(application\/(octet-stream|x-zip-compressed|x-zip|zip-compressed|csv)|text\/x-csv)?$/;
+function resolveMime(reported:string,fileName:string){
+  if(!VAGUE_MIME.test(reported))return reported;
+  const ext=(/\.([a-z0-9]+)$/i.exec(fileName)||[])[1]?.toLowerCase()||"";
+  return MIME_BY_EXT[ext]||reported;
+}
+
+/* The document types an administrator has configured (Settings -> Document type),
+   plus the built-in ones. The upload panel offers the configured list, so rejecting
+   those names here refused every file filed under a type like "Audit validated". */
+async function allowedKinds(){
+  const kinds=new Set(ATTACH_KINDS);
+  try{
+    const rows=await (await getDb()).select({name:settingOptions.name}).from(settingOptions)
+      .where(and(eq(settingOptions.listId,"attachment.kind"),eq(settingOptions.active,1)));
+    for(const r of rows)kinds.add(r.name);
+  }catch{/* the built-in list still applies */}
+  return kinds;
+}
 
 /* List what is attached to one record, or stream a single file back. */
 export async function GET(req:Request){
@@ -63,11 +96,15 @@ export async function POST(req:Request){
     if(!fileName)return bad("fileName is required");
     if(!dataUrl)return bad("No file supplied");
 
-    const match=/^data:([^;]+);base64,(.+)$/.exec(dataUrl);
+    // The type is optional: FileReader writes "data:;base64," for a file with no type.
+    const match=/^data:([^;,]*)(?:;[^,;]*)*;base64,(.*)$/.exec(dataUrl);
     if(!match)return bad("The file must be a base64 data URL");
-    const [,mime,data]=match;
+    const [,reported,data]=match;
+    if(!data)return bad(`${fileName} is empty`);
+    const mime=resolveMime(reported,fileName);
     if(!ALLOWED_MIME.some(r=>r.test(mime)))
-      return bad(`${mime} is not an accepted file type`,415);
+      return bad(`${fileName}: ${mime||"this"} file type is not accepted. Use PDF, an image, `+
+        `Word, Excel, CSV, text or ZIP.`,415);
 
     const pad=(/=+$/.exec(data)||[""])[0].length;
     const bytes=Math.floor(data.length*3/4)-pad;
@@ -77,7 +114,8 @@ export async function POST(req:Request){
         `${Math.round(limit/1024)} KB`,413);
 
     const kind=str(body.kind,"Other");
-    if(ATTACH_KINDS.indexOf(kind)<0)return bad(`kind must be one of ${ATTACH_KINDS.join(", ")}`);
+    const kinds=await allowedKinds();
+    if(!kinds.has(kind))return bad(`"${kind}" is not a document type. Use one of ${[...kinds].join(", ")}`);
 
     const id=`AT-${Date.now().toString(36)}-${Math.random().toString(36).slice(2,8)}`;
     const storageKey=await putFile(id,data);
