@@ -4,7 +4,7 @@ import{FIELD_ORDER,labelFor,ruleFor}from"../lib/payment-fields";
 import{useMemo,useState}from"react";
 import{AlertTriangle,Check,Clock3,FileCheck2,Paperclip,ShieldCheck,X}from"lucide-react";
 import Attachments from"./Attachments";
-type Payment={projectCode?:string;invoiceNumber?:string;invoiceDate?:string;paymentTerms?:string;period?:string;extra?:string;tds?:string;nature?:string;poNumber?:string;resubmitNote?:string;resubmittedAt?:string;rejectionNote?:string;rejectedBy?:string;rejectedAt?:string;id:number;requestNo:string;company:string;vendor:string;amount:number;currency:string;due:string;urgency:string;status:string;owner:string;department:string};
+type Payment={projectCode?:string;invoiceNumber?:string;invoiceDate?:string;paymentTerms?:string;period?:string;extra?:string;tds?:string;nature?:string;poNumber?:string;resubmitNote?:string;resubmittedAt?:string;rejectionNote?:string;rejectedBy?:string;rejectedAt?:string;raisedBy?:string;id:number;requestNo:string;company:string;vendor:string;amount:number;currency:string;due:string;urgency:string;status:string;owner:string;department:string};
 /* The badge was hardcoded blue, so a rejected request looked the same as one in
    progress. Colour follows the status. */
 const statusTone=(s:string)=>/reject|query/i.test(s)?"red"
@@ -12,7 +12,7 @@ const statusTone=(s:string)=>/reject|query/i.test(s)?"red"
   :/observation|correction|reconfirm/i.test(s)?"amber":"blue";
 const stamp=(v:string)=>v?new Date(v).toLocaleDateString("en-GB",{day:"2-digit",month:"short",year:"numeric"}):"";
 
-export default function PaymentDetail({payment:p,role,onClose,onAction,onDelete,companies=[],departments=[],natures=[],currencies=[],tdsChoices=[],termsChoices=[]}:{payment:Payment;role:string;onClose:()=>void;onAction:(s:string,note?:string,fields?:Record<string,string>)=>void;onDelete?:()=>void;companies?:{id:string;name:string}[];departments?:string[];natures?:string[];currencies?:string[];tdsChoices?:string[];termsChoices?:string[]}){
+export default function PaymentDetail({payment:p,role,onClose,onAction,onDelete,userEmail="",companies=[],departments=[],natures=[],currencies=[],tdsChoices=[],termsChoices=[]}:{payment:Payment;role:string;onClose:()=>void;onAction:(s:string,note?:string,fields?:Record<string,string>)=>void;onDelete?:()=>void;userEmail?:string;companies?:{id:string;name:string}[];departments?:string[];natures?:string[];currencies?:string[];tdsChoices?:string[];termsChoices?:string[]}){
  const accountQueue=["Submitted","Requested"].includes(p.status),accountWork=["Accountant Accepted","Accountant Review"].includes(p.status),auditQueue=p.status==="Pre-Audit Queue",auditWork=p.status==="Audit Accepted",correction=p.status==="Observation – Accounts Action",recheck=p.status==="Audit Reconfirmation",approved=p.status==="Approved by Auditor – Ready to Release",released=p.status==="Payment Released";
  const[rejecting,setRejecting]=useState(false),[remark,setRemark]=useState(""),[fixing,setFixing]=useState(false),[fixNote,setFixNote]=useState(""),[stageNote,setStageNote]=useState(""),[checks,setChecks]=useState<Record<string,boolean>>({}),[observation,setObservation]=useState("Supporting documents do not reconcile with the ledger balance."),[proof,setProof]=useState("");
  const active=useMemo(()=>stageIndex(p.status),[p.status]);
@@ -26,6 +26,12 @@ export default function PaymentDetail({payment:p,role,onClose,onAction,onDelete,
  /* The same rules the original form applied. The server checks them again - this only
     stops the reader sending something it already knows will be refused. */
  const fixReady=FIELD_ORDER.every(k=>ruleFor(edit.nature||"",k)!=="M"||!!String(edit[k]||"").trim());
+ /* Who may correct a returned request is a question of identity, not of which role the
+    reader happens to have selected. The server allows it only for the person who raised
+    it - not even an administrator - so gating this on a role showed the form to people
+    whose submission the server would refuse, and hid it from the owner whenever their
+    first role was not Requestor. It now asks exactly what the server asks. */
+ const mayCorrect=!!p.raisedBy&&p.raisedBy===userEmail;
  /* Each stage belongs to one role. An administrator or audit head may also act, so a
     request is never stuck because the responsible person is unavailable. */
  const can=(r:string)=>role===r||role==="Administrator"||role==="Audit Head";
@@ -65,7 +71,10 @@ export default function PaymentDetail({payment:p,role,onClose,onAction,onDelete,
    <b>{p.rejectionNote||"No reason was recorded."}</b>
    <span>{p.rejectedBy?`Rejected by ${p.rejectedBy}`:""}{p.rejectedAt?` · ${stamp(p.rejectedAt)}`:""}</span>
  </div></div>
- {(role==="Requestor"||role==="Administrator")&&(fixing
+ {!mayCorrect&&<div className="wf-callout"><Clock3/>
+    {p.raisedBy?`Only ${p.raisedBy} can correct and resubmit this request.`
+      :"This request records nobody as having raised it, so it cannot be corrected here."}</div>}
+  {mayCorrect&&(fixing
    ?<div className="wf-reject-form">
       {/* Editable, not just re-sendable: what sends a request back is usually a figure or
           an invoice, and a correction that could only add a note would not be a correction.
