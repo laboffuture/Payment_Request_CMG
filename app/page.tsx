@@ -46,7 +46,7 @@ const nav:{id:Module;label:string;icon:any}[]=([
   ["preaudit","Pre-audit tasks",ClipboardCheck],
   ["postaudit","Post-audit tasks",ShieldCheck],
   ["specialaudit","Special audits",AlertTriangle],
-  ["meetings","Meetings",CalendarDays],
+  ["meetings","Meetings/Tasks",CalendarDays],
   // below here: reference and setup, reached far less often
   ["observations","Observations register",MessageSquareText],
   ["community","Community chat",MessageSquareText],
@@ -213,7 +213,7 @@ export default function Home(){
  {active==="specialaudit"&&<AuditTaskQueue title="Special audit tasks" kind="Special Audit" companies={companies} create={(t)=>createAuditTask("Special Audit",t)} tasks={auditTasks} role={role} accept={acceptAuditTask} update={updateAuditTask}/>} 
  {active==="observations"&&<ObservationDesk openProfile={setProfile} flash={flash} canManage={role!=="Requestor"}/>}
  {active==="community"&&<CommunityChat user={userName} flash={flash}/>}
- {active==="meetings"&&<AuditTaskQueue title="Meeting tasks" kind="Meeting" companies={companies} create={(t)=>createAuditTask("Meeting",t)} tasks={auditTasks} role={role} accept={acceptAuditTask} update={updateAuditTask}/>} 
+ {active==="meetings"&&<AuditTaskQueue title="Meetings/Tasks" kind="Meeting" companies={companies} create={(t)=>createAuditTask("Meeting",t)} tasks={auditTasks} role={role} accept={acceptAuditTask} update={updateAuditTask}/>} 
  {active==="reports"&&<ReportCentre role={role} payments={payments} tasks={auditTasks} openProfile={setProfile} flash={flash}/>}
  {active==="companies"&&<CompanySetup />}
  {active==="settings"&&<SettingsDesk changed={()=>{refreshOptions();refreshFields();setMasterVersion(n=>n+1)}}/>}
