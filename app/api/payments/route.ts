@@ -4,7 +4,7 @@ import{auditLogs,paymentRequests,wfAttachments}from"../../../db/schema";
 import{deleteFile}from"../../../lib/storage";
 import{hasWriteRole,requireAuth}from"../../../lib/auth";
 import{emailsForRoles,notify,rolesActingOn}from"../../../lib/notify";
-import{REQUIRED_ON_SAVE,labelFor,ruleFor}from"../../../lib/payment-fields";
+import{FIELD_ORDER,REQUIRED_ON_SAVE,labelFor,ruleFor}from"../../../lib/payment-fields";
 import{rememberVendor}from"../../../lib/vendors";
 import type{FieldKey}from"../../../lib/payment-fields";
 import{bad,oops,str}from"../../../lib/workforce-api";
@@ -116,7 +116,7 @@ export async function PATCH(req:Request){
        accounts queue. Everything else still needs a write role. */
     const{actor,response}=await requireAuth(req,"read");
     if(response)return response;
-    const{id,status,owner,note}=(await req.json()) as{id:number;status:string;owner?:string;note?:string};
+    const{id,status,owner,note,fields}=(await req.json()) as{id:number;status:string;owner?:string;note?:string;fields?:Record<string,unknown>};
     if(!Number.isFinite(Number(id)))return bad("id is required");
     if(STATUSES.indexOf(String(status))<0)return bad("Unknown status");
     const db=await getDb();
@@ -137,6 +137,39 @@ export async function PATCH(req:Request){
       return bad("Give a reason for the rejection so the requestor knows what to correct.",422);
     if(isResubmit&&remark.length<5)
       return bad("Say what you corrected, so accounts can see what changed.",422);
+
+    /* A returned request can be corrected, not only re-sent with a note. What sends one
+       back is usually a wrong figure or a missing invoice, so a resubmission that could
+       not change them would be theatre.
+
+       Held to the same rules as raising one: only the person who raised it, only while it
+       is back with them, and only the fields the form itself offers. The request number,
+       who raised it, the status and the owner are not in that list and cannot be reached
+       from here. Every field the type hides is cleared rather than trusted, and every
+       field it demands is checked again - the browser is not the authority on either. */
+    const sent=fields&&typeof fields==="object"?fields:null;
+    const edits:Record<string,string|number>={};
+    const changed:[FieldKey,string,string][]=[];
+    if(sent){
+      if(!ownResubmit)
+        return bad("Only the person who raised a returned request can correct it.",403);
+      const nature=String(sent.nature??old.nature??"");
+      for(const key of FIELD_ORDER){
+        if(!(key in sent))continue;
+        const need=ruleFor(nature,key);
+        const value=need==="H"?"":String(sent[key]??"").trim();
+        if(need==="M"&&!value)
+          return bad(`${labelFor(nature,key)} is required for ${nature||"this payment type"}.`,422);
+        const before=String((old as Record<string,unknown>)[key]??"");
+        if(key==="amount"){
+          const n=Number(value);
+          if(!Number.isFinite(n)||n<=0)return bad("Enter an amount above zero.",422);
+          if(n!==Number(old.amount)){edits.amount=n;changed.push([key,before,String(n)])}
+          continue;
+        }
+        if(value!==before){edits[key]=value;changed.push([key,before,value])}
+      }
+    }
     const now=new Date().toISOString();
     const rejectionFields=status==="Rejected"
       ?{rejectionNote:remark,rejectedBy:actor?.name||actor?.email||"",rejectedAt:now,
@@ -149,7 +182,7 @@ export async function PATCH(req:Request){
       /* Who moved it on and what they said, kept on the request so the queue can show it
          without reading the trail once per row. */
       .set({status,owner:str(owner,old.owner).slice(0,120),updatedAt:now,
-        lastActionBy:actor?.name||actor?.email||"",lastActionNote:remark,lastActionAt:now,
+        lastActionBy:actor?.name||actor?.email||"",lastActionNote:remark,lastActionAt:now,...edits,
         ...rejectionFields})
       .where(eq(paymentRequests.id,Number(id))).returning();
     await db.insert(auditLogs).values({recordId:Number(id),
@@ -157,6 +190,16 @@ export async function PATCH(req:Request){
         :isResubmit?"Corrected and resubmitted":"Status changed",
       actor:actor?.name||actor?.email||"system",previousValue:old.status,
       newValue:remark?`${status} — ${remark}`:status});
+    /* One row per field that moved. The note is the requestor's account of what they
+       corrected; these are the record of it. Without them a figure could change between a
+       rejection and the resubmission with nothing on the trail to show it, which would
+       leave the rejection worth very little. */
+    const effective=String(edits.nature??old.nature??"");
+    for(const[field,before,after]of changed)
+      await db.insert(auditLogs).values({recordId:Number(id),
+        action:`Corrected ${labelFor(effective,field)}`,
+        actor:actor?.name||actor?.email||"system",
+        previousValue:before||"(empty)",newValue:after||"(empty)"});
     /* Tell whoever the request now waits on, and keep the person who raised it informed
        of every move - a rejection most of all, with the reason. */
     const waitingOn=rolesActingOn(status);

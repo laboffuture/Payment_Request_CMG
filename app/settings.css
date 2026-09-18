@@ -115,6 +115,16 @@
 .rq-clear{border:1px solid #d0d7e0;background:#fff;border-radius:7px;padding:8px 11px;
   font-size:9px;font-weight:700;color:#1b3a66;white-space:nowrap;cursor:pointer;font-family:inherit}
 .rq-clear:hover{border-color:#9ecabd;background:#f2f9f7}
+
+/* The correction form inside the returned-request drawer. Two columns like the request
+   form it mirrors, collapsing on a narrow drawer. */
+.wf-fix-fields{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px}
+.wf-fix-fields label{display:block;font-size:9px;color:#667085;font-weight:700}
+.wf-fix-fields label.wide{grid-column:span 2}
+.wf-fix-fields input,.wf-fix-fields select{display:block;width:100%;border:1px solid #d0d7e0;
+  border-radius:6px;padding:8px;margin-top:4px;font-size:11px;font-family:inherit;background:#fff}
+.wf-fix-fields .field-optional{font-style:normal;font-weight:600;color:#98a2b3;margin-left:5px}
+@media(max-width:560px){.wf-fix-fields{grid-template-columns:1fr}.wf-fix-fields label.wide{grid-column:auto}}
 @media(max-width:700px){.rq-tools{flex-wrap:wrap}.rq-tools label{min-width:100%}}
 
 /* The download button sits in a .panel-head, where both globals.css and reference-theme.css

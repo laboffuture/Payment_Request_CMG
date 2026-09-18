@@ -1,5 +1,6 @@
 "use client";
 import{STAGES as stages,stageIndex}from"../lib/payment-stages";
+import{FIELD_ORDER,labelFor,ruleFor}from"../lib/payment-fields";
 import{useMemo,useState}from"react";
 import{AlertTriangle,Check,Clock3,FileCheck2,Paperclip,ShieldCheck,X}from"lucide-react";
 import Attachments from"./Attachments";
@@ -11,10 +12,20 @@ const statusTone=(s:string)=>/reject|query/i.test(s)?"red"
   :/observation|correction|reconfirm/i.test(s)?"amber":"blue";
 const stamp=(v:string)=>v?new Date(v).toLocaleDateString("en-GB",{day:"2-digit",month:"short",year:"numeric"}):"";
 
-export default function PaymentDetail({payment:p,role,onClose,onAction,onDelete}:{payment:Payment;role:string;onClose:()=>void;onAction:(s:string,note?:string)=>void;onDelete?:()=>void}){
+export default function PaymentDetail({payment:p,role,onClose,onAction,onDelete,companies=[],departments=[],natures=[],currencies=[],tdsChoices=[],termsChoices=[]}:{payment:Payment;role:string;onClose:()=>void;onAction:(s:string,note?:string,fields?:Record<string,string>)=>void;onDelete?:()=>void;companies?:{id:string;name:string}[];departments?:string[];natures?:string[];currencies?:string[];tdsChoices?:string[];termsChoices?:string[]}){
  const accountQueue=["Submitted","Requested"].includes(p.status),accountWork=["Accountant Accepted","Accountant Review"].includes(p.status),auditQueue=p.status==="Pre-Audit Queue",auditWork=p.status==="Audit Accepted",correction=p.status==="Observation – Accounts Action",recheck=p.status==="Audit Reconfirmation",approved=p.status==="Approved by Auditor – Ready to Release",released=p.status==="Payment Released";
  const[rejecting,setRejecting]=useState(false),[remark,setRemark]=useState(""),[fixing,setFixing]=useState(false),[fixNote,setFixNote]=useState(""),[stageNote,setStageNote]=useState(""),[checks,setChecks]=useState<Record<string,boolean>>({}),[observation,setObservation]=useState("Supporting documents do not reconcile with the ledger balance."),[proof,setProof]=useState("");
  const active=useMemo(()=>stageIndex(p.status),[p.status]);
+ /* Seeded from the request itself when the correction form opens, so a field nobody
+    touches resubmits exactly as it was rather than as an empty string. */
+ const[edit,setEdit]=useState<Record<string,string>>({});
+ const startFix=()=>{
+   const seed:Record<string,string>={};
+   for(const k of FIELD_ORDER)seed[k]=String((p as unknown as Record<string,unknown>)[k]??"");
+   setEdit(seed);setFixing(true)};
+ /* The same rules the original form applied. The server checks them again - this only
+    stops the reader sending something it already knows will be refused. */
+ const fixReady=FIELD_ORDER.every(k=>ruleFor(edit.nature||"",k)!=="M"||!!String(edit[k]||"").trim());
  /* Each stage belongs to one role. An administrator or audit head may also act, so a
     request is never stuck because the responsible person is unavailable. */
  const can=(r:string)=>role===r||role==="Administrator"||role==="Audit Head";
@@ -56,17 +67,47 @@ export default function PaymentDetail({payment:p,role,onClose,onAction,onDelete}
  </div></div>
  {(role==="Requestor"||role==="Administrator")&&(fixing
    ?<div className="wf-reject-form">
+      {/* Editable, not just re-sendable: what sends a request back is usually a figure or
+          an invoice, and a correction that could only add a note would not be a correction.
+          Drawn from the same field rules as the original form, so the type still decides
+          what is asked for. */}
+      <div className="wf-fix-fields">
+        {FIELD_ORDER.map(key=>{
+          const need=ruleFor(edit.nature||"",key);
+          if(need==="H"||key==="description")return null;
+          const must=need==="M";
+          const choices=key==="company"?companies.map(c=>c.name):key==="department"?departments
+            :key==="nature"?natures:key==="tds"?tdsChoices:key==="currency"?currencies
+            :key==="paymentTerms"?termsChoices:null;
+          return <label key={key} className={key==="vendor"?"wide":""}>
+            {labelFor(edit.nature||"",key)}{!must&&<i className="field-optional">optional</i>}
+            {choices
+              ?<select value={edit[key]||""} onChange={e=>setEdit({...edit,[key]:e.target.value})}>
+                 {(!must||!edit[key])&&<option value="">— choose —</option>}
+                 {/* A value saved before the list changed still has to be offered. Live
+                     requests carry natures like "Payroll" that the dropdown no longer
+                     lists, and a select whose value matches no option shows a different
+                     one - so an untouched field would be read back as something it is
+                     not. Kept as its own option, marked, rather than silently replaced. */}
+                 {!!edit[key]&&!choices.includes(edit[key])&&
+                   <option value={edit[key]}>{edit[key]} (no longer offered)</option>}
+                 {choices.map(o=><option key={o}>{o}</option>)}</select>
+              :<input value={edit[key]||""}
+                 type={key==="amount"?"number":key==="due"||key==="invoiceDate"?"date":"text"}
+                 onChange={e=>setEdit({...edit,[key]:e.target.value})}/>}
+          </label>})}
+      </div>
       <label className="wf-note">What did you correct?
-        <textarea autoFocus value={fixNote} onChange={e=>setFixNote(e.target.value)}
-          placeholder="Say what changed - which document you replaced, or what you fixed - so accounts can see it at a glance."/></label>
+        <textarea value={fixNote} onChange={e=>setFixNote(e.target.value)}
+          placeholder="Say what changed - which figure you fixed, or which document you replaced - so accounts can see it at a glance."/></label>
       <div className="wf-actions">
         <button onClick={()=>{setFixing(false);setFixNote("")}}>Cancel</button>
-        <button className="wf-primary" disabled={fixNote.trim().length<5}
-          onClick={()=>onAction("Submitted",fixNote.trim())}><Check/>Send back to Accounts</button>
+        <button className="wf-primary" disabled={fixNote.trim().length<5||!fixReady}
+          onClick={()=>onAction("Submitted",fixNote.trim(),edit)}><Check/>Send back to Accounts</button>
       </div>
     </div>
-   :<><div className="wf-callout"><Clock3/>Correct what is noted above and attach any replacement document, then say what you changed.</div>
-     <button className="wf-primary" onClick={()=>setFixing(true)}><Check/>Correct and resubmit</button></>)}</>;
+   :<><div className="wf-callout"><Clock3/>Correct what is noted above, change any detail that was wrong, attach any replacement document, then say what you changed.</div>
+     <button className="wf-primary" onClick={startFix}><Check/>Correct and resubmit</button></>)}</>;
  if(released)action=<div className="wf-success"><FileCheck2/><div><b>Payment Released</b><p>Release proof and the complete approval history are retained.</p></div></div>;
  /* A requestor only watches the accounts and audit stages - but a returned request is
     theirs to answer, so this notice must not overwrite the resubmit action set above. */
