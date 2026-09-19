@@ -93,3 +93,24 @@
 .recv-back-note svg{width:.95rem;height:.95rem;flex:none;margin-top:.1rem}
 .recv-empty{margin:.5rem 0;color:var(--muted,#667085);font-size:.88rem}
 .recv-error{margin:.25rem 0;color:#b42318;font-size:.85rem}
+
+/* The panel gutter. globals.css gives .panel 18px of padding and reference-theme.css
+   takes it back to 0 for the table panels, which carry their own inset instead. This
+   screen has no .panel-head, so nothing put it back: the heading and the search box sat
+   hard against the panel edge while the empty message below them kept the 16px/18px of
+   .wf-empty.pad - controls flush left, text indented under them.
+
+   Scoped to .recv so only this screen is affected; it outranks the bare .panel rule on
+   specificity as well as load order. The value is .wf-empty.pad's own inset rather than a
+   new one, so the header lines up with the message it sits above, and that class's
+   padding is cancelled here so the two do not add up to double. */
+.recv .panel{padding:1rem 1.125rem}
+.recv .panel .wf-empty.pad{padding:0}
+
+/* "Show all stages" appears only while a stage filter is on, and had no rule anywhere -
+   an unstyled browser button beside a bordered search box. Shaped to match that box so
+   the two read as one row of controls. */
+.recv-head .ghost{border:1px solid var(--line,#e4e7ec);background:var(--card,#fff);
+  color:var(--muted,#667085);border-radius:.6rem;padding:.45rem .7rem;
+  font:inherit;font-size:.78rem;font-weight:600;cursor:pointer;white-space:nowrap}
+.recv-head .ghost:hover{border-color:var(--accent,#2563eb);color:var(--accent,#2563eb)}
