@@ -253,6 +253,9 @@ export const wfUsers=sqliteTable("wf_users",{
   name:text("name").notNull(),
   employeeId:text("employee_id").notNull().default(""),
   roles:text("roles").notNull().default("[\"Requestor\"]"),
+  /* Login addresses this account may read requests from, as a JSON array. Only a
+     department head uses it; empty means their own requests alone. */
+  visibleRaisers:text("visible_raisers").notNull().default("[]"),
   salt:text("salt").notNull(),
   hash:text("hash").notNull(),
   iterations:integer("iterations").notNull().default(120000),

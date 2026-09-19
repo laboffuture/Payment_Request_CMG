@@ -1,5 +1,5 @@
 "use client";
-import{Check,Download,KeyRound,Plus,Power,Trash2,UserRound,X}from"lucide-react";
+import{Check,Download,KeyRound,Plus,Power,Search,SlidersHorizontal,Trash2,UserRound,X}from"lucide-react";
 import{useCallback,useEffect,useState}from"react";
 
 /* Walks the register's pages. It returns at most 200 rows at a time, and there are
@@ -37,6 +37,10 @@ export default function AccessSetup(){
  const[loading,setLoading]=useState(true),[error,setError]=useState(""),[busy,setBusy]=useState(false);
  const[issued,setIssued]=useState<{email:string;password:string}|null>(null);
  const[me,setMe]=useState("");
+ /* There was no way to change a login once it existed - only reset, disable and delete -
+    so roles and the requestors a department head may read could never be set on the
+    accounts already in use. This holds the account being edited. */
+ const[editing,setEditing]=useState<Account|null>(null);
 
  /* Every account, not the visible tab: the other tab lists roles rather than people, and
     a report that quietly followed the tab would be read as the whole register. The values
@@ -68,10 +72,13 @@ export default function AccessSetup(){
    finally{setLoading(false)}},[]);
  useEffect(()=>{load()},[load]);
 
+ /* Reports whether the change went through. It used to swallow the failure into a banner
+   and return nothing, so a caller could not tell a refused save from a saved one - and the
+   edit drawer closed either way, which reads as "saved" when it was not. */
  const act=async(body:Record<string,unknown>,after?:(r:Record<string,unknown>)=>void)=>{
    setBusy(true);setError("");
-   try{const r=await accountsApi.update(body) as Record<string,unknown>;after?.(r);await load()}
-   catch(e){setError(e instanceof Error?e.message:"That change was refused")}
+   try{const r=await accountsApi.update(body) as Record<string,unknown>;after?.(r);await load();return true}
+   catch(e){setError(e instanceof Error?e.message:"That change was refused");return false}
    finally{setBusy(false)}};
 
  /* Deleting a login is separate from disabling one: disable suspends somebody you may
@@ -128,7 +135,9 @@ export default function AccessSetup(){
        <td>{u.lastLoginAt?new Date(u.lastLoginAt).toLocaleDateString("en-GB",{day:"2-digit",month:"short",year:"numeric"}):"Never"}</td>
        <td><span className={u.active?"badge green":"badge red"}>{u.active?"Active":"Disabled"}</span>
         {u.mustChange&&<small> must change password</small>}</td>
-       <td><button disabled={busy} title="Issue a new temporary password"
+       <td><button disabled={busy} title="Change roles, and who this person may see"
+         onClick={()=>setEditing(u)}><SlidersHorizontal/>Edit</button>
+       <button disabled={busy} title="Issue a new temporary password"
           onClick={()=>{if(confirm(`Reset the password for ${u.email}? Their sessions end immediately.`))
             act({id:u.id,action:"reset"},r=>setIssued({email:String(r.email),password:String(r.temporaryPassword)}))}}>
           <KeyRound/>Reset</button>
@@ -145,6 +154,18 @@ export default function AccessSetup(){
     </tbody></table></section>):<RoleMatrix/>}
 
   {show&&<Editor taken={withLogin} busy={busy} close={()=>setShow(false)} saveUser={create}/>}
+ {editing&&<RoleEditor account={editing} everyone={users} busy={busy}
+   close={()=>setEditing(null)}
+   save={async(roles,visibleRaisers)=>{
+     /* Two writes because the API takes one change at a time. Roles first, and the list
+        only if that succeeded - assigning requestors to somebody whose Department Head
+        role was just refused would store a list that grants nothing.
+
+        The drawer stays open if either is refused, so the error is read beside the work
+        rather than after it has vanished. */
+     if(!await act({id:editing.id,roles}))return;
+     if(visibleRaisers&&!await act({id:editing.id,visibleRaisers}))return;
+     setEditing(null)}}/>}
  </div>}
 
 /* Creating a login. The person is chosen from the register rather than typed, because
@@ -206,6 +227,53 @@ function Editor({taken,busy,close,saveUser}:{taken:Set<string>;busy:boolean;clos
     <button className="primary" disabled={!ready||busy}
       onClick={()=>saveUser({name:person?.name||"",email:email.trim().toLowerCase(),employeeId,roles})}>
       {busy?"Creating…":"Create login"}</button></footer></aside></>}
+
+/* Changing an existing login: its roles, and for a department head the requestors he may
+   read. The list is people, not a rule - the department on a request and the department of
+   whoever raised it disagree across the register, so an administrator picks the names.
+
+   Only shown when Department Head is among the roles, because it means nothing otherwise,
+   and it appears the moment that role is ticked rather than after saving. */
+function RoleEditor({account,everyone,busy,close,save}:{account:Account;everyone:Account[];
+  busy:boolean;close:()=>void;save:(roles:string[],visibleRaisers?:string[])=>void}){
+  const[roles,setRoles]=useState<string[]>(account.roles||[]);
+  const[picked,setPicked]=useState<string[]>(account.visibleRaisers||[]);
+  const[term,setTerm]=useState("");
+  const toggleRole=(v:string)=>setRoles(r=>r.includes(v)?r.filter(x=>x!==v):[...r,v]);
+  const toggleRaiser=(e:string)=>setPicked(p=>p.includes(e)?p.filter(x=>x!==e):[...p,e]);
+  const head=roles.includes("Department Head");
+  /* Anybody with a login except this account: a head cannot be assigned to himself, and
+     his own requests are always visible to him anyway. */
+  const candidates=everyone.filter(u=>u.email!==account.email&&u.active);
+  const q=term.trim().toLowerCase();
+  const shown=q?candidates.filter(u=>`${u.name} ${u.email}`.toLowerCase().includes(q)):candidates;
+  return <><button className="overlay" onClick={close}/>
+   <aside className="access-editor">
+    <header><div><small>USER ACCESS</small><h2>{account.name}</h2></div>
+     <button onClick={close}><X/></button></header>
+    <div>
+     <p className="queue-empty">{account.email}</p>
+     <Group title="Assign roles" values={allRoles} selected={roles} toggle={toggleRole}/>
+     {head&&<fieldset><legend>Requests this head may see</legend>
+       <p className="queue-empty">Pick the requestors. With nobody picked he sees only the
+         requests he raised himself.</p>
+       <label className="recv-search"><Search/>
+         <input value={term} onChange={e=>setTerm(e.target.value)}
+           placeholder="Search name or email"/></label>
+       <div className="access-raisers">{shown.map(u=>
+         <button type="button" key={u.id} className={picked.includes(u.email)?"selected":""}
+           onClick={()=>toggleRaiser(u.email)}>
+           {picked.includes(u.email)&&<Check/>}
+           <span><b>{u.name}</b><small>{u.email}</small></span></button>)}
+         {!shown.length&&<p className="queue-empty">Nobody matches that.</p>}</div>
+       <p className="queue-empty">{picked.length
+         ?`${picked.length} requestor${picked.length===1?"":"s"} selected`
+         :"Nobody selected yet"}</p></fieldset>}
+    </div>
+    <footer><button onClick={close}>Cancel</button>
+     <button className="primary" disabled={busy||!roles.length}
+       onClick={()=>save(roles,head?picked:[])}>{busy?"Saving…":"Save changes"}</button></footer>
+   </aside></>}
 
 function Group({title,values,selected,toggle}:{title:string;values:string[];selected:string[];toggle:(v:string)=>void}){return <fieldset><legend>{title}</legend><div>{values.map(v=><button type="button" className={selected.includes(v)?"selected":""} onClick={()=>toggle(v)} key={v}>{selected.includes(v)&&<Check/>}{v}</button>)}</div></fieldset>}
 function RoleMatrix(){const rows=[["Payment Requestor","Create own requests","Own requests only","No"],["Department Head","Create own requests; no workflow actions","Every request raised by his own department, and his own","Read only"],["Accountant","Accept, verify, reconcile, send to Audit","All payments; work mapped departments","Yes"],["Management","Approve and view exceptions","All companies mapped","Yes"],["Finance","Release approved payments — the final step","All approved payments","Yes"],["Audit Head","Configure programs, users and reports","All audit data","Yes"],["Administrator","Act at any workflow stage; manage logins, roles and passwords","Everything, all companies","Yes"]];return <section className="panel user-table matrix"><table><thead><tr><th>ROLE</th><th>CAN ACT</th><th>VISIBILITY</th><th>DEPARTMENT CONTROL</th></tr></thead><tbody>{rows.map(r=><tr key={r[0]}><td><b>{r[0]}</b></td><td>{r[1]}</td><td>{r[2]}</td><td>{r[3]}</td></tr>)}</tbody></table></section>}

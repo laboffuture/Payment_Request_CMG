@@ -1,0 +1,12 @@
+-- Which requestors a department head may read. Chosen by an administrator rather than
+-- derived from the organisation chart: the department on a request and the department of
+-- the person who raised it disagree across the live register, and the two vocabularies
+-- differ as well ("Project" on the form against "Projects" on the staff record), so a
+-- rule would have shown heads other departments' work while hiding their own people's.
+--
+-- Stored as a JSON array of login email addresses, the same shape as `roles` on this
+-- table, so nothing new has to be joined to answer "may this person read that request".
+--
+-- Empty is the default and means the head reads only what he raised himself. An
+-- allow-list that defaults to everything is how a leak happens.
+ALTER TABLE `wf_users` ADD `visible_raisers` text DEFAULT '[]' NOT NULL;

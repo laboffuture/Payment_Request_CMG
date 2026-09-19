@@ -1,6 +1,6 @@
-import{and,eq,gt,or}from"drizzle-orm";
+import{and,eq,gt}from"drizzle-orm";
 import{getDb}from"../db";
-import{wfEmployees,wfSessions,wfUsers}from"../db/schema";
+import{wfSessions,wfUsers}from"../db/schema";
 import{COOKIE_DAYS,SESSION_COOKIE,SESSION_HOURS,randomHex,readCookie}from"./credentials";
 export*from"./credentials";
 
@@ -94,38 +94,32 @@ export const seesDepartmentOnly=(roles:string[]=[])=>
   &&!roles.some(r=>WRITE_ROLES.includes(r))
   &&!roles.some(r=>SUPERVISOR_ROLES.includes(r));
 
-/* The addresses a department head may read requests from: his department's people, and
-   always himself.
+/* The addresses a department head may read requests from: the requestors an administrator
+   has assigned to him, and always himself.
 
-   The role is only a string on the login, so the department has to come from the employee
-   record behind it. Where that is missing - no employee linked, or an employee with no
-   department - this returns just his own address rather than everybody's. A head who is
-   set up incompletely sees too little, which is a complaint; the other way round is a
-   leak.
+   Assigned rather than derived. Deriving it from the organisation chart looked tidier,
+   but the department recorded on a request and the department of the person who raised it
+   disagree across the live register, and the vocabularies differ too - "Project" on the
+   form against "Projects" on the staff record - so a head would have been shown other
+   departments' work while his own people's stayed hidden.
 
-   null means no scoping applies, which is not the same as an empty list. */
+   An empty list means his own requests alone. It is not a fallback to his department or to
+   the register: a head who has been given the role but nobody to watch sees only himself
+   until somebody is assigned. Seeing too little is a complaint; the other way is a leak.
+
+   null means no scoping applies at all, which is not the same as an empty list. */
 export async function departmentPeers(actor:Actor|null):Promise<string[]|null>{
   if(!actor||!seesDepartmentOnly(actor.roles))return null;
   const me=(actor.email||"").toLowerCase();
-  if(!actor.employeeId)return[me];
   const db=await getDb();
-  const[self]=await db.select({department:wfEmployees.department}).from(wfEmployees)
-    .where(or(eq(wfEmployees.id,actor.employeeId),eq(wfEmployees.code,actor.employeeId)))
-    .limit(1);
-  const dept=(self?.department||"").trim();
-  if(!dept)return[me];
-  /* Employees are referenced from a login by id on some rows and by code on others, so
-     both are collected and matched against either. */
-  const staff=await db.select({id:wfEmployees.id,code:wfEmployees.code})
-    .from(wfEmployees).where(eq(wfEmployees.department,dept));
-  const keys=new Set<string>();
-  for(const s of staff){if(s.id)keys.add(s.id);if(s.code)keys.add(s.code)}
-  if(!keys.size)return[me];
-  const logins=await db.select({email:wfUsers.email,employeeId:wfUsers.employeeId}).from(wfUsers);
-  const emails=logins.filter(u=>u.employeeId&&keys.has(u.employeeId))
-    .map(u=>(u.email||"").toLowerCase()).filter(Boolean);
-  emails.push(me);
-  return Array.from(new Set(emails))}
+  const[row]=await db.select({visibleRaisers:wfUsers.visibleRaisers})
+    .from(wfUsers).where(eq(wfUsers.id,actor.userId)).limit(1);
+  let assigned:string[]=[];
+  /* Whatever is stored, a broken value must narrow rather than widen. */
+  try{const parsed=JSON.parse(row?.visibleRaisers||"[]");
+    if(Array.isArray(parsed))assigned=parsed.map(x=>String(x||"").toLowerCase()).filter(Boolean)}
+  catch{assigned=[]}
+  return Array.from(new Set([...assigned,me]))}
 
 const deny=(message:string,status:number)=>
   Response.json({error:message},{status});

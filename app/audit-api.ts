@@ -26,6 +26,7 @@ export type Batch={extra?:string;id:string;vendor:string;requested:number;approv
 export type Message={id:string;authorId:string;authorName:string;authorEmail:string;authorRole:string;
   toEmployee:string;body:string;at:string};
 export type Account={id:string;email:string;name:string;employeeId:string;roles:string[];
+  visibleRaisers?:string[];
   active:boolean;mustChange:boolean;lastLoginAt:string};
 
 export const companiesApi={

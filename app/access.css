@@ -4,6 +4,19 @@
    .wf-small declares no display of its own, which leaves the icon sitting on the text
    baseline, and the lucide markup carries width="24" height="24", so the icon is sized on
    both axes rather than width alone. */
+/* The requestor picker inside the edit drawer. A scrolling list rather than a wall of
+   buttons: there are thirty-odd logins and the drawer is 540px. */
+.access-raisers{display:flex;flex-direction:column;gap:4px;max-height:260px;overflow-y:auto;
+  margin-top:8px;padding-right:2px}
+.access-raisers button{display:flex;align-items:center;gap:7px;width:100%;text-align:left;
+  border:1px solid #d0d5dd;background:#fff;border-radius:6px;padding:7px 9px;font:inherit;cursor:pointer}
+.access-raisers button.selected{background:#eef3fa;border-color:#8ea5c7;color:#1b3a66}
+.access-raisers button svg{width:12px;height:12px;flex:none}
+.access-raisers b,.access-raisers small{display:block}
+.access-raisers b{font-size:10px}
+.access-raisers small{font-size:8px;color:#667085}
+.access-editor .recv-search{margin-top:8px}
+
 .access-head-actions{display:flex;align-items:center;gap:8px}
 .access-head-actions .wf-small{display:inline-flex;align-items:center;gap:6px;
   border:1px solid #bad8cf;background:#eef8f5;color:var(--green);border-radius:6px;

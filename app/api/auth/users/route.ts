@@ -18,6 +18,7 @@ export async function GET(req:Request){
     const where=q?or(like(wfUsers.name,q),like(wfUsers.email,q)):undefined;
     const [rows,[total]]=await Promise.all([
       db.select({id:wfUsers.id,email:wfUsers.email,name:wfUsers.name,roles:wfUsers.roles,
+        visibleRaisers:wfUsers.visibleRaisers,
         employeeId:wfUsers.employeeId,active:wfUsers.active,mustChange:wfUsers.mustChange,
         lastLoginAt:wfUsers.lastLoginAt}).from(wfUsers).where(where)
         .orderBy(asc(wfUsers.name)).limit(limit).offset(offset),
@@ -104,6 +105,21 @@ export async function PATCH(req:Request){
     if(Array.isArray(body.roles)){
       await db.update(wfUsers).set({roles:JSON.stringify(body.roles)}).where(eq(wfUsers.id,id));
       return Response.json({roles:body.roles});
+    }
+    /* Which requestors this login may read. Checked against the register rather than
+       trusted: an address that is not an active login would sit in the list looking like
+       an assignment while granting nothing, and a typo would be invisible. Stored in
+       lower case because that is how the payments route compares them. */
+    if(Array.isArray(body.visibleRaisers)){
+      const wanted=(body.visibleRaisers as unknown[])
+        .map(x=>String(x||"").trim().toLowerCase()).filter(Boolean);
+      const real=await db.select({email:wfUsers.email,active:wfUsers.active}).from(wfUsers);
+      const allowed=new Set(real.filter(u=>u.active).map(u=>(u.email||"").toLowerCase()));
+      const unknown=wanted.filter(e=>!allowed.has(e));
+      if(unknown.length)return bad(`Not an active login: ${unknown.slice(0,3).join(", ")}`,422);
+      const list=Array.from(new Set(wanted));
+      await db.update(wfUsers).set({visibleRaisers:JSON.stringify(list)}).where(eq(wfUsers.id,id));
+      return Response.json({visibleRaisers:list});
     }
     return bad("Nothing to change");
   }catch(e){return oops(e)}}
