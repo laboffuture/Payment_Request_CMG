@@ -64,7 +64,7 @@ const nav:{id:Module;label:string;icon:any}[]=([
    longer keeps them together. */
 const workforceIds:Module[]=["organisation","employees","reports"];
 const tone:Record<string,string>={"Rejected":"red","Requested":"blue","Accountant Review":"amber","Pre-Audit Queue":"blue","Management Approval":"amber","Management Approval: Yes":"green","Management Approval: No":"red","Audit Rejected":"red","Audit Query":"red","Finance Queue":"violet","Approved by Auditor – Ready to Release":"green","Payment Released":"green","Reconciliation":"green","Audit Accepted":"blue","Audit Cleared":"green"};
-const access:Record<string,Module[]>={Administrator:nav.map(x=>x.id),Requestor:["dashboard","requests","organisation","employees","meetings","community","reports"],Accountant:["dashboard","requests","payments","organisation","employees","meetings","community","reports","observations","accountsreceived"],Auditor:["dashboard","requests","payments","organisation","employees","preaudit","postaudit","specialaudit","meetings","community","reports","observations","accountsreceived"],Finance:["meetings","dashboard","payments","organisation","employees","reports"],Management:["meetings","dashboard","payments",...workforceIds],"Audit Head":nav.filter(x=>x.id!=="settings").map(x=>x.id)};
+const access:Record<string,Module[]>={Administrator:nav.map(x=>x.id),Requestor:["dashboard","requests","organisation","employees","meetings","community","reports"],"Department Head":["dashboard","requests","organisation","employees","meetings","community","reports"],Accountant:["dashboard","requests","payments","organisation","employees","meetings","community","reports","observations","accountsreceived"],Auditor:["dashboard","requests","payments","organisation","employees","preaudit","postaudit","specialaudit","meetings","community","reports","observations","accountsreceived"],Finance:["meetings","dashboard","payments","organisation","employees","reports"],Management:["meetings","dashboard","payments",...workforceIds],"Audit Head":nav.filter(x=>x.id!=="settings").map(x=>x.id)};
 type Note={id:string;title:string;body:string;module:string;recordId:string;createdAt:string;readAt:string};
 export default function Home(){
  const[active,setActive]=useState<Module>("dashboard"),[payments,setPayments]=useState(seed),[auditTasks,setAuditTasks]=useState([...auditSeed,...specialAuditSeed]),[company,setCompany]=useState("All companies"),[companies,setCompanies]=useState<{id:string;name:string}[]>([]),[departments,setDepartments]=useState<string[]>([]),[natures,setNatures]=useState<string[]>([]),[currencies,setCurrencies]=useState<string[]>([]),[tdsChoices,setTdsChoices]=useState<string[]>([]),[termsChoices,setTermsChoices]=useState<string[]>([]),[masterVersion,setMasterVersion]=useState(0),[role,setRole]=useState("Audit Head"),[allowedRoles,setAllowedRoles]=useState<string[]>([]),[userName,setUserName]=useState(""),[userEmail,setUserEmail]=useState(""),[search,setSearch]=useState(""),[drawer,setDrawer]=useState<Payment|null>(null),[form,setForm]=useState(false),[passwordOpen,setPasswordOpen]=useState(false),[profileOpen,setProfileOpen]=useState(false),[mobile,setMobile]=useState(false),[profile,setProfile]=useState<string|null>(null),[toast,setToast]=useState(""),[todayLabel,setTodayLabel]=useState(""),[booting,setBooting]=useState(true),[expired,setExpired]=useState(false),[notes,setNotes]=useState<Note[]>([]),[unread,setUnread]=useState(0),[noteOpen,setNoteOpen]=useState(false);
@@ -95,7 +95,11 @@ export default function Home(){
  /* A requestor sees the requests they raised. raisedBy is written server-side from the
     session, so it cannot be spoofed by the browser. Requests created before this was
     recorded carry an empty value and belong to nobody. */
- const mine=useMemo(()=>filtered.filter(p=>(p.raisedBy||"")===userEmail),[filtered,userEmail]);
+ /* A department head's register is his department's, and the server has already narrowed
+    it to that - so narrowing again to his own address here would hide the very requests
+    the role exists to read. Everybody else still sees only what they raised. */
+ const mine=useMemo(()=>role==="Department Head"?filtered
+   :filtered.filter(p=>(p.raisedBy||"")===userEmail),[filtered,userEmail,role]);
  /* Tasks, and the same work seen by day, week or month - one menu entry with the view
     chosen inside, rather than four entries onto the same register. */
  const flash=(x:string)=>{setToast(x);setTimeout(()=>setToast(""),2500)};
@@ -205,7 +209,7 @@ export default function Home(){
  
  {active==="dashboard"&&(role==="Requestor"?<RequestorDashboard rows={mine} open={setDrawer} create={()=>setForm(true)} go={setActive}/>:role==="Accountant"||role==="Auditor"?<RoleDashboard role={role} payments={filtered} auditTasks={auditTasks} open={setDrawer} go={setActive}/>:<Dashboard payments={filtered} go={setActive}/>)}
  {active==="dashboard"&&visible.some(n=>n.id==="organisation")&&<div className="page wf-dash-wrap"><WorkforceOverview openProfile={setProfile} go={()=>setActive("organisation")}/></div>}
- {active==="requests"&&<RequestorWorkspace rows={role==="Requestor"?mine:filtered} open={setDrawer} create={()=>setForm(true)}/>}
+ {active==="requests"&&<RequestorWorkspace rows={role==="Requestor"?mine:filtered} open={setDrawer} create={()=>setForm(true)} scope={role==="Department Head"?"department":"own"}/>}
  {active==="payments"&&<PaymentWorkbench departments={departments} companies={companies.map(c=>c.name)} onDelete={removeRequest} rows={filtered} role={role} search={search} setSearch={setSearch} open={setDrawer} create={()=>setForm(true)}/>}
  {active==="accountsreceived"&&<AccountsReceived role={role} companies={companies} flash={flash}/>}
   {active==="preaudit"&&<AuditTaskQueue title="Pre-audit tasks" kind="Pre-Audit" companies={companies} create={(t)=>createAuditTask("Pre-Audit",t)} tasks={auditTasks} role={role} accept={acceptAuditTask} update={updateAuditTask}/>} 
@@ -427,7 +431,7 @@ for(const file of files){try{const dataUrl=await asDataUrl(file);await fetch("/a
    hand the workforce figures to a Requestor, whose own tasks are private to them, so
    each tab stays with the roles that could open it before. A role with both sees tabs;
    a role with one goes straight to it. */
-const PAYMENT_REPORT_ROLES=["Administrator","Audit Head","Requestor","Accountant","Auditor"];
+const PAYMENT_REPORT_ROLES=["Administrator","Audit Head","Requestor","Accountant","Auditor","Department Head"];
 const WORKFORCE_REPORT_ROLES=["Administrator","Audit Head","Finance","Management"];
 function ReportCentre({role,payments,tasks,openProfile,flash}:{role:string;payments:Payment[];
   tasks:AuditTask[];openProfile:(id:string)=>void;flash:(m:string)=>void}){

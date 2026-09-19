@@ -2,7 +2,7 @@ import{and,desc,eq}from"drizzle-orm";
 import{getDb}from"../../../db";
 import{auditLogs,paymentRequests,wfAttachments}from"../../../db/schema";
 import{deleteFile}from"../../../lib/storage";
-import{hasWriteRole,requireAuth}from"../../../lib/auth";
+import{departmentPeers,hasWriteRole,requireAuth}from"../../../lib/auth";
 import{emailsForRoles,notify,rolesActingOn}from"../../../lib/notify";
 import{FIELD_ORDER,REQUIRED_ON_SAVE,labelFor,ruleFor}from"../../../lib/payment-fields";
 import{rememberVendor}from"../../../lib/vendors";
@@ -26,14 +26,22 @@ const STATUSES=["Submitted","Requested","Rejected","Accountant Review","Accounta
 
 export async function GET(req:Request){
   try{
-    const{response}=await requireAuth(req,"read");
+    const{actor,response}=await requireAuth(req,"read");
     if(response)return response;
     /* The window is org-wide and only then filtered to the reader, so it has to be wide
        enough to still contain an individual's older requests. At 50 a requestor's own
        work fell out of view once the group as a whole passed fifty - invisible while the
        register is small, and indistinguishable from a paging bug once it is not. */
-    return Response.json({payments:await (await getDb()).select().from(paymentRequests)
-      .orderBy(desc(paymentRequests.id)).limit(500)});
+    const rows=await (await getDb()).select().from(paymentRequests)
+      .orderBy(desc(paymentRequests.id)).limit(500);
+    /* A department head's scope is enforced here, not by the screen. Without this the
+       whole register is one fetch away for anybody with a session, whatever the menu
+       shows. Compared in lower case because addresses are stored as they were typed.
+       null means the reader is not scoped at all; an empty list would mean nobody. */
+    const peers=await departmentPeers(actor);
+    return Response.json({payments:peers
+      ?rows.filter(r=>peers.includes((r.raisedBy||"").toLowerCase()))
+      :rows});
   }catch{return Response.json({payments:[]})}}
 
 export async function POST(req:Request){

@@ -1,6 +1,6 @@
-import{and,eq,gt}from"drizzle-orm";
+import{and,eq,gt,or}from"drizzle-orm";
 import{getDb}from"../db";
-import{wfSessions,wfUsers}from"../db/schema";
+import{wfEmployees,wfSessions,wfUsers}from"../db/schema";
 import{COOKIE_DAYS,SESSION_COOKIE,SESSION_HOURS,randomHex,readCookie}from"./credentials";
 export*from"./credentials";
 
@@ -63,7 +63,7 @@ const ADMIN_ROLES=["Administrator","Audit Head"];
    buttons, so the rule holds however the request arrives. */
 /* Tokens are how work is requested of the data-entry team, so a Requestor raises and
    updates them even though they may change nothing else. */
-const TOKEN_ROLES=["Administrator","Audit Head","Management","Accountant","Auditor","Finance","Requestor"];
+const TOKEN_ROLES=["Administrator","Audit Head","Management","Accountant","Auditor","Finance","Requestor","Department Head"];
 const ORG_ROLES=["Administrator","Audit Head","Management","Finance"];
 
 export const hasWriteRole=(roles:string[]=[])=>roles.some(r=>WRITE_ROLES.includes(r));
@@ -79,6 +79,53 @@ export const canSeeObservations=(roles:string[]=[])=>roles.some(r=>OBSERVATION_R
    sees their own. Kept here so the routes cannot drift apart on who is who. */
 const SUPERVISOR_ROLES=["Administrator","Audit Head","Management"];
 export const seesAllWork=(roles:string[]=[])=>roles.some(r=>SUPERVISOR_ROLES.includes(r));
+
+/* ---------- department heads ---------- */
+/* A Department Head reads what his own department raised, raises his own work like a
+   requestor, and does nothing else: he is deliberately absent from WRITE_ROLES, so he
+   cannot accept, verify, reject or release anything.
+
+   Only when the role stands alone. Somebody who is also an Accountant or a supervisor
+   keeps the wider view their other role gives them - narrowing on the mere presence of
+   this role would take away access they already had. */
+const DEPARTMENT_ROLES=["Department Head"];
+export const seesDepartmentOnly=(roles:string[]=[])=>
+  roles.some(r=>DEPARTMENT_ROLES.includes(r))
+  &&!roles.some(r=>WRITE_ROLES.includes(r))
+  &&!roles.some(r=>SUPERVISOR_ROLES.includes(r));
+
+/* The addresses a department head may read requests from: his department's people, and
+   always himself.
+
+   The role is only a string on the login, so the department has to come from the employee
+   record behind it. Where that is missing - no employee linked, or an employee with no
+   department - this returns just his own address rather than everybody's. A head who is
+   set up incompletely sees too little, which is a complaint; the other way round is a
+   leak.
+
+   null means no scoping applies, which is not the same as an empty list. */
+export async function departmentPeers(actor:Actor|null):Promise<string[]|null>{
+  if(!actor||!seesDepartmentOnly(actor.roles))return null;
+  const me=(actor.email||"").toLowerCase();
+  if(!actor.employeeId)return[me];
+  const db=await getDb();
+  const[self]=await db.select({department:wfEmployees.department}).from(wfEmployees)
+    .where(or(eq(wfEmployees.id,actor.employeeId),eq(wfEmployees.code,actor.employeeId)))
+    .limit(1);
+  const dept=(self?.department||"").trim();
+  if(!dept)return[me];
+  /* Employees are referenced from a login by id on some rows and by code on others, so
+     both are collected and matched against either. */
+  const staff=await db.select({id:wfEmployees.id,code:wfEmployees.code})
+    .from(wfEmployees).where(eq(wfEmployees.department,dept));
+  const keys=new Set<string>();
+  for(const s of staff){if(s.id)keys.add(s.id);if(s.code)keys.add(s.code)}
+  if(!keys.size)return[me];
+  const logins=await db.select({email:wfUsers.email,employeeId:wfUsers.employeeId}).from(wfUsers);
+  const emails=logins.filter(u=>u.employeeId&&keys.has(u.employeeId))
+    .map(u=>(u.email||"").toLowerCase()).filter(Boolean);
+  emails.push(me);
+  return Array.from(new Set(emails))}
 
 const deny=(message:string,status:number)=>
   Response.json({error:message},{status});

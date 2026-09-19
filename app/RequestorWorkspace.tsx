@@ -21,7 +21,10 @@ const statusTone=(s:string)=>/reject|query/i.test(s)?"red"
 
 const PER_PAGE=10;
 
-export default function RequestorWorkspace({rows,open,create}:{rows:P[];open:(p:P)=>void;create:()=>void}){
+export default function RequestorWorkspace({rows,open,create,scope="own"}:{rows:P[];open:(p:P)=>void;create:()=>void;scope?:"own"|"department"}){
+  /* A department head is shown his department's requests, so the headings cannot keep
+     saying "my" and "your" over other people's work. */
+  const dept=scope==="department";
   const[offset,setOffset]=useState(0),[term,setTerm]=useState("");
   const q=term.trim().toLowerCase();
   /* The vendor is what the search is for, but somebody hunting "the ABC one" may just as
@@ -47,8 +50,11 @@ export default function RequestorWorkspace({rows,open,create}:{rows:P[];open:(p:
       (p.createdAt||"").slice(0,10)])],
     `my-payment-requests-${new Date().toISOString().slice(0,10)}.csv`);
   return <div className="page rq-page">
-    <div className="rq-head"><div><small>PAYMENT REQUESTOR</small><h2>My payment requests</h2>
-      <p>Create requests and track status. Accounts and Audit actions are not available in this view.</p></div>
+    <div className="rq-head"><div><small>{dept?"DEPARTMENT HEAD":"PAYMENT REQUESTOR"}</small>
+      <h2>{dept?"My department's payment requests":"My payment requests"}</h2>
+      <p>{dept
+        ?"Every request raised by your department, and your own. Accounts and Audit actions are not available in this view."
+        :"Create requests and track status. Accounts and Audit actions are not available in this view."}</p></div>
       <button className="primary" onClick={create}><Plus/>Request payment</button></div>
     <div className="rq-metrics">
       <article><FileText/><b>{rows.length}</b><span>Total requests</span></article>
@@ -56,11 +62,12 @@ export default function RequestorWorkspace({rows,open,create}:{rows:P[];open:(p:
       <article><CheckCircle2/><b>{rows.filter(x=>isFinished(x.status)).length}</b><span>Completed</span></article>
     </div>
     <section className="panel table-panel rq-table">
-      <div className="panel-head"><div><small>STATUS TRACKER</small><h2>Your recent requests</h2></div>
+      <div className="panel-head"><div><small>STATUS TRACKER</small>
+        <h2>{dept?"Recent requests in your department":"Your recent requests"}</h2></div>
         <button className="wf-small" onClick={download} disabled={!found.length}
-          title={!rows.length?"You have not raised a request yet"
+          title={!rows.length?(dept?"Your department has not raised a request yet":"You have not raised a request yet")
             :q?`Download the ${found.length} request${found.length===1?"":"s"} matching "${term.trim()}"`
-            :`Download all ${rows.length} of your requests as a spreadsheet`}>
+            :`Download all ${rows.length} ${dept?"of your department's requests":"of your requests"} as a spreadsheet`}>
           <Download/>Download report</button></div>
       <div className="rq-tools"><label><Search/>
         <input value={term} onChange={e=>{setTerm(e.target.value);setOffset(0)}}

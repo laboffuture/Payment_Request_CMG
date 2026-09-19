@@ -27,7 +27,7 @@ import{csv}from"./workforce-store";
    a login can only be created for somebody already on an organisation chart, and the
    first password is generated, shown once, and must be changed at first sign-in. */
 
-const allRoles=["Requestor","Accountant","Auditor","Finance","Management","Audit Head","Administrator"];
+const allRoles=["Requestor","Department Head","Accountant","Auditor","Finance","Management","Audit Head","Administrator"];
 
 type Person={id:string;name:string;code:string;department:string;email:string};
 
@@ -208,4 +208,4 @@ function Editor({taken,busy,close,saveUser}:{taken:Set<string>;busy:boolean;clos
       {busy?"Creating…":"Create login"}</button></footer></aside></>}
 
 function Group({title,values,selected,toggle}:{title:string;values:string[];selected:string[];toggle:(v:string)=>void}){return <fieldset><legend>{title}</legend><div>{values.map(v=><button type="button" className={selected.includes(v)?"selected":""} onClick={()=>toggle(v)} key={v}>{selected.includes(v)&&<Check/>}{v}</button>)}</div></fieldset>}
-function RoleMatrix(){const rows=[["Payment Requestor","Create own requests","Own requests only","No"],["Accountant","Accept, verify, reconcile, send to Audit","All payments; work mapped departments","Yes"],["Management","Approve and view exceptions","All companies mapped","Yes"],["Finance","Release approved payments — the final step","All approved payments","Yes"],["Audit Head","Configure programs, users and reports","All audit data","Yes"],["Administrator","Act at any workflow stage; manage logins, roles and passwords","Everything, all companies","Yes"]];return <section className="panel user-table matrix"><table><thead><tr><th>ROLE</th><th>CAN ACT</th><th>VISIBILITY</th><th>DEPARTMENT CONTROL</th></tr></thead><tbody>{rows.map(r=><tr key={r[0]}><td><b>{r[0]}</b></td><td>{r[1]}</td><td>{r[2]}</td><td>{r[3]}</td></tr>)}</tbody></table></section>}
+function RoleMatrix(){const rows=[["Payment Requestor","Create own requests","Own requests only","No"],["Department Head","Create own requests; no workflow actions","Every request raised by his own department, and his own","Read only"],["Accountant","Accept, verify, reconcile, send to Audit","All payments; work mapped departments","Yes"],["Management","Approve and view exceptions","All companies mapped","Yes"],["Finance","Release approved payments — the final step","All approved payments","Yes"],["Audit Head","Configure programs, users and reports","All audit data","Yes"],["Administrator","Act at any workflow stage; manage logins, roles and passwords","Everything, all companies","Yes"]];return <section className="panel user-table matrix"><table><thead><tr><th>ROLE</th><th>CAN ACT</th><th>VISIBILITY</th><th>DEPARTMENT CONTROL</th></tr></thead><tbody>{rows.map(r=><tr key={r[0]}><td><b>{r[0]}</b></td><td>{r[1]}</td><td>{r[2]}</td><td>{r[3]}</td></tr>)}</tbody></table></section>}
