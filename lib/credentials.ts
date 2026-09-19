@@ -59,6 +59,22 @@ export const readCookie=(req:Request,name:string)=>{
     if(k===name)return decodeURIComponent(rest.join("="))}
   return ""};
 
+/* A native app has no cookie jar for this site: the page inside a webview is served from
+   its own origin, so the session cookie is never sent with a call to the API. The same
+   session token is accepted from an Authorization header instead.
+
+   This is a second way of carrying the credential, not a second credential. The row in
+   wf_sessions still decides whether it works, so signing out, deactivating an account or
+   changing a password stops the app on its very next request exactly as it stops a
+   browser. Nothing here is signed or self-describing.
+
+   The shape is checked before the value is used, so a malformed header is treated as no
+   credential rather than being looked up. */
+export const readBearer=(req:Request)=>{
+  const raw=(req.headers.get("authorization")||"").trim();
+  const m=/^Bearer\s+([A-Fa-f0-9]{32,128})$/.exec(raw);
+  return m?m[1]:""};
+
 export const sessionCookie=(token:string,maxAgeSeconds:number)=>
   `${SESSION_COOKIE}=${encodeURIComponent(token)}; HttpOnly; Secure; SameSite=Lax; Path=/; `+
   `Max-Age=${maxAgeSeconds}`;

@@ -1,7 +1,7 @@
 import{and,eq,gt}from"drizzle-orm";
 import{getDb}from"../db";
 import{wfSessions,wfUsers}from"../db/schema";
-import{COOKIE_DAYS,SESSION_COOKIE,SESSION_HOURS,randomHex,readCookie}from"./credentials";
+import{COOKIE_DAYS,SESSION_COOKIE,SESSION_HOURS,randomHex,readBearer,readCookie}from"./credentials";
 export*from"./credentials";
 
 /* ---------- sessions ---------- */
@@ -26,7 +26,10 @@ export async function destroySession(token:string){
 const RENEW_AFTER=15*60*1000;   // rewrite the session at most every 15 minutes
 
 export async function currentActor(req:Request):Promise<Actor|null>{
-  const token=readCookie(req,SESSION_COOKIE);
+  /* The cookie first, so nothing about the browser changes: it stays HttpOnly and
+     SameSite=Lax, and a request that carries one is resolved exactly as before. The header
+     is what a native app sends, and both name the same row. */
+  const token=readCookie(req,SESSION_COOKIE)||readBearer(req);
   if(!token)return null;
   const db=await getDb();
   const now=new Date().toISOString();
