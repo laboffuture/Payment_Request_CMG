@@ -71,12 +71,10 @@ export default function PaymentDetail({payment:p,role,onClose,onAction,onDelete,
  const[tdsOn,setTdsOn]=useState(p.tds||"");
  const[tdsPct,setTdsPct]=useState(p.tdsPercent||"");
  const[tdsVal,setTdsVal]=useState(p.tdsValue||"");
- /* Worked out from the amount and the rate, and still editable. A figure typed with no
-    relation to the amount is the kind of error that passes a review unnoticed. */
- const tdsAuto=(pct:string)=>{
-   const rate=Number(pct),amount=Number(p.amount);
-   return Number.isFinite(rate)&&rate>0&&Number.isFinite(amount)
-     ?String(Math.round(amount*rate)/100):""};
+ /* Both figures are typed. The value was calculated from the amount and the rate at
+    first, which assumed the two always agree - they do not. A rate can be applied to part
+    of an invoice, rounded to the rupee, or set by an assessment that owes nothing to the
+    amount on the request. Accounts enter what they are actually deducting. */
  /* An unanswered question becomes "No" by the time anybody notices, and no later stage
     asks again - so the answer is required before the request moves on. */
  const tdsReady=tdsOn==="No"||(tdsOn==="Yes"&&!!String(tdsPct).trim()&&!!String(tdsVal).trim());
@@ -91,7 +89,7 @@ export default function PaymentDetail({payment:p,role,onClose,onAction,onDelete,
    {tdsOn==="Yes"&&<div className="wf-tds-pair">
      <label className="wf-note">TDS percentage
        <input type="number" min="0" max="100" step="0.01" value={tdsPct}
-         onChange={e=>{const v=e.target.value;setTdsPct(v);setTdsVal(tdsAuto(v))}}/></label>
+         onChange={e=>setTdsPct(e.target.value)}/></label>
      <label className="wf-note">TDS value ({p.currency})
        <input type="number" min="0" step="0.01" value={tdsVal}
          onChange={e=>setTdsVal(e.target.value)}/></label></div>}
