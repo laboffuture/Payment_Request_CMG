@@ -268,7 +268,10 @@ function RoleEditor({account,everyone,busy,close,save}:{account:Account;everyone
        <div className="access-raisers">{shown.map(u=>
          <button type="button" key={u.id} className={picked.includes(u.email)?"selected":""}
            onClick={()=>toggleRaiser(u.email)}>
-           {picked.includes(u.email)&&<Check/>}
+           {/* The tick keeps its place whether or not it is drawn. Rendered only when
+               selected, it pushed the name sideways on every row that was picked, so the
+               left edge of the list moved as it was used. */}
+           <i className="raiser-tick">{picked.includes(u.email)&&<Check/>}</i>
            <span><b>{u.name}</b><small>{u.email}</small></span>
            {/* Said plainly rather than hidden: most logins have never raised a request, and
                assigning one of them is what makes a head's register look broken. */}
