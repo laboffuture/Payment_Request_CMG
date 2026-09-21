@@ -16,6 +16,7 @@ async function loadEveryEmployee(){
   return{employees:out}}
 import{accountsApi,type Account}from"./audit-api";
 import{csv}from"./workforce-store";
+import{Pager}from"./WorkforceShared";
 
 /* Real logins, from wf_users through /api/auth/users.
 
@@ -41,6 +42,14 @@ export default function AccessSetup(){
     so roles and the requestors a department head may read could never be set on the
     accounts already in use. This holds the account being edited. */
  const[editing,setEditing]=useState<Account|null>(null);
+ /* The table pages; three other things must not. Assigning a requestor, guarding against
+    a second login for the same person, and the report all need every account, so the
+    roster is fetched once at the server's maximum and kept beside the page being shown.
+    With sixty-two logins against a default page of fifty, twelve were already invisible
+    here - including to the requestor picker, which could not offer them at all. */
+ const[roster,setRoster]=useState<Account[]>([]);
+ const[term,setTerm]=useState(""),[offset,setOffset]=useState(0),[total,setTotal]=useState(0);
+ const PER_PAGE=25;
 
  /* Every account, not the visible tab: the other tab lists roles rather than people, and
     a report that quietly followed the tab would be read as the whole register. The values
@@ -50,7 +59,7 @@ export default function AccessSetup(){
  const download=()=>csv([
    ["Name","Email","Roles","Person","Department","Employee ID","Last sign-in","Status",
     "Must change password"],
-   ...users.map(u=>{
+   ...roster.map(u=>{
      const person=people.find(p=>p.id===u.employeeId);
      return [u.name,u.email,u.roles.join(", "),person?.name||"",person?.department||"",
        u.employeeId||"",
@@ -61,16 +70,23 @@ export default function AccessSetup(){
  useEffect(()=>{fetch("/api/auth/session").then(r=>r.json() as Promise<{actor?:{email:string}|null}>)
    .then(d=>setMe(d.actor?.email||"")).catch(()=>{})},[]);
 
+ /* Two requests: the page being read, and the whole roster the rest of the screen needs.
+    The search and the page number reach the server rather than filtering what happens to
+    have been downloaded, so a name on page three is found from page one. */
  const load=useCallback(async()=>{
    setLoading(true);setError("");
    try{
-     const[u,p]=await Promise.all([
-       accountsApi.load(),
+     const[u,all,p]=await Promise.all([
+       accountsApi.load({q:term.trim(),limit:PER_PAGE,offset}),
+       accountsApi.load({limit:200}),
        loadEveryEmployee()]);
-     setUsers(u.users);setPeople(p.employees||[])}
+     setUsers(u.users);setTotal(u.total??u.users.length);
+     setRoster(all.users);setPeople(p.employees||[])}
    catch(e){setError(e instanceof Error?e.message:"Could not load accounts")}
-   finally{setLoading(false)}},[]);
- useEffect(()=>{load()},[load]);
+   finally{setLoading(false)}},[term,offset]);
+ /* One request per pause rather than per keystroke, and typing returns to the first page:
+    staying on page three of a two-page result would look like nothing matched. */
+ useEffect(()=>{const t=setTimeout(()=>{load()},250);return()=>clearTimeout(t)},[load]);
 
  /* Reports whether the change went through. It used to swallow the failure into a banner
    and return nothing, so a caller could not tell a refused save from a saved one - and the
@@ -101,15 +117,17 @@ export default function AccessSetup(){
    catch(e){setError(e instanceof Error?e.message:"Could not create the login")}
    finally{setBusy(false)}};
 
- const withLogin=new Set(users.map(u=>u.employeeId).filter(Boolean));
+ /* From the roster, not the page. Taken from the page it would have offered people who
+    already hold a login simply because they were listed further down. */
+ const withLogin=new Set(roster.map(u=>u.employeeId).filter(Boolean));
 
  return <div className="page access-page">
   <div className="access-head"><div><small>ACCESS CONTROL</small><h2>Users and role configuration</h2>
     <p>Create a login for somebody on an organisation chart and assign their roles. The first
      password is generated and must be changed at first sign-in.</p></div>
    <div className="access-head-actions">
-    <button className="wf-small" onClick={download} disabled={!users.length}
-      title={users.length?`Download all ${users.length} accounts as a spreadsheet`
+    <button className="wf-small" onClick={download} disabled={!roster.length}
+      title={roster.length?`Download all ${roster.length} accounts as a spreadsheet`
         :"There are no accounts to download"}><Download/>Download report</button>
     <button className="primary" disabled={busy||loading} onClick={()=>setShow(true)}><Plus/>Add user</button></div></div>
 
@@ -122,6 +140,18 @@ export default function AccessSetup(){
   <div className="access-tabs">
    <button className={tab==="users"?"active":""} onClick={()=>setTab("users")}>Users &amp; assignments</button>
    <button className={tab==="matrix"?"active":""} onClick={()=>setTab("matrix")}>Role permission matrix</button></div>
+
+  {tab==="users"&&<div className="access-tools">
+    <label className="recv-search"><Search/>
+      {/* Searched on the server, so a name on the last page is found from the first.
+          Typing returns to page one: staying on page three of a shorter result would
+          look like nothing matched. */}
+      <input value={term} onChange={e=>{setTerm(e.target.value);setOffset(0)}}
+        placeholder="Search name or email"/>
+      {term&&<button type="button" onClick={()=>{setTerm("");setOffset(0)}} aria-label="Clear search"><X/></button>}</label>
+    <span className="access-count">{term.trim()
+      ?`${total} match${total===1?"":"es"}`
+      :`${total} login${total===1?"":"s"}`}</span></div>}
 
   {tab==="users"?(loading?<div className="panel company-empty">Loading accounts…</div>:
    <section className="panel user-table"><table><thead><tr>
@@ -150,11 +180,17 @@ export default function AccessSetup(){
            <Power/>{u.active?"Disable":"Enable"}</button>}
         {u.email!==me&&<button className="delete" disabled={busy} title="Delete this login permanently"
            onClick={()=>removeUser(u)}><Trash2/>Delete</button>}</td></tr>})}
-     {!users.length&&<tr><td colSpan={6}>No logins yet. Use Add user to create the first one.</td></tr>}
-    </tbody></table></section>):<RoleMatrix/>}
+     {!users.length&&<tr><td colSpan={6}>{term.trim()
+      ?`No login matches “${term.trim()}”.`
+      :"No logins yet. Use Add user to create the first one."}</td></tr>}
+    </tbody></table>
+   {/* Paged on the server against the total it reports, so the count is the whole
+       register and not merely what was downloaded. Hides itself when everything fits. */}
+   <Pager total={total} limit={PER_PAGE} offset={offset} setOffset={setOffset}/>
+   </section>):<RoleMatrix/>}
 
   {show&&<Editor taken={withLogin} busy={busy} close={()=>setShow(false)} saveUser={create}/>}
- {editing&&<RoleEditor account={editing} everyone={users} busy={busy}
+ {editing&&<RoleEditor account={editing} everyone={roster} busy={busy}
    close={()=>setEditing(null)}
    save={async(roles,visibleRaisers)=>{
      /* Two writes because the API takes one change at a time. Roles first, and the list

@@ -62,7 +62,14 @@ export const messagesApi={
     {method:"DELETE"}))};
 
 export const accountsApi={
-  load:async()=>await asJson<{users:Account[];total:number}>(await fetch("/api/auth/users")),
+  /* The route has always accepted q, limit and offset and returned a total; this never
+     passed them, so the screen showed whatever the default page happened to be. */
+  load:async(params:Record<string,string|number>={})=>{
+    const u=new URLSearchParams();
+    Object.entries(params).forEach(([k,v])=>{if(v!==""&&v!==undefined)u.set(k,String(v))});
+    const q=u.toString();
+    return asJson<{users:Account[];total:number}>(
+      await fetch(`/api/auth/users${q?`?${q}`:""}`))},
   create:async(u:{name:string;email:string;employeeId:string;roles:string[]})=>
     await send("/api/auth/users","POST",u) as {created:boolean;email:string;temporaryPassword:string},
   update:async(body:Record<string,unknown>)=>await send("/api/auth/users","PATCH",body),
