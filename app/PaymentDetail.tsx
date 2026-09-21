@@ -1,6 +1,7 @@
 "use client";
 import{STAGES as stages,stageIndex}from"../lib/payment-stages";
 import{FIELD_ORDER,labelFor,ruleFor}from"../lib/payment-fields";
+import type{FieldKey}from"../lib/payment-fields";
 import{useMemo,useState}from"react";
 import{AlertTriangle,Check,Clock3,FileCheck2,Paperclip,ShieldCheck,X}from"lucide-react";
 import Attachments from"./Attachments";
@@ -25,7 +26,14 @@ export default function PaymentDetail({payment:p,role,onClose,onAction,onDelete,
    setEdit(seed);setFixing(true)};
  /* The same rules the original form applied. The server checks them again - this only
     stops the reader sending something it already knows will be refused. */
- const fixReady=FIELD_ORDER.every(k=>ruleFor(edit.nature||"",k)!=="M"||!!String(edit[k]||"").trim());
+ /* Asked of the fields this form actually draws, not of every field in the model. It used
+    to check all of them while the form skipped description - so a request saved without
+    one could never be resubmitted: the button stayed disabled and there was nothing on
+    screen to fill in. PAY-2026-1079 was in exactly that state. A readiness check must only
+    demand what it also offers. */
+ const fixShows=(k:FieldKey)=>ruleFor(edit.nature||"",k)!=="H";
+ const fixReady=FIELD_ORDER.filter(fixShows)
+   .every(k=>ruleFor(edit.nature||"",k)!=="M"||!!String(edit[k]||"").trim());
  /* Who may correct a returned request is a question of identity, not of which role the
     reader happens to have selected. The server allows it only for the person who raised
     it - not even an administrator - so gating this on a role showed the form to people
@@ -83,7 +91,9 @@ export default function PaymentDetail({payment:p,role,onClose,onAction,onDelete,
       <div className="wf-fix-fields">
         {FIELD_ORDER.map(key=>{
           const need=ruleFor(edit.nature||"",key);
-          if(need==="H"||key==="description")return null;
+          /* description is drawn here too. It is mandatory in the base rules, so leaving it
+             out made a form that demanded something it never showed. */
+          if(need==="H")return null;
           const must=need==="M";
           const choices=key==="company"?companies.map(c=>c.name):key==="department"?departments
             :key==="nature"?natures:key==="tds"?tdsChoices:key==="currency"?currencies
