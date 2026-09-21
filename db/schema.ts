@@ -4,6 +4,10 @@ export const paymentRequests=sqliteTable("payment_requests",{id:integer("id").pr
   poNumber:text("po_number").notNull().default(""),
   nature:text("nature").notNull().default(""),
   tds:text("tds").notNull().default(""),
+  /* Recorded by accounts, not by the requestor: the rate applied and the amount held
+     back. Both empty unless TDS applies. */
+  tdsPercent:text("tds_percent").notNull().default(""),
+  tdsValue:text("tds_value").notNull().default(""),
   /* Cash or bank, asked on every nature of payment. Empty on requests raised before it
      existed, which is truthful: nobody was asked. */
   paymentMode:text("payment_mode").notNull().default(""),

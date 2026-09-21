@@ -156,9 +156,46 @@ export async function PATCH(req:Request){
        from here. Every field the type hides is cleared rather than trusted, and every
        field it demands is checked again - the browser is not the authority on either. */
     const sent=fields&&typeof fields==="object"?fields:null;
+    /* Declared before either path fills them: the TDS branch below and the requestor's
+       correction after it both write here, and whichever comes first must not find them
+       undeclared. */
     const edits:Record<string,string|number>={};
     const changed:[FieldKey,string,string][]=[];
-    if(sent){
+    /* Accounts record TDS while a request is with them. This is deliberately its own
+       narrow path rather than an extension of the requestor's correction: that one lets
+       the raiser rewrite any field its payment type asks for, and an accountant must not
+       be able to reach a vendor or an amount through it. Only these three keys, only a
+       write role, and only while the request is actually in the accounts queue. */
+    const TDS_KEYS=["tds","tdsPercent","tdsValue"];
+    const ACCOUNTS_STAGES=["Submitted","Requested","Accountant Accepted","Accountant Review"];
+    const tdsOnly=!!sent&&Object.keys(sent).length>0
+      &&Object.keys(sent).every(k=>TDS_KEYS.includes(k));
+    if(tdsOnly&&sent){
+      if(!hasWriteRole(actor?.roles))return bad("Your role cannot record TDS.",403);
+      if(!ACCOUNTS_STAGES.includes(old.status))
+        return bad("TDS is recorded while a request is with accounts.",422);
+      const applies=String(sent.tds??"").trim();
+      if(applies!=="Yes"&&applies!=="No")
+        return bad("Say whether TDS applies before accepting the request.",422);
+      if(applies==="No"){edits.tds="No";edits.tdsPercent="";edits.tdsValue=""}
+      else{
+        const pct=Number(String(sent.tdsPercent??"").trim());
+        const val=Number(String(sent.tdsValue??"").trim());
+        if(!Number.isFinite(pct)||pct<=0||pct>100)
+          return bad("Enter a TDS percentage between 0 and 100.",422);
+        if(!Number.isFinite(val)||val<=0)
+          return bad("Enter a TDS value above zero.",422);
+        if(val>Number(old.amount))
+          return bad("TDS cannot be more than the amount of the request.",422);
+        edits.tds="Yes";edits.tdsPercent=String(pct);edits.tdsValue=String(val);
+      }
+      for(const k of TDS_KEYS){
+        const before=String((old as Record<string,unknown>)[k]??"");
+        const after=String(edits[k]??"");
+        if(before!==after)changed.push([k as FieldKey,before||"(empty)",after||"(empty)"]);
+      }
+    }
+    if(sent&&!tdsOnly){
       if(!ownResubmit)
         return bad("Only the person who raised a returned request can correct it.",403);
       const nature=String(sent.nature??old.nature??"");

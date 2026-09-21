@@ -5,7 +5,7 @@ import type{FieldKey}from"../lib/payment-fields";
 import{useMemo,useState}from"react";
 import{AlertTriangle,Check,Clock3,FileCheck2,Paperclip,ShieldCheck,X}from"lucide-react";
 import Attachments from"./Attachments";
-type Payment={projectCode?:string;invoiceNumber?:string;invoiceDate?:string;paymentTerms?:string;period?:string;extra?:string;tds?:string;nature?:string;poNumber?:string;resubmitNote?:string;resubmittedAt?:string;rejectionNote?:string;rejectedBy?:string;rejectedAt?:string;raisedBy?:string;id:number;requestNo:string;company:string;vendor:string;amount:number;currency:string;due:string;urgency:string;status:string;owner:string;department:string};
+type Payment={projectCode?:string;invoiceNumber?:string;invoiceDate?:string;paymentTerms?:string;period?:string;extra?:string;tds?:string;nature?:string;poNumber?:string;resubmitNote?:string;resubmittedAt?:string;rejectionNote?:string;rejectedBy?:string;rejectedAt?:string;raisedBy?:string;tdsPercent?:string;tdsValue?:string;id:number;requestNo:string;company:string;vendor:string;amount:number;currency:string;due:string;urgency:string;status:string;owner:string;department:string};
 /* The badge was hardcoded blue, so a rejected request looked the same as one in
    progress. Colour follows the status. */
 const statusTone=(s:string)=>/reject|query/i.test(s)?"red"
@@ -63,11 +63,44 @@ export default function PaymentDetail({payment:p,role,onClose,onAction,onDelete,
  const noteBox=(label:string,hint:string)=><label className="wf-note">{label}
    <textarea value={stageNote} onChange={e=>setStageNote(e.target.value)} placeholder={hint}/></label>;
  const withNote=()=>stageNote.trim()||undefined;
+
+ /* TDS is an accounts determination, not something a requestor asserts, which is why it
+    left the request form and arrives here instead. Whatever the requestor answered before
+    is carried in as the starting value rather than discarded: the requests already in the
+    queue then cost a confirmation rather than fresh data entry. */
+ const[tdsOn,setTdsOn]=useState(p.tds||"");
+ const[tdsPct,setTdsPct]=useState(p.tdsPercent||"");
+ const[tdsVal,setTdsVal]=useState(p.tdsValue||"");
+ /* Worked out from the amount and the rate, and still editable. A figure typed with no
+    relation to the amount is the kind of error that passes a review unnoticed. */
+ const tdsAuto=(pct:string)=>{
+   const rate=Number(pct),amount=Number(p.amount);
+   return Number.isFinite(rate)&&rate>0&&Number.isFinite(amount)
+     ?String(Math.round(amount*rate)/100):""};
+ /* An unanswered question becomes "No" by the time anybody notices, and no later stage
+    asks again - so the answer is required before the request moves on. */
+ const tdsReady=tdsOn==="No"||(tdsOn==="Yes"&&!!String(tdsPct).trim()&&!!String(tdsVal).trim());
+ const tdsFields=()=>tdsOn==="Yes"
+   ?{tds:"Yes",tdsPercent:String(tdsPct).trim(),tdsValue:String(tdsVal).trim()}
+   :{tds:"No",tdsPercent:"",tdsValue:""};
+ const tdsBox=<div className="wf-tds">
+   <label className="wf-note">TDS applicable
+     <select value={tdsOn} onChange={e=>{const v=e.target.value;setTdsOn(v);
+       if(v!=="Yes"){setTdsPct("");setTdsVal("")}}}>
+       <option value="">— choose —</option><option>Yes</option><option>No</option></select></label>
+   {tdsOn==="Yes"&&<div className="wf-tds-pair">
+     <label className="wf-note">TDS percentage
+       <input type="number" min="0" max="100" step="0.01" value={tdsPct}
+         onChange={e=>{const v=e.target.value;setTdsPct(v);setTdsVal(tdsAuto(v))}}/></label>
+     <label className="wf-note">TDS value ({p.currency})
+       <input type="number" min="0" step="0.01" value={tdsVal}
+         onChange={e=>setTdsVal(e.target.value)}/></label></div>}
+ </div>;
  const toggle=(k:string)=>setChecks(v=>({...v,[k]:!v[k]})),complete=(ks:string[])=>ks.every(k=>checks[k]);
  const accountKeys=["PO / Invoice / DO matched","Balance reconciled"],auditKeys=["Documents verified","GL posting correct","Balance reconciled"];
  const list=(ks:string[])=><div className="wf-checks">{ks.map(k=><label key={k} className={checks[k]?"done":""}><input type="checkbox" checked={!!checks[k]} onChange={()=>toggle(k)}/><span>{checks[k]?<Check/>:null}</span><b>{k}</b></label>)}</div>;
  let action=<div className="wf-callout"><Clock3/>This request is visible to you. Switch to its responsible role to perform the next action.</div>;
- if(accountQueue&&can("Accountant"))action=<>{p.resubmitNote&&<div className="wf-success wf-reply"><Check/><div><small>CORRECTED AND RESUBMITTED</small><b>{p.resubmitNote}</b><span>{p.rejectionNote?`Returned for: ${p.rejectionNote}`:""}{p.resubmittedAt?` · ${stamp(p.resubmittedAt)}`:""}</span></div></div>}<div className="wf-callout"><Clock3/>Available in the common Accounts queue.</div>{noteBox("Remarks (optional)","Anything worth recording with this decision")}<div className="wf-actions">{rejectForm("Why is this being sent back?")}<button className="wf-primary" onClick={()=>onAction("Accountant Accepted",withNote())}><Check/>Accept to Start</button></div></>;
+ if(accountQueue&&can("Accountant"))action=<>{p.resubmitNote&&<div className="wf-success wf-reply"><Check/><div><small>CORRECTED AND RESUBMITTED</small><b>{p.resubmitNote}</b><span>{p.rejectionNote?`Returned for: ${p.rejectionNote}`:""}{p.resubmittedAt?` · ${stamp(p.resubmittedAt)}`:""}</span></div></div>}<div className="wf-callout"><Clock3/>Available in the common Accounts queue.</div>{noteBox("Remarks (optional)","Anything worth recording with this decision")}{tdsBox}<div className="wf-actions">{rejectForm("Why is this being sent back?")}<button className="wf-primary" disabled={!tdsReady} title={tdsReady?"":"Say whether TDS applies first"} onClick={()=>onAction("Accountant Accepted",withNote(),tdsFields())}><Check/>Accept to Start</button></div></>;
  if(accountWork&&can("Accountant"))action=<>{list(accountKeys)}{noteBox("Issues fixed / accountant note","Record issues and how they were fixed")}<button className="wf-primary" disabled={!complete(accountKeys)} onClick={()=>onAction("Pre-Audit Queue",withNote())}>Send to Audit</button></>;
  if(auditQueue&&can("Auditor"))action=<><div className="wf-callout"><ShieldCheck/>Available in the common Audit queue.</div>{noteBox("Remarks (optional)","Anything worth recording with this decision")}<div className="wf-actions">{rejectForm("Why is this being sent back?")}<button className="wf-primary" onClick={()=>onAction("Audit Accepted",withNote())}><Check/>Accept to Start</button></div></>;
  if(auditWork&&can("Auditor"))action=<>{list(auditKeys)}<label className="wf-note">Audit observation<textarea value={observation} onChange={e=>setObservation(e.target.value)}/></label><div className="wf-actions"><button className="wf-reject" onClick={()=>onAction("Observation – Accounts Action",observation.trim()||undefined)}><AlertTriangle/>Reject & raise observation</button><button className="wf-primary" disabled={!complete(auditKeys)} onClick={()=>onAction("Approved by Auditor – Ready to Release",withNote())}>Approve for release</button></div></>;

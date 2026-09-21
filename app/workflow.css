@@ -103,6 +103,14 @@
 .modal footer button{font-family:inherit;font-size:11px;font-weight:700;line-height:1.2;cursor:pointer}
 .modal footer button svg{width:14px;height:14px;flex:none}
 
+/* TDS, recorded by accounts in the acceptance panel. The rate and the value appear only
+   when TDS applies, side by side because they are one answer in two parts. */
+.wf-tds{display:flex;flex-direction:column;gap:9px;margin:10px 0}
+.wf-tds select,.wf-tds input{display:block;width:100%;border:1px solid var(--line,#e2e9e6);
+  border-radius:7px;padding:9px;margin-top:5px;background:#fff;font:inherit;font-size:11px}
+.wf-tds-pair{display:grid;grid-template-columns:1fr 1fr;gap:9px}
+@media(max-width:560px){.wf-tds-pair{grid-template-columns:1fr}}
+
 /* File upload control.
 
    The native file input renders as the browser's own "Choose File / no file chosen"
