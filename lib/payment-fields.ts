@@ -77,7 +77,15 @@ export const labelFor=(nature:string,field:FieldKey):string=>
 export const departmentsFor=(nature:string)=>PAYMENT_TYPES[nature]?.departments||"";
 
 /* Everything the form can draw, in the order it draws them. */
-export const FIELD_ORDER:FieldKey[]=["company","department","nature","tds","vendor",
+/* tds is deliberately absent. Both forms and the server's field check all walk this list,
+   so dropping the key here stops it being asked for, validated or written anywhere -
+   while the column and the ninety-five requests that carry a value keep them.
+
+   Marking it "H" would have been the obvious move and the wrong one: hidden means the
+   server clears the field, so the first correction to an old request would have wiped its
+   TDS. The per-type rules below still mention it and are simply inert, which makes
+   restoring the field a one-line change if it is ever wanted again. */
+export const FIELD_ORDER:FieldKey[]=["company","department","nature","vendor",
   "poNumber","projectCode","invoiceNumber","invoiceDate","paymentTerms","period",
   "amount","due","currency","description"];
 

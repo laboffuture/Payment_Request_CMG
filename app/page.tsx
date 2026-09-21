@@ -337,8 +337,9 @@ function PaymentForm({close,added,companies,departments,natures,currencies,tdsCh
   setV(c=>({...c,nature:natures[0]}))},[natures,v.nature]);
  useEffect(()=>{if(currencies.length&&!currencies.includes(v.currency))
   setV(c=>({...c,currency:currencies[0]}))},[currencies,v.currency]);
- useEffect(()=>{if(tdsChoices.length&&!tdsChoices.includes(v.tds))
-  setV(c=>({...c,tds:tdsChoices[0]}))},[tdsChoices,v.tds]);useEffect(()=>{if(departments.length&&!departments.includes(v.department))setV(c=>({...c,department:departments[0]}))},[departments,v.department]);/* Changing the type clears what that type does not use, so a PO number typed under one
+ /* The TDS effect that sat here is gone with the field. It kept writing a value into the
+    form for something no longer asked for, and the form would have gone on posting it. */
+ useEffect(()=>{if(departments.length&&!departments.includes(v.department))setV(c=>({...c,department:departments[0]}))},[departments,v.department]);/* Changing the type clears what that type does not use, so a PO number typed under one
    type is not carried into another that hides it. The server clears them too. */
  useEffect(()=>{setV(c=>{const next={...c} as Record<string,string>;let touched=false;
    for(const f of FIELD_ORDER)if(ruleFor(c.nature,f)==="H"&&next[f]){next[f]="";touched=true}
