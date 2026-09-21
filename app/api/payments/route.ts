@@ -167,7 +167,10 @@ export async function PATCH(req:Request){
        be able to reach a vendor or an amount through it. Only these three keys, only a
        write role, and only while the request is actually in the accounts queue. */
     const TDS_KEYS=["tds","tdsPercent","tdsValue"];
-    const ACCOUNTS_STAGES=["Submitted","Requested","Accountant Accepted","Accountant Review"];
+    /* Verification, not acceptance. TDS is asked for where accounts do the checking, so
+       the server accepts it only from there - the acceptance step no longer offers the
+       field and must not be able to write it either. */
+    const ACCOUNTS_STAGES=["Accountant Accepted","Accountant Review"];
     const tdsOnly=!!sent&&Object.keys(sent).length>0
       &&Object.keys(sent).every(k=>TDS_KEYS.includes(k));
     if(tdsOnly&&sent){
