@@ -13,7 +13,7 @@ const statusTone=(s:string)=>/reject|query/i.test(s)?"red"
   :/observation|correction|reconfirm/i.test(s)?"amber":"blue";
 const stamp=(v:string)=>v?new Date(v).toLocaleDateString("en-GB",{day:"2-digit",month:"short",year:"numeric"}):"";
 
-export default function PaymentDetail({payment:p,role,onClose,onAction,onDelete,userEmail="",companies=[],departments=[],natures=[],currencies=[],tdsChoices=[],termsChoices=[]}:{payment:Payment;role:string;onClose:()=>void;onAction:(s:string,note?:string,fields?:Record<string,string>)=>void;onDelete?:()=>void;userEmail?:string;companies?:{id:string;name:string}[];departments?:string[];natures?:string[];currencies?:string[];tdsChoices?:string[];termsChoices?:string[]}){
+export default function PaymentDetail({payment:p,role,onClose,onAction,onDelete,userEmail="",companies=[],departments=[],natures=[],currencies=[],tdsChoices=[],termsChoices=[],modeChoices=[]}:{payment:Payment;role:string;onClose:()=>void;onAction:(s:string,note?:string,fields?:Record<string,string>)=>void;onDelete?:()=>void;userEmail?:string;companies?:{id:string;name:string}[];departments?:string[];natures?:string[];currencies?:string[];tdsChoices?:string[];termsChoices?:string[];modeChoices?:string[]}){
  const accountQueue=["Submitted","Requested"].includes(p.status),accountWork=["Accountant Accepted","Accountant Review"].includes(p.status),auditQueue=p.status==="Pre-Audit Queue",auditWork=p.status==="Audit Accepted",correction=p.status==="Observation – Accounts Action",recheck=p.status==="Audit Reconfirmation",approved=p.status==="Approved by Auditor – Ready to Release",released=p.status==="Payment Released";
  const[rejecting,setRejecting]=useState(false),[remark,setRemark]=useState(""),[fixing,setFixing]=useState(false),[fixNote,setFixNote]=useState(""),[stageNote,setStageNote]=useState(""),[checks,setChecks]=useState<Record<string,boolean>>({}),[observation,setObservation]=useState("Supporting documents do not reconcile with the ledger balance."),[proof,setProof]=useState("");
  const active=useMemo(()=>stageIndex(p.status),[p.status]);
@@ -97,6 +97,7 @@ export default function PaymentDetail({payment:p,role,onClose,onAction,onDelete,
           const must=need==="M";
           const choices=key==="company"?companies.map(c=>c.name):key==="department"?departments
             :key==="nature"?natures:key==="tds"?tdsChoices:key==="currency"?currencies
+            :key==="paymentMode"?modeChoices
             :key==="paymentTerms"?termsChoices:null;
           return <label key={key} className={key==="vendor"?"wide":""}>
             {labelFor(edit.nature||"",key)}{!must&&<i className="field-optional">optional</i>}

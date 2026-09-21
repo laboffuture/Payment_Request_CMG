@@ -13,6 +13,7 @@ export const OPTION_LISTS=[
   {id:"payment.currency", label:"Currency",          where:"Payment request and scheduled payments"},
   {id:"payment.tds",      label:"TDS applicable",    where:"Payment request form"},
   {id:"payment.terms",    label:"Payment terms",     where:"Payment request form"},
+  {id:"payment.mode",     label:"Mode of payment",   where:"Payment request form"},
   {id:"attachment.kind",  label:"Document type",     where:"Every attachment upload"},
   {id:"task.priority",    label:"Task priority",     where:"Tasks and work"},
   {id:"audittask.frequency",label:"How often",        where:"Meetings, tasks, tokens and training"},

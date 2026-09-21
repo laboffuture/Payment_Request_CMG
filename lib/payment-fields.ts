@@ -10,12 +10,15 @@
 
 export type Need="M"|"C"|"H";
 export type FieldKey="company"|"department"|"nature"|"tds"|"vendor"|"poNumber"|"amount"
-  |"due"|"currency"|"projectCode"|"paymentTerms"|"invoiceNumber"|"invoiceDate"|"period"
-  |"description"|"documents";
+  |"due"|"currency"|"paymentMode"|"projectCode"|"paymentTerms"|"invoiceNumber"
+  |"invoiceDate"|"period"|"description"|"documents";
 
 /* Always required, whatever the type. */
 const BASE:Record<FieldKey,Need>={
   company:"M",department:"M",nature:"M",amount:"M",due:"M",currency:"M",
+  /* Mandatory here rather than against any one type, because it is asked of every nature
+     of payment. No rule below overrides it. */
+  paymentMode:"M",
   description:"M",documents:"M",vendor:"M",tds:"C",
   poNumber:"H",projectCode:"H",paymentTerms:"H",invoiceNumber:"H",invoiceDate:"H",period:"H"};
 
@@ -64,7 +67,8 @@ export const PAYMENT_TYPES:Record<string,Rule>={
 const LABELS:Record<FieldKey,string>={
   company:"Company",department:"Department",nature:"Nature of payment",tds:"TDS applicable",
   vendor:"Vendor / beneficiary",poNumber:"PO number",amount:"Amount",due:"Due date",
-  currency:"Currency",projectCode:"Project code",paymentTerms:"Payment terms",
+  currency:"Currency",paymentMode:"Mode of payment",
+  projectCode:"Project code",paymentTerms:"Payment terms",
   invoiceNumber:"Invoice number",invoiceDate:"Invoice date",period:"Period",
   description:"Description",documents:"Supporting documents"};
 
@@ -87,7 +91,7 @@ export const departmentsFor=(nature:string)=>PAYMENT_TYPES[nature]?.departments|
    restoring the field a one-line change if it is ever wanted again. */
 export const FIELD_ORDER:FieldKey[]=["company","department","nature","vendor",
   "poNumber","projectCode","invoiceNumber","invoiceDate","paymentTerms","period",
-  "amount","due","currency","description"];
+  "amount","due","currency","paymentMode","description"];
 
 /* Fields the server checks on a new request. Documents are uploaded after the request
    exists, so they are required by the form rather than here. */

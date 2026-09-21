@@ -4,6 +4,9 @@ export const paymentRequests=sqliteTable("payment_requests",{id:integer("id").pr
   poNumber:text("po_number").notNull().default(""),
   nature:text("nature").notNull().default(""),
   tds:text("tds").notNull().default(""),
+  /* Cash or bank, asked on every nature of payment. Empty on requests raised before it
+     existed, which is truthful: nobody was asked. */
+  paymentMode:text("payment_mode").notNull().default(""),
   extra:text("extra").notNull().default(""),
   projectCode:text("project_code").notNull().default(""),
   invoiceNumber:text("invoice_number").notNull().default(""),
