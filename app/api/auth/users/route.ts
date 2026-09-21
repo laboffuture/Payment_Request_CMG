@@ -24,6 +24,12 @@ export async function GET(req:Request){
         .orderBy(asc(wfUsers.name)).limit(limit).offset(offset),
       db.select({n:count()}).from(wfUsers).where(where)]);
     return Response.json({users:rows.map(r=>({...r,roles:JSON.parse(r.roles||"[]"),
+      /* Parsed, like roles beside it. Sent as the raw column it became the string "[]"
+         on the screen, and the picker spread that string into its characters - so a
+         head with nobody assigned arrived as "[", "]" and the save was refused. A
+         malformed value yields an empty list rather than throwing the whole request. */
+      visibleRaisers:(()=>{try{const v=JSON.parse(r.visibleRaisers||"[]");
+        return Array.isArray(v)?v as string[]:[]}catch{return[] as string[]}})(),
       active:!!r.active,mustChange:!!r.mustChange})),total:total?.n??0});
   }catch(e){return oops(e)}}
 

@@ -237,7 +237,12 @@ function Editor({taken,busy,close,saveUser}:{taken:Set<string>;busy:boolean;clos
 function RoleEditor({account,everyone,busy,close,save}:{account:Account;everyone:Account[];
   busy:boolean;close:()=>void;save:(roles:string[],visibleRaisers?:string[])=>void}){
   const[roles,setRoles]=useState<string[]>(account.roles||[]);
-  const[picked,setPicked]=useState<string[]>(account.visibleRaisers||[]);
+  /* Guarded rather than trusted. The type says string[], but this arrives as JSON from
+     the API and TypeScript cannot check across that boundary - when it came back as the
+     string "[]" the spread below turned it into its own characters. Anything that is not
+     an array starts empty. */
+  const[picked,setPicked]=useState<string[]>(
+    Array.isArray(account.visibleRaisers)?account.visibleRaisers:[]);
   const[term,setTerm]=useState("");
   const toggleRole=(v:string)=>setRoles(r=>r.includes(v)?r.filter(x=>x!==v):[...r,v]);
   const toggleRaiser=(e:string)=>setPicked(p=>p.includes(e)?p.filter(x=>x!==e):[...p,e]);
