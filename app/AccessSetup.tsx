@@ -269,7 +269,12 @@ function RoleEditor({account,everyone,busy,close,save}:{account:Account;everyone
          <button type="button" key={u.id} className={picked.includes(u.email)?"selected":""}
            onClick={()=>toggleRaiser(u.email)}>
            {picked.includes(u.email)&&<Check/>}
-           <span><b>{u.name}</b><small>{u.email}</small></span></button>)}
+           <span><b>{u.name}</b><small>{u.email}</small></span>
+           {/* Said plainly rather than hidden: most logins have never raised a request, and
+               assigning one of them is what makes a head's register look broken. */}
+           <i className={u.requestCount?"raiser-count has":"raiser-count"}>
+             {u.requestCount?`${u.requestCount} request${u.requestCount===1?"":"s"}`:"none yet"}</i>
+           </button>)}
          {!shown.length&&<p className="queue-empty">Nobody matches that.</p>}</div>
        <p className="queue-empty">{picked.length
          ?`${picked.length} requestor${picked.length===1?"":"s"} selected`

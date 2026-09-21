@@ -1,6 +1,6 @@
-import{asc,count,eq,like,or}from"drizzle-orm";
+import{asc,count,eq,like,or,sql}from"drizzle-orm";
 import{getDb}from"../../../../db";
-import{wfEmployees,wfSessions,wfUsers}from"../../../../db/schema";
+import{paymentRequests,wfEmployees,wfSessions,wfUsers}from"../../../../db/schema";
 import{newPasswordFields,randomHex,requireAuth}from"../../../../lib/auth";
 import{bad,oops,page,search,str}from"../../../../lib/workforce-api";
 
@@ -23,7 +23,19 @@ export async function GET(req:Request){
         lastLoginAt:wfUsers.lastLoginAt}).from(wfUsers).where(where)
         .orderBy(asc(wfUsers.name)).limit(limit).offset(offset),
       db.select({n:count()}).from(wfUsers).where(where)]);
+    /* How many requests each person has raised, so the screen that assigns requestors to a
+       department head can say so. Without it the picker lists every login alike, and
+       somebody can be assigned three people who have never raised anything - which then
+       reads as the feature being broken rather than as an empty register.
+
+       Counted across the whole register rather than the page being shown, because the
+       number means "what this person has raised", not "what is in this window". Grouped on
+       the lowered address to match how the payments route compares them. */
+    const raised=await db.select({who:sql<string>`lower(${paymentRequests.raisedBy})`,
+      n:count()}).from(paymentRequests).groupBy(sql`lower(${paymentRequests.raisedBy})`);
+    const byEmail=new Map(raised.map(r=>[String(r.who||""),Number(r.n)||0]));
     return Response.json({users:rows.map(r=>({...r,roles:JSON.parse(r.roles||"[]"),
+      requestCount:byEmail.get(String(r.email||"").toLowerCase())??0,
       /* Parsed, like roles beside it. Sent as the raw column it became the string "[]"
          on the screen, and the picker spread that string into its characters - so a
          head with nobody assigned arrived as "[", "]" and the save was refused. A

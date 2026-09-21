@@ -27,6 +27,9 @@ export type Message={id:string;authorId:string;authorName:string;authorEmail:str
   toEmployee:string;body:string;at:string};
 export type Account={id:string;email:string;name:string;employeeId:string;roles:string[];
   visibleRaisers?:string[];
+  /* How many payment requests this person has raised. Read-only, from the users
+     endpoint, so the assignment picker can show who actually raises work. */
+  requestCount?:number;
   active:boolean;mustChange:boolean;lastLoginAt:string};
 
 export const companiesApi={

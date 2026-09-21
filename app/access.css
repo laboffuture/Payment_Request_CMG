@@ -12,6 +12,13 @@
   border:1px solid #d0d5dd;background:#fff;border-radius:6px;padding:7px 9px;font:inherit;cursor:pointer}
 .access-raisers button.selected{background:#eef3fa;border-color:#8ea5c7;color:#1b3a66}
 .access-raisers button svg{width:12px;height:12px;flex:none}
+/* The count sits at the far end of the row, so the names and addresses stay aligned
+   down the left however long the number is. "none yet" is deliberately quiet - it is
+   the common case and should read as information, not as a warning. */
+.access-raisers button>span{flex:1;min-width:0}
+.raiser-count{margin-left:auto;flex:none;font-style:normal;font-size:8px;font-weight:700;
+  color:#98a2b3;background:#f2f4f7;border-radius:20px;padding:3px 7px;white-space:nowrap}
+.raiser-count.has{color:#1b3a66;background:#eef3fa}
 .access-raisers b,.access-raisers small{display:block}
 .access-raisers b{font-size:10px}
 .access-raisers small{font-size:8px;color:#667085}
