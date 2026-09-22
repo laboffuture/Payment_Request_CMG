@@ -325,7 +325,14 @@ export const wfAuditTasks=sqliteTable("wf_audit_tasks",{
   completedAt:text("completed_at").notNull().default(""),
   extra:text("extra").notNull().default(""),
   raisedByEmail:text("raised_by_email").notNull().default(""),
-  frequency:text("frequency").notNull().default("")},
+  frequency:text("frequency").notNull().default(""),
+  /* Recurrence. recurDay is the weekday a weekly series falls on, so "every Monday" can
+     be stated at all; recurUntil is the date it stops, empty meaning it keeps going; and
+     seriesId is the first occurrence's own id, carried by every later one so a series can
+     be followed without a second table to keep in step with this one. */
+  recurDay:text("recur_day").notNull().default(""),
+  recurUntil:text("recur_until").notNull().default(""),
+  seriesId:text("series_id").notNull().default("")},
   t=>[index("wf_at_kind_idx").on(t.kind),index("wf_at_status_idx").on(t.status),
       index("wf_at_company_idx").on(t.companyId),index("wf_at_assigned_idx").on(t.assignedTo),
       index("wf_at_kind_status_idx").on(t.kind,t.status)]);

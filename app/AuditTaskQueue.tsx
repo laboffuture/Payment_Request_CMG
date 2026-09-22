@@ -11,8 +11,13 @@ import type{Employee}from"./workforce-store";
    schedules rather than four that behaved the same way. */
 const RAISED_ON_MEETINGS=["Meeting","Task","Token","Training"] as const;
 const FREQUENCY_FALLBACK=["One time","Daily","Weekly","Monthly"];
+/* Which frequencies actually repeat, and the days a weekly one can fall on. Both match
+   lib/recurrence, which is what the server generates from - if these drifted apart, the
+   screen would offer a rule the generator does not honour. */
+const RECURRING=["Daily","Weekly","Monthly"];
+const WEEKDAYS=["Sunday","Monday","Tuesday","Wednesday","Thursday","Friday","Saturday"];
 type Tab="Queue"|"Accepted & In Progress"|"Completed";
-export default function AuditTaskQueue({title,kind,tasks,role,accept,update,create,companies=[]}:{companies?:{id:string;name:string}[];create?:(t:{title:string;department:string;companyId:string;due:string;notes:string;attendees?:string;extra?:string;kind?:string;frequency?:string})=>Promise<void>|void;title:string;kind:AuditTask["kind"];tasks:AuditTask[];role:string;accept:(id:string)=>void;update:(id:string,status:AuditTask["status"])=>void}){const[tab,setTab]=useState<Tab>("Queue"),[open,setOpen]=useState(false),[busy,setBusy]=useState(false),[form,setForm]=useState({title:"",department:"",companyId:"",due:"",notes:"",kind:"Meeting",frequency:"One time"}),[guests,setGuests]=useState<{id:string;name:string}[]>([]),[term,setTerm]=useState(""),[search,setSearch]=useState(""),[dept,setDept]=useState("All departments"),[entity,setEntity]=useState("All companies");const wf=useWorkforce();
+export default function AuditTaskQueue({title,kind,tasks,role,accept,update,create,companies=[]}:{companies?:{id:string;name:string}[];create?:(t:{title:string;department:string;companyId:string;due:string;notes:string;attendees?:string;extra?:string;kind?:string;frequency?:string;recurDay?:string;recurUntil?:string})=>Promise<void>|void;title:string;kind:AuditTask["kind"];tasks:AuditTask[];role:string;accept:(id:string)=>void;update:(id:string,status:AuditTask["status"])=>void}){const[tab,setTab]=useState<Tab>("Queue"),[open,setOpen]=useState(false),[busy,setBusy]=useState(false),[form,setForm]=useState({title:"",department:"",companyId:"",due:"",notes:"",kind:"Meeting",frequency:"One time",recurDay:"",recurUntil:""}),[guests,setGuests]=useState<{id:string;name:string}[]>([]),[term,setTerm]=useState(""),[search,setSearch]=useState(""),[dept,setDept]=useState("All departments"),[entity,setEntity]=useState("All companies");const wf=useWorkforce();
   const frequencies=useOptions("audittask.frequency",FREQUENCY_FALLBACK);
   const xFields=useExtraFields("audittask");
   const[xVals,setXVals]=useState<Record<string,string>>({});
@@ -40,8 +45,13 @@ export default function AuditTaskQueue({title,kind,tasks,role,accept,update,crea
       if(!form.title.trim()||!create)return; setBusy(true);
       try{await create({...form,title:form.title.trim(),
           attendees:guests.map(g=>g.id).join(","),extra:packExtra(xFields,xVals),
-          kind:kind==="Meeting"?form.kind:kind,frequency:form.frequency}); setOpen(false);
-        setForm({title:"",department:"",companyId:"",due:"",notes:"",kind:"Meeting",frequency:"One time"});setGuests([]);setTerm("");}
+          kind:kind==="Meeting"?form.kind:kind,frequency:form.frequency,
+          /* Named here or dropped: this call passes the fields it lists, so a recurrence
+             left out would be collected on screen and never reach the server. A day is
+             only meaningful for a weekly series, and neither is kept for a one-off. */
+          recurDay:form.frequency==="Weekly"?form.recurDay:"",
+          recurUntil:RECURRING.includes(form.frequency)?form.recurUntil:""}); setOpen(false);
+        setForm({title:"",department:"",companyId:"",due:"",notes:"",kind:"Meeting",frequency:"One time",recurDay:"",recurUntil:""});setGuests([]);setTerm("");}
       finally{setBusy(false)}}}>
       <header><div><small>AUDIT DEPARTMENT</small>
         <h2>New {kind!=="Meeting"?kind.toLowerCase()+" task":form.kind==="Meeting"?"meeting":form.kind.toLowerCase()}</h2></div>
@@ -53,6 +63,18 @@ export default function AuditTaskQueue({title,kind,tasks,role,accept,update,crea
         <label>How often?
           <select value={form.frequency} onChange={e=>setForm({...form,frequency:e.target.value})}>
             {frequencies.map(f=><option key={f}>{f}</option>)}</select></label>
+        {/* A day only means something for a weekly series - "every Monday" cannot be said
+            about a daily or monthly one - so it is asked for only then. Left unset, a
+            weekly series simply keeps whatever day its first date falls on. */}
+        {form.frequency==="Weekly"&&<label>On which day?
+          <select value={form.recurDay} onChange={e=>setForm({...form,recurDay:e.target.value})}>
+            <option value="">Same day as the first one</option>
+            {WEEKDAYS.map(d=><option key={d}>{d}</option>)}</select></label>}
+        {/* Optional: a series with no end date keeps going. Having one means it can be
+            stopped without deleting the meetings that already happened. */}
+        {RECURRING.includes(form.frequency)&&<label>Repeat until <i className="field-optional">optional</i>
+          <input type="date" value={form.recurUntil} min={form.due||undefined}
+            onChange={e=>setForm({...form,recurUntil:e.target.value})}/></label>}
         <label className="wide">{kind!=="Meeting"?"Task title":form.kind==="Meeting"?"What is the meeting about?":`What is the ${form.kind.toLowerCase()} for?`}
           <input required value={form.title} onChange={e=>setForm({...form,title:e.target.value})}
             placeholder={kind!=="Meeting"?"e.g. Vendor onboarding controls":form.kind==="Training"?"e.g. Fire safety refresher":form.kind==="Token"?"e.g. Petty cash token":form.kind==="Task"?"e.g. Reconcile vendor statements":"e.g. Monthly audit closing"}/></label>

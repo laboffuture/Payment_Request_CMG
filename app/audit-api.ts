@@ -17,7 +17,7 @@ const send=async(path:string,method:string,body?:unknown)=>
 
 export type Company={extra?:string;id:string;name:string;code:string;currency:string;country:string;
   reminderDays:number;escalationDays:number;managementEmail:string;active:boolean;position:number};
-export type AuditRow={frequency?:string;id:string;ref:string;title:string;kind:string;companyId:string;department:string;
+export type AuditRow={frequency?:string;recurDay?:string;recurUntil?:string;seriesId?:string;id:string;ref:string;title:string;kind:string;companyId:string;department:string;
   status:string;attendees?:string;assignedTo:string;due:string;plannedStart:string;plannedEnd:string;notes:string;
   dataProvider:string;createdAt:string;acceptedAt:string;completedAt:string};
 export type Batch={extra?:string;id:string;vendor:string;requested:number;approved:number|null;currency:string;
