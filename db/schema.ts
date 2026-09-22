@@ -11,6 +11,13 @@ export const paymentRequests=sqliteTable("payment_requests",{id:integer("id").pr
   /* Cash or bank, asked on every nature of payment. Empty on requests raised before it
      existed, which is truthful: nobody was asked. */
   paymentMode:text("payment_mode").notNull().default(""),
+  /* The job a payment belongs to. Asked for on the natures tied to project work and
+     hidden - and cleared - on the rest. */
+  jobNo:text("job_no").notNull().default(""),
+  jbCode:text("jb_code").notNull().default(""),
+  project:text("project").notNull().default(""),
+  jobLocation:text("job_location").notNull().default(""),
+  workType:text("work_type").notNull().default(""),
   extra:text("extra").notNull().default(""),
   projectCode:text("project_code").notNull().default(""),
   invoiceNumber:text("invoice_number").notNull().default(""),

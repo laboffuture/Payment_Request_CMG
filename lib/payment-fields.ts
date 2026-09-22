@@ -11,7 +11,8 @@
 export type Need="M"|"C"|"H";
 export type FieldKey="company"|"department"|"nature"|"tds"|"vendor"|"poNumber"|"amount"
   |"due"|"currency"|"paymentMode"|"projectCode"|"paymentTerms"|"invoiceNumber"
-  |"invoiceDate"|"period"|"description"|"documents";
+  |"invoiceDate"|"period"|"jobNo"|"jbCode"|"project"|"jobLocation"|"workType"
+  |"description"|"documents";
 
 /* Always required, whatever the type. */
 const BASE:Record<FieldKey,Need>={
@@ -20,7 +21,21 @@ const BASE:Record<FieldKey,Need>={
      of payment. No rule below overrides it. */
   paymentMode:"M",
   description:"M",documents:"M",vendor:"M",tds:"C",
-  poNumber:"H",projectCode:"H",paymentTerms:"H",invoiceNumber:"H",invoiceDate:"H",period:"H"};
+  poNumber:"H",projectCode:"H",paymentTerms:"H",invoiceNumber:"H",invoiceDate:"H",period:"H",
+  /* Hidden by default. Only the natures tied to a job ask for these, and hidden means the
+     server clears the value rather than trusting it - so a job number typed under one
+     nature cannot travel into another that has nothing to do with a job. */
+  jobNo:"H",jbCode:"H",project:"H",jobLocation:"H",workType:"H"};
+
+/* The job details, as the natures tied to project work ask for them. Written once and
+   spread into each, so the five cannot drift apart - which is the whole reason they are
+   here rather than repeated five times.
+
+   The job number and the project are required, because without them the payment cannot be
+   attributed to anything. The rest are conditional: a location or a work type is often
+   obvious from the project, and demanding them would only invite anything typed to get
+   past the check. */
+const JOB_FIELDS={jobNo:"M",jbCode:"C",project:"M",jobLocation:"C",workType:"C"} as const;
 
 type Rule={need:Partial<Record<FieldKey,Need>>;labels?:Partial<Record<FieldKey,string>>;
   departments:string};
@@ -28,7 +43,8 @@ type Rule={need:Partial<Record<FieldKey,Need>>;labels?:Partial<Record<FieldKey,s
 export const PAYMENT_TYPES:Record<string,Rule>={
   "Vendor Payment":{
     departments:"Procurement / Project / Admin / IT / Sales / Other",
-    need:{tds:"M",poNumber:"M",projectCode:"C",paymentTerms:"C",invoiceNumber:"M",invoiceDate:"M"}},
+    need:{tds:"M",poNumber:"M",projectCode:"C",paymentTerms:"C",invoiceNumber:"M",invoiceDate:"M",
+      ...JOB_FIELDS}},
   "HR / Payroll Payment":{
     departments:"HR",
     labels:{vendor:"Employee / beneficiary",period:"Payroll month / period"},
@@ -41,7 +57,20 @@ export const PAYMENT_TYPES:Record<string,Rule>={
     need:{tds:"C",poNumber:"C",projectCode:"C",paymentTerms:"C"}},
   "Project Expense":{
     departments:"Project / Operations",
-    need:{tds:"C",poNumber:"M",projectCode:"M",paymentTerms:"M"}},
+    need:{tds:"C",poNumber:"M",projectCode:"M",paymentTerms:"M",...JOB_FIELDS}},
+  /* The remaining natures tied to a job. They ask for the job details and little else:
+     petty cash and labour payments are settled against a job rather than an invoice. */
+  "Project Petty Cash":{
+    departments:"Project / Operations",
+    need:{tds:"C",...JOB_FIELDS}},
+  "OT Labour Payment":{
+    departments:"Project / Operations / HR",
+    labels:{vendor:"Paid to",period:"Overtime period"},
+    need:{tds:"C",period:"M",...JOB_FIELDS}},
+  "Sub Contractor":{
+    departments:"Project / Operations",
+    labels:{vendor:"Sub contractor"},
+    need:{tds:"C",poNumber:"C",invoiceNumber:"C",invoiceDate:"C",paymentTerms:"C",...JOB_FIELDS}},
   "Employee Reimbursement / Claim":{
     departments:"All departments",
     labels:{vendor:"Employee / beneficiary",period:"Expense date / period"},
@@ -70,6 +99,8 @@ const LABELS:Record<FieldKey,string>={
   currency:"Currency",paymentMode:"Mode of payment",
   projectCode:"Project code",paymentTerms:"Payment terms",
   invoiceNumber:"Invoice number",invoiceDate:"Invoice date",period:"Period",
+  jobNo:"Job #",jbCode:"JB code",project:"Project",jobLocation:"Job location",
+  workType:"Type of works",
   description:"Description",documents:"Supporting documents"};
 
 export const ruleFor=(nature:string,field:FieldKey):Need=>
@@ -91,6 +122,8 @@ export const departmentsFor=(nature:string)=>PAYMENT_TYPES[nature]?.departments|
    restoring the field a one-line change if it is ever wanted again. */
 export const FIELD_ORDER:FieldKey[]=["company","department","nature","vendor",
   "poNumber","projectCode","invoiceNumber","invoiceDate","paymentTerms","period",
+  /* The job details sit together, after the invoice fields and before the money. */
+  "jobNo","jbCode","project","jobLocation","workType",
   "amount","due","currency","paymentMode","description"];
 
 /* Fields the server checks on a new request. Documents are uploaded after the request

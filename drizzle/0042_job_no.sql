@@ -1,0 +1,12 @@
+-- The job details asked for on project-related payments: job_no.
+--
+-- Shown only for the natures that are tied to a job - vendor payments, project petty
+-- cash, OT labour, project expenses and sub contractor work. Every other nature hides it,
+-- and a hidden field is cleared by the server rather than trusted, so a value cannot be
+-- carried from one type into another that does not use it.
+--
+-- Empty on the requests already raised, which is truthful: none of them was asked.
+--
+-- One ALTER per migration. Two in a single file failed inside D1 with an internal error
+-- and left nothing applied.
+ALTER TABLE `payment_requests` ADD `job_no` text DEFAULT '' NOT NULL;
