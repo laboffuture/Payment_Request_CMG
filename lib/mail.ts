@@ -25,9 +25,10 @@
 import{getBindings}from"../db";
 
 type MailEnv={MAIL_CLIENT_EMAIL?:string;MAIL_PRIVATE_KEY?:string;MAIL_FROM?:string;
-  MAIL_REDIRECT_TO?:string};
+  MAIL_SEND_AS?:string;MAIL_FROM_NAME?:string;MAIL_REDIRECT_TO?:string};
 
-export type MailConfig={clientEmail:string;privateKey:string;from:string;redirectTo:string};
+export type MailConfig={clientEmail:string;privateKey:string;from:string;sendAs:string;
+  fromName:string;redirectTo:string};
 export type MailResult={sent:boolean;reason:string;to:string[];subject:string};
 
 const SCOPE="https://www.googleapis.com/auth/gmail.send";
@@ -41,9 +42,17 @@ export async function mailConfig():Promise<MailConfig|null>{
        escaped. Both forms are accepted rather than insisting on one. */
     const privateKey=String(env.MAIL_PRIVATE_KEY||"").replace(/\\n/g,"\n").trim();
     const from=String(env.MAIL_FROM||"").trim();
+    /* The address that appears in From, when it should not be the mailbox being
+       impersonated. Google only lets a message claim an address the account is entitled
+       to - a verified "send as" alias of MAIL_FROM - and rewrites or refuses anything
+       else, so this is not a free-text field however much it looks like one. */
+    const sendAs=String(env.MAIL_SEND_AS||"").trim()||from;
+    /* The name a recipient actually reads. This one is free text, and it is what makes a
+       message look like it came from a system rather than from a person. */
+    const fromName=String(env.MAIL_FROM_NAME||"CMG Payment Request").trim();
     const redirectTo=String(env.MAIL_REDIRECT_TO||"").trim();
     if(!clientEmail||!privateKey||!from)return null;
-    return{clientEmail,privateKey,from,redirectTo};
+    return{clientEmail,privateKey,from,sendAs,fromName,redirectTo};
   }catch{return null}}
 
 /* ---------- encoding ---------- */
@@ -60,6 +69,16 @@ const utf8=(s:string)=>new TextEncoder().encode(s);
    in a vendor's name - has to be encoded, or the subject arrives as mojibake. */
 const headerValue=(s:string)=>
   /^[\x20-\x7E]*$/.test(s)?s:`=?UTF-8?B?${bytesToB64(utf8(s))}?=`;
+
+/* `Name <address>`. A plain name is quoted, because an unquoted one may only be made of
+   atoms and "CMG Payment Request" would be read as three of them. An encoded name must
+   not be quoted - the quotes would become part of the decoded text - so the two cases are
+   built differently rather than wrapped alike. */
+const fromHeader=(address:string,name:string)=>{
+  if(!name)return address;
+  const plain=/^[\x20-\x7E]*$/.test(name);
+  const shown=plain?`"${name.replace(/["\\]/g,"")}"`:headerValue(name);
+  return`${shown} <${address}>`};
 
 /* ---------- token ---------- */
 
@@ -176,8 +195,8 @@ export async function sendMail(opts:{to:string[];subject:string;html:string;repl
     const html=c.redirectTo
       ?`${opts.html}<p style="font-size:11px;color:#b3372a">Redirected. Would have gone to: ${to.join(", ")}</p>`
       :opts.html;
-    const raw=b64url(utf8(rfc2822({from:c.from,to:recipients,subject:opts.subject,html,
-      replyTo:opts.replyTo})));
+    const raw=b64url(utf8(rfc2822({from:fromHeader(c.sendAs,c.fromName),to:recipients,
+      subject:opts.subject,html,replyTo:opts.replyTo})));
     const token=await accessToken(c);
     const res=await fetch(
       `https://gmail.googleapis.com/gmail/v1/users/${encodeURIComponent(c.from)}/messages/send`,
