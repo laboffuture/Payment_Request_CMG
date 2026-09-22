@@ -150,7 +150,7 @@ export async function PATCH(req:Request){
       await notify(await emailsForRoles(["Auditor","Audit Head"]),
         {title:`${row.ref} is ready for audit verification`,
           body:[row.customer,row.crmJobNo,str(patch.soNo)||row.soNo].filter(Boolean).join(" · "),
-          module:"accountsreceived",recordId:id},actor?.email);
+          module:"accountsreceived",recordId:id},actor?.email,["Auditor","Audit Head"]);
     if(next==="Verified")
       await notify(row.raisedByEmail?[row.raisedByEmail]:await emailsForRoles(ACCOUNTS_ROLES),
         {title:`${row.ref} verified by audit`,body:str(patch.remarks),

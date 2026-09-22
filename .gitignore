@@ -53,3 +53,8 @@ tsconfig.tsbuildinfo
 
 # Source artwork. The web-sized copy lives in public/.
 /IMAGES/
+
+# Worker secrets for local runs - the Graph client secret lives here.
+# .env* above does not match this name, and this repository is public.
+.dev.vars
+.dev.vars.*

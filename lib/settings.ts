@@ -17,6 +17,9 @@ export const OPTION_LISTS=[
   {id:"attachment.kind",  label:"Document type",     where:"Every attachment upload"},
   {id:"task.priority",    label:"Task priority",     where:"Tasks and work"},
   {id:"audittask.frequency",label:"How often",        where:"Meetings, tasks, tokens and training"},
+  /* The group address audit notifications are emailed to. Empty or inactive means no
+     email goes to auditors, so this entry is the switch as well as the address. */
+  {id:"mail.auditor",     label:"Audit team email group", where:"Email notifications to auditors"},
 ] as const;
 
 export const isKnownList=(id:string)=>OPTION_LISTS.some(l=>l.id===id);

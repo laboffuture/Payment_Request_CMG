@@ -49,7 +49,7 @@ export async function POST(req:Request){
     await notify(await emailsForRoles(["Auditor","Audit Head"]),{
       title:`New scheduled payment for audit: ${row.vendor}`,
       body:`${row.currency} ${Number(row.requested).toLocaleString()} · raised by ${actor?.name||"accounts"}`,
-      module:"scheduled",recordId:row.id},actor?.email);
+      module:"scheduled",recordId:row.id},actor?.email,["Auditor","Audit Head"]);
     return Response.json({batch:row},{status:201});
   }catch(e){return oops(e)}}
 
@@ -103,7 +103,7 @@ export async function PATCH(req:Request){
     if(action==="resubmit")
       await notify(await emailsForRoles(["Auditor","Audit Head"]),{
         title:`Scheduled payment resubmitted: ${b.vendor}`,body:amount,
-        module:"scheduled",recordId:id},actor?.email);
+        module:"scheduled",recordId:id},actor?.email,["Auditor","Audit Head"]);
     else await notify([b.raiserEmail||""],{
       title:action==="accept"?`Audit picked up your scheduled payment: ${b.vendor}`
         :action==="approve"?`Approved, ready to release: ${b.vendor}`

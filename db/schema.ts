@@ -435,7 +435,10 @@ export const wfNotifications=sqliteTable("wf_notifications",{
   module:text("module").notNull().default(""),
   recordId:text("record_id").notNull().default(""),
   createdAt:text("created_at").notNull(),
-  readAt:text("read_at").notNull().default("")},
+  readAt:text("read_at").notNull().default(""),
+  /* When this was emailed, empty meaning it was not. Keeps a notification from being
+     emailed twice, and keeps the stored backlog out of anybody's inbox. */
+  emailedAt:text("emailed_at").notNull().default("")},
   t=>[index("wf_notif_recipient_idx").on(t.recipient,t.readAt,t.createdAt)]);
 
 /* The people we pay. The payment form suggests from here as a requestor types, and a

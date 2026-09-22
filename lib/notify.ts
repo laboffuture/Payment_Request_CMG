@@ -1,6 +1,7 @@
-import{inArray}from"drizzle-orm";
-import{getDb}from"../db";
-import{wfNotifications,wfUsers}from"../db/schema";
+import{and,eq,inArray}from"drizzle-orm";
+import{getDb,getBindings}from"../db";
+import{settingOptions,wfNotifications,wfUsers}from"../db/schema";
+import{sendMail,template}from"./mail";
 
 /* Telling people. Every flow calls these after its own write has succeeded, and none of
    them throws: a notification that cannot be stored must never undo, or report as
@@ -9,22 +10,75 @@ import{wfNotifications,wfUsers}from"../db/schema";
 
 export type Notice={title:string;body?:string;module:string;recordId:string};
 
-export async function notify(recipients:string[],n:Notice,except?:string|null){
+export async function notify(recipients:string[],n:Notice,except?:string|null,roles?:string[]){
   try{
     const skip=(except||"").trim().toLowerCase();
-    const to=[...new Set(recipients.map(e=>(e||"").trim().toLowerCase()))]
-      .filter(e=>e&&e!==skip);
+    const everyone=[...new Set(recipients.map(e=>(e||"").trim().toLowerCase()))].filter(Boolean);
+    const to=everyone.filter(e=>e!==skip);
     if(!to.length)return;
     const db=await getDb();
     const at=new Date().toISOString();
     const rows=to.map((recipient,i)=>({
       id:`N-${Date.now().toString(36)}-${i}-${Math.random().toString(36).slice(2,7)}`,
       recipient,title:n.title.slice(0,160),body:(n.body||"").slice(0,300),
-      module:n.module,recordId:n.recordId,createdAt:at,readAt:""}));
+      module:n.module,recordId:n.recordId,createdAt:at,readAt:"",emailedAt:""}));
     // one statement per row keeps each well inside D1's bound-parameter limit
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     await db.batch(rows.map(r=>db.insert(wfNotifications).values(r)) as any);
+    /* The screen is told either way; the mail is a second delivery of the same thing and
+       must never be the reason a notification fails. */
+    await email(db,rows.map(r=>r.id),to,everyone,skip,n,roles,at);
   }catch(e){console.error("notify failed",e)}}
+
+/* ---------- email ---------- */
+
+/* Which group address carries which role. A role that is not here sends no mail at all,
+   which is how this stays to auditors only: adding accounts later is a line here and a
+   row in the settings list, not a release. */
+const GROUP_FOR_ROLE:Record<string,string>={"Auditor":"mail.auditor","Audit Head":"mail.auditor"};
+
+async function groupAddress(db:Awaited<ReturnType<typeof getDb>>,listId:string){
+  try{
+    const rows=await db.select({name:settingOptions.name}).from(settingOptions)
+      .where(and(eq(settingOptions.listId,listId),eq(settingOptions.active,1)));
+    return(rows[0]?.name||"").trim();
+  }catch{return""}}
+
+/* Emails a notification that has just been stored, when a group address is configured for
+   the role being told.
+
+   Only role-based notifications are emailed. Telling one named person - the requestor
+   whose request came back, somebody tagged in an observation - is left to the screen for
+   now; there is no group that means "whoever raised this".
+
+   When the person who acted is themselves a member of the role, the group is not used. A
+   distribution list is expanded by the mail server after we hand it over, so there is no
+   way to leave one person out of it, and they would be emailed about their own action.
+   The others are written to directly instead, which is what the screen already does.
+
+   Nothing here throws, and a failure is not retried: the notification is stored and the
+   bell shows it regardless. */
+async function email(db:Awaited<ReturnType<typeof getDb>>,ids:string[],to:string[],
+  everyone:string[],actor:string,n:Notice,roles?:string[],at?:string){
+  try{
+    if(!roles||!roles.length)return;
+    const listId=roles.map(r=>GROUP_FOR_ROLE[r]).find(Boolean);
+    if(!listId)return;
+    const group=await groupAddress(db,listId);
+    if(!group)return;                       // switched off, or never configured
+    const actorIsMember=!!actor&&everyone.includes(actor);
+    const target=actorIsMember?to:[group];
+    const env=await getBindings() as{APP_URL?:string};
+    const link=String(env.APP_URL||"https://paymentrequest.toprockglobal.com").trim();
+    const body=[n.body,n.recordId?`Reference: ${n.recordId}`:""].filter(Boolean).join(" · ");
+    const result=await sendMail({to:target,subject:n.title,
+      html:template(n.title,body,link,
+        "CMG Payment Request · sent to the audit team because this is waiting on audit."),
+      replyTo:actor||undefined});
+    if(result.sent&&ids.length)
+      await db.update(wfNotifications).set({emailedAt:at||new Date().toISOString()})
+        .where(inArray(wfNotifications.id,ids));
+  }catch(e){console.error("notify email failed",e)}}
 
 /* Everybody signed up under any of these roles. Roles live on the login as JSON. */
 export async function emailsForRoles(roles:string[]){

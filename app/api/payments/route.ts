@@ -254,7 +254,9 @@ export async function PATCH(req:Request){
     if(waitingOn.length)await notify(await emailsForRoles(waitingOn),{
       title:`${payment.requestNo} is waiting for ${waitingOn[0]==="Finance"?"release":waitingOn[0]==="Auditor"?"audit":waitingOn[0]==="Management"?"management approval":"accounts"}`,
       body:`${payment.vendor} · ${payment.currency} ${Number(payment.amount).toLocaleString()} · ${status}`,
-      module:"payments",recordId:String(payment.id)},actor?.email);
+      /* The roles this is waiting on decide whether it is emailed: only audit has a group
+         address, so accounts and finance stages store the notification and stop there. */
+      module:"payments",recordId:String(payment.id)},actor?.email,waitingOn);
     await notify([old.raisedBy||""],{
       title:status==="Rejected"?`${payment.requestNo} was sent back to you`:`Your request ${payment.requestNo}: ${status}`,
       body:remark||`${payment.vendor} · ${payment.currency} ${Number(payment.amount).toLocaleString()}`,

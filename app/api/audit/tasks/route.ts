@@ -118,6 +118,9 @@ export async function POST(req:Request){
     /* The people invited hear about it. An audit programme with nobody named goes to
        the auditors whose queue it lands in. */
     const attendeeIds=(row.attendees||"").split(",").map(x=>x.trim()).filter(Boolean);
+    /* Only the audit-programme case is role-derived. A named attendee list is people, and
+       there is no group address that means "whoever was invited". */
+    const byRole=!attendeeIds.length&&!MEETING_KINDS.includes(row.kind);
     const invited=attendeeIds.length?await emailsForEmployees(attendeeIds)
       :MEETING_KINDS.includes(row.kind)?[]:await emailsForRoles(["Auditor","Audit Head"]);
     await notify(invited,{
@@ -125,7 +128,8 @@ export async function POST(req:Request){
         ?`${actor?.name||"Someone"} added you to a ${row.kind.toLowerCase()}: ${row.title}`
         :`New ${row.kind} task: ${row.title}`,
       body:[row.due?`Due ${row.due}`:"",row.notes].filter(Boolean).join(" · "),
-      module:moduleForKind(row.kind),recordId:row.id},actor?.email);
+      module:moduleForKind(row.kind),recordId:row.id},actor?.email,
+      byRole?["Auditor","Audit Head"]:undefined);
     return Response.json({task:row},{status:201});
   }catch(e){return oops(e)}}
 
