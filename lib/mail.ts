@@ -25,7 +25,8 @@
 import{getBindings}from"../db";
 
 type MailEnv={MAIL_CLIENT_EMAIL?:string;MAIL_PRIVATE_KEY?:string;MAIL_FROM?:string;
-  MAIL_SEND_AS?:string;MAIL_FROM_NAME?:string;MAIL_REPLY_TO?:string;MAIL_REDIRECT_TO?:string};
+  MAIL_SEND_AS?:string;MAIL_FROM_NAME?:string;MAIL_REPLY_TO?:string;MAIL_REDIRECT_TO?:string;
+  RELAY_URL?:string;RELAY_TOKEN?:string};
 
 export type MailConfig={clientEmail:string;privateKey:string;from:string;sendAs:string;
   fromName:string;replyTo:string;redirectTo:string};
@@ -182,6 +183,42 @@ function rfc2822(o:{from:string;to:string[];subject:string;html:string;replyTo?:
   const body=bytesToB64(utf8(o.html)).replace(/(.{76})/g,"$1\r\n");
   return`${headers}\r\n\r\n${body}`}
 
+/* Hands the message to the local relay, if one is configured. Returns null when there is
+   none, so the caller carries on to the Gmail API or to report-only.
+
+   The relay listens on localhost and nginx does not proxy it, but a token is still
+   required: everything else on this machine can reach localhost too. */
+async function relay(to:string[],opts:{subject:string;html:string;replyTo?:string}):Promise<MailResult|null>{
+  const env=await getBindings() as MailEnv;
+  const url=String(env.RELAY_URL||"").trim();
+  const token=String(env.RELAY_TOKEN||"").trim();
+  const from=String(env.MAIL_FROM||"").trim();
+  if(!url||!token||!from)return null;
+  const result=(sent:boolean,reason:string):MailResult=>({sent,reason,to,subject:opts.subject});
+  try{
+    const name=String(env.MAIL_FROM_NAME||"CMG Payment Request").trim();
+    const shownFrom=String(env.MAIL_SEND_AS||from).trim();
+    const configured=String(env.MAIL_REPLY_TO||"").trim();
+    const replyTo=configured==="none"?undefined:(configured||opts.replyTo);
+    const redirect=String(env.MAIL_REDIRECT_TO||"").trim();
+    const recipients=redirect?[redirect]:to;
+    const html=redirect
+      ?`${opts.html}<p style="font-size:11px;color:#b3372a">Redirected. Would have gone to: ${to.join(", ")}</p>`
+      :opts.html;
+    const raw=rfc2822({from:fromHeader(shownFrom,name),to:recipients,subject:opts.subject,
+      html,replyTo});
+    const res=await fetch(url,{method:"POST",
+      headers:{authorization:`Bearer ${token}`,"content-type":"application/json"},
+      body:JSON.stringify({from,to:recipients,raw})});
+    if(!res.ok){
+      const detail=await res.text().catch(()=>"");
+      console.error(`[mail] relay refused (${res.status})`,detail.slice(0,300));
+      return result(false,`relay refused with ${res.status}`)}
+    return result(true,"sent via relay");
+  }catch(e){
+    console.error("[mail] relay unreachable",e);
+    return result(false,e instanceof Error?e.message:"relay unreachable")}}
+
 /* Sends one message, or reports what it would have sent.
 
    `replyTo` is the person whose action caused this, so replying reaches a human rather
@@ -191,6 +228,12 @@ export async function sendMail(opts:{to:string[];subject:string;html:string;repl
   const result=(sent:boolean,reason:string):MailResult=>({sent,reason,to,subject:opts.subject});
   if(!to.length)return result(false,"nobody to send to");
   try{
+    /* The relay first, when there is one. It needs only an app password, which the owner
+       of the sending account can generate themselves, where a service account needs a
+       Google Cloud console and somebody who can reach it. Same message either way: the
+       relay is a different road to the same mail server, not a different letter. */
+    const viaRelay=await relay(to,opts);
+    if(viaRelay)return viaRelay;
     const c=await mailConfig();
     if(!c){
       /* Report-only prints the headers it would have sent rather than a single line, so
