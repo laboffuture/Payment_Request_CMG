@@ -18,6 +18,21 @@ import{bad,oops,str}from"../../../lib/workforce-api";
    `read` level, because a Requestor is not a write role and raising work of your own
    is not the same as changing somebody else's. */
 
+/* The facts an email about a payment carries, whoever is reading it. The bell shows a
+   title and one line; an email has room to say what the request actually is, so the
+   reader can judge it without opening anything. Empty values are dropped by the template
+   rather than printed as blanks. */
+const paymentDetail=(p:{vendor?:string|null;currency?:string|null;amount?:number|null;
+  company?:string|null;department?:string|null;nature?:string|null;due?:string|null;
+  raisedBy?:string|null;paymentMode?:string|null})=>[
+  {label:"Vendor",value:String(p.vendor||"")},
+  {label:"Amount",value:`${p.currency||""} ${Number(p.amount||0).toLocaleString()}`.trim()},
+  {label:"Company",value:[p.company,p.department].filter(Boolean).join(" · ")},
+  {label:"Nature",value:String(p.nature||"")},
+  {label:"Paid by",value:String(p.paymentMode||"")},
+  {label:"Due",value:String(p.due||"")},
+  {label:"Raised by",value:String(p.raisedBy||"")}];
+
 const STATUSES=["Submitted","Requested","Rejected","Accountant Review","Accountant Accepted",
   "Pre-Audit Queue","Audit Accepted","Audit Query","Audit Rejected","Audit Reconfirmation",
   "Observation - Audit Action","Management Approval","Management Approval: Yes",
@@ -109,7 +124,9 @@ export async function POST(req:Request){
     await notify(await emailsForRoles(["Accountant"]),{
       title:`New payment request ${payment.requestNo}`,
       body:`${payment.vendor} · ${payment.currency} ${Number(payment.amount).toLocaleString()} · raised by ${actor?.name||actor?.email||"a requestor"}`,
-      module:"payments",recordId:String(payment.id)},actor?.email);
+      reference:payment.requestNo,detail:paymentDetail(payment),
+      action:"Accept it into the accounts queue to start, or send it back to the requestor with a reason.",
+      module:"payments",recordId:String(payment.id)},actor?.email,["Accountant"]);
     /* A vendor the register does not hold yet is added, so the next requestor is offered
        it rather than typing it again - and spelling it differently. */
     await rememberVendor(String(p.vendor||""),actor?.email);
@@ -254,12 +271,25 @@ export async function PATCH(req:Request){
     if(waitingOn.length)await notify(await emailsForRoles(waitingOn),{
       title:`${payment.requestNo} is waiting for ${waitingOn[0]==="Finance"?"release":waitingOn[0]==="Auditor"?"audit":waitingOn[0]==="Management"?"management approval":"accounts"}`,
       body:`${payment.vendor} · ${payment.currency} ${Number(payment.amount).toLocaleString()} · ${status}`,
-      /* The roles this is waiting on decide whether it is emailed: only audit has a group
-         address, so accounts and finance stages store the notification and stop there. */
+      /* The roles decide where the email goes, not whether one is sent: audit has a group
+         address, everybody else is written to individually. */
+      reference:payment.requestNo,detail:paymentDetail(payment),
+      action:waitingOn[0]==="Finance"?"Release the approved amount and attach the payment proof."
+        :waitingOn[0]==="Auditor"?"Accept it from the audit queue and verify the documents."
+        :waitingOn[0]==="Management"?"Approve or decline this request."
+        :"Pick it up from the accounts queue.",
       module:"payments",recordId:String(payment.id)},actor?.email,waitingOn);
     await notify([old.raisedBy||""],{
       title:status==="Rejected"?`${payment.requestNo} was sent back to you`:`Your request ${payment.requestNo}: ${status}`,
       body:remark||`${payment.vendor} · ${payment.currency} ${Number(payment.amount).toLocaleString()}`,
+      /* The requestor's own copy. A rejection is the one that matters most, so it is
+         marked as such and says plainly what to do about it. */
+      reference:payment.requestNo,detail:paymentDetail(payment),
+      tone:status==="Rejected"?"warning":status==="Payment Released"?"good":"normal",
+      action:status==="Rejected"
+        ?"Open the request, correct what is noted above, say what you changed, and send it back to accounts."
+        :status==="Payment Released"?"Nothing further is needed from you."
+        :"No action is needed from you yet; this is where the request has reached.",
       module:"payments",recordId:String(payment.id)},actor?.email);
     return Response.json({payment});
   }catch(e){return oops(e)}}

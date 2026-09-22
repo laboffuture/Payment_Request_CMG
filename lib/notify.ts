@@ -8,7 +8,14 @@ import{sendMail,template}from"./mail";
    failed, the payment approval or meeting it describes. The person acting is left out,
    since nobody needs telling what they have just done. */
 
-export type Notice={title:string;body?:string;module:string;recordId:string};
+export type Notice={title:string;body?:string;module:string;recordId:string;
+  /* Only the email uses what follows. The bell shows a title and a line of body, and
+     putting a table in it would crowd the screen; an email has room to say what the
+     request is, what has happened to it and what the reader is expected to do. */
+  reference?:string;                        // the request number, shown under the heading
+  detail?:{label:string;value:string}[];    // the facts, as rows
+  action?:string;                           // what this person is being asked to do
+  tone?:"normal"|"warning"|"good"};
 
 export async function notify(recipients:string[],n:Notice,except?:string|null,roles?:string[]){
   try{
@@ -61,19 +68,28 @@ async function groupAddress(db:Awaited<ReturnType<typeof getDb>>,listId:string){
 async function email(db:Awaited<ReturnType<typeof getDb>>,ids:string[],to:string[],
   everyone:string[],actor:string,n:Notice,roles?:string[],at?:string){
   try{
-    if(!roles||!roles.length)return;
-    const listId=roles.map(r=>GROUP_FOR_ROLE[r]).find(Boolean);
-    if(!listId)return;
-    const group=await groupAddress(db,listId);
-    if(!group)return;                       // switched off, or never configured
-    const actorIsMember=!!actor&&everyone.includes(actor);
-    const target=actorIsMember?to:[group];
+    if(!to.length)return;
+    /* A group address where the role has one, the people themselves otherwise. Only audit
+       has a group; accounts, finance and requestors are written to directly, which needs
+       nothing configured because every login here carries an address.
+
+       The group is skipped when the person acting belongs to it. A distribution list is
+       expanded by the mail server after we hand it over, so one member cannot be left out,
+       and they would be emailed about their own action. */
+    let target=to;
+    let why="You are receiving this because it is waiting on you in CMG Payment Request.";
+    const listId=(roles||[]).map(r=>GROUP_FOR_ROLE[r]).find(Boolean);
+    if(listId){
+      const group=await groupAddress(db,listId);
+      const actorIsMember=!!actor&&everyone.includes(actor);
+      if(group&&!actorIsMember){
+        target=[group];
+        why="Sent to the audit team because this is waiting on audit."}}
     const env=await getBindings() as{APP_URL?:string};
     const link=String(env.APP_URL||"https://paymentrequest.toprockglobal.com").trim();
-    const body=[n.body,n.recordId?`Reference: ${n.recordId}`:""].filter(Boolean).join(" · ");
     const result=await sendMail({to:target,subject:n.title,
-      html:template(n.title,body,link,
-        "CMG Payment Request · sent to the audit team because this is waiting on audit."),
+      html:template({title:n.title,reference:n.reference,intro:n.body,detail:n.detail,
+        action:n.action,link,tone:n.tone,footer:`${why} Replies reach the person who acted.`}),
       replyTo:actor||undefined});
     if(result.sent&&ids.length)
       await db.update(wfNotifications).set({emailedAt:at||new Date().toISOString()})

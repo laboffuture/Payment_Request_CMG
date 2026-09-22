@@ -100,14 +100,49 @@ async function accessToken(c:MailConfig):Promise<string>{
 
 /* ---------- the message ---------- */
 
-export function template(title:string,body:string,link:string,footer:string){
-  const esc=(s:string)=>String(s||"").replace(/[&<>"]/g,ch=>
-    ({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;"}[ch]||ch));
-  return`<div style="font-family:Segoe UI,Arial,sans-serif;color:#17312b;max-width:560px">
-  <p style="font-size:15px;margin:0 0 10px"><b>${esc(title)}</b></p>
-  ${body?`<p style="font-size:13px;color:#42584f;margin:0 0 14px">${esc(body)}</p>`:""}
-  ${link?`<p style="margin:0 0 18px"><a href="${esc(link)}" style="background:#0b725d;color:#fff;text-decoration:none;padding:9px 14px;border-radius:6px;font-size:13px">Open in CMG Payment</a></p>`:""}
-  <p style="font-size:11px;color:#8a978f;margin:0;border-top:1px solid #e2e9e6;padding-top:10px">${esc(footer)}</p>
+export type Tone="normal"|"warning"|"good";
+export type Detail={label:string;value:string};
+
+const esc=(s:string)=>String(s||"").replace(/[&<>"]/g,ch=>
+  ({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;"}[ch]||ch));
+
+/* Laid out in tables with inline styles rather than a stylesheet, because Outlook renders
+   mail through Word and drops most of what a browser would honour. Anything that fails to
+   apply degrades to readable text rather than to a broken layout. */
+export function template(o:{title:string;reference?:string;intro?:string;detail?:Detail[];
+  action?:string;link?:string;footer:string;tone?:Tone}){
+  const stripe=o.tone==="warning"?"#b3372a":o.tone==="good"?"#1e7a52":"#0b1d3a";
+  const rows=(o.detail||[]).filter(d=>d&&d.value).map(d=>
+    `<tr>
+      <td style="padding:5px 14px 5px 0;font-size:12px;color:#8a978f;white-space:nowrap;vertical-align:top">${esc(d.label)}</td>
+      <td style="padding:5px 0;font-size:13px;color:#17312b;vertical-align:top"><b>${esc(d.value)}</b></td>
+    </tr>`).join("");
+  return`<div style="background:#f4f7f5;padding:22px 0;font-family:Segoe UI,Helvetica,Arial,sans-serif">
+ <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%">
+  <tr><td align="center">
+   <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="560" style="max-width:560px;background:#ffffff;border:1px solid #e2e9e6;border-radius:10px;overflow:hidden">
+    <tr><td style="background:${stripe};height:4px;line-height:4px;font-size:0">&nbsp;</td></tr>
+    <tr><td style="padding:22px 26px 6px">
+     <p style="margin:0;font-size:10px;letter-spacing:1.4px;color:#8a978f;font-weight:700">CMG PAYMENT REQUEST</p>
+     <p style="margin:8px 0 0;font-size:19px;color:#17312b;font-weight:600">${esc(o.title)}</p>
+     ${o.reference?`<p style="margin:4px 0 0;font-size:13px;color:#0b725d;font-weight:700">${esc(o.reference)}</p>`:""}
+    </td></tr>
+    ${o.intro?`<tr><td style="padding:12px 26px 0"><p style="margin:0;font-size:13px;color:#42584f;line-height:1.5">${esc(o.intro)}</p></td></tr>`:""}
+    ${rows?`<tr><td style="padding:16px 26px 0">
+      <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="border-top:1px solid #eef1ef;padding-top:8px">${rows}</table>
+    </td></tr>`:""}
+    ${o.action?`<tr><td style="padding:16px 26px 0">
+      <p style="margin:0;padding:11px 13px;background:#f4f7f5;border-left:3px solid ${stripe};font-size:12.5px;color:#42584f;line-height:1.5">${esc(o.action)}</p>
+    </td></tr>`:""}
+    ${o.link?`<tr><td style="padding:18px 26px 4px">
+      <a href="${esc(o.link)}" style="display:inline-block;background:#0b725d;color:#ffffff;text-decoration:none;padding:10px 18px;border-radius:7px;font-size:13px;font-weight:600">Open in CMG Payment</a>
+    </td></tr>`:""}
+    <tr><td style="padding:20px 26px 22px">
+     <p style="margin:0;border-top:1px solid #eef1ef;padding-top:12px;font-size:11px;color:#8a978f;line-height:1.5">${esc(o.footer)}</p>
+    </td></tr>
+   </table>
+  </td></tr>
+ </table>
 </div>`}
 
 /* Gmail takes a whole RFC 2822 message rather than a JSON body, so it is assembled here.
