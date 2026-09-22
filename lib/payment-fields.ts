@@ -11,7 +11,7 @@
 export type Need="M"|"C"|"H";
 export type FieldKey="company"|"department"|"nature"|"tds"|"vendor"|"poNumber"|"amount"
   |"due"|"currency"|"paymentMode"|"projectCode"|"paymentTerms"|"invoiceNumber"
-  |"invoiceDate"|"period"|"jobNo"|"jbCode"|"project"|"jobLocation"|"workType"
+  |"invoiceDate"|"period"|"jobNo"|"jbCode"|"project"|"jobLocation"
   |"description"|"documents";
 
 /* Always required, whatever the type. */
@@ -25,7 +25,7 @@ const BASE:Record<FieldKey,Need>={
   /* Hidden by default. Only the natures tied to a job ask for these, and hidden means the
      server clears the value rather than trusting it - so a job number typed under one
      nature cannot travel into another that has nothing to do with a job. */
-  jobNo:"H",jbCode:"H",project:"H",jobLocation:"H",workType:"H"};
+  jobNo:"H",jbCode:"H",project:"H",jobLocation:"H"};
 
 /* The job details, as the natures tied to project work ask for them. Written once and
    spread into each, so the five cannot drift apart - which is the whole reason they are
@@ -35,7 +35,7 @@ const BASE:Record<FieldKey,Need>={
    attributed to anything. The rest are conditional: a location or a work type is often
    obvious from the project, and demanding them would only invite anything typed to get
    past the check. */
-const JOB_FIELDS={jobNo:"M",jbCode:"C",project:"M",jobLocation:"C",workType:"C"} as const;
+const JOB_FIELDS={jobNo:"M",jbCode:"C",project:"M",jobLocation:"C"} as const;
 
 type Rule={need:Partial<Record<FieldKey,Need>>;labels?:Partial<Record<FieldKey,string>>;
   departments:string};
@@ -100,7 +100,6 @@ const LABELS:Record<FieldKey,string>={
   projectCode:"Project code",paymentTerms:"Payment terms",
   invoiceNumber:"Invoice number",invoiceDate:"Invoice date",period:"Period",
   jobNo:"Job #",jbCode:"JB code",project:"Project",jobLocation:"Job location",
-  workType:"Type of works",
   description:"Description",documents:"Supporting documents"};
 
 export const ruleFor=(nature:string,field:FieldKey):Need=>
@@ -123,7 +122,7 @@ export const departmentsFor=(nature:string)=>PAYMENT_TYPES[nature]?.departments|
 export const FIELD_ORDER:FieldKey[]=["company","department","nature","vendor",
   "poNumber","projectCode","invoiceNumber","invoiceDate","paymentTerms","period",
   /* The job details sit together, after the invoice fields and before the money. */
-  "jobNo","jbCode","project","jobLocation","workType",
+  "jobNo","jbCode","project","jobLocation",
   "amount","due","currency","paymentMode","description"];
 
 /* Fields the server checks on a new request. Documents are uploaded after the request
