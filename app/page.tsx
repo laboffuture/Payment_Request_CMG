@@ -1,6 +1,6 @@
 "use client";
 import {useEffect,useMemo,useRef,useState} from "react";
-import {Bell,AlertTriangle,Building2,CalendarDays,CheckCircle2,ChevronDown,CircleDollarSign,ClipboardCheck,FileBarChart,FileText,History,Import,LayoutDashboard,LogOut,Menu,MessageSquareText,Plus,ReceiptText,Search,Settings,ShieldCheck,SlidersHorizontal,Users,X,GraduationCap,Upload} from "lucide-react";
+import {Bell,AlertTriangle,Building2,CalendarClock,CalendarDays,CheckCircle2,ChevronDown,CircleDollarSign,ClipboardCheck,FileBarChart,FileText,History,Import,LayoutDashboard,LogOut,Menu,MessageSquareText,Plus,ReceiptText,Search,Settings,ShieldCheck,SlidersHorizontal,Users,X,GraduationCap,Upload} from "lucide-react";
 import PaymentDetail from "./PaymentDetail";
 import {asDataUrl} from "./Attachments";
 import PaymentWorkbench from "./PaymentWorkbench";
@@ -12,6 +12,7 @@ import ImportCentre from "./ImportCentre";
 import AuditTaskQueue from "./AuditTaskQueue";
 import CompanySetup from "./CompanySetup";
 import AccountsReceived from "./AccountsReceived";
+import ScheduledPayments from "./ScheduledPayments";
 import ObservationDesk from "./ObservationDesk";
 import SettingsDesk from "./SettingsDesk";
 import{ExtraFields,packExtra,refreshFields,useExtraFields}from"./ExtraFields";
@@ -27,7 +28,7 @@ import {WorkforceOverview,WorkforceReports} from "./WorkforceReports";
 import {auditTasksApi,companiesApi} from "./audit-api";
 type Payment={createdAt?:string;tds?:string;nature?:string;poNumber?:string;resubmitNote?:string;resubmittedAt?:string;rejectionNote?:string;rejectedBy?:string;rejectedAt?:string;raisedBy?:string;id:number;requestNo:string;company:string;vendor:string;amount:number;currency:string;due:string;urgency:string;status:string;owner:string;department:string};
 export type AuditTask={frequency?:string;attendees?:string;id:string;title:string;company:string;department:string;kind:"Pre-Audit"|"Post-Audit"|"Meeting"|"Special Audit"|"Task"|"Token"|"Training";status:"Available"|"Accepted"|"In Progress"|"Observation Submitted"|"Response Received"|"Completed";due?:string;assignedTo?:string;plannedStart?:string;plannedEnd?:string;notes?:string;dataProvider?:string};
-type Module="dashboard"|"requests"|"payments"|"accountsreceived"|"preaudit"|"postaudit"|"specialaudit"|"community"|"observations"|"meetings"|"reports"|"companies"|"settings"|"users"|"imports"|"organisation"|"employees";
+type Module="dashboard"|"requests"|"payments"|"scheduled"|"accountsreceived"|"preaudit"|"postaudit"|"specialaudit"|"community"|"observations"|"meetings"|"reports"|"companies"|"settings"|"users"|"imports"|"organisation"|"employees";
 const seed:Payment[]=[];
 const auditSeed:AuditTask[]=[];
 const specialAuditSeed:AuditTask[]=[];
@@ -42,6 +43,7 @@ const nav:{id:Module;label:string;icon:any}[]=([
   ["dashboard","Dashboard",LayoutDashboard],
   ["requests","My payment requests",FileText],
   ["payments","Accounts / Audit queues",CircleDollarSign],
+  ["scheduled","Scheduled payment",CalendarClock],
   ["accountsreceived","Accounts Receivable",ReceiptText],
   ["preaudit","Pre-audit tasks",ClipboardCheck],
   ["postaudit","Post-audit tasks",ShieldCheck],
@@ -64,7 +66,7 @@ const nav:{id:Module;label:string;icon:any}[]=([
    longer keeps them together. */
 const workforceIds:Module[]=["organisation","employees","reports"];
 const tone:Record<string,string>={"Rejected":"red","Requested":"blue","Accountant Review":"amber","Pre-Audit Queue":"blue","Management Approval":"amber","Management Approval: Yes":"green","Management Approval: No":"red","Audit Rejected":"red","Audit Query":"red","Finance Queue":"violet","Approved by Auditor – Ready to Release":"green","Payment Released":"green","Reconciliation":"green","Audit Accepted":"blue","Audit Cleared":"green"};
-const access:Record<string,Module[]>={Administrator:nav.map(x=>x.id),Requestor:["dashboard","requests","organisation","employees","meetings","community","reports"],"Department Head":["dashboard","requests","organisation","employees","meetings","community","reports"],Accountant:["dashboard","requests","payments","organisation","employees","meetings","community","reports","observations","accountsreceived"],Auditor:["dashboard","requests","payments","organisation","employees","preaudit","postaudit","specialaudit","meetings","community","reports","observations","accountsreceived"],Finance:["meetings","dashboard","payments","organisation","employees","reports"],Management:["meetings","dashboard","payments",...workforceIds],"Audit Head":nav.filter(x=>x.id!=="settings").map(x=>x.id)};
+const access:Record<string,Module[]>={Administrator:nav.map(x=>x.id),Requestor:["dashboard","requests","organisation","employees","meetings","community","reports"],"Department Head":["dashboard","requests","organisation","employees","meetings","community","reports"],Accountant:["dashboard","requests","payments","scheduled","organisation","employees","meetings","community","reports","observations","accountsreceived"],Auditor:["dashboard","requests","payments","scheduled","organisation","employees","preaudit","postaudit","specialaudit","meetings","community","reports","observations","accountsreceived"],Finance:["meetings","dashboard","payments","organisation","employees","reports"],Management:["meetings","dashboard","payments",...workforceIds],"Audit Head":nav.filter(x=>x.id!=="settings").map(x=>x.id)};
 type Note={id:string;title:string;body:string;module:string;recordId:string;createdAt:string;readAt:string};
 export default function Home(){
  const[active,setActive]=useState<Module>("dashboard"),[payments,setPayments]=useState(seed),[auditTasks,setAuditTasks]=useState([...auditSeed,...specialAuditSeed]),[company,setCompany]=useState("All companies"),[companies,setCompanies]=useState<{id:string;name:string}[]>([]),[departments,setDepartments]=useState<string[]>([]),[natures,setNatures]=useState<string[]>([]),[currencies,setCurrencies]=useState<string[]>([]),[tdsChoices,setTdsChoices]=useState<string[]>([]),[termsChoices,setTermsChoices]=useState<string[]>([]),[modeChoices,setModeChoices]=useState<string[]>([]),[masterVersion,setMasterVersion]=useState(0),[role,setRole]=useState("Audit Head"),[allowedRoles,setAllowedRoles]=useState<string[]>([]),[userName,setUserName]=useState(""),[userEmail,setUserEmail]=useState(""),[search,setSearch]=useState(""),[drawer,setDrawer]=useState<Payment|null>(null),[form,setForm]=useState(false),[passwordOpen,setPasswordOpen]=useState(false),[profileOpen,setProfileOpen]=useState(false),[mobile,setMobile]=useState(false),[profile,setProfile]=useState<string|null>(null),[toast,setToast]=useState(""),[todayLabel,setTodayLabel]=useState(""),[booting,setBooting]=useState(true),[expired,setExpired]=useState(false),[notes,setNotes]=useState<Note[]>([]),[unread,setUnread]=useState(0),[noteOpen,setNoteOpen]=useState(false);
@@ -212,6 +214,7 @@ export default function Home(){
  {active==="dashboard"&&visible.some(n=>n.id==="organisation")&&<div className="page wf-dash-wrap"><WorkforceOverview openProfile={setProfile} go={()=>setActive("organisation")}/></div>}
  {active==="requests"&&<RequestorWorkspace rows={role==="Requestor"?mine:filtered} open={setDrawer} create={()=>setForm(true)} scope={role==="Department Head"?"department":"own"}/>}
  {active==="payments"&&<PaymentWorkbench departments={departments} companies={companies.map(c=>c.name)} onDelete={removeRequest} rows={filtered} role={role} search={search} setSearch={setSearch} open={setDrawer} create={()=>setForm(true)}/>}
+ {active==="scheduled"&&<ScheduledPayments role={role} flash={flash}/>}
  {active==="accountsreceived"&&<AccountsReceived role={role} companies={companies} flash={flash}/>}
   {active==="preaudit"&&<AuditTaskQueue title="Pre-audit tasks" kind="Pre-Audit" companies={companies} create={(t)=>createAuditTask("Pre-Audit",t)} tasks={auditTasks} role={role} accept={acceptAuditTask} update={updateAuditTask}/>} 
  {active==="postaudit"&&<AuditTaskQueue title="Post-audit tasks" kind="Post-Audit" companies={companies} create={(t)=>createAuditTask("Post-Audit",t)} tasks={auditTasks} role={role} accept={acceptAuditTask} update={updateAuditTask}/>} 
