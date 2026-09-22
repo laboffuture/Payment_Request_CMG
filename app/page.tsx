@@ -344,7 +344,7 @@ function PaymentForm({close,added,companies,departments,natures,currencies,tdsCh
      any field by key, so these worked without being here - but only at runtime, and the
      type then disagreed with what the form actually holds. paymentMode was in that state
      too. */
-  paymentMode:"",jobNo:"",jbCode:"",project:"",jobLocation:""});const[extra,setExtra]=useState<Record<string,string>>({});const[vendorHints,setVendorHints]=useState<string[]>([]);const[failed,setFailed]=useState("");const[vendorOpen,setVendorOpen]=useState(false);const[files,setFiles]=useState<File[]>([]);const[saving,setSaving]=useState(false);useEffect(()=>{if(natures.length&&!natures.includes(v.nature))
+  paymentMode:"",jbCode:"",project:"",jobLocation:""});const[extra,setExtra]=useState<Record<string,string>>({});const[vendorHints,setVendorHints]=useState<string[]>([]);const[failed,setFailed]=useState("");const[vendorOpen,setVendorOpen]=useState(false);const[files,setFiles]=useState<File[]>([]);const[saving,setSaving]=useState(false);useEffect(()=>{if(natures.length&&!natures.includes(v.nature))
   setV(c=>({...c,nature:natures[0]}))},[natures,v.nature]);
  useEffect(()=>{if(currencies.length&&!currencies.includes(v.currency))
   setV(c=>({...c,currency:currencies[0]}))},[currencies,v.currency]);
