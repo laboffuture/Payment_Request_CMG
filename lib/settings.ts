@@ -20,6 +20,10 @@ export const OPTION_LISTS=[
   /* The group address audit notifications are emailed to. Empty or inactive means no
      email goes to auditors, so this entry is the switch as well as the address. */
   {id:"mail.auditor",     label:"Audit team email group", where:"Email notifications to auditors"},
+  /* One row per job, as "JB code | Project | Job location". The three are kept together
+     because a code names one project at one site; separate lists would let a payment be
+     booked against the wrong one. */
+  {id:"payment.job",      label:"Jobs (code | project | location)", where:"Payment request form"},
 ] as const;
 
 export const isKnownList=(id:string)=>OPTION_LISTS.some(l=>l.id===id);
