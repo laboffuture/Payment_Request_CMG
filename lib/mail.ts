@@ -193,7 +193,20 @@ export async function sendMail(opts:{to:string[];subject:string;html:string;repl
   try{
     const c=await mailConfig();
     if(!c){
-      console.log(`[mail] would send to ${to.join(", ")} — ${opts.subject}`);
+      /* Report-only prints the headers it would have sent rather than a single line, so
+         the sender, the recipients and the absence of a Reply-To can all be checked
+         before any credential exists. Everything except the delivery itself is decided by
+         this point, so everything except delivery can be read here. */
+      const env=await getBindings() as MailEnv;
+      const name=String(env.MAIL_FROM_NAME||"CMG Payment Request").trim();
+      const shownFrom=String(env.MAIL_SEND_AS||env.MAIL_FROM||"(MAIL_FROM not set)").trim();
+      const reply=String(env.MAIL_REPLY_TO||"").trim();
+      console.log([`[mail] would send`,
+        `        From: ${fromHeader(shownFrom,name)}`,
+        `        To: ${to.join(", ")}`,
+        `        Subject: ${opts.subject}`,
+        `        Reply-To: ${reply==="none"?"(none — no-reply)":reply||opts.replyTo||"(none)"}`,
+        `        Body: ${opts.html.length} bytes of HTML`].join("\n"));
       return result(false,"not configured (report-only)")}
     const recipients=c.redirectTo?[c.redirectTo]:to;
     const html=c.redirectTo
