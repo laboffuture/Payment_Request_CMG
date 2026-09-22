@@ -89,7 +89,11 @@ async function email(db:Awaited<ReturnType<typeof getDb>>,ids:string[],to:string
     const link=String(env.APP_URL||"https://paymentrequest.toprockglobal.com").trim();
     const result=await sendMail({to:target,subject:n.title,
       html:template({title:n.title,reference:n.reference,intro:n.body,detail:n.detail,
-        action:n.action,link,tone:n.tone,footer:`${why} Replies reach the person who acted.`}),
+        /* The footer does not promise that a reply will reach anybody: the address this
+           is sent from is a system one and may not be monitored. Acting on the request is
+           done in the application, which is what the button is for. */
+        action:n.action,link,tone:n.tone,
+        footer:`${why} This message is sent automatically — open the request to act on it.`}),
       replyTo:actor||undefined});
     if(result.sent&&ids.length)
       await db.update(wfNotifications).set({emailedAt:at||new Date().toISOString()})

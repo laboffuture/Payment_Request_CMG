@@ -25,10 +25,10 @@
 import{getBindings}from"../db";
 
 type MailEnv={MAIL_CLIENT_EMAIL?:string;MAIL_PRIVATE_KEY?:string;MAIL_FROM?:string;
-  MAIL_SEND_AS?:string;MAIL_FROM_NAME?:string;MAIL_REDIRECT_TO?:string};
+  MAIL_SEND_AS?:string;MAIL_FROM_NAME?:string;MAIL_REPLY_TO?:string;MAIL_REDIRECT_TO?:string};
 
 export type MailConfig={clientEmail:string;privateKey:string;from:string;sendAs:string;
-  fromName:string;redirectTo:string};
+  fromName:string;replyTo:string;redirectTo:string};
 export type MailResult={sent:boolean;reason:string;to:string[];subject:string};
 
 const SCOPE="https://www.googleapis.com/auth/gmail.send";
@@ -50,9 +50,13 @@ export async function mailConfig():Promise<MailConfig|null>{
     /* The name a recipient actually reads. This one is free text, and it is what makes a
        message look like it came from a system rather than from a person. */
     const fromName=String(env.MAIL_FROM_NAME||"CMG Payment Request").trim();
+    /* "none" leaves the header off entirely, which is what makes a message a no-reply.
+       An address here is used for every message; empty keeps the older behaviour of
+       replying to whoever acted. */
+    const replyTo=String(env.MAIL_REPLY_TO||"").trim();
     const redirectTo=String(env.MAIL_REDIRECT_TO||"").trim();
     if(!clientEmail||!privateKey||!from)return null;
-    return{clientEmail,privateKey,from,sendAs,fromName,redirectTo};
+    return{clientEmail,privateKey,from,sendAs,fromName,replyTo,redirectTo};
   }catch{return null}}
 
 /* ---------- encoding ---------- */
@@ -195,8 +199,11 @@ export async function sendMail(opts:{to:string[];subject:string;html:string;repl
     const html=c.redirectTo
       ?`${opts.html}<p style="font-size:11px;color:#b3372a">Redirected. Would have gone to: ${to.join(", ")}</p>`
       :opts.html;
+    /* A no-reply message carries no Reply-To at all, rather than one pointing at an
+       address nobody reads. The footer already says where to go instead. */
+    const replyTo=c.replyTo==="none"?undefined:(c.replyTo||opts.replyTo);
     const raw=b64url(utf8(rfc2822({from:fromHeader(c.sendAs,c.fromName),to:recipients,
-      subject:opts.subject,html,replyTo:opts.replyTo})));
+      subject:opts.subject,html,replyTo})));
     const token=await accessToken(c);
     const res=await fetch(
       `https://gmail.googleapis.com/gmail/v1/users/${encodeURIComponent(c.from)}/messages/send`,
