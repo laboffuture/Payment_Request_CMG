@@ -18,7 +18,7 @@ const AT:Record<string,number>={
   // audit
   "Pre-Audit Queue":2,"Audit Accepted":2,
   // back to accounts to put something right
-  "Observation – Accounts Action":3,"Audit Query":3,"Audit Rejected":3,
+  "Observation - Audit Action":3,"Audit Query":3,"Audit Rejected":3,
   "Management Approval: No":3,
   // audit looks again
   "Audit Reconfirmation":4,

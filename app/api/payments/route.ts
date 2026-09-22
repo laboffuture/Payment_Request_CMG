@@ -20,7 +20,7 @@ import{bad,oops,str}from"../../../lib/workforce-api";
 
 const STATUSES=["Submitted","Requested","Rejected","Accountant Review","Accountant Accepted",
   "Pre-Audit Queue","Audit Accepted","Audit Query","Audit Rejected","Audit Reconfirmation",
-  "Observation – Accounts Action","Management Approval","Management Approval: Yes",
+  "Observation - Audit Action","Management Approval","Management Approval: Yes",
   "Management Approval: No","Approved by Auditor – Ready to Release","Finance Queue",
   "Payment Released","Reconciliation","Audit Cleared"];
 

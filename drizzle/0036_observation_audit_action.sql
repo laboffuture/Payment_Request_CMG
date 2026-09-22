@@ -1,0 +1,15 @@
+-- "Observation – Accounts Action" becomes "Observation - Audit Action".
+--
+-- The status is stored on the row, not merely displayed, so the seven requests holding
+-- it have to move with the name. Renaming the code alone would leave them matching no
+-- branch at all: no panel would offer an action and no stage would be recognised, which
+-- is precisely the trap this status was in before.
+--
+-- The old value carries an en-dash (e2 80 93); the new one a plain hyphen, as written by
+-- the person who asked for it. Matching the old string exactly matters - a near miss
+-- updates nothing and the rows are left stranded.
+--
+-- audit_logs is deliberately untouched. The trail records what a status was called when
+-- the entry was written, and rewriting history to match a later name would be a lie
+-- about what people saw at the time.
+UPDATE `payment_requests` SET `status` = 'Observation - Audit Action' WHERE `status` = 'Observation – Accounts Action';

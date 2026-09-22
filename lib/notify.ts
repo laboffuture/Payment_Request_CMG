@@ -54,7 +54,7 @@ export async function emailsForEmployees(ids:string[]){
    flow the workbench uses to label the next action. */
 export function rolesActingOn(status:string):string[]{
   // including the three that hand a request back: accounts has to answer each of them
-  if(["Submitted","Requested","Accountant Review","Observation – Accounts Action",
+  if(["Submitted","Requested","Accountant Review","Observation - Audit Action",
       "Audit Query","Audit Rejected","Management Approval: No"].includes(status))
     return["Accountant"];
   if(["Pre-Audit Queue","Audit Reconfirmation"].includes(status))return["Auditor","Audit Head"];
