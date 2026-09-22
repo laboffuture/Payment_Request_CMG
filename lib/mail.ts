@@ -1,68 +1,105 @@
-/* Sending mail, through Microsoft Graph.
+/* Sending mail, through the Gmail API on Google Workspace.
 
-   Graph rather than a transactional provider because the audit team is an Exchange
-   distribution list, and a distribution list normally refuses senders it cannot
-   authenticate. Mail from Resend or SendGrid arrives from outside the tenant and would be
-   rejected unless somebody turned that protection off - which would then let anyone on the
-   internet post to the list. Sending from an internal mailbox is authenticated, so the
-   list accepts it with nothing weakened.
+   A service account with domain-wide delegation, impersonating a real mailbox. That is
+   the Workspace equivalent of a server application having its own login: the account
+   signs a short assertion with its private key, Google exchanges it for a token, and the
+   message is sent as the mailbox named in MAIL_FROM.
 
-   A distribution list is not a mailbox, so it cannot be the sender. MAIL_FROM is a real
-   mailbox; the list only ever receives.
+   Sent as an internal mailbox rather than through an outside relay, for the same reason
+   the group address exists: auditteam@ is a Google Group, and a group decides who may
+   post to it. An internal sender satisfies "anyone in the organisation" without the
+   posting rule having to be opened up to the whole internet.
+
+   The group can only receive. MAIL_FROM has to be an ordinary mailbox.
+
+   SMTP is not an option here whichever provider is used - this runtime has no raw TCP, so
+   smtp-relay.gmail.com cannot be reached. It has to be the HTTP API.
 
    Nothing here throws. A notification that cannot be emailed must never undo, or report as
-   failed, the payment approval or meeting it describes - the same rule the rest of
-   lib/notify.ts already keeps.
+   failed, the payment approval or meeting it describes.
 
-   Until the four secrets are set this runs in report-only mode: it works out exactly what
-   it would send and writes that to the log, so the traffic can be watched for a few days
-   before a single message reaches anybody. Setting the secrets is the only switch. */
+   Until the service account details are set this runs in report-only mode: it works out
+   exactly what it would send and writes that to the log, so the traffic can be watched
+   before a single message reaches anybody. */
 
 import{getBindings}from"../db";
 
-type MailEnv={MAIL_TENANT_ID?:string;MAIL_CLIENT_ID?:string;MAIL_CLIENT_SECRET?:string;
-  MAIL_FROM?:string;MAIL_REDIRECT_TO?:string};
+type MailEnv={MAIL_CLIENT_EMAIL?:string;MAIL_PRIVATE_KEY?:string;MAIL_FROM?:string;
+  MAIL_REDIRECT_TO?:string};
 
-export type MailConfig={tenantId:string;clientId:string;clientSecret:string;from:string;
-  redirectTo:string};
-
+export type MailConfig={clientEmail:string;privateKey:string;from:string;redirectTo:string};
 export type MailResult={sent:boolean;reason:string;to:string[];subject:string};
+
+const SCOPE="https://www.googleapis.com/auth/gmail.send";
+const TOKEN_URL="https://oauth2.googleapis.com/token";
 
 export async function mailConfig():Promise<MailConfig|null>{
   try{
     const env=await getBindings() as MailEnv;
-    const tenantId=String(env.MAIL_TENANT_ID||"").trim();
-    const clientId=String(env.MAIL_CLIENT_ID||"").trim();
-    const clientSecret=String(env.MAIL_CLIENT_SECRET||"").trim();
+    const clientEmail=String(env.MAIL_CLIENT_EMAIL||"").trim();
+    /* A PEM is multi-line and an environment value is not, so the newlines arrive
+       escaped. Both forms are accepted rather than insisting on one. */
+    const privateKey=String(env.MAIL_PRIVATE_KEY||"").replace(/\\n/g,"\n").trim();
     const from=String(env.MAIL_FROM||"").trim();
-    /* Every message goes here instead of to the real recipients while this is set. It is
-       how the first day of live sending should be done: real traffic, one inbox. */
     const redirectTo=String(env.MAIL_REDIRECT_TO||"").trim();
-    if(!tenantId||!clientId||!clientSecret||!from)return null;
-    return{tenantId,clientId,clientSecret,from,redirectTo};
+    if(!clientEmail||!privateKey||!from)return null;
+    return{clientEmail,privateKey,from,redirectTo};
   }catch{return null}}
 
-/* The token lasts about an hour, so it is held rather than fetched for each message. Kept
-   in module scope, which on this runtime means per isolate - a new isolate simply fetches
-   its own. Refreshed a minute early so a message is never sent with one about to expire. */
+/* ---------- encoding ---------- */
+
+const bytesToB64=(bytes:Uint8Array)=>{
+  let s="";
+  for(let i=0;i<bytes.length;i++)s+=String.fromCharCode(bytes[i]);
+  return btoa(s)};
+const b64url=(bytes:Uint8Array)=>
+  bytesToB64(bytes).replace(/\+/g,"-").replace(/\//g,"_").replace(/=+$/,"");
+const utf8=(s:string)=>new TextEncoder().encode(s);
+
+/* A header may only carry plain ASCII. Anything else - an en dash in a status, an accent
+   in a vendor's name - has to be encoded, or the subject arrives as mojibake. */
+const headerValue=(s:string)=>
+  /^[\x20-\x7E]*$/.test(s)?s:`=?UTF-8?B?${bytesToB64(utf8(s))}?=`;
+
+/* ---------- token ---------- */
+
+/* The token lasts an hour, so it is held rather than fetched per message. Module scope
+   means per isolate; a new isolate simply fetches its own. Refreshed a minute early so a
+   message is never sent with one about to expire. */
 let held:{value:string;expiresAt:number}|null=null;
+
+async function signingKey(pem:string){
+  const body=pem.replace(/-----[A-Z ]+-----/g,"").replace(/\s+/g,"");
+  const der=Uint8Array.from(atob(body),c=>c.charCodeAt(0));
+  return crypto.subtle.importKey("pkcs8",der,
+    {name:"RSASSA-PKCS1-v1_5",hash:"SHA-256"},false,["sign"])}
 
 async function accessToken(c:MailConfig):Promise<string>{
   if(held&&held.expiresAt>Date.now())return held.value;
-  const body=new URLSearchParams({
-    client_id:c.clientId,client_secret:c.clientSecret,
-    scope:"https://graph.microsoft.com/.default",grant_type:"client_credentials"});
-  const res=await fetch(`https://login.microsoftonline.com/${encodeURIComponent(c.tenantId)}/oauth2/v2.0/token`,
-    {method:"POST",headers:{"content-type":"application/x-www-form-urlencoded"},body});
-  const json=await res.json().catch(()=>({})) as{access_token?:string;expires_in?:number;error_description?:string};
+  const now=Math.floor(Date.now()/1000);
+  const header=b64url(utf8(JSON.stringify({alg:"RS256",typ:"JWT"})));
+  /* `sub` is the mailbox being impersonated. Domain-wide delegation is what permits it,
+     and it is granted in the Workspace admin console against this scope alone. */
+  const claims=b64url(utf8(JSON.stringify({
+    iss:c.clientEmail,sub:c.from,scope:SCOPE,aud:TOKEN_URL,iat:now,exp:now+3600})));
+  const unsigned=`${header}.${claims}`;
+  const key=await signingKey(c.privateKey);
+  const signature=new Uint8Array(
+    await crypto.subtle.sign("RSASSA-PKCS1-v1_5",key,utf8(unsigned)));
+  const assertion=`${unsigned}.${b64url(signature)}`;
+  const res=await fetch(TOKEN_URL,{method:"POST",
+    headers:{"content-type":"application/x-www-form-urlencoded"},
+    body:new URLSearchParams({
+      grant_type:"urn:ietf:params:oauth:grant-type:jwt-bearer",assertion})});
+  const json=await res.json().catch(()=>({})) as
+    {access_token?:string;expires_in?:number;error?:string;error_description?:string};
   if(!res.ok||!json.access_token)
-    throw new Error(json.error_description||`Could not get a mail token (${res.status})`);
+    throw new Error(json.error_description||json.error||`Could not get a mail token (${res.status})`);
   held={value:json.access_token,expiresAt:Date.now()+((json.expires_in||3600)-60)*1000};
   return held.value}
 
-/* Plain text alongside the HTML is not offered: Graph takes one content type per message,
-   and HTML is what every mail client here will render. The text is kept simple enough to
-   read if one does not. */
+/* ---------- the message ---------- */
+
 export function template(title:string,body:string,link:string,footer:string){
   const esc=(s:string)=>String(s||"").replace(/[&<>"]/g,ch=>
     ({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;"}[ch]||ch));
@@ -73,10 +110,24 @@ export function template(title:string,body:string,link:string,footer:string){
   <p style="font-size:11px;color:#8a978f;margin:0;border-top:1px solid #e2e9e6;padding-top:10px">${esc(footer)}</p>
 </div>`}
 
+/* Gmail takes a whole RFC 2822 message rather than a JSON body, so it is assembled here.
+   The body is base64 so that line length and non-ASCII stop being a consideration at all. */
+function rfc2822(o:{from:string;to:string[];subject:string;html:string;replyTo?:string}){
+  const headers=[
+    `From: ${o.from}`,
+    `To: ${o.to.join(", ")}`,
+    o.replyTo?`Reply-To: ${o.replyTo}`:"",
+    `Subject: ${headerValue(o.subject)}`,
+    "MIME-Version: 1.0",
+    "Content-Type: text/html; charset=\"UTF-8\"",
+    "Content-Transfer-Encoding: base64"].filter(Boolean).join("\r\n");
+  const body=bytesToB64(utf8(o.html)).replace(/(.{76})/g,"$1\r\n");
+  return`${headers}\r\n\r\n${body}`}
+
 /* Sends one message, or reports what it would have sent.
 
-   `replyTo` is the person whose action caused this, so that replying to a notification
-   reaches a human rather than a mailbox nobody reads. */
+   `replyTo` is the person whose action caused this, so replying reaches a human rather
+   than a mailbox nobody reads. */
 export async function sendMail(opts:{to:string[];subject:string;html:string;replyTo?:string}):Promise<MailResult>{
   const to=[...new Set(opts.to.map(e=>(e||"").trim().toLowerCase()).filter(Boolean))];
   const result=(sent:boolean,reason:string):MailResult=>({sent,reason,to,subject:opts.subject});
@@ -86,19 +137,17 @@ export async function sendMail(opts:{to:string[];subject:string;html:string;repl
     if(!c){
       console.log(`[mail] would send to ${to.join(", ")} — ${opts.subject}`);
       return result(false,"not configured (report-only)")}
-    const recipients=(c.redirectTo?[c.redirectTo]:to)
-      .map(address=>({emailAddress:{address}}));
-    const message:Record<string,unknown>={
-      subject:opts.subject.slice(0,240),
-      body:{contentType:"HTML",content:c.redirectTo
-        ?`${opts.html}<p style="font-size:11px;color:#b3372a">Redirected. Would have gone to: ${to.join(", ")}</p>`
-        :opts.html},
-      toRecipients:recipients};
-    if(opts.replyTo)message.replyTo=[{emailAddress:{address:opts.replyTo}}];
+    const recipients=c.redirectTo?[c.redirectTo]:to;
+    const html=c.redirectTo
+      ?`${opts.html}<p style="font-size:11px;color:#b3372a">Redirected. Would have gone to: ${to.join(", ")}</p>`
+      :opts.html;
+    const raw=b64url(utf8(rfc2822({from:c.from,to:recipients,subject:opts.subject,html,
+      replyTo:opts.replyTo})));
     const token=await accessToken(c);
-    const res=await fetch(`https://graph.microsoft.com/v1.0/users/${encodeURIComponent(c.from)}/sendMail`,
+    const res=await fetch(
+      `https://gmail.googleapis.com/gmail/v1/users/${encodeURIComponent(c.from)}/messages/send`,
       {method:"POST",headers:{authorization:`Bearer ${token}`,"content-type":"application/json"},
-       body:JSON.stringify({message,saveToSentItems:false})});
+       body:JSON.stringify({raw})});
     if(!res.ok){
       const detail=await res.text().catch(()=>"");
       /* A rejected token is worth forgetting: the next message fetches a fresh one rather
