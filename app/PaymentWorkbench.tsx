@@ -3,7 +3,7 @@ import {AlertTriangle,CheckCircle2,CircleDollarSign,Clock3,Download,FileCheck2,P
 import {csv} from "./workforce-store";
 import {useMemo,useState} from "react";
 import{STAGES,stageIndex}from"../lib/payment-stages";
-type Payment={id:number;requestNo:string;company:string;vendor:string;amount:number;currency:string;due:string;urgency:string;status:string;owner:string;department:string;nature?:string;tds?:string;projectCode?:string;invoiceNumber?:string;invoiceDate?:string;paymentTerms?:string;period?:string;lastActionBy?:string;lastActionNote?:string;latestRemark?:string;latestRemarkBy?:string;lastActionAt?:string;rejectionNote?:string;resubmitNote?:string;poNumber?:string;raisedBy?:string;createdAt?:string};
+type Payment={id:number;requestNo:string;company:string;vendor:string;amount:number;currency:string;due:string;urgency:string;status:string;owner:string;department:string;nature?:string;tds?:string;tdsPercent?:string;tdsValue?:string;projectCode?:string;invoiceNumber?:string;invoiceDate?:string;paymentTerms?:string;period?:string;lastActionBy?:string;lastActionNote?:string;latestRemark?:string;latestRemarkBy?:string;lastActionAt?:string;rejectionNote?:string;resubmitNote?:string;poNumber?:string;raisedBy?:string;createdAt?:string};
 const queues=[
  ["All","All requests"],["AccountsAvailable","Accounts available"],["AccountsMine","My Accounts tasks"],["AuditAvailable","Audit available"],["AuditMine","My Audit tasks"],["Observations","Audit observations & queries"],["Recheck","Audit reconfirmation"],["Finance","Finance release"],["Closed","Completed"]
 ] as const;
@@ -22,9 +22,9 @@ export default function PaymentWorkbench({rows,role,search,setSearch,open,create
  const companyChoices=withRegister(companies,rows.map(p=>p.company));
  const shown=useMemo(()=>rows.filter(p=>match(p)&&(department==="All departments"||p.department===department)&&(company==="All companies"||p.company===company)&&(status==="All statuses"||p.status===status)&&(!from&&!to||!!p.due&&(!from||p.due>=from)&&(!to||p.due<=to))),[rows,tab,department,company,status,from,to]);
  const download=()=>{
-  const head=["Request","Status","Company","Department","Vendor","Nature","TDS","PO number","Project code","Invoice","Invoice date","Payment terms","Period",
+  const head=["Request","Status","Company","Department","Vendor","Nature","TDS","TDS %","TDS value","PO number","Project code","Invoice","Invoice date","Payment terms","Period",
     "Currency","Amount","Due","Urgency","Owner","Raised by","Raised on","Verified by","Remarks"];
-  const body=shown.map(p=>[p.requestNo,p.status,p.company,p.department,p.vendor,p.nature||"",p.tds||"",
+  const body=shown.map(p=>[p.requestNo,p.status,p.company,p.department,p.vendor,p.nature||"",p.tds||"",p.tdsPercent||"",p.tdsValue||"",
     p.poNumber||"",p.projectCode||"",p.invoiceNumber||"",p.invoiceDate||"",
     p.paymentTerms||"",p.period||"",p.currency,p.amount,p.due,p.urgency,p.owner,p.raisedBy||"",
     (p.createdAt||"").slice(0,10),p.lastActionBy||"",p.lastActionNote||p.latestRemark||p.rejectionNote||p.resubmitNote||""]);
