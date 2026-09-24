@@ -132,3 +132,12 @@
 .upload b{font-size:11px;font-weight:700;color:var(--green,#0b725d);line-height:1.35}
 .upload small{display:block;font-size:9px;line-height:1.5;color:#6d7988}
 .upload .upload-list{margin-top:4px;color:var(--ink,#17312b);font-weight:600;word-break:break-word}
+/* Query returns the request to the requestor to correct; amber, so it reads as a step back
+   rather than the red of a rejection, which closes it. */
+.wf-query{border:1px solid #b7791f;background:#fff;color:#8a5a12;border-radius:7px;padding:10px 13px;font-size:10px;font-weight:800;display:flex;justify-content:center;align-items:center;gap:6px}
+.wf-query svg{width:14px}
+.wf-query:disabled{opacity:.5;cursor:not-allowed}
+/* A required field still empty on a correction, and the line saying which ones. */
+.wf-fix-fields label.wf-missing select,.wf-fix-fields label.wf-missing input{border-color:#b3372a}
+.field-required{font-style:normal;font-size:8px;font-weight:800;color:#b3372a;margin-left:6px;text-transform:uppercase;letter-spacing:.05em}
+.wf-fix-missing{margin:0;font-size:10px;font-weight:700;color:#b3372a}

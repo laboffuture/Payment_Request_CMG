@@ -33,7 +33,13 @@ const paymentDetail=(p:{vendor?:string|null;currency?:string|null;amount?:number
   {label:"Due",value:String(p.due||"")},
   {label:"Raised by",value:String(p.raisedBy||"")}];
 
-const STATUSES=["Submitted","Requested","Rejected","Accountant Review","Accountant Accepted",
+/* Two ways to send a request back, and they are not the same thing.
+   Query Raised returns it to the person who raised it to correct and resubmit - the same
+   request, same number, same trail. Rejected closes it: nothing further happens to it, and
+   if the payment is still wanted the requestor raises a new request. */
+const QUERY="Query Raised",REJECTED="Rejected";
+
+const STATUSES=["Submitted","Requested",REJECTED,QUERY,"Accountant Review","Accountant Accepted",
   "Pre-Audit Queue","Audit Accepted","Audit Query","Audit Rejected","Audit Reconfirmation",
   "Observation - Audit Action","Management Approval","Management Approval: Yes",
   "Management Approval: No","Approved by Auditor – Ready to Release","Finance Queue",
@@ -148,18 +154,24 @@ export async function PATCH(req:Request){
     const[old]=await db.select().from(paymentRequests).where(eq(paymentRequests.id,Number(id))).limit(1);
     if(!old)return bad("Not found",404);
 
-    const ownResubmit=old.status==="Rejected"&&status==="Submitted"
+    const ownResubmit=old.status===QUERY&&status==="Submitted"
       &&!!actor?.email&&(old.raisedBy||"")===actor.email;
     if(!hasWriteRole(actor?.roles)&&!ownResubmit)
       return bad("Your role cannot change this data.",403);
-    /* Both ends of a return have to say something. A rejection must say what is wrong,
-       and the resubmission must say what was done about it - otherwise accounts reopens
-       the request knowing only that it came back. The original reason stays on the
-       record beside the reply until the next decision is taken. */
+    /* A rejection is final. Only an administrator can move a rejected request again - to
+       undo a rejection made in error - and nobody can resubmit one. */
+    if(old.status===REJECTED&&!(actor?.roles||[]).includes("Administrator"))
+      return bad("This request was rejected and is closed. Raise a new request instead.",409);
+    /* Both ends of a return have to say something. A query or rejection must say what is
+       wrong, and the resubmission must say what was done about it - otherwise accounts
+       reopens the request knowing only that it came back. The original reason stays on
+       the record beside the reply until the next decision is taken. */
     const remark=str(note).trim().slice(0,1000);
-    const isResubmit=old.status==="Rejected"&&status==="Submitted";
-    if(status==="Rejected"&&remark.length<5)
-      return bad("Give a reason for the rejection so the requestor knows what to correct.",422);
+    const isResubmit=old.status===QUERY&&status==="Submitted";
+    if(status===QUERY&&remark.length<5)
+      return bad("Say what the requestor needs to correct before resubmitting.",422);
+    if(status===REJECTED&&remark.length<5)
+      return bad("Give a reason for the rejection so the requestor knows why it was closed.",422);
     if(isResubmit&&remark.length<5)
       return bad("Say what you corrected, so accounts can see what changed.",422);
 
@@ -236,12 +248,14 @@ export async function PATCH(req:Request){
       }
     }
     const now=new Date().toISOString();
-    const rejectionFields=status==="Rejected"
+    /* The rejection columns carry the reason for either kind of return; the status says
+       which it was. */
+    const rejectionFields=status===REJECTED||status===QUERY
       ?{rejectionNote:remark,rejectedBy:actor?.name||actor?.email||"",rejectedAt:now,
         resubmitNote:"",resubmittedAt:""}
       :isResubmit
       ?{resubmitNote:remark,resubmittedAt:now}
-      :old.status==="Rejected"
+      :old.status===REJECTED||old.status===QUERY
       ?{rejectionNote:"",rejectedBy:"",rejectedAt:"",resubmitNote:"",resubmittedAt:""}:{};
     const[payment]=await db.update(paymentRequests)
       /* Who moved it on and what they said, kept on the request so the queue can show it
@@ -251,7 +265,8 @@ export async function PATCH(req:Request){
         ...rejectionFields})
       .where(eq(paymentRequests.id,Number(id))).returning();
     await db.insert(auditLogs).values({recordId:Number(id),
-      action:status==="Rejected"?"Rejected with remarks"
+      action:status===REJECTED?"Rejected with remarks"
+        :status===QUERY?"Query raised to requestor"
         :isResubmit?"Corrected and resubmitted":"Status changed",
       actor:actor?.name||actor?.email||"system",previousValue:old.status,
       newValue:remark?`${status} — ${remark}`:status});
@@ -280,14 +295,18 @@ export async function PATCH(req:Request){
         :"Pick it up from the accounts queue.",
       module:"payments",recordId:String(payment.id)},actor?.email,waitingOn);
     await notify([old.raisedBy||""],{
-      title:status==="Rejected"?`${payment.requestNo} was sent back to you`:`Your request ${payment.requestNo}: ${status}`,
+      title:status===QUERY?`${payment.requestNo}: query raised - please correct and resubmit`
+        :status===REJECTED?`${payment.requestNo} was rejected`
+        :`Your request ${payment.requestNo}: ${status}`,
       body:remark||`${payment.vendor} · ${payment.currency} ${Number(payment.amount).toLocaleString()}`,
-      /* The requestor's own copy. A rejection is the one that matters most, so it is
-         marked as such and says plainly what to do about it. */
+      /* The requestor's own copy. A query or a rejection is the one that matters most, so
+         it is marked as such and says plainly what to do about it. */
       reference:payment.requestNo,detail:paymentDetail(payment),
-      tone:status==="Rejected"?"warning":status==="Payment Released"?"good":"normal",
-      action:status==="Rejected"
-        ?"Open the request, correct what is noted above, say what you changed, and send it back to accounts."
+      tone:status===QUERY||status===REJECTED?"warning":status==="Payment Released"?"good":"normal",
+      action:status===QUERY
+        ?"Open the request, correct what is noted above, say what you changed, and resubmit it to accounts."
+        :status===REJECTED
+        ?"This request is closed and cannot be resubmitted. If the payment is still needed, raise a new request."
         :status==="Payment Released"?"Nothing further is needed from you."
         :"No action is needed from you yet; this is where the request has reached.",
       module:"payments",recordId:String(payment.id)},actor?.email);

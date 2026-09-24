@@ -67,7 +67,7 @@ const nav:{id:Module;label:string;icon:any}[]=([
    modules" rather than a list, so the group is still named even though the menu no
    longer keeps them together. */
 const workforceIds:Module[]=["organisation","employees","reports"];
-const tone:Record<string,string>={"Rejected":"red","Requested":"blue","Accountant Review":"amber","Pre-Audit Queue":"blue","Management Approval":"amber","Management Approval: Yes":"green","Management Approval: No":"red","Audit Rejected":"red","Audit Query":"red","Finance Queue":"violet","Approved by Auditor – Ready to Release":"green","Payment Released":"green","Reconciliation":"green","Audit Accepted":"blue","Audit Cleared":"green"};
+const tone:Record<string,string>={"Rejected":"red","Query Raised":"amber","Requested":"blue","Accountant Review":"amber","Pre-Audit Queue":"blue","Management Approval":"amber","Management Approval: Yes":"green","Management Approval: No":"red","Audit Rejected":"red","Audit Query":"red","Finance Queue":"violet","Approved by Auditor – Ready to Release":"green","Payment Released":"green","Reconciliation":"green","Audit Accepted":"blue","Audit Cleared":"green"};
 const access:Record<string,Module[]>={Administrator:nav.map(x=>x.id),Requestor:["dashboard","requests","organisation","employees","meetings","community","reports"],"Department Head":["dashboard","requests","organisation","employees","meetings","community","reports"],Accountant:["dashboard","requests","payments","scheduled","organisation","employees","meetings","community","reports","observations","accountsreceived"],Auditor:["dashboard","requests","payments","scheduled","organisation","employees","preaudit","postaudit","specialaudit","meetings","community","reports","observations","accountsreceived"],Finance:["meetings","dashboard","payments","organisation","employees","reports"],Management:["meetings","dashboard","payments",...workforceIds],"Audit Head":nav.filter(x=>x.id!=="settings").map(x=>x.id)};
 type Note={id:string;title:string;body:string;module:string;recordId:string;createdAt:string;readAt:string};
 export default function Home(){
@@ -126,7 +126,8 @@ export default function Home(){
     setPayments(v=>v.map(x=>x.id===p.id?{...x,status,owner}:x));
     setDrawer(d=>d?{...d,status,owner}:d);
    }
-   flash(status==="Rejected"?`${p.requestNo} sent back to the requestor`
+   flash(status==="Rejected"?`${p.requestNo} rejected and closed`
+     :status==="Query Raised"?`${p.requestNo} sent back to the requestor with a query`
      :status==="Submitted"?`${p.requestNo} resubmitted to Accounts`
      :`${p.requestNo} moved to ${status}`);
   }catch(e){flash(e instanceof Error?e.message:"That change was refused")}};
@@ -238,20 +239,21 @@ export default function Home(){
      status:assigned?"Accepted":"Available",assignedTo:assigned||"",dataProvider:dataProvider||"",
      notes:"Created from the import centre"});await loadAuditTasks();flash("Audit task created")}
    catch(e){flash(e instanceof Error?e.message:"Could not create the task")}}}/>}
- </>}</main>{profile&&<EmployeeProfile id={profile} close={()=>setProfile(null)} flash={flash} openProfile={setProfile}/>}{drawer&&<PaymentDetail payment={drawer} role={role} onDelete={()=>removeRequest(drawer)} onClose={()=>setDrawer(null)} onAction={(s:string,note?:string,fields?:Record<string,string>)=>act(drawer,s,note,fields)} userEmail={userEmail} companies={companies} departments={departments} natures={natures} currencies={currencies} tdsChoices={tdsChoices} termsChoices={termsChoices} modeChoices={modeChoices}/>} {form&&<PaymentForm companies={companies} departments={departments} natures={natures} currencies={currencies} tdsChoices={tdsChoices} termsChoices={termsChoices} modeChoices={modeChoices} jobs={jobs} close={()=>setForm(false)} added={(p:Payment)=>{setPayments(v=>[p,...v]);setForm(false);flash(`${p.requestNo} submitted successfully`)}}/>}{passwordOpen&&<PasswordReset name={userName} email={userEmail} close={()=>setPasswordOpen(false)} done={()=>{setPasswordOpen(false);flash("Password updated. Please sign in again.");signOut()}}/>}{toast&&<div className="toast"><CheckCircle2/>{toast}</div>}</div></WorkforceProvider>
+ </>}</main>{profile&&<EmployeeProfile id={profile} close={()=>setProfile(null)} flash={flash} openProfile={setProfile}/>}{drawer&&<PaymentDetail payment={drawer} role={role} onDelete={()=>removeRequest(drawer)} onClose={()=>setDrawer(null)} onAction={(s:string,note?:string,fields?:Record<string,string>)=>act(drawer,s,note,fields)} userEmail={userEmail} companies={companies} departments={departments} natures={natures} currencies={currencies} tdsChoices={tdsChoices} termsChoices={termsChoices} modeChoices={modeChoices} jobs={jobs}/>} {form&&<PaymentForm companies={companies} departments={departments} natures={natures} currencies={currencies} tdsChoices={tdsChoices} termsChoices={termsChoices} modeChoices={modeChoices} jobs={jobs} close={()=>setForm(false)} added={(p:Payment)=>{setPayments(v=>[p,...v]);setForm(false);flash(`${p.requestNo} submitted successfully`)}}/>}{passwordOpen&&<PasswordReset name={userName} email={userEmail} close={()=>setPasswordOpen(false)} done={()=>{setPasswordOpen(false);flash("Password updated. Please sign in again.");signOut()}}/>}{toast&&<div className="toast"><CheckCircle2/>{toast}</div>}</div></WorkforceProvider>
 }
 function PasswordReset({name,email,close,done}:{name:string;email:string;close:()=>void;done:()=>void}){const[current,setCurrent]=useState(""),[next,setNext]=useState(""),[confirm,setConfirm]=useState(""),[error,setError]=useState(""),[saving,setSaving]=useState(false);const valid=current.length>=1&&next.length>=10&&/[A-Za-z]/.test(next)&&/[0-9]/.test(next)&&next===confirm;const submit=async(e:React.FormEvent)=>{e.preventDefault();if(!valid)return;setSaving(true);setError("");try{const r=await fetch("/api/auth/change-password",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({current,next})});const data=(await r.json()) as {error?:string};if(!r.ok)throw new Error(data.error||"Unable to update password.");done()}catch(err){setError(err instanceof Error?err.message:"Unable to update password.")}finally{setSaving(false)}};return <><button className="overlay" onClick={close}/><form className="modal password-reset" onSubmit={submit}><header><div><small>ACCOUNT SECURITY</small><h2>Change my password</h2></div><button type="button" onClick={close}><X/></button></header><div className="form"><p className="wide">Signed in as <b>{name}</b></p><label className="wide">Current password<input required autoComplete="current-password" type="password" value={current} onChange={e=>setCurrent(e.target.value)}/></label><label>New password<input required minLength={10} autoComplete="new-password" type="password" value={next} onChange={e=>setNext(e.target.value)}/></label><label>Confirm new password<input required minLength={10} autoComplete="new-password" type="password" value={confirm} onChange={e=>setConfirm(e.target.value)}/></label>{confirm&&next!==confirm&&<p className="wide login-error">Passwords do not match.</p>}{error&&<p className="wide login-error">{error}</p>}</div><footer><button type="button" onClick={close}>Cancel</button><button className="primary" disabled={!valid||saving}>{saving?"Updating…":"Update administrator password"}</button></footer></form></>}
 function RequestorDashboard({rows,open,create,go}:{rows:Payment[];open:(p:Payment)=>void;create:()=>void;go:(m:Module)=>void}){
  const total=rows.length,released=rows.filter(r=>r.status==="Payment Released").length;
- const rejected=rows.filter(r=>r.status==="Rejected"||r.status==="Audit Rejected").length;
- const open_=total-released-rejected;
+ const rejected=rows.filter(r=>r.status==="Query Raised").length;
+ const closed=rows.filter(r=>r.status==="Rejected"||r.status==="Audit Rejected").length;
+ const open_=total-released-rejected-closed;
  return <div className="page">
   <Intro eyebrow="MY REQUESTS" title="Your payment requests"
     sub="Everything you have raised, and where each one has reached."
     action={<button className="primary" onClick={create}><Plus/>New payment request</button>}/>
   <div className="metrics">
    {([["Raised",String(total),"in total","blue"],["In progress",String(open_),"awaiting a decision","amber"],
-     ["Released",String(released),"paid out","green"],["Returned",String(rejected),"need your attention","red"]] as string[][])
+     ["Released",String(released),"paid out","green"],["Query raised",String(rejected),"correct and resubmit","red"]] as string[][])
      .map(x=><article className={x[3]} key={x[0]}><span>{x[0]}</span><b>{x[1]}</b><small>{x[2]}</small></article>)}
   </div>
   <section className="panel table-panel">
@@ -271,20 +273,21 @@ function Dashboard({payments,go}:{payments:Payment[];go:(m:Module)=>void}){
  /* Every figure here is counted from the payment requests actually in the database.
     This panel used to show a fixed 82/100 with invented metrics, which on a live
     system reads as real reporting rather than placeholder art. */
- const open=payments.filter(p=>p.status!=="Payment Released"&&p.status!=="Audit Rejected");
+ const closed=payments.filter(p=>p.status==="Rejected");
+ const open=payments.filter(p=>p.status!=="Payment Released"&&p.status!=="Audit Rejected"&&p.status!=="Rejected");
  const released=payments.filter(p=>p.status==="Payment Released");
  const needsApproval=payments.filter(p=>/Approval|Review|Queue/.test(p.status));
  const available=payments.filter(p=>p.status==="Pre-Audit Queue");
- const rejected=payments.filter(p=>/Rejected|Query|Observation/.test(p.status));
+ const rejected=payments.filter(p=>/Audit Rejected|Query|Observation/.test(p.status));
  const value=(rows:Payment[])=>rows.reduce((n,p)=>n+(Number(p.amount)||0),0);
  const money=(n:number)=>n>=1000000?`${(n/1000000).toFixed(2)}M`:n>=1000?`${Math.round(n/1000)}K`:String(n);
- const settled=released.length+rejected.length;
+ const settled=released.length+closed.length;
  const health=payments.length?Math.round(released.length/payments.length*100):0;
  const byCompany=Array.from(new Set(payments.map(p=>p.company))).map(c=>{
    const rows=payments.filter(p=>p.company===c);
    const done=rows.filter(p=>p.status==="Payment Released").length;
    return{name:c,pct:rows.length?Math.round(done/rows.length*100):0,
-     stuck:rows.filter(p=>/Rejected|Query|Observation/.test(p.status)).length}});
+     stuck:rows.filter(p=>/Audit Rejected|Query|Observation/.test(p.status)).length}});
  return <div className="page">
   <section className="health"><div><small>PAYMENT COMPLETION</small><b>{health}</b><span>/100</span>
     <p>{payments.length?`● ${released.length} of ${payments.length} released${rejected.length?`, ${rejected.length} needing attention`:""}`:"● No payment requests raised yet"}</p></div>

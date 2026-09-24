@@ -1,7 +1,7 @@
 import{and,desc,eq}from"drizzle-orm";
 import{getDb}from"../../../db";
-import{settingOptions,wfAttachments}from"../../../db/schema";
-import{requireAuth}from"../../../lib/auth";
+import{paymentRequests,settingOptions,wfAttachments}from"../../../db/schema";
+import{hasWriteRole,requireAuth}from"../../../lib/auth";
 import{actorOf,bad,oops,str}from"../../../lib/workforce-api";
 import{deleteFile,getFile,putFile,storageLimit,usingObjectStore}from"../../../lib/storage";
 import type{Row}from"../../../lib/workforce-api";
@@ -127,16 +127,33 @@ export async function POST(req:Request){
     return Response.json({attachment:safe},{status:201});
   }catch(e){return oops(e)}}
 
-/* Removing the row and the stored bytes together, so nothing is orphaned in storage. */
+/* Removing the row and the stored bytes together, so nothing is orphaned in storage.
+
+   A write role may remove any document. A requestor may remove only what they uploaded
+   themselves, only on their own payment request, and only while it is back with them on a
+   query - the one moment a wrong invoice or proforma has to be replaced. Once it is with
+   accounts again the documents are evidence and stay put. */
 export async function DELETE(req:Request){
   try{
-    const{actor,response}=await requireAuth(req,"write");
+    const{actor,response}=await requireAuth(req,"read");
     if(response)return response;
     const id=new URL(req.url).searchParams.get("id")||"";
     if(!id)return bad("id is required");
     const db=await getDb();
     const [row]=await db.select().from(wfAttachments).where(eq(wfAttachments.id,id)).limit(1);
     if(!row)return bad("Not found",404);
+    if(!hasWriteRole(actor?.roles)){
+      const payment=row.entityType==="payment"&&Number.isFinite(Number(row.entityId))
+        ?(await db.select({raisedBy:paymentRequests.raisedBy,status:paymentRequests.status})
+            .from(paymentRequests).where(eq(paymentRequests.id,Number(row.entityId))).limit(1))[0]
+        :undefined;
+      const own=!!payment&&!!actor?.email
+        &&(payment.raisedBy||"").toLowerCase()===actor.email.toLowerCase();
+      if(!own||payment?.status!=="Query Raised")
+        return bad("Documents can be removed by the requestor only while their request is back with them on a query.",403);
+      if(!actor?.name||row.uploadedBy!==actor.name)
+        return bad("You can remove only the documents you uploaded. Ask accounts to remove this one.",403);
+    }
     await deleteFile(row.storageKey);
     await db.delete(wfAttachments).where(eq(wfAttachments.id,id));
     return Response.json({deleted:true,by:actor?.name||""});

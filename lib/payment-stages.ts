@@ -11,7 +11,9 @@
 export const STAGES=["Requested","Accounts","Audit","Correction","Recheck","Release"];
 
 const AT:Record<string,number>={
-  // with the requestor: never sent, or sent back to them
+  // with the requestor: sent back to them with a query, to correct and resubmit
+  "Query Raised":0,
+  // closed by accounts or audit - the requestor raises a new request instead
   "Rejected":0,
   // accounts
   "Submitted":1,"Requested":1,"Accountant Accepted":1,"Accountant Review":1,
@@ -31,6 +33,7 @@ const AT:Record<string,number>={
 export const stageIndex=(status:string)=>AT[status]??0;
 export const stageLabel=(status:string)=>STAGES[stageIndex(status)];
 
-/* Finished, as the requestor counts it: nothing further is expected of anyone. */
+/* Finished, as the requestor counts it: nothing further is expected of anyone. A rejected
+   request is finished too - it is closed, and what follows it is a new request. */
 export const isFinished=(status:string)=>
-  ["Payment Released","Reconciliation","Audit Closed"].includes(status);
+  ["Payment Released","Reconciliation","Audit Closed","Rejected"].includes(status);
