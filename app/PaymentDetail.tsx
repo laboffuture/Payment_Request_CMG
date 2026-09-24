@@ -2,7 +2,7 @@
 import{STAGES as stages,stageIndex}from"../lib/payment-stages";
 import{FIELD_ORDER,labelFor,ruleFor}from"../lib/payment-fields";
 import type{FieldKey}from"../lib/payment-fields";
-import{useMemo,useState}from"react";
+import{useEffect,useMemo,useState}from"react";
 import{AlertTriangle,Check,Clock3,FileCheck2,HelpCircle,Paperclip,ShieldCheck,X}from"lucide-react";
 import Attachments from"./Attachments";
 import{distinct,jobFor}from"../lib/jobs";
@@ -16,12 +16,37 @@ type Payment={projectCode?:string;invoiceNumber?:string;invoiceDate?:string;paym
 const statusTone=(s:string)=>s==="Query Raised"?"amber":/reject|query/i.test(s)?"red"
   :/released|approved|cleared/i.test(s)?"green"
   :/observation|correction|reconfirm/i.test(s)?"amber":"blue";
+/* One row of the trail. Status changes are logged as "<status> — <remark>"; a corrected
+   field carries its old and new value instead. */
+type Entry={id:number;action:string;actor:string;previousValue:string;newValue:string;createdAt:string};
+const readEntry=(e:Entry)=>{
+  const cut=e.newValue.indexOf(" — ");
+  const status=cut<0?e.newValue:e.newValue.slice(0,cut);
+  const remark=cut<0?"":e.newValue.slice(cut+3).trim();
+  const field=e.action.startsWith("Corrected ")&&e.action!=="Corrected and resubmitted";
+  return{...e,status,remark,field}};
+/* SQLite's CURRENT_TIMESTAMP is UTC without a zone, which a browser reads as local time. */
+const when=(v:string)=>{
+  const d=new Date(/[zZ]|[+-]\d\d:?\d\d$/.test(v)?v:v.replace(" ","T")+"Z");
+  return isNaN(+d)?v:d.toLocaleString("en-GB",{day:"2-digit",month:"short",year:"numeric",hour:"2-digit",minute:"2-digit"})};
 const stamp=(v:string)=>v?new Date(v).toLocaleDateString("en-GB",{day:"2-digit",month:"short",year:"numeric"}):"";
 
 export default function PaymentDetail({payment:p,role,onClose,onAction,onDelete,userEmail="",companies=[],departments=[],natures=[],currencies=[],tdsChoices=[],termsChoices=[],modeChoices=[],jobs=[]}:{payment:Payment;role:string;onClose:()=>void;onAction:(s:string,note?:string,fields?:Record<string,string>)=>void;onDelete?:()=>void;userEmail?:string;companies?:{id:string;name:string}[];departments?:string[];natures?:string[];currencies?:string[];tdsChoices?:string[];termsChoices?:string[];modeChoices?:string[];jobs?:Job[]}){
  const accountQueue=["Submitted","Requested"].includes(p.status),accountWork=["Accountant Accepted","Accountant Review"].includes(p.status),auditQueue=p.status==="Pre-Audit Queue",auditWork=p.status==="Audit Accepted",correction=p.status==="Observation - Audit Action",recheck=p.status==="Audit Reconfirmation",approved=p.status==="Approved by Auditor – Ready to Release",released=p.status==="Payment Released";
  const[sendBack,setSendBack]=useState<""|"query"|"reject">(""),[remark,setRemark]=useState(""),[fixing,setFixing]=useState(false),[fixNote,setFixNote]=useState(""),[stageNote,setStageNote]=useState(""),[checks,setChecks]=useState<Record<string,boolean>>({}),[observation,setObservation]=useState("Supporting documents do not reconcile with the ledger balance."),[proof,setProof]=useState("");
  const active=useMemo(()=>stageIndex(p.status),[p.status]);
+ /* The request's real trail. Every decision is logged with who took it and the remark
+    they gave; this panel used to show three fixed lines describing a trail instead, so an
+    auditor opening a request could not see what accounts had written about it. Re-read
+    whenever the status moves, since each move adds a row. */
+ const[history,setHistory]=useState<Entry[]>([]);
+ useEffect(()=>{
+   let dead=false;
+   fetch(`/api/payments?history=${encodeURIComponent(String(p.id))}`)
+     .then(r=>r.ok?r.json() as Promise<{history?:Entry[]}>:{history:[]})
+     .then(b=>{if(!dead)setHistory(b.history||[])}).catch(()=>{});
+   return()=>{dead=true}},[p.id,p.status]);
+ const remarks=history.map(readEntry).filter(e=>e.remark).reverse();
  /* Seeded from the request itself when the correction form opens, so a field nobody
     touches resubmits exactly as it was rather than as an empty string. */
  const[edit,setEdit]=useState<Record<string,string>>({});
@@ -210,9 +235,22 @@ export default function PaymentDetail({payment:p,role,onClose,onAction,onDelete,
       {!!p.invoiceNumber&&<div><dt>Invoice</dt><dd>{p.invoiceNumber}{p.invoiceDate?` · ${p.invoiceDate}`:""}</dd></div>}
       {!!p.paymentTerms&&<div><dt>Payment terms</dt><dd>{p.paymentTerms}</dd></div>}
       {!!p.period&&<div><dt>Period</dt><dd>{p.period}</dd></div>}{(()=>{try{return(JSON.parse(p.extra||"[]") as {id:string;label:string;value:string}[])
-  .map(x=><div key={x.id}><dt>{x.label}</dt><dd>{x.value}</dd></div>)}catch{return null}})()}<div><dt>Due</dt><dd>{p.due}</dd></div><div><dt>Owner</dt><dd>{p.owner}</dd></div></dl></div><div className="wf-stage">{stages.map((s,i)=><div className={i<active?"past":i===active?"now":""} key={s}><i>{i<active?<Check/>:i+1}</i><span>{s}</span></div>)}</div><section className="wf-work"><div className="wf-title"><div><small>CURRENT ACTION</small><h4>{title}</h4></div><span className="badge amber">{role}</span></div>{action}</section><Attachments entityType="payment" entityId={String(p.id)} flash={()=>{}}
+  .map(x=><div key={x.id}><dt>{x.label}</dt><dd>{x.value}</dd></div>)}catch{return null}})()}<div><dt>Due</dt><dd>{p.due}</dd></div><div><dt>Owner</dt><dd>{p.owner}</dd></div></dl></div><div className="wf-stage">{stages.map((s,i)=><div className={i<active?"past":i===active?"now":""} key={s}><i>{i<active?<Check/>:i+1}</i><span>{s}</span></div>)}</div><section className="wf-work"><div className="wf-title"><div><small>CURRENT ACTION</small><h4>{title}</h4></div><span className="badge amber">{role}</span></div>
+   {/* Everything said about this request so far, newest first, above whatever is asked
+       of the reader now - the reason accounts sent it on is what audit reads it by. */}
+   {!!remarks.length&&<div className="wf-remarks"><small>REMARKS SO FAR</small>
+     {remarks.map(r=><p key={r.id}><b>{r.remark}</b>
+       <span>{r.actor} · {r.status} · {when(r.createdAt)}</span></p>)}</div>}
+   {action}</section><Attachments entityType="payment" entityId={String(p.id)} flash={()=>{}}
    canRemove={["Administrator","Audit Head","Management","Accountant","Auditor","Finance"].includes(role)
-     ||(mayCorrect&&p.status==="Query Raised")}/><section className="wf-history"><h4>Controlled audit trail</h4>{["Request submitted with documents","Accounts and Audit acceptance recorded","Checklist, observation, response and proof retained"].map((x,i)=><p key={x}><i/><span><b>{x}</b><small>{i?"Recorded at each action":"Today · Requestor"}</small></span></p>)}</section>{/* Removing a request is not part of the workflow - rejecting one keeps the record and
+     ||(mayCorrect&&p.status==="Query Raised")}/><section className="wf-history"><h4>Controlled audit trail</h4>
+   {!history.length&&<p><i/><span><b>No history recorded for this request yet.</b></span></p>}
+   {history.map(readEntry).map(e=><p key={e.id}><i/><span>
+     <b>{e.field?`${e.action}: ${e.previousValue} → ${e.newValue}`
+       :e.action==="Status changed"?`${e.previousValue||"—"} → ${e.status}`
+       :e.previousValue?`${e.action} · ${e.previousValue} → ${e.status}`:`${e.action} · ${e.status}`}</b>
+     {e.remark&&<em>{e.remark}</em>}
+     <small>{e.actor} · {when(e.createdAt)}</small></span></p>)}</section>{/* Removing a request is not part of the workflow - rejecting one keeps the record and
     its trail. This is for a request raised in error, so it is an administrator's
     action alone and the server checks the role again. */}
 {role==="Administrator"&&onDelete&&<section className="wf-danger-zone"><h4>Administrator</h4><p>Deleting removes this request and its documents for everybody. Rejecting it instead keeps the record and the audit trail.</p><button type="button" className="wf-delete-request" onClick={onDelete}><X/>Delete this request</button></section>}</div></aside></>

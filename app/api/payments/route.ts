@@ -1,4 +1,4 @@
-import{and,desc,eq}from"drizzle-orm";
+import{and,asc,desc,eq,like}from"drizzle-orm";
 import{getDb}from"../../../db";
 import{auditLogs,paymentRequests,wfAttachments}from"../../../db/schema";
 import{deleteFile}from"../../../lib/storage";
@@ -49,20 +49,55 @@ export async function GET(req:Request){
   try{
     const{actor,response}=await requireAuth(req,"read");
     if(response)return response;
+    const peers=await departmentPeers(actor);
+    const db=await getDb();
+    /* One request's trail - every decision, who took it, when, and the remark with it -
+       so the request panel can show the real history rather than a description of one.
+       Held to the same scope as the list: a reader who cannot see the request cannot
+       read its trail either. */
+    const historyOf=Number(new URL(req.url).searchParams.get("history"));
+    if(historyOf){
+      const[p]=await db.select({raisedBy:paymentRequests.raisedBy}).from(paymentRequests)
+        .where(eq(paymentRequests.id,historyOf)).limit(1);
+      if(!p||(peers&&!peers.includes((p.raisedBy||"").toLowerCase())))return bad("Not found",404);
+      const history=await db.select().from(auditLogs).where(eq(auditLogs.recordId,historyOf))
+        .orderBy(asc(auditLogs.id));
+      return Response.json({history});
+    }
     /* The window is org-wide and only then filtered to the reader, so it has to be wide
        enough to still contain an individual's older requests. At 50 a requestor's own
        work fell out of view once the group as a whole passed fifty - invisible while the
        register is small, and indistinguishable from a paging bug once it is not. */
-    const rows=await (await getDb()).select().from(paymentRequests)
+    const rows=await db.select().from(paymentRequests)
       .orderBy(desc(paymentRequests.id)).limit(500);
     /* A department head's scope is enforced here, not by the screen. Without this the
        whole register is one fetch away for anybody with a session, whatever the menu
        shows. Compared in lower case because addresses are stored as they were typed.
        null means the reader is not scoped at all; an empty list would mean nobody. */
-    const peers=await departmentPeers(actor);
-    return Response.json({payments:peers
+    const mine=peers
       ?rows.filter(r=>peers.includes((r.raisedBy||"").toLowerCase()))
-      :rows});
+      :rows;
+    /* The last remark anybody left, with who left it. lastActionNote is only the most
+       recent step's note, and most steps are taken without one - so a request accounts
+       had written about arrived in the audit queue showing no remark at all. Status
+       changes are logged as "<status> — <remark>", so a remark is whatever follows the
+       separator. */
+    const latest=new Map<number,{remark:string;by:string}>();
+    if(mine.length){
+      /* Filtered to the listed requests here rather than with an IN list: five hundred ids
+         would pass D1's bound-parameter limit, and a failure here must not empty the list. */
+      const ids=new Set(mine.map(r=>r.id));
+      const logs=await db.select({recordId:auditLogs.recordId,newValue:auditLogs.newValue,
+        actor:auditLogs.actor}).from(auditLogs)
+        .where(like(auditLogs.newValue,"% — %")).orderBy(asc(auditLogs.id)).catch(()=>[]);
+      for(const l of logs){
+        if(!ids.has(l.recordId))continue;
+        const remark=l.newValue.slice(l.newValue.indexOf(" — ")+3).trim();
+        if(remark)latest.set(l.recordId,{remark,by:l.actor});
+      }
+    }
+    return Response.json({payments:mine.map(r=>({...r,
+      latestRemark:latest.get(r.id)?.remark||"",latestRemarkBy:latest.get(r.id)?.by||""}))});
   }catch{return Response.json({payments:[]})}}
 
 export async function POST(req:Request){

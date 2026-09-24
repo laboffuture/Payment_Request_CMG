@@ -12,7 +12,7 @@ import{STAGES,isFinished,stageIndex}from"../lib/payment-stages";
 type P={id:number;requestNo:string;company:string;vendor:string;amount:number;currency:string;
   due:string;urgency:string;status:string;owner:string;department:string;
   nature?:string;tds?:string;poNumber?:string;createdAt?:string;
-  lastActionBy?:string;lastActionNote?:string;lastActionAt?:string;
+  lastActionBy?:string;lastActionNote?:string;latestRemark?:string;latestRemarkBy?:string;lastActionAt?:string;
   rejectionNote?:string;resubmitNote?:string};
 
 const statusTone=(s:string)=>s==="Query Raised"?"amber":/reject|query/i.test(s)?"red"
@@ -46,7 +46,7 @@ export default function RequestorWorkspace({rows,open,create,scope="own"}:{rows:
      "Currency","Amount","Due","Verified by","Remarks","Raised on"],
     ...found.map(p=>[p.requestNo,p.status,STAGES[stageIndex(p.status)],p.company,p.department,
       p.vendor,p.nature||"",p.tds||"",p.poNumber||"",p.currency,p.amount,p.due,
-      p.lastActionBy||"",p.lastActionNote||p.rejectionNote||p.resubmitNote||"",
+      p.lastActionBy||"",p.lastActionNote||p.latestRemark||p.rejectionNote||p.resubmitNote||"",
       (p.createdAt||"").slice(0,10)])],
     `my-payment-requests-${new Date().toISOString().slice(0,10)}.csv`);
   return <div className="page rq-page">
@@ -86,8 +86,8 @@ export default function RequestorWorkspace({rows,open,create,scope="own"}:{rows:
         <td>{p.due}</td>
         <td className="rq-actor">{p.lastActionBy||"—"}
           {p.lastActionAt&&<small>{new Date(p.lastActionAt).toLocaleDateString("en-GB",{day:"numeric",month:"short"})}</small>}</td>
-        <td className="rq-remark" title={p.lastActionNote||p.rejectionNote||p.resubmitNote||""}>
-          {p.lastActionNote||p.rejectionNote||p.resubmitNote||"—"}</td>
+        <td className="rq-remark" title={p.lastActionNote||p.latestRemark||p.rejectionNote||p.resubmitNote||""}>
+          {p.lastActionNote||p.latestRemark||p.rejectionNote||p.resubmitNote||"—"}</td>
         <td><span className={`badge ${statusTone(p.status)}`}>{p.status}</span></td>
         <td><div className="stage-track" title={`${STAGES[stageIndex(p.status)]} — step ${stageIndex(p.status)+1} of ${STAGES.length}`}>
           {STAGES.map((st,i)=><i key={st} className={i<=stageIndex(p.status)?"on":""}/>)}
