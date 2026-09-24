@@ -72,7 +72,7 @@
 
 /* A module that exists but is waiting on its format */
 .awaiting-format{padding:22px 24px;max-width:70ch}
-.awaiting-format h3{margin:0 0 8px;font:600 16px Georgia}
+.awaiting-format h3{margin:0 0 8px;font:600 15px var(--font-sans)}
 .awaiting-format p{margin:0 0 10px;font-size:12px;line-height:1.55;color:#667085}
 .awaiting-format .awaiting-note{margin:0;padding-top:10px;border-top:1px solid var(--line);
   font-size:11px;color:#98a2b3}

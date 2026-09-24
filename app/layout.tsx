@@ -24,6 +24,8 @@ import "./workforce.css";
 import "./settings.css";
 import "./notifications.css";
 import "./sidebar-scroll.css";
+/* Last, so the typeface and the type rules have the final word over every sheet above. */
+import "./typography.css";
 /* There was no viewport tag at all, so phones laid the page out at about 980px and then
    zoomed out: the 49 media queries in these stylesheets were mostly never reaching the
    breakpoints they were written for. This is the one line that makes the mobile work

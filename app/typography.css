@@ -1,0 +1,56 @@
+/* Type for the whole application: Inter, served from this site.
+
+   The body asked for Inter from the start, but nothing ever loaded it, so every screen
+   fell back to whatever sans-serif the machine had - Segoe on Windows, Roboto on Android,
+   San Francisco on a Mac - while headings and figures were set in Georgia. One typeface,
+   shipped with the application, looks the same on every device.
+
+   Served from /fonts rather than a font CDN so the pages carry no third-party request.
+   Two subsets, Latin and Latin Extended; the second is only fetched for characters in
+   its range, which includes the rupee sign. Both are variable, so one file covers every
+   weight from 300 to 800. Loaded last in layout.tsx, so it has the final word. */
+
+@font-face{
+  font-family:"Inter";font-style:normal;font-weight:300 800;font-display:swap;
+  src:url("/fonts/inter-latin.woff2") format("woff2");
+  unicode-range:U+0000-00FF,U+0131,U+0152-0153,U+02BB-02BC,U+02C6,U+02DA,U+02DC,U+0304,U+0308,
+    U+0329,U+2000-206F,U+20AC,U+2122,U+2191,U+2193,U+2212,U+2215,U+FEFF,U+FFFD}
+@font-face{
+  font-family:"Inter";font-style:normal;font-weight:300 800;font-display:swap;
+  src:url("/fonts/inter-latin-ext.woff2") format("woff2");
+  unicode-range:U+0100-02BA,U+02BD-02C5,U+02C7-02CC,U+02CE-02D7,U+02DD-02FF,U+0304,U+0308,
+    U+0329,U+1D00-1DBF,U+1E00-1E9F,U+1EF2-1EFF,U+2020,U+20A0-20AB,U+20AD-20C0,U+2113,
+    U+2C60-2C7F,U+A720-A7FF}
+
+:root{
+  --font-sans:"Inter",ui-sans-serif,system-ui,-apple-system,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;
+  /* Tailwind's preflight reads these for html and for its font-sans utility. */
+  --default-font-family:var(--font-sans);
+  --font-family-sans:var(--font-sans)}
+
+html,body{font-family:var(--font-sans)}
+body{
+  -webkit-font-smoothing:antialiased;-moz-osx-font-smoothing:grayscale;
+  text-rendering:optimizeLegibility;
+  /* Inter as drawn. The alternates set earlier - open digits and a single-storey "a" -
+     never showed, since the font never loaded, and the standard forms read as plainer
+     and more businesslike. */
+  font-feature-settings:normal}
+
+/* Controls do not inherit type by default; without this every button, field and menu
+   would still be in the system font. */
+button,input,select,textarea,optgroup{font-family:inherit}
+
+/* Headings: one weight, drawn a touch tighter as they get larger - Inter is spaced for
+   text sizes and looks loose at display sizes without it. */
+h1,h2,h3,h4,h5,h6{font-family:var(--font-sans);font-weight:600;letter-spacing:-.012em}
+h1,h2{letter-spacing:-.02em}
+
+/* Figures that sit in columns or get compared - amounts, counts, table cells - use
+   equal-width digits, so a column of amounts lines up and a counter does not jitter as
+   it changes. */
+table,.amount,.metrics b,.health b,.ring b,.wb-kpis b,.rd-kpis b,.rq-metrics b,
+input[type="number"]{font-variant-numeric:tabular-nums}
+.amount,.metrics b,.health>div>b,.ring b{letter-spacing:-.02em}
+
+code,pre,kbd,samp{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace}

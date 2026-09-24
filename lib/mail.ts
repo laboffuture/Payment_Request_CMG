@@ -150,7 +150,7 @@ export function template(o:{title:string;reference?:string;intro?:string;detail?
       <td style="padding:5px 14px 5px 0;font-size:12px;color:#8a978f;white-space:nowrap;vertical-align:top">${esc(d.label)}</td>
       <td style="padding:5px 0;font-size:13px;color:#17312b;vertical-align:top"><b>${esc(d.value)}</b></td>
     </tr>`).join("");
-  return`<div style="background:#f4f7f5;padding:22px 0;font-family:Segoe UI,Helvetica,Arial,sans-serif">
+  return`<div style="background:#f4f7f5;padding:22px 0;font-family:Inter,'Segoe UI',Helvetica,Arial,sans-serif">
  <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%">
   <tr><td align="center">
    <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="560" style="max-width:560px;background:#ffffff;border:1px solid #e2e9e6;border-radius:10px;overflow:hidden">
