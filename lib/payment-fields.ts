@@ -36,8 +36,10 @@ const BASE:Record<FieldKey,Need>={
    obvious from the project, and demanding them would only invite anything typed to get
    past the check. */
 /* The JB code is the key now that the job number has gone: it is what names the project
-   and the site, so it carries the requirement the job number used to. */
-const JOB_FIELDS={jbCode:"M",project:"M",jobLocation:"C"} as const;
+   and the site. All three are offered but none is required: not every payment on these
+   natures belongs to a job in the register, and a required field with no honest answer
+   only stops the request - or gets whatever entry is nearest. */
+const JOB_FIELDS={jbCode:"C",project:"C",jobLocation:"C"} as const;
 
 type Rule={need:Partial<Record<FieldKey,Need>>;labels?:Partial<Record<FieldKey,string>>;
   departments:string};
@@ -121,8 +123,10 @@ export const departmentsFor=(nature:string)=>PAYMENT_TYPES[nature]?.departments|
    server clears the field, so the first correction to an old request would have wiped its
    TDS. The per-type rules below still mention it and are simply inert, which makes
    restoring the field a one-line change if it is ever wanted again. */
+/* projectCode is absent for the same reason: it is no longer asked for, and the requests
+   that carry one keep it rather than having it cleared on their next correction. */
 export const FIELD_ORDER:FieldKey[]=["company","department","nature","vendor",
-  "poNumber","projectCode","invoiceNumber","invoiceDate","paymentTerms","period",
+  "poNumber","invoiceNumber","invoiceDate","paymentTerms","period",
   /* The job details sit together, after the invoice fields and before the money. */
   "jbCode","project","jobLocation",
   "amount","due","currency","paymentMode","description"];
