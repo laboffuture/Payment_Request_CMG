@@ -159,13 +159,25 @@
 /* The payment panel's own buttons. workforce.css styles every ".wf-actions button" white,
    and that selector outranks a single class - so Accept, Send to Audit, Approve, Query
    and Reject all drew as plain white buttons. Scoped to .wf-actions to win it back. */
-.wf-actions .wf-primary{background:#0b1d3a;color:#fff;border:1px solid #0b1d3a;border-radius:7px;padding:10px 14px;font-size:11px;font-weight:700}
+.wf-actions .wf-primary{background:#0b1d3a;color:#fff;border:1px solid #0b1d3a}
 .wf-actions .wf-primary:hover:not(:disabled){background:#132c55}
-.wf-actions .wf-reject{background:#fff;color:#b3372a;border:1px solid #e3a59e;border-radius:7px;padding:10px 13px;font-size:11px;font-weight:700}
+.wf-actions .wf-reject{background:#fff;color:#b3372a;border:1px solid #e3a59e}
 .wf-actions .wf-reject:hover:not(:disabled){background:#fdf3f2}
-.wf-actions .wf-query{background:#fff;color:#8a5a12;border:1px solid #e2c48f;border-radius:7px;padding:10px 13px;font-size:11px;font-weight:700}
+.wf-actions .wf-query{background:#fff;color:#8a5a12;border:1px solid #e2c48f}
 .wf-actions .wf-query:hover:not(:disabled){background:#fdf8ee}
 .wf-actions .wf-primary:disabled,.wf-actions .wf-reject:disabled,.wf-actions .wf-query:disabled{opacity:.4;cursor:not-allowed}
+
+/* One row of decisions: every button the same height, grouped at the right with even
+   gaps, wrapping as a group when a step offers more than fits (audit verification has
+   five). The primary used to push itself to the far edge with margin-left:auto, which
+   left the other buttons stranded on the left with a hole in the middle. The icons had
+   a width but no height, so each drew 12x24 and stretched its button to 46px. */
+.wf-work .wf-actions{display:flex;flex-wrap:wrap;justify-content:flex-end;align-items:center;gap:8px;margin-top:12px}
+.wf-work .wf-actions>button{display:inline-flex;align-items:center;justify-content:center;gap:6px;
+  height:36px;padding:0 14px;border-radius:7px;font-size:11.5px;font-weight:600;line-height:1;
+  white-space:nowrap;cursor:pointer}
+.wf-work .wf-actions>.wf-primary{margin-left:0;font-weight:700}
+.wf-work .wf-actions>button svg{width:14px;height:14px;flex:none}
 /* The note under the upload control inherited the spaced-out lettering of the panel's
    small caps labels, which does not suit a sentence. */
 .wf-attach-add small{letter-spacing:normal}
