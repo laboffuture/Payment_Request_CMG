@@ -16,7 +16,11 @@ export type Notice={title:string;body?:string;module:string;recordId:string;
   reference?:string;                        // the request number, shown under the heading
   detail?:{label:string;value:string}[];    // the facts, as rows
   action?:string;                           // what this person is being asked to do
-  tone?:"normal"|"warning"|"good"};
+  tone?:"normal"|"warning"|"good";
+  /* false keeps it to the bell. Some moves are worth seeing in the application but not
+     worth an email - a request passing between accounts and audit, say, tells the person
+     who raised it nothing they need to act on. */
+  email?:boolean};
 
 export async function notify(recipients:string[],n:Notice,except?:string|null,roles?:string[]){
   try{
@@ -38,7 +42,7 @@ export async function notify(recipients:string[],n:Notice,except?:string|null,ro
     /* After the response, not before it. Each message is a round trip to the mail server,
        and a decision that emails thirteen accountants kept the person who took it waiting
        seconds for a reply - long enough that they clicked again. */
-    after(()=>email(db,rows.map(r=>r.id),to,everyone,skip,n,roles,at));
+    if(n.email!==false)after(()=>email(db,rows.map(r=>r.id),to,everyone,skip,n,roles,at));
   }catch(e){console.error("notify failed",e)}}
 
 /* ---------- email ---------- */

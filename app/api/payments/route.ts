@@ -44,6 +44,12 @@ const AUDIT_QUERY="Audit Query";
 /* Where audit holds a request. A query raised from one of these came from audit, and the
    requestor's answer goes back to audit rather than through accounts a second time. */
 const AUDIT_STAGES=["Pre-Audit Queue","Audit Accepted","Audit Reconfirmation"];
+/* The moves the person who raised a request is emailed about: accepted, queried, accepted
+   by audit, approved, paid, rejected. What passes between accounts and audit on the way -
+   sent to audit, a query to accounts and its answer, an observation - still reaches their
+   bell, but is not worth an email. */
+const REQUESTOR_EMAIL=["Accountant Accepted",QUERY,"Audit Accepted",
+  "Approved by Auditor – Ready to Release","Payment Released",REJECTED];
 
 const STATUSES=["Submitted","Requested",REJECTED,QUERY,"Accountant Review","Accountant Accepted",
   "Pre-Audit Queue","Audit Accepted","Audit Query","Audit Rejected","Audit Reconfirmation",
@@ -373,6 +379,7 @@ export async function PATCH(req:Request){
         ?"This request is closed and cannot be resubmitted. If the payment is still needed, raise a new request."
         :status==="Payment Released"?"Nothing further is needed from you."
         :"No action is needed from you yet; this is where the request has reached.",
+      email:REQUESTOR_EMAIL.includes(status),
       module:"payments",recordId:String(payment.id)},actor?.email);
     return Response.json({payment});
   }catch(e){return oops(e)}}
