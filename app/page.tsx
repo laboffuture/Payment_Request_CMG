@@ -21,7 +21,6 @@ import{distinct,jobFor,parseJobs}from"../lib/jobs";
 import type{Job}from"../lib/jobs";
 import{refreshOptions}from"./options-store";
 import ReportsCentre from "./ReportsCentre";
-import CommunityChat from "./CommunityChat";
 import {WorkforceProvider} from "./workforce-store";
 import OrgChart from "./OrgChart";
 import EmployeeDirectory from "./EmployeeDirectory";
@@ -30,12 +29,12 @@ import {WorkforceOverview,WorkforceReports} from "./WorkforceReports";
 import {auditTasksApi,companiesApi} from "./audit-api";
 type Payment={createdAt?:string;tds?:string;nature?:string;poNumber?:string;resubmitNote?:string;resubmittedAt?:string;rejectionNote?:string;rejectedBy?:string;rejectedAt?:string;raisedBy?:string;id:number;requestNo:string;company:string;vendor:string;amount:number;currency:string;due:string;urgency:string;status:string;owner:string;department:string};
 export type AuditTask={frequency?:string;recurDay?:string;recurUntil?:string;seriesId?:string;attendees?:string;id:string;title:string;company:string;department:string;kind:"Pre-Audit"|"Post-Audit"|"Meeting"|"Special Audit"|"Task"|"Token"|"Training";status:"Available"|"Accepted"|"In Progress"|"Observation Submitted"|"Response Received"|"Completed";due?:string;assignedTo?:string;plannedStart?:string;plannedEnd?:string;notes?:string;dataProvider?:string};
-type Module="dashboard"|"requests"|"payments"|"scheduled"|"accountsreceived"|"preaudit"|"postaudit"|"specialaudit"|"community"|"observations"|"meetings"|"reports"|"companies"|"settings"|"users"|"imports"|"organisation"|"employees";
+type Module="dashboard"|"requests"|"payments"|"scheduled"|"accountsreceived"|"preaudit"|"postaudit"|"specialaudit"|"observations"|"meetings"|"reports"|"companies"|"settings"|"users"|"imports"|"organisation"|"employees";
 const seed:Payment[]=[];
 const auditSeed:AuditTask[]=[];
 const specialAuditSeed:AuditTask[]=[];
-/* Only screens whose data is stored in D1 appear here. Scheduled payments, community
-   chat, companies, the audit queues, meetings and the scorecard still read browser
+/* Only screens whose data is stored in D1 appear here. Scheduled payments, companies,
+   the audit queues, meetings and the scorecard still read browser
    state — their tables and APIs are ready but the screens are not yet wired, so they
    are held back rather than shown as if they saved. */
 /* This order is the menu order: `visible` filters this list, so every role sees the
@@ -53,7 +52,6 @@ const nav:{id:Module;label:string;icon:any}[]=([
   ["meetings","Meetings/Tasks",CalendarDays],
   // below here: reference and setup, reached far less often
   ["observations","Observations register",MessageSquareText],
-  ["community","Community chat",MessageSquareText],
   ["reports","Report centre",FileBarChart],
   ["companies","Companies",Building2],
   ["users","Users & access",Users],
@@ -68,7 +66,7 @@ const nav:{id:Module;label:string;icon:any}[]=([
    longer keeps them together. */
 const workforceIds:Module[]=["organisation","employees","reports"];
 const tone:Record<string,string>={"Rejected":"red","Query Raised":"amber","Requested":"blue","Accountant Review":"amber","Pre-Audit Queue":"blue","Management Approval":"amber","Management Approval: Yes":"green","Management Approval: No":"red","Audit Rejected":"red","Audit Query":"amber","Finance Queue":"violet","Approved by Auditor – Ready to Release":"green","Payment Released":"green","Reconciliation":"green","Audit Accepted":"blue","Audit Cleared":"green"};
-const access:Record<string,Module[]>={Administrator:nav.map(x=>x.id),Requestor:["dashboard","requests","organisation","employees","meetings","community","reports"],"Department Head":["dashboard","requests","organisation","employees","meetings","community","reports"],Accountant:["dashboard","requests","payments","scheduled","organisation","employees","meetings","community","reports","observations","accountsreceived"],Auditor:["dashboard","requests","payments","scheduled","organisation","employees","preaudit","postaudit","specialaudit","meetings","community","reports","observations","accountsreceived"],Finance:["meetings","dashboard","payments","organisation","employees","reports"],Management:["meetings","dashboard","payments",...workforceIds],"Audit Head":nav.filter(x=>x.id!=="settings").map(x=>x.id)};
+const access:Record<string,Module[]>={Administrator:nav.map(x=>x.id),Requestor:["dashboard","requests","organisation","employees","meetings","reports"],"Department Head":["dashboard","requests","organisation","employees","meetings","reports"],Accountant:["dashboard","requests","payments","scheduled","organisation","employees","meetings","reports","observations","accountsreceived"],Auditor:["dashboard","requests","payments","scheduled","organisation","employees","preaudit","postaudit","specialaudit","meetings","reports","observations","accountsreceived"],Finance:["meetings","dashboard","payments","organisation","employees","reports"],Management:["meetings","dashboard","payments",...workforceIds],"Audit Head":nav.filter(x=>x.id!=="settings").map(x=>x.id)};
 type Note={id:string;title:string;body:string;module:string;recordId:string;createdAt:string;readAt:string};
 export default function Home(){
  const[active,setActive]=useState<Module>("dashboard"),[payments,setPayments]=useState(seed),[auditTasks,setAuditTasks]=useState([...auditSeed,...specialAuditSeed]),[company,setCompany]=useState("All companies"),[companies,setCompanies]=useState<{id:string;name:string}[]>([]),[departments,setDepartments]=useState<string[]>([]),[natures,setNatures]=useState<string[]>([]),[currencies,setCurrencies]=useState<string[]>([]),[tdsChoices,setTdsChoices]=useState<string[]>([]),[termsChoices,setTermsChoices]=useState<string[]>([]),[modeChoices,setModeChoices]=useState<string[]>([]),[jobs,setJobs]=useState<Job[]>([]),[masterVersion,setMasterVersion]=useState(0),[role,setRole]=useState("Audit Head"),[allowedRoles,setAllowedRoles]=useState<string[]>([]),[userName,setUserName]=useState(""),[userEmail,setUserEmail]=useState(""),[search,setSearch]=useState(""),[drawer,setDrawer]=useState<Payment|null>(null),[form,setForm]=useState(false),[passwordOpen,setPasswordOpen]=useState(false),[profileOpen,setProfileOpen]=useState(false),[mobile,setMobile]=useState(false),[profile,setProfile]=useState<string|null>(null),[toast,setToast]=useState(""),[todayLabel,setTodayLabel]=useState(""),[booting,setBooting]=useState(true),[expired,setExpired]=useState(false),[notes,setNotes]=useState<Note[]>([]),[unread,setUnread]=useState(0),[noteOpen,setNoteOpen]=useState(false);
@@ -246,7 +244,7 @@ export default function Home(){
  {active==="postaudit"&&<AuditTaskQueue title="Post-audit tasks" kind="Post-Audit" companies={companies} create={(t)=>createAuditTask("Post-Audit",t)} tasks={auditTasks} role={role} accept={acceptAuditTask} update={updateAuditTask}/>} 
  {active==="specialaudit"&&<AuditTaskQueue title="Special audit tasks" kind="Special Audit" companies={companies} create={(t)=>createAuditTask("Special Audit",t)} tasks={auditTasks} role={role} accept={acceptAuditTask} update={updateAuditTask}/>} 
  {active==="observations"&&<ObservationDesk openProfile={setProfile} flash={flash} canManage={role!=="Requestor"}/>}
- {active==="community"&&<CommunityChat user={userName} flash={flash}/>}
+
  {active==="meetings"&&<AuditTaskQueue title="Meetings/Tasks" kind="Meeting" companies={companies} create={(t)=>createAuditTask("Meeting",t)} tasks={auditTasks} role={role} accept={acceptAuditTask} update={updateAuditTask}/>} 
  {active==="reports"&&<ReportCentre role={role} payments={payments} tasks={auditTasks} openProfile={setProfile} flash={flash}/>}
  {active==="companies"&&<CompanySetup />}

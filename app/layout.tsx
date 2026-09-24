@@ -16,7 +16,6 @@ import "./audit-list.css";
 import "./company-setup.css";
 import "./reports-live.css";
 import "./simple-import.css";
-import "./community.css";
 import "./scheduled-payments.css";
 import "./audit-main-tabs.css";
 import "./scheduled-fix.css";
