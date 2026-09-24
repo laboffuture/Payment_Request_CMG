@@ -81,13 +81,18 @@ export default function AccountsReceived({role,companies=[],flash}:Props){
         ?"Nothing raised yet. Raise the first job notification when a job comes in."
         :"Nothing raised yet. Accounts raise a job notification when a job comes in."}/>
       :!shown.length?<Empty label="No entry matches that."/>
-      :<div className="recv-rows">{shown.map(r=>
+      :<div className="recv-rows">
+        {/* Column names, on the same grid as the rows beneath, so each figure is read
+            against a heading rather than guessed at. */}
+        <div className="recv-cols" aria-hidden="true"><span>Reference</span><span>Description</span>
+          <span>CRM job / SO</span><span className="num">Amount</span><span className="num">Status</span></div>
+        {shown.map(r=>
         <button key={r.id} className="recv-row" onClick={()=>setOpen(r)}>
           <div className="recv-ref"><b>{r.ref}</b><small>{r.customer}</small></div>
           <div className="recv-desc">{r.description||"—"}
             {r.returnNote&&<i className="recv-back"><RotateCcw/>Sent back: {r.returnNote}</i>}</div>
-          <div className="recv-nums"><span>{r.crmJobNo||"CRM job pending"}</span>
-            <span>{r.soNo||"SO pending"}</span></div>
+          <div className="recv-nums"><span><i>CRM</i>{r.crmJobNo||"Pending"}</span>
+            <span><i>SO</i>{r.soNo||"Pending"}</span></div>
           <div className="recv-amt">{money(r.amount,r.currency)}</div>
           <div className={`recv-tag s${stageIndex(r.stage)}`}>
             {isVerified(r.stage)&&<CheckCircle2/>}{r.stage}</div>
