@@ -15,7 +15,7 @@ type P={id:number;requestNo:string;company:string;vendor:string;amount:number;cu
   lastActionBy?:string;lastActionNote?:string;latestRemark?:string;latestRemarkBy?:string;lastActionAt?:string;
   rejectionNote?:string;resubmitNote?:string};
 
-const statusTone=(s:string)=>s==="Query Raised"?"amber":/reject|query/i.test(s)?"red"
+const statusTone=(s:string)=>s==="Query Raised"||s==="Audit Query"?"amber":/reject|query/i.test(s)?"red"
   :/released|approved|cleared/i.test(s)?"green"
   :/observation|correction|reconfirm/i.test(s)?"amber":"blue";
 

@@ -67,7 +67,7 @@ const nav:{id:Module;label:string;icon:any}[]=([
    modules" rather than a list, so the group is still named even though the menu no
    longer keeps them together. */
 const workforceIds:Module[]=["organisation","employees","reports"];
-const tone:Record<string,string>={"Rejected":"red","Query Raised":"amber","Requested":"blue","Accountant Review":"amber","Pre-Audit Queue":"blue","Management Approval":"amber","Management Approval: Yes":"green","Management Approval: No":"red","Audit Rejected":"red","Audit Query":"red","Finance Queue":"violet","Approved by Auditor – Ready to Release":"green","Payment Released":"green","Reconciliation":"green","Audit Accepted":"blue","Audit Cleared":"green"};
+const tone:Record<string,string>={"Rejected":"red","Query Raised":"amber","Requested":"blue","Accountant Review":"amber","Pre-Audit Queue":"blue","Management Approval":"amber","Management Approval: Yes":"green","Management Approval: No":"red","Audit Rejected":"red","Audit Query":"amber","Finance Queue":"violet","Approved by Auditor – Ready to Release":"green","Payment Released":"green","Reconciliation":"green","Audit Accepted":"blue","Audit Cleared":"green"};
 const access:Record<string,Module[]>={Administrator:nav.map(x=>x.id),Requestor:["dashboard","requests","organisation","employees","meetings","community","reports"],"Department Head":["dashboard","requests","organisation","employees","meetings","community","reports"],Accountant:["dashboard","requests","payments","scheduled","organisation","employees","meetings","community","reports","observations","accountsreceived"],Auditor:["dashboard","requests","payments","scheduled","organisation","employees","preaudit","postaudit","specialaudit","meetings","community","reports","observations","accountsreceived"],Finance:["meetings","dashboard","payments","organisation","employees","reports"],Management:["meetings","dashboard","payments",...workforceIds],"Audit Head":nav.filter(x=>x.id!=="settings").map(x=>x.id)};
 type Note={id:string;title:string;body:string;module:string;recordId:string;createdAt:string;readAt:string};
 export default function Home(){
@@ -113,22 +113,27 @@ export default function Home(){
     :status==="Approved by Auditor – Ready to Release"?"Accounts & Finance"
     :status==="Payment Released"?userName||"Accounts & Finance"
     :status==="Submitted"?"Accountant queue":p.owner;
+  let saved:Payment|undefined;
   try{
    if(p.id>0){
     const r=await fetch("/api/payments",{method:"PATCH",headers:{"content-type":"application/json"},
       body:JSON.stringify({id:p.id,status,owner,note,fields})});
     const b=await r.json().catch(()=>({})) as {error?:string;payment?:Payment};
     if(!r.ok)throw new Error(b.error||"That change was refused");
-    const saved=b.payment||{...p,status,owner};
+    saved=b.payment||{...p,status,owner};
     setPayments(v=>v.map(x=>x.id===p.id?{...x,...saved}:x));
     setDrawer(d=>d&&d.id===p.id?{...d,...saved}:d);
    }else{
     setPayments(v=>v.map(x=>x.id===p.id?{...x,status,owner}:x));
     setDrawer(d=>d?{...d,status,owner}:d);
    }
+   /* The server may route a resubmission to audit rather than accounts, so the message
+      follows the status it actually saved. */
+   const landed=p.id>0?(saved?.status||status):status;
    flash(status==="Rejected"?`${p.requestNo} rejected and closed`
      :status==="Query Raised"?`${p.requestNo} sent back to the requestor with a query`
-     :status==="Submitted"?`${p.requestNo} resubmitted to Accounts`
+     :status==="Audit Query"?`${p.requestNo} sent to Accounts with a query`
+     :status==="Submitted"?`${p.requestNo} resubmitted to ${landed==="Pre-Audit Queue"?"Audit":"Accounts"}`
      :`${p.requestNo} moved to ${status}`);
   }catch(e){flash(e instanceof Error?e.message:"That change was refused")}};
  /* Administrator only, and refused again by the server. Documents go with it. */

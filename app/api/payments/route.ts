@@ -38,6 +38,12 @@ const paymentDetail=(p:{vendor?:string|null;currency?:string|null;amount?:number
    request, same number, same trail. Rejected closes it: nothing further happens to it, and
    if the payment is still wanted the requestor raises a new request. */
 const QUERY="Query Raised",REJECTED="Rejected";
+/* Audit's question for accounts, as opposed to one for the requestor. Accounts answer it
+   and the request goes straight back to the audit queue. */
+const AUDIT_QUERY="Audit Query";
+/* Where audit holds a request. A query raised from one of these came from audit, and the
+   requestor's answer goes back to audit rather than through accounts a second time. */
+const AUDIT_STAGES=["Pre-Audit Queue","Audit Accepted","Audit Reconfirmation"];
 
 const STATUSES=["Submitted","Requested",REJECTED,QUERY,"Accountant Review","Accountant Accepted",
   "Pre-Audit Queue","Audit Accepted","Audit Query","Audit Rejected","Audit Reconfirmation",
@@ -182,7 +188,10 @@ export async function PATCH(req:Request){
        accounts queue. Everything else still needs a write role. */
     const{actor,response}=await requireAuth(req,"read");
     if(response)return response;
-    const{id,status,owner,note,fields}=(await req.json()) as{id:number;status:string;owner?:string;note?:string;fields?:Record<string,unknown>};
+    const{id,status:asked,owner:askedOwner,note,fields}=(await req.json()) as{id:number;status:string;owner?:string;note?:string;fields?:Record<string,unknown>};
+    /* Not always what was asked for: a resubmission is routed back to whoever raised the
+       query, which the browser does not decide. */
+    let status=asked,owner=askedOwner;
     if(!Number.isFinite(Number(id)))return bad("id is required");
     if(STATUSES.indexOf(String(status))<0)return bad("Unknown status");
     const db=await getDb();
@@ -207,6 +216,16 @@ export async function PATCH(req:Request){
       return bad("Say what the requestor needs to correct before resubmitting.",422);
     if(status===REJECTED&&remark.length<5)
       return bad("Give a reason for the rejection so the requestor knows why it was closed.",422);
+    if(status===AUDIT_QUERY&&remark.length<5)
+      return bad("Say what audit needs accounts to clarify.",422);
+    if(old.status===AUDIT_QUERY&&status==="Pre-Audit Queue"&&remark.length<5)
+      return bad("Answer audit's query before sending the request back to audit.",422);
+    if(isResubmit){
+      const[asking]=await db.select({previousValue:auditLogs.previousValue}).from(auditLogs)
+        .where(and(eq(auditLogs.recordId,Number(id)),eq(auditLogs.action,"Query raised to requestor")))
+        .orderBy(desc(auditLogs.id)).limit(1);
+      if(asking&&AUDIT_STAGES.includes(asking.previousValue)){status="Pre-Audit Queue";owner="Audit queue"}
+    }
     if(isResubmit&&remark.length<5)
       return bad("Say what you corrected, so accounts can see what changed.",422);
 
@@ -319,12 +338,14 @@ export async function PATCH(req:Request){
        of every move - a rejection most of all, with the reason. */
     const waitingOn=rolesActingOn(status);
     if(waitingOn.length)await notify(await emailsForRoles(waitingOn),{
-      title:`${payment.requestNo} is waiting for ${waitingOn[0]==="Finance"?"release":waitingOn[0]==="Auditor"?"audit":waitingOn[0]==="Management"?"management approval":"accounts"}`,
+      title:status===AUDIT_QUERY?`${payment.requestNo}: audit has a query for accounts`
+        :`${payment.requestNo} is waiting for ${waitingOn[0]==="Finance"?"release":waitingOn[0]==="Auditor"?"audit":waitingOn[0]==="Management"?"management approval":"accounts"}`,
       body:`${payment.vendor} · ${payment.currency} ${Number(payment.amount).toLocaleString()} · ${status}`,
       /* The roles decide where the email goes, not whether one is sent: audit has a group
          address, everybody else is written to individually. */
       reference:payment.requestNo,detail:paymentDetail(payment),
-      action:waitingOn[0]==="Finance"?"Release the approved amount and attach the payment proof."
+      action:status===AUDIT_QUERY?"Audit has a query about this request. Answer it and send the request back to audit."
+        :waitingOn[0]==="Finance"?"Release the approved amount and attach the payment proof."
         :waitingOn[0]==="Auditor"?"Accept it from the audit queue and verify the documents."
         :waitingOn[0]==="Management"?"Approve or decline this request."
         :"Pick it up from the accounts queue.",
@@ -339,7 +360,7 @@ export async function PATCH(req:Request){
       reference:payment.requestNo,detail:paymentDetail(payment),
       tone:status===QUERY||status===REJECTED?"warning":status==="Payment Released"?"good":"normal",
       action:status===QUERY
-        ?"Open the request, correct what is noted above, say what you changed, and resubmit it to accounts."
+        ?"Open the request, correct what is noted above, say what you changed, and resubmit it."
         :status===REJECTED
         ?"This request is closed and cannot be resubmitted. If the payment is still needed, raise a new request."
         :status==="Payment Released"?"Nothing further is needed from you."
