@@ -469,7 +469,6 @@ for(const file of files){try{const dataUrl=await asDataUrl(file);await fetch("/a
      accept="image/*,application/pdf,.doc,.docx,.xls,.xlsx,.csv,.txt,.zip"
      onChange={e=>setFiles(Array.from(e.target.files||[]))}/>
    <Upload/><b>{labelFor(v.nature,"documents")}</b>
-   <small>{ruleFor(v.nature,"documents")==="M"?"Required · ":"Optional · "}Attach the invoice, PO and other supporting documents · PDF, image, Word, Excel, CSV, TXT or ZIP · max 15 MB per file</small>
    {files.length>0&&<small className="upload-list">{files.length} file{files.length===1?"":"s"}: {files.map(f=>f.name).join(", ")}</small>}
  </label></div><footer><button type="button" onClick={close}>Cancel</button><button className="primary" disabled={saving}>{saving?"Submitting…":"Submit to accountant"}</button></footer></form></>}
 
