@@ -26,7 +26,16 @@ import{getBindings}from"../db";
 
 type MailEnv={MAIL_CLIENT_EMAIL?:string;MAIL_PRIVATE_KEY?:string;MAIL_FROM?:string;
   MAIL_SEND_AS?:string;MAIL_FROM_NAME?:string;MAIL_REPLY_TO?:string;MAIL_REDIRECT_TO?:string;
-  RELAY_URL?:string;RELAY_TOKEN?:string};
+  RELAY_URL?:string;RELAY_TOKEN?:string;MAIL_COPY_TO?:string};
+
+/* Who gets a hidden copy of every message - one address or several, comma separated. It
+   is how the people running the system see every flow the way its participants do,
+   without being named on any of it. Addresses already on the message are not added again. */
+async function copiesFor(recipients:string[]){
+  const env=await getBindings() as MailEnv;
+  const on=new Set(recipients.map(r=>r.toLowerCase()));
+  return String(env.MAIL_COPY_TO||"").split(",").map(x=>x.trim().toLowerCase())
+    .filter(x=>x&&!on.has(x))}
 
 export type MailConfig={clientEmail:string;privateKey:string;from:string;sendAs:string;
   fromName:string;replyTo:string;redirectTo:string};
@@ -171,10 +180,13 @@ export function template(o:{title:string;reference?:string;intro?:string;detail?
 
 /* Gmail takes a whole RFC 2822 message rather than a JSON body, so it is assembled here.
    The body is base64 so that line length and non-ASCII stop being a consideration at all. */
-function rfc2822(o:{from:string;to:string[];subject:string;html:string;replyTo?:string}){
+function rfc2822(o:{from:string;to:string[];subject:string;html:string;replyTo?:string;bcc?:string[]}){
   const headers=[
     `From: ${o.from}`,
     `To: ${o.to.join(", ")}`,
+    /* Only for the Gmail API, which delivers to a Bcc header and removes it. The relay
+       passes headers through untouched, so it puts copies on the envelope instead. */
+    o.bcc?.length?`Bcc: ${o.bcc.join(", ")}`:"",
     o.replyTo?`Reply-To: ${o.replyTo}`:"",
     `Subject: ${headerValue(o.subject)}`,
     "MIME-Version: 1.0",
@@ -207,9 +219,13 @@ async function relay(to:string[],opts:{subject:string;html:string;replyTo?:strin
       :opts.html;
     const raw=rfc2822({from:fromHeader(shownFrom,name),to:recipients,subject:opts.subject,
       html,replyTo});
+    /* The copies go on the envelope only. SMTP delivers to every envelope address, and the
+       To header - built above from the recipients alone - is all anybody reads, so the
+       copy is blind without a Bcc header the relay would pass through verbatim. */
+    const envelope=[...recipients,...await copiesFor(recipients)];
     const res=await fetch(url,{method:"POST",
       headers:{authorization:`Bearer ${token}`,"content-type":"application/json"},
-      body:JSON.stringify({from,to:recipients,raw})});
+      body:JSON.stringify({from,to:envelope,raw})});
     if(!res.ok){
       const detail=await res.text().catch(()=>"");
       console.error(`[mail] relay refused (${res.status})`,detail.slice(0,300));
@@ -249,6 +265,7 @@ export async function sendMail(opts:{to:string[];subject:string;html:string;repl
         `        To: ${to.join(", ")}`,
         `        Subject: ${opts.subject}`,
         `        Reply-To: ${reply==="none"?"(none — no-reply)":reply||opts.replyTo||"(none)"}`,
+        `        Copy to: ${(await copiesFor(to)).join(", ")||"(none)"}`,
         `        Body: ${opts.html.length} bytes of HTML`].join("\n"));
       return result(false,"not configured (report-only)")}
     const recipients=c.redirectTo?[c.redirectTo]:to;
@@ -259,7 +276,7 @@ export async function sendMail(opts:{to:string[];subject:string;html:string;repl
        address nobody reads. The footer already says where to go instead. */
     const replyTo=c.replyTo==="none"?undefined:(c.replyTo||opts.replyTo);
     const raw=b64url(utf8(rfc2822({from:fromHeader(c.sendAs,c.fromName),to:recipients,
-      subject:opts.subject,html,replyTo})));
+      subject:opts.subject,html,replyTo,bcc:await copiesFor(recipients)})));
     const token=await accessToken(c);
     const res=await fetch(
       `https://gmail.googleapis.com/gmail/v1/users/${encodeURIComponent(c.from)}/messages/send`,
