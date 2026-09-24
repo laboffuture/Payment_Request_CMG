@@ -31,7 +31,7 @@ const when=(v:string)=>{
   return isNaN(+d)?v:d.toLocaleString("en-GB",{day:"2-digit",month:"short",year:"numeric",hour:"2-digit",minute:"2-digit"})};
 const stamp=(v:string)=>v?new Date(v).toLocaleDateString("en-GB",{day:"2-digit",month:"short",year:"numeric"}):"";
 
-export default function PaymentDetail({payment:p,role,onClose,onAction,onDelete,userEmail="",companies=[],departments=[],natures=[],currencies=[],tdsChoices=[],termsChoices=[],modeChoices=[],jobs=[]}:{payment:Payment;role:string;onClose:()=>void;onAction:(s:string,note?:string,fields?:Record<string,string>)=>void;onDelete?:()=>void;userEmail?:string;companies?:{id:string;name:string}[];departments?:string[];natures?:string[];currencies?:string[];tdsChoices?:string[];termsChoices?:string[];modeChoices?:string[];jobs?:Job[]}){
+export default function PaymentDetail({payment:p,busy=false,role,onClose,onAction,onDelete,userEmail="",companies=[],departments=[],natures=[],currencies=[],tdsChoices=[],termsChoices=[],modeChoices=[],jobs=[]}:{payment:Payment;busy?:boolean;role:string;onClose:()=>void;onAction:(s:string,note?:string,fields?:Record<string,string>)=>void;onDelete?:()=>void;userEmail?:string;companies?:{id:string;name:string}[];departments?:string[];natures?:string[];currencies?:string[];tdsChoices?:string[];termsChoices?:string[];modeChoices?:string[];jobs?:Job[]}){
  const accountQueue=["Submitted","Requested"].includes(p.status),accountWork=["Accountant Accepted","Accountant Review"].includes(p.status),auditQueue=p.status==="Pre-Audit Queue",auditWork=p.status==="Audit Accepted",correction=p.status==="Observation - Audit Action",recheck=p.status==="Audit Reconfirmation",auditQuery=p.status==="Audit Query",approved=p.status==="Approved by Auditor – Ready to Release",released=p.status==="Payment Released";
  const[sendBack,setSendBack]=useState<""|"accounts"|"query"|"reject">(""),[remark,setRemark]=useState(""),[fixing,setFixing]=useState(false),[fixNote,setFixNote]=useState(""),[stageNote,setStageNote]=useState(""),[checks,setChecks]=useState<Record<string,boolean>>({}),[observation,setObservation]=useState("Supporting documents do not reconcile with the ledger balance."),[proof,setProof]=useState("");
  const active=useMemo(()=>stageIndex(p.status),[p.status]);
@@ -262,7 +262,10 @@ export default function PaymentDetail({payment:p,role,onClose,onAction,onDelete,
    {!!remarks.length&&<div className="wf-remarks"><small>REMARKS SO FAR</small>
      {remarks.map(r=><p key={r.id}><b>{r.remark}</b>
        <span>{r.actor} · {r.status} · {when(r.createdAt)}</span></p>)}</div>}
-   {action}</section><Attachments entityType="payment" entityId={String(p.id)} flash={()=>{}}
+   {/* Every button in the current action is held while a decision is saving, so a second
+       click cannot send it again. */}
+   <fieldset className="wf-action-set" disabled={busy}>{action}</fieldset>
+   {busy&&<p className="wf-saving">Saving…</p>}</section><Attachments entityType="payment" entityId={String(p.id)} flash={()=>{}}
    canRemove={["Administrator","Audit Head","Management","Accountant","Auditor","Finance"].includes(role)
      ||(mayCorrect&&p.status==="Query Raised")}/><section className="wf-history"><h4>Controlled audit trail</h4>
    {!history.length&&<p><i/><span><b>No history recorded for this request yet.</b></span></p>}

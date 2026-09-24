@@ -2,6 +2,7 @@ import{and,eq,inArray}from"drizzle-orm";
 import{getDb,getBindings}from"../db";
 import{settingOptions,wfNotifications,wfUsers}from"../db/schema";
 import{sendMail,template}from"./mail";
+import{after}from"next/server";
 
 /* Telling people. Every flow calls these after its own write has succeeded, and none of
    them throws: a notification that cannot be stored must never undo, or report as
@@ -34,7 +35,10 @@ export async function notify(recipients:string[],n:Notice,except?:string|null,ro
     await db.batch(rows.map(r=>db.insert(wfNotifications).values(r)) as any);
     /* The screen is told either way; the mail is a second delivery of the same thing and
        must never be the reason a notification fails. */
-    await email(db,rows.map(r=>r.id),to,everyone,skip,n,roles,at);
+    /* After the response, not before it. Each message is a round trip to the mail server,
+       and a decision that emails thirteen accountants kept the person who took it waiting
+       seconds for a reply - long enough that they clicked again. */
+    after(()=>email(db,rows.map(r=>r.id),to,everyone,skip,n,roles,at));
   }catch(e){console.error("notify failed",e)}}
 
 /* ---------- email ---------- */

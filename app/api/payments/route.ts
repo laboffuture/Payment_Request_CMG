@@ -200,6 +200,14 @@ export async function PATCH(req:Request){
 
     const ownResubmit=old.status===QUERY&&status==="Submitted"
       &&!!actor?.email&&(old.raisedBy||"")===actor.email;
+    /* The person who raised it, asking to resubmit a request that is no longer waiting on
+       them - usually a second click after the first had already worked. Said as it is,
+       rather than as a question of role. */
+    if(!hasWriteRole(actor?.roles)&&!ownResubmit&&status==="Submitted"
+      &&!!actor?.email&&(old.raisedBy||"").toLowerCase()===actor.email.toLowerCase())
+      return bad(old.status===REJECTED
+        ?"This request was rejected and is closed. Raise a new request instead."
+        :`${old.requestNo} is not waiting on you - it is at "${old.status}". Reload the page to see where it is now.`,409);
     if(!hasWriteRole(actor?.roles)&&!ownResubmit)
       return bad("Your role cannot change this data.",403);
     /* A rejection is final. Only an administrator can move a rejected request again - to
