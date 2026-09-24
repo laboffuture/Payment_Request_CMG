@@ -5,6 +5,7 @@ import type{FieldKey}from"../lib/payment-fields";
 import{useEffect,useMemo,useState}from"react";
 import{AlertTriangle,Check,Clock3,FileCheck2,HelpCircle,Paperclip,ShieldCheck,X}from"lucide-react";
 import Attachments from"./Attachments";
+import{stamp as stampAt}from"../lib/stamp";
 import{distinct,jobFor}from"../lib/jobs";
 import type{Job}from"../lib/jobs";
 type Payment={projectCode?:string;invoiceNumber?:string;invoiceDate?:string;paymentTerms?:string;period?:string;extra?:string;tds?:string;nature?:string;poNumber?:string;resubmitNote?:string;resubmittedAt?:string;rejectionNote?:string;rejectedBy?:string;rejectedAt?:string;raisedBy?:string;tdsPercent?:string;tdsValue?:string;
@@ -25,10 +26,7 @@ const readEntry=(e:Entry)=>{
   const remark=cut<0?"":e.newValue.slice(cut+3).trim();
   const field=e.action.startsWith("Corrected ")&&e.action!=="Corrected and resubmitted";
   return{...e,status,remark,field}};
-/* SQLite's CURRENT_TIMESTAMP is UTC without a zone, which a browser reads as local time. */
-const when=(v:string)=>{
-  const d=new Date(/[zZ]|[+-]\d\d:?\d\d$/.test(v)?v:v.replace(" ","T")+"Z");
-  return isNaN(+d)?v:d.toLocaleString("en-GB",{day:"2-digit",month:"short",year:"numeric",hour:"2-digit",minute:"2-digit"})};
+const when=stampAt;
 /* TDS as accounts recorded it, with what is left to pay. Audit verifies the deduction, so
    the rate and the amount have to be in front of them, not just "Yes". */
 const tdsLine=(p:{tds?:string;tdsPercent?:string;tdsValue?:string;currency:string;amount:number})=>{

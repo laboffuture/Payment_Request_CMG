@@ -1,6 +1,7 @@
 "use client";
 import{useState}from"react";
 import{CheckCircle2,Clock3,Download,FileText,Plus,Search}from"lucide-react";
+import{stamp}from"../lib/stamp";
 import{csv}from"./workforce-store";
 import{Pager}from"./WorkforceShared";
 import{STAGES,isFinished,stageIndex}from"../lib/payment-stages";
@@ -79,7 +80,7 @@ export default function RequestorWorkspace({rows,open,create,scope="own"}:{rows:
         <th>VERIFIED BY</th><th>REMARKS</th><th>CURRENT STEP</th><th>STATUS TRACKER</th>
       </tr></thead>
       <tbody>{mine.map(p=><tr key={p.id} onClick={()=>open(p)}>
-        <td><b>{p.requestNo}</b><small>{p.urgency} priority</small></td>
+        <td><b>{p.requestNo}</b><small>{p.urgency} priority</small>{p.createdAt&&<small className="req-when" title="Requested on">{stamp(p.createdAt)}</small>}</td>
         <td>{p.company}<small>{p.department}</small></td>
         <td title={p.vendor}>{p.vendor}</td>
         <td><b>{p.currency} {p.amount.toLocaleString()}</b></td>

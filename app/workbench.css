@@ -61,3 +61,6 @@
 /* The tenth column: how far the request has travelled. */
 .wb-panel th:nth-child(10),.wb-panel td:nth-child(10){width:9%}
 .wb-panel table{min-width:1320px}
+/* When the request was raised, under its number - for reference, so kept quiet. */
+td small.req-when{display:block;margin-top:2px;font-size:9.5px;font-weight:500;color:#98a2b3;
+  white-space:nowrap;font-variant-numeric:tabular-nums}
