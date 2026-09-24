@@ -16,7 +16,7 @@ import ScheduledPayments from "./ScheduledPayments";
 import ObservationDesk from "./ObservationDesk";
 import SettingsDesk from "./SettingsDesk";
 import{ExtraFields,packExtra,refreshFields,useExtraFields}from"./ExtraFields";
-import{FIELD_ORDER,departmentsFor,labelFor,ruleFor}from"../lib/payment-fields";
+import{FIELD_ORDER,labelFor,ruleFor}from"../lib/payment-fields";
 import{distinct,jobFor,parseJobs}from"../lib/jobs";
 import type{Job}from"../lib/jobs";
 import{refreshOptions}from"./options-store";
@@ -458,8 +458,6 @@ for(const file of files){try{const dataUrl=await asDataUrl(file);await fetch("/a
          <button type="button" key={n}
            onMouseDown={e=>{e.preventDefault();setV({...v,vendor:n});setVendorOpen(false)}}>
            <b>{n}</b></button>)}</div>}
-     {key==="department"&&!!departmentsFor(v.nature)&&
-       <small className="field-hint">Usually {departmentsFor(v.nature)}</small>}
    </label>})}
  <ExtraFields form="payment" values={extra} onChange={setExtra}/>
  <label className="wide">{labelFor(v.nature,"description")}
