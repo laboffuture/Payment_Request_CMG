@@ -282,3 +282,7 @@
 @container (max-width:640px){
   .recv-row.with-del{grid-template-columns:1fr auto auto}
   .recv-row.with-del .recv-del{grid-column:3;grid-row:1}}
+/* A client typed rather than picked, with a way back to the list. */
+.recv-newclient{display:flex;gap:6px}
+.recv-newclient input{flex:1;min-width:0}
+.recv-newclient button{flex:none;padding:0 10px;font-size:11px}
