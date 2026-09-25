@@ -1,10 +1,10 @@
 import{and,count,desc,eq,like,or,sql}from"drizzle-orm";
 import{getDb}from"../../../db";
-import{wfAttachments,wfPlanning,wfReceivables,wfUsers}from"../../../db/schema";
+import{wfAttachments,wfCompanies,wfPlanning,wfReceivables,wfUsers}from"../../../db/schema";
 import{deleteFile}from"../../../lib/storage";
 import{requireAuth}from"../../../lib/auth";
 import{emailsForRoles,notify}from"../../../lib/notify";
-import{ACCOUNTS_ROLES,AUDIT_ROLES,JOB_DEPARTMENTS,REQUIRED_TO_LEAVE,RETURNABLE_TO,STAGES,
+import{ACCOUNTS_ROLES,AUDIT_ROLES,JOB_COMPANIES,JOB_DEPARTMENTS,isJobCompany,REQUIRED_TO_LEAVE,RETURNABLE_TO,STAGES,
   mayAct,stageIndex}from"../../../lib/receivable-stages";
 import type{Stage}from"../../../lib/receivable-stages";
 import{actorOf,bad,num,oops,page,search,str,writeWithAudit}from"../../../lib/workforce-api";
@@ -100,6 +100,10 @@ export async function POST(req:Request){
     if(str(body.contractValue).trim()!==""&&!(Number(body.contractValue)>=0))
       return bad("Contract value / budget must be an amount.",422);
     const db=await getDb();
+    const[company]=await db.select({name:wfCompanies.name,active:wfCompanies.active}).from(wfCompanies)
+      .where(eq(wfCompanies.id,str(body.companyId)));
+    if(!company||!company.active||!isJobCompany(company.name))
+      return bad(`Company must be one of ${JOB_COMPANIES.join(", ")}.`,422);
     /* The project manager, if named, must have a login: they are emailed and act in the
        portal. Their name is taken from the login rather than from the form. */
     let pmName="",pmEmail="";

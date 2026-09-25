@@ -65,3 +65,11 @@ export const RETURNABLE_TO=STAGES.slice(0,3) as readonly Stage[];
    than the organisation's full department list, which runs to forty entries, most of
    which never notify a job. The form offers these and the server accepts only these. */
 export const JOB_DEPARTMENTS=["Project","Procurement","Sales","Management","Marketing"] as const;
+
+/* The companies a job notification can be raised under, by name as they stand in the
+   company register. Matched without regard to case or spacing, so a name tidied in the
+   register does not silently drop out of the list. */
+export const JOB_COMPANIES=["TopRock Interiors - Dubai","TopRock Interiors - India","TopRock Interiors - Qatar",
+  "TopRock Interiors - KSA","TopRock Interiors - Bahrain"] as const;
+const squash=(v:string)=>v.toLowerCase().replace(/\s+/g," ").trim();
+export const isJobCompany=(name:string)=>JOB_COMPANIES.some(c=>squash(c)===squash(name||""));

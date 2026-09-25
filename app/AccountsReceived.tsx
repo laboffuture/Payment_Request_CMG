@@ -22,7 +22,7 @@ import FilePicker from"./FilePicker";
 import type{Receivable}from"./audit-api";
 import{useAsync}from"./workforce-store";
 import{Empty,ErrorBlock,Loading}from"./WorkforceShared";
-import{ACTION_LABEL,JOB_DEPARTMENTS,RETURNABLE_TO,STAGES,isVerified,mayAct,stageIndex}from"../lib/receivable-stages";
+import{ACTION_LABEL,JOB_DEPARTMENTS,RETURNABLE_TO,STAGES,isJobCompany,isVerified,mayAct,stageIndex}from"../lib/receivable-stages";
 import type{Stage}from"../lib/receivable-stages";
 import PlanningProcurement from"./PlanningProcurement";
 import CompletionBilling from"./CompletionBilling";
@@ -286,7 +286,9 @@ function NewEntry({companies,customers,close,added}:{companies:{id:string;name:s
   customers:string[];close:()=>void;added:(r:Receivable)=>void}){
   /* BOQ is a plain Yes/No with no placeholder, so it starts on the first choice and the
      value sent always matches what the dropdown shows. */
-  const[f,setF]=useState<Record<string,string>>({companyId:companies[0]?.id||"",priority:"Normal",boqAvailable:"Yes",
+  /* Only the companies jobs are notified under, in the order the business lists them. */
+  const jobCompanies=companies.filter(c=>isJobCompany(c.name));
+  const[f,setF]=useState<Record<string,string>>({companyId:"",priority:"Normal",boqAvailable:"Yes",
     notifiedOn:new Date().toISOString().slice(0,10),contractCurrency:"AED"});
   const[files,setFiles]=useState<File[]>([]);
   const[newClient,setNewClient]=useState(false);
@@ -323,7 +325,7 @@ function NewEntry({companies,customers,close,added}:{companies:{id:string;name:s
         <div className="recv-two">
           <label><span className="recv-lbl">Job Notification No.<i className="recv-req" aria-hidden="true">*</i></span><input readOnly className="recv-auto" value={numbers.data?.jobNo||"Issued on submit"}/></label>
           <label><span className="recv-lbl">Company<i className="recv-req" aria-hidden="true">*</i></span><select required value={f.companyId||""} onChange={e=>set("companyId",e.target.value)}>
-            <option value="">Select company</option>{companies.map(c=><option key={c.id} value={c.id}>{c.name}</option>)}</select></label></div>
+            <option value="">Select company</option>{jobCompanies.map(c=><option key={c.id} value={c.id}>{c.name}</option>)}</select></label></div>
         <div className="recv-two">
           <label><span className="recv-lbl">Department<i className="recv-req" aria-hidden="true">*</i></span><select required value={f.department||""} onChange={e=>set("department",e.target.value)}>
             <option value="">Select department</option>{JOB_DEPARTMENTS.map(d=><option key={d}>{d}</option>)}</select></label>
