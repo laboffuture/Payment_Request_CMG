@@ -50,7 +50,9 @@ export const REQUIRED_TO_LEAVE:Record<Stage,string[]>={
   /* CRM Job Creation, as its field specification sets out the mandatory fields. */
   "Job Notification":["jobName","customer","projectName","projectType","jobLocation","contractValue",
     "contractCurrency","startDate","pmEmail","jobStatus","scope","managementApproval"],
-  "CRM JOB Creation":["soNo","amount"],
+  /* Sales Order, as its field specification sets out what is entered; the rest is
+     carried from the job or worked out. */
+  "CRM JOB Creation":["soDate","soApprovedByEmail","soApprovalDate"],
   "Sales Order":[],
   "Audit Verification":[],
   "Verified":[]};
@@ -61,7 +63,8 @@ export const FIELD_LABEL:Record<string,string>={
   customer:"Client name",description:"Job description",notifiedOn:"Notified on",
   jobName:"Job name",projectName:"Project / contract name",projectType:"Project type",jobLocation:"Job location",
   contractValue:"Contract value",contractCurrency:"Currency",startDate:"Project start date",pmEmail:"Project manager",
-  jobStatus:"Job status",scope:"Scope of work",managementApproval:"Management approval"};
+  jobStatus:"Job status",scope:"Scope of work",managementApproval:"Management approval",
+  soDate:"Sales order date",soApprovedByEmail:"Approved by",soApprovalDate:"Approval date"};
 
 /* A CRM job's status, for monitoring progress and ageing. The code reads these values, so
    they are fixed here rather than in an editable list. */

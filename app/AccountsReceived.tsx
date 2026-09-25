@@ -178,7 +178,7 @@ function Detail({row,role,companies,close,saved,reload}:{row:Receivable;role:str
   const[fields,setFields]=useState<Partial<Receivable>>({});
   const[note,setNote]=useState(""),[back,setBack]=useState<string>("");
   const[busy,setBusy]=useState(false),[err,setErr]=useState("");
-  const[crm,setCrm]=useState(false);
+  const[crm,setCrm]=useState(false),[so,setSo]=useState(false);
   const at=row.stage as Stage,mine=mayAct(at,[role]),done=isVerified(at);
   const set=(k:keyof Receivable,v:string|number)=>setFields(f=>({...f,[k]:v}));
   const company=companies.find(c=>c.id===row.companyId)?.name||row.companyId||"—";
@@ -233,7 +233,16 @@ function Detail({row,role,companies,close,saved,reload}:{row:Receivable;role:str
           {!!row.paymentTerms&&<div><dt>Payment terms</dt><dd>{row.paymentTerms}{row.advancePercent?` · advance ${row.advancePercent}%`:""}{row.retentionPercent?` · retention ${row.retentionPercent}%`:""}</dd></div>}
         </>}
         <div><dt>CRM job</dt><dd>{row.crmJobNo||"Not created yet"}{row.crmOwner&&` · ${row.crmOwner}`}</dd></div>
-        <div><dt>Sales order</dt><dd>{row.soNo||"Not raised yet"}</dd></div>
+        <div><dt>Sales order</dt><dd>{row.soNo?`${row.soNo}${row.soDate?` · ${when(row.soDate)}`:""}`:"Not raised yet"}</dd></div>
+        {!!row.soAt&&<>
+          {!!row.taxAmount&&<div><dt>Tax / GST</dt><dd>{money(row.taxAmount,row.currency)}</dd></div>}
+          <div><dt>Total order value</dt><dd>{money(row.totalOrderValue||row.amount,row.currency)}</dd></div>
+          {!!row.advanceAmount&&<div><dt>Advance</dt><dd>{money(row.advanceAmount,row.currency)} ({row.advancePercent}%)</dd></div>}
+          {!!row.retentionAmount&&<div><dt>Retention</dt><dd>{money(row.retentionAmount,row.currency)} ({row.retentionPercent}%)</dd></div>}
+          {!!row.boqReference&&<div><dt>BOQ reference</dt><dd>{/^https?:\/\//.test(row.boqReference)
+            ?<a href={row.boqReference} target="_blank" rel="noreferrer">{row.boqReference}</a>:row.boqReference}</dd></div>}
+          {!!row.soApprovedByName&&<div><dt>SO approved</dt><dd>{row.soApprovedByName} · {when(row.soApprovalDate)}</dd></div>}
+        </>}
         <div><dt>Amount</dt><dd>{money(row.amount,row.currency)}</dd></div>
         {!!row.submittedAt&&<div><dt>Sent for audit</dt><dd>{when(row.submittedAt)}</dd></div>}
         {done&&<div><dt>Verified</dt><dd><ShieldCheck/>{row.verifiedBy} · {when(row.verifiedAt)}</dd></div>}
@@ -248,23 +257,17 @@ function Detail({row,role,companies,close,saved,reload}:{row:Receivable;role:str
       :<div className="recv-act">
         {at==="Job Notification"&&<p className="recv-hint">Create the CRM job: the form opens filled in from this
           notification - complete the client&apos;s contact, the commercial terms and the people on the job.</p>}
-        {at==="CRM JOB Creation"&&<>
-          <label>Sales order number<input autoFocus value={String(fields.soNo??"")}
-            onChange={e=>set("soNo",e.target.value)} placeholder="e.g. SO-2026-1187"/></label>
-          <div className="recv-two">
-            <label>Amount<input type="number" min="0" step="0.01" value={String(fields.amount??"")}
-              onChange={e=>set("amount",e.target.value)}/></label>
-            <label>Currency<input value={String(fields.currency??row.currency)}
-              onChange={e=>set("currency",e.target.value)}/></label></div></>}
+        {at==="CRM JOB Creation"&&<p className="recv-hint">Raise the sales order: the form opens with the job, client,
+          contract, terms and scope from the CRM job, and works out the totals.</p>}
         {at==="Sales Order"&&<p className="recv-hint">The job, the CRM entry and the sales
           order go to audit together. Audit can send it back to any of the three stages.</p>}
         {at==="Audit Verification"&&<label>Audit remarks<textarea rows={2} value={String(fields.remarks??"")}
           onChange={e=>set("remarks",e.target.value)} placeholder="Optional"/></label>}
 
         <button className="primary" disabled={busy}
-          onClick={()=>at==="Job Notification"?setCrm(true):run(()=>receivablesApi.advance(row.id,fields),
+          onClick={()=>at==="Job Notification"?setCrm(true):at==="CRM JOB Creation"?setSo(true):run(()=>receivablesApi.advance(row.id,fields),
             `${row.ref}: ${ACTION_LABEL[at].toLowerCase()} done`)}>
-          {busy?"Saving…":at==="Job Notification"?"Open CRM job creation form":ACTION_LABEL[at]}<ArrowRight/></button>
+          {busy?"Saving…":at==="Job Notification"?"Open CRM job creation form":at==="CRM JOB Creation"?"Open sales order form":ACTION_LABEL[at]}<ArrowRight/></button>
 
         {at==="Audit Verification"&&<div className="recv-return">
           <b><ArrowLeft/>Send back for correction</b>
@@ -280,6 +283,7 @@ function Detail({row,role,companies,close,saved,reload}:{row:Receivable;role:str
       {/* Drawings, quotes and anything else the notification rests on. */}
       <Attachments entityType="receivable" entityId={row.id} flash={()=>{}}/>
       {crm&&<CrmForm row={row} close={()=>setCrm(false)} saved={r=>{setCrm(false);saved(r,`${r.ref}: CRM job ${r.jobCode} created`)}}/>}
+      {so&&<SalesOrderForm row={row} close={()=>setSo(false)} saved={r=>{setSo(false);saved(r,`${r.ref}: sales order ${r.soNo} raised`)}}/>}
     </aside></div>}
 
 /* The job notification form: what the job is, for whom, under whom and on what terms.
@@ -490,3 +494,66 @@ function CrmForm({row,close,saved}:{row:Receivable;close:()=>void;saved:(r:Recei
 /* A form label with its required mark on the same line. */
 function lbl(text:string,required=false){
   return <span className="recv-lbl">{text}{required&&<i className="recv-req" aria-hidden="true">*</i>}</span>}
+
+/* The Sales Order, in the order of its field specification. Everything the CRM job already
+   holds is shown greyed and taken from it; what is entered is the date, the tax, the BOQ
+   reference and who approved it when. The totals are worked out as the tax is typed - and
+   worked out again by the server, which does not take them from the browser. */
+function SalesOrderForm({row,close,saved}:{row:Receivable;close:()=>void;saved:(r:Receivable)=>void}){
+  const today=new Date().toISOString().slice(0,10);
+  const[f,setF]=useState<Record<string,string>>({soDate:today,soApprovalDate:today,taxAmount:"",boqReference:"",soApprovedByEmail:""});
+  const[files,setFiles]=useState<File[]>([]);
+  const[busy,setBusy]=useState(false),[err,setErr]=useState("");
+  const set=(k:string,v:string)=>setF(x=>({...x,[k]:v}));
+  const numbers=useAsync(()=>row.soNo?Promise.resolve({soNo:row.soNo}):receivablesApi.next(),[row.soNo]);
+  const people=useAsync(()=>planningApi.people(),[]);
+  const c=row.contractCurrency||"AED";
+  const fmt=(n:number)=>`${c} ${(Math.round(n*100)/100).toLocaleString("en-GB",{minimumFractionDigits:2,maximumFractionDigits:2})}`;
+  const total=(row.contractValue||0)+(Number(f.taxAmount)||0);
+  const auto=(label:string,value:string,required=false,wide=false)=>
+    <label className={wide?"wide":undefined}>{lbl(label,required)}<input readOnly className="recv-auto" value={value||"—"}/></label>;
+
+  const submit=async(e:React.FormEvent)=>{
+    e.preventDefault();setBusy(true);setErr("");
+    try{
+      const r=await receivablesApi.advance(row.id,f as unknown as Partial<Receivable>);
+      const failed:string[]=[];
+      for(const file of files){
+        try{const res=await fetch("/api/attachments",{method:"POST",headers:{"content-type":"application/json"},
+          body:JSON.stringify({entityType:"receivable",entityId:row.id,kind:"Other",fileName:file.name,dataUrl:await asDataUrl(file)})});
+          if(!res.ok)failed.push(file.name)}catch{failed.push(file.name)}}
+      if(failed.length)alert(`The sales order was raised, but these files did not upload: ${failed.join(", ")}. Add them from the entry.`);
+      saved(r)}
+    catch(x){setErr(x instanceof Error?x.message:"Could not raise the sales order");setBusy(false)}};
+
+  return <div className="recv-drawer wide recv-over" role="dialog" aria-label="Sales order">
+    <button className="recv-scrim" aria-label="Close" onClick={close}/>
+    <aside><header><div><small>SALES ORDER · {row.ref}</small><h3>{row.jobName||row.description}</h3>
+        <p className="recv-form-sub">Filled in from the CRM job. Add the date, tax and approval, then raise the sales order.</p></div>
+      <button onClick={close} aria-label="Close"><X/></button></header>
+      <form className="recv-act recv-form" onSubmit={submit}>
+        <div className="recv-two">
+          {auto("Sales order no.",numbers.data?.soNo||"Issued on submit",true)}
+          <label>{lbl("Job code",true)}<select disabled value={row.jobCode}><option>{row.jobCode||"—"}</option></select></label></div>
+        <div className="recv-two">{auto("Client",row.customer,true)}{auto("Project",row.projectName,true)}</div>
+        <div className="recv-two">{auto("Contract / PO no.",row.poNumber)}
+          <label>{lbl("Sales order date",true)}<input type="date" required value={f.soDate} onChange={e=>set("soDate",e.target.value)}/></label></div>
+        <div className="recv-two">{auto("Contract value",fmt(row.contractValue||0),true)}
+          <label>{lbl("Tax / GST")}<input type="number" min="0" step="0.01" value={f.taxAmount} onChange={e=>set("taxAmount",e.target.value)} placeholder="0.00"/></label></div>
+        <div className="recv-two">{auto("Total order value",fmt(total),true)}{auto("Payment terms",row.paymentTerms)}</div>
+        <div className="recv-two">{auto("Advance %",row.advancePercent?`${row.advancePercent}%`:"")}{auto("Advance amount",row.advancePercent?fmt(total*row.advancePercent/100):"")}</div>
+        <div className="recv-two">{auto("Retention %",row.retentionPercent?`${row.retentionPercent}%`:"")}{auto("Retention amount",row.retentionPercent?fmt(total*row.retentionPercent/100):"")}</div>
+        <div className="recv-two">{auto("Project start date",row.startDate?when(row.startDate):"")}{auto("Completion date",row.endDate?when(row.endDate):"")}</div>
+        <label>{lbl("Scope of work",true)}<textarea readOnly className="recv-auto" rows={3} value={row.scope||"—"}/></label>
+        <label>{lbl("BOQ reference")}<input value={f.boqReference} onChange={e=>set("boqReference",e.target.value)} placeholder="BOQ number or a link to it - attach the file below"/></label>
+        <div className="recv-two">
+          <label>{lbl("Approved by",true)}<select required value={f.soApprovedByEmail} onChange={e=>set("soApprovedByEmail",e.target.value)}
+            title="Management authorisation - maker-checker control">
+            <option value="">{people.loading?"Loading people…":"Select approver"}</option>
+            {(people.data||[]).map(p=><option key={p.email} value={p.email}>{p.name?`${p.name} · ${p.email}`:p.email}</option>)}</select></label>
+          <label>{lbl("Approval date",true)}<input type="date" required value={f.soApprovalDate} onChange={e=>set("soApprovalDate",e.target.value)}/></label></div>
+        <FilePicker files={files} onChange={setFiles} label="Attachments (optional)"
+          accept="image/*,application/pdf,.doc,.docx,.xls,.xlsx,.csv,.txt,.zip,.dwg"/>
+        {err&&<p className="recv-error">{err}</p>}
+        <button className="primary" type="submit" disabled={busy}>{busy?"Raising…":"Raise sales order"}</button>
+      </form></aside></div>}

@@ -518,6 +518,17 @@ export const wfReceivables=sqliteTable("wf_receivables",{
   crmAt:text("crm_at").notNull().default(""),
   // stage 3: what was sold against that job
   soNo:text("so_no").notNull().default(""),
+  /* The sales order form: its date, tax, the totals worked out from the contract, the BOQ
+     reference and who approved it when. */
+  soDate:text("so_date").notNull().default(""),
+  taxAmount:real("tax_amount").notNull().default(0),
+  totalOrderValue:real("total_order_value").notNull().default(0),
+  advanceAmount:real("advance_amount").notNull().default(0),
+  retentionAmount:real("retention_amount").notNull().default(0),
+  boqReference:text("boq_reference").notNull().default(""),
+  soApprovedByName:text("so_approved_by_name").notNull().default(""),
+  soApprovedByEmail:text("so_approved_by_email").notNull().default(""),
+  soApprovalDate:text("so_approval_date").notNull().default(""),
   amount:real("amount").notNull().default(0),
   currency:text("currency").notNull().default("AED"),
   soAt:text("so_at").notNull().default(""),

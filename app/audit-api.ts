@@ -87,7 +87,8 @@ export type Receivable={id:string;ref:string;stage:string;customer:string;compan
   clientContact:string;clientAddress:string;projectType:string;contractDate:string;salesPersonName:string;
   salesPersonEmail:string;estimationPersonName:string;estimationPersonEmail:string;jobStatus:string;boqValue:number;
   estimatedCost:number;estimatedMargin:number;marginPercent:number;paymentTerms:string;retentionPercent:number;
-  advancePercent:number};
+  advancePercent:number;soDate:string;taxAmount:number;totalOrderValue:number;advanceAmount:number;
+  retentionAmount:number;boqReference:string;soApprovedByName:string;soApprovedByEmail:string;soApprovalDate:string};
 
 /* Accounts Receivable, module 4: Debt Collection - missed invoices, and the calls, emails,
    statuses and payments logged against each. */
@@ -158,7 +159,7 @@ export const receivablesApi={
     return asJson<{receivables:Receivable[];total:number}>(
       await fetch(`/api/receivables${q?`?${q}`:""}`))},
   create:async(r:Partial<Receivable>)=>(await send("/api/receivables","POST",r)).receivable as Receivable,
-  next:async()=>asJson<{jobNo:string;jobCode:string}>(await fetch("/api/receivables?next=1")),
+  next:async()=>asJson<{jobNo:string;jobCode:string;soNo:string}>(await fetch("/api/receivables?next=1")),
   remove:async(id:string)=>asJson<{deleted:boolean;ref:string;documents:number}>(
     await fetch(`/api/receivables?id=${encodeURIComponent(id)}`,{method:"DELETE"})),
   advance:async(id:string,fields:Partial<Receivable>={})=>

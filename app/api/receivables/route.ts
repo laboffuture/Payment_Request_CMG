@@ -40,12 +40,13 @@ const shape=(r:Row)=>({id:str(r.id),ref:str(r.ref),stage:str(r.stage,"Job Notifi
 async function nextNumbers(){
   const db=await getDb();
   const year=new Date().getFullYear();
-  const rows=await db.select({ref:wfReceivables.ref,code:wfReceivables.jobCode}).from(wfReceivables);
+  const rows=await db.select({ref:wfReceivables.ref,code:wfReceivables.jobCode,so:wfReceivables.soNo}).from(wfReceivables);
   const top=(prefix:string,vals:string[])=>vals.reduce((n,v)=>{
     const m=new RegExp(`^${prefix}-${year}-(\\d+)$`).exec(v||"");return m?Math.max(n,Number(m[1])):n},0);
   const pad=(n:number)=>String(n).padStart(4,"0");
   return{jobNo:`JN-${year}-${pad(top("JN",rows.map(r=>r.ref))+1)}`,
-    jobCode:`JC-${year}-${pad(top("JC",rows.map(r=>r.code))+1)}`}}
+    jobCode:`JC-${year}-${pad(top("JC",rows.map(r=>r.code))+1)}`,
+    soNo:`SO-${year}-${pad(top("SO",rows.map(r=>r.so))+1)}`}}
 
 /* Mandatory on the job notification, as the field specification sets them out. */
 const REQUIRED_ON_RAISE:Record<string,string>={companyId:"Company",department:"Department",
@@ -235,8 +236,31 @@ export async function PATCH(req:Request){
         paymentTerms:str(body.paymentTerms,row.paymentTerms),retentionPercent:retention,advancePercent:advance,
         managementApproval:str(filled.managementApproval)});
     }
-    if(from==="CRM JOB Creation"){patch.soNo=str(body.soNo,row.soNo);
-      patch.amount=num(filled.amount);patch.currency=str(body.currency,row.currency||"AED");patch.soAt=now()}
+    if(from==="CRM JOB Creation"){
+      /* The sales order. Its number is the server's to issue; the job, client, project,
+         contract, terms, dates and scope come from the CRM job; the totals are worked out
+         here rather than trusted from the browser. */
+      if(!(num(row.contractValue)>0))return bad("The CRM job has no contract value. Correct it before raising the sales order.",422);
+      if(!str(row.scope).trim())return bad("The CRM job has no scope of work. Correct it before raising the sales order.",422);
+      const taxText=str(body.taxAmount).trim(),tax=taxText?Number(taxText):0;
+      if(!(tax>=0))return bad("Tax / GST must be an amount.",422);
+      const[approver]=await db.select({name:wfUsers.name,email:wfUsers.email,active:wfUsers.active}).from(wfUsers)
+        .where(sql`lower(${wfUsers.email}) = ${str(body.soApprovedByEmail).trim().toLowerCase()}`);
+      if(!approver||!approver.active)return bad("Choose who approved the sales order from the list of people with a login.",422);
+      const round=(n:number)=>Math.round(n*100)/100;
+      const total=round(num(row.contractValue)+tax);
+      let soNo=row.soNo;
+      if(!soNo){
+        soNo=(await nextNumbers()).soNo;
+        const[taken]=await db.select({id:wfReceivables.id}).from(wfReceivables).where(eq(wfReceivables.soNo,soNo));
+        if(taken)return bad("Another sales order took that number just now. Please try again.",409);
+      }
+      Object.assign(patch,{soNo,soDate:str(body.soDate),taxAmount:round(tax),totalOrderValue:total,amount:total,
+        currency:row.contractCurrency||"AED",advanceAmount:round(total*num(row.advancePercent)/100),
+        retentionAmount:round(total*num(row.retentionPercent)/100),boqReference:str(body.boqReference).trim(),
+        soApprovedByName:approver.name||approver.email,soApprovedByEmail:approver.email,
+        soApprovalDate:str(body.soApprovalDate),soAt:now()});
+    }
     if(from==="Sales Order")patch.submittedAt=now();
     if(from==="Audit Verification"){patch.verifiedBy=actor?.name||actor?.email||"";
       patch.verifiedAt=now();patch.remarks=str(body.remarks,row.remarks)}
