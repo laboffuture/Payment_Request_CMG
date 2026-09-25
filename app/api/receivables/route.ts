@@ -1,6 +1,6 @@
-import{and,count,desc,eq,like,or}from"drizzle-orm";
+import{and,count,desc,eq,like,or,sql}from"drizzle-orm";
 import{getDb}from"../../../db";
-import{wfReceivables}from"../../../db/schema";
+import{wfReceivables,wfUsers}from"../../../db/schema";
 import{requireAuth}from"../../../lib/auth";
 import{emailsForRoles,notify}from"../../../lib/notify";
 import{ACCOUNTS_ROLES,AUDIT_ROLES,REQUIRED_TO_LEAVE,RETURNABLE_TO,STAGES,
@@ -26,13 +26,38 @@ const shape=(r:Row)=>({id:str(r.id),ref:str(r.ref),stage:str(r.stage,"Job Notifi
   soNo:str(r.soNo),amount:num(r.amount),currency:str(r.currency,"AED"),soAt:str(r.soAt),
   submittedAt:str(r.submittedAt),verifiedBy:str(r.verifiedBy),verifiedAt:str(r.verifiedAt),
   remarks:str(r.remarks),returnNote:str(r.returnNote),returnedAt:str(r.returnedAt),
-  raisedByEmail:str(r.raisedByEmail),createdAt:str(r.createdAt)||now(),updatedAt:str(r.updatedAt)||now()});
+  raisedByEmail:str(r.raisedByEmail),createdAt:str(r.createdAt)||now(),updatedAt:str(r.updatedAt)||now(),
+  jobName:str(r.jobName),projectName:str(r.projectName),jobCode:str(r.jobCode),jobLocation:str(r.jobLocation),
+  pmName:str(r.pmName),pmEmail:str(r.pmEmail),startDate:str(r.startDate),endDate:str(r.endDate),poNumber:str(r.poNumber),
+  contractValue:num(r.contractValue),contractCurrency:str(r.contractCurrency,"AED")||"AED",jobType:str(r.jobType),
+  scope:str(r.scope),boqAvailable:str(r.boqAvailable),managementApproval:str(r.managementApproval),
+  priority:str(r.priority,"Normal")||"Normal",remarksNote:str(r.remarksNote)});
+
+/* The job notification number and job code, JN-2026-0001 and JC-2026-0001: the next in
+   the year after the highest already issued. The server's to give, like payment request
+   numbers, so two people submitting together cannot be handed the same one. */
+async function nextNumbers(){
+  const db=await getDb();
+  const year=new Date().getFullYear();
+  const rows=await db.select({ref:wfReceivables.ref,code:wfReceivables.jobCode}).from(wfReceivables);
+  const top=(prefix:string,vals:string[])=>vals.reduce((n,v)=>{
+    const m=new RegExp(`^${prefix}-${year}-(\\d+)$`).exec(v||"");return m?Math.max(n,Number(m[1])):n},0);
+  const pad=(n:number)=>String(n).padStart(4,"0");
+  return{jobNo:`JN-${year}-${pad(top("JN",rows.map(r=>r.ref))+1)}`,
+    jobCode:`JC-${year}-${pad(top("JC",rows.map(r=>r.code))+1)}`}}
+
+const REQUIRED_ON_RAISE:Record<string,string>={companyId:"Company",department:"Department",
+  jobName:"Job name",customer:"Client / customer",jobType:"Job type",scope:"Scope of work",
+  boqAvailable:"BOQ / budget available",managementApproval:"Management approval",priority:"Priority",
+  notifiedOn:"Notification date"};
 
 export async function GET(req:Request){
   try{
     const{response}=await requireAuth(req,"read");
     if(response)return response;
     const url=new URL(req.url);
+    // The numbers the next notification will get, shown greyed on the form.
+    if(url.searchParams.get("next"))return Response.json(await nextNumbers());
     const{limit,offset}=page(url);
     const db=await getDb();
     const stage=url.searchParams.get("stage");
@@ -41,8 +66,8 @@ export async function GET(req:Request){
     const filters=[
       stage?eq(wfReceivables.stage,stage):undefined,
       companyId?eq(wfReceivables.companyId,companyId):undefined,
-      q?or(like(wfReceivables.ref,q),like(wfReceivables.customer,q),
-        like(wfReceivables.crmJobNo,q),like(wfReceivables.soNo,q)):undefined].filter(Boolean);
+      q?or(like(wfReceivables.ref,q),like(wfReceivables.customer,q),like(wfReceivables.jobName,q),
+        like(wfReceivables.jobCode,q),like(wfReceivables.crmJobNo,q),like(wfReceivables.soNo,q)):undefined].filter(Boolean);
     const where=filters.length?and(...filters):undefined;
     const[rows,[total]]=await Promise.all([
       db.select().from(wfReceivables).where(where)
@@ -61,15 +86,46 @@ export async function POST(req:Request){
     if(!actor?.roles.some(r=>ACCOUNTS_ROLES.includes(r)))
       return bad("Only accounts may raise a job notification.",403);
     const body=await req.json() as Row;
-    if(!str(body.customer).trim())return bad("A customer is required");
-    if(!str(body.description).trim())return bad("A job description is required");
+    const missing=Object.entries(REQUIRED_ON_RAISE).filter(([k])=>!str(body[k]).trim()).map(([,l])=>l);
+    if(missing.length)return bad(`${missing.join(", ")} ${missing.length===1?"is":"are"} required.`,422);
+    if(!["Yes","No"].includes(str(body.boqAvailable)))return bad("Say whether a BOQ / budget is available.",422);
+    if(str(body.startDate)&&str(body.endDate)&&str(body.endDate)<str(body.startDate))
+      return bad("The expected completion date cannot be before the job start date.",422);
+    if(body.contractValue!==undefined&&str(body.contractValue)!==""&&!(num(body.contractValue)>=0))
+      return bad("Contract value must be a number.",422);
+    const db=await getDb();
+    /* The project manager, if named, must have a login: they are emailed and act in the
+       portal. Their name is taken from the login rather than from the form. */
+    let pmName="",pmEmail="";
+    if(str(body.pmEmail).trim()){
+      const[u]=await db.select({name:wfUsers.name,email:wfUsers.email,active:wfUsers.active}).from(wfUsers)
+        .where(sql`lower(${wfUsers.email}) = ${str(body.pmEmail).trim().toLowerCase()}`);
+      if(!u||!u.active)return bad("Choose the project manager from the list of people with a login.",422);
+      pmName=u.name||u.email;pmEmail=u.email;
+    }
     const id=`AR-${Date.now().toString(36)}`;
-    const row=shape({...body,id,stage:"Job Notification",crmJobNo:"",soNo:"",amount:0,
-      verifiedBy:"",verifiedAt:"",remarks:"",returnNote:"",returnedAt:"",
-      raisedByEmail:actor?.email||"",
-      ref:str(body.ref)||`AR-${Date.now().toString(36).toUpperCase()}`});
-    await writeWithAudit([(await getDb()).insert(wfReceivables).values(row)],
-      actorOf(req,body),"receivable",id,"Job notification raised",`${row.ref} · ${row.customer}`);
+    let row;
+    for(let attempt=0;attempt<5;attempt++){
+      const{jobNo,jobCode}=await nextNumbers();
+      row=shape({...body,id,ref:jobNo,jobCode,stage:"Job Notification",crmJobNo:"",soNo:"",amount:0,
+        description:str(body.jobName).trim(),customer:str(body.customer).trim(),pmName,pmEmail,
+        verifiedBy:"",verifiedAt:"",remarks:"",returnNote:"",returnedAt:"",raisedByEmail:actor?.email||""});
+      // Another notification may have taken the number between reading and writing.
+      const[taken]=await db.select({id:wfReceivables.id}).from(wfReceivables)
+        .where(or(eq(wfReceivables.ref,row.ref),eq(wfReceivables.jobCode,row.jobCode)));
+      if(!taken)break;
+      row=undefined;
+    }
+    if(!row)return bad("Could not issue a notification number. Please try again.",503);
+    await writeWithAudit([db.insert(wfReceivables).values(row)],
+      actorOf(req,body),"receivable",id,"Job notification raised",`${row.ref} · ${row.jobCode} · ${row.customer}`);
+    if(pmEmail)await notify([pmEmail],{title:`${row.ref}: you are the project manager for ${row.jobName}`,
+      body:`${row.customer} · ${row.jobType}`,reference:row.ref,
+      detail:[{label:"Job",value:`${row.jobName} (${row.jobCode})`},{label:"Client",value:row.customer},
+        {label:"Location",value:row.jobLocation},{label:"Start",value:row.startDate},{label:"Completion",value:row.endDate},
+        {label:"Scope",value:row.scope}],
+      action:"No action is needed yet. You will be asked to plan the job once it is verified.",
+      module:"accountsreceived",recordId:id},actor?.email);
     return Response.json({receivable:row},{status:201});
   }catch(e){return oops(e)}}
 

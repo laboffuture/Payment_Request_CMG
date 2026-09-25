@@ -15,7 +15,9 @@
 
 import{useMemo,useState}from"react";
 import{ArrowLeft,ArrowRight,Building2,CheckCircle2,ClipboardList,FileCheck2,HandCoins,Megaphone,Plus,RotateCcw,Search,ShieldCheck,X}from"lucide-react";
-import{receivablesApi}from"./audit-api";
+import{planningApi,receivablesApi}from"./audit-api";
+import{useOptions}from"./options-store";
+import Attachments,{asDataUrl}from"./Attachments";
 import type{Receivable}from"./audit-api";
 import{useAsync}from"./workforce-store";
 import{Empty,ErrorBlock,Loading}from"./WorkforceShared";
@@ -26,7 +28,7 @@ import CompletionBilling from"./CompletionBilling";
 import DebtCollection from"./DebtCollection";
 import{RECEIVABLE_ROLES}from"../lib/planning-stages";
 
-type Props={role:string;userEmail?:string;companies?:{id:string;name:string}[];flash?:(m:string)=>void};
+type Props={role:string;userEmail?:string;companies?:{id:string;name:string}[];departments?:string[];flash?:(m:string)=>void};
 
 const money=(n:number,c:string)=>n?`${c} ${n.toLocaleString("en-GB",{minimumFractionDigits:2,maximumFractionDigits:2})}`:"—";
 const when=(iso:string)=>iso?new Date(iso).toLocaleDateString("en-GB",{day:"numeric",month:"short",year:"numeric"}):"—";
@@ -73,7 +75,7 @@ export default function AccountsReceived(props:Props){
       :<DebtCollection role={props.role} flash={props.flash}/>}
   </div>}
 
-function JobNotification({role,companies=[],flash}:Props){
+function JobNotification({role,companies=[],departments=[],flash}:Props){
   const[stage,setStage]=useState<string>("All stages"),[q,setQ]=useState(""),
     [open,setOpen]=useState<Receivable|null>(null),[form,setForm]=useState(false),
     /* Bumped after every write. The register is the server's copy, so a move is
@@ -146,8 +148,9 @@ function JobNotification({role,companies=[],flash}:Props){
 
     {open&&<Detail row={open} role={role} companies={companies} close={()=>setOpen(null)}
       saved={(r,msg)=>{save(r);flash?.(msg)}} reload={reload}/>}
-    {form&&<NewEntry companies={companies} close={()=>setForm(false)}
-      added={r=>{setForm(false);reload();flash?.(`${r.ref} raised`)}}/>}
+    {form&&<NewEntry companies={companies} departments={departments}
+      customers={[...new Set(rows.map(r=>r.customer).filter(Boolean))]} close={()=>setForm(false)}
+      added={r=>{setForm(false);reload();setOpen(r);flash?.(`${r.ref} raised`)}}/>}
   </div>}
 
 /* One entry, and the single action its stage allows. The form the action needs is
@@ -186,7 +189,18 @@ function Detail({row,role,companies,close,saved,reload}:{row:Receivable;role:str
         <div><dt>Company</dt><dd><Building2/>{company}</dd></div>
         <div><dt>Department</dt><dd>{row.department||"—"}</dd></div>
         <div><dt>Notified on</dt><dd>{when(row.notifiedOn)}</dd></div>
-        <div><dt>Job</dt><dd>{row.description||"—"}</dd></div>
+        <div><dt>Job</dt><dd>{row.jobName||row.description||"—"}{row.jobCode?` · ${row.jobCode}`:""}</dd></div>
+        {!!row.projectName&&<div><dt>Project / contract</dt><dd>{row.projectName}</dd></div>}
+        {!!row.jobType&&<div><dt>Job type</dt><dd>{row.jobType} · {row.priority} priority</dd></div>}
+        {!!row.jobLocation&&<div><dt>Location</dt><dd>{row.jobLocation}</dd></div>}
+        {!!row.pmName&&<div><dt>Project manager</dt><dd>{row.pmName}</dd></div>}
+        {(!!row.startDate||!!row.endDate)&&<div><dt>Schedule</dt><dd>{when(row.startDate)} → {when(row.endDate)}</dd></div>}
+        {!!row.poNumber&&<div><dt>Contract / PO</dt><dd>{row.poNumber}</dd></div>}
+        {!!row.contractValue&&<div><dt>Contract value</dt><dd>{money(row.contractValue,row.contractCurrency)}</dd></div>}
+        {!!row.scope&&<div><dt>Scope of work</dt><dd className="recv-pre">{row.scope}</dd></div>}
+        {!!row.boqAvailable&&<div><dt>BOQ / budget</dt><dd>{row.boqAvailable==="Yes"?"Available":"Not available"}</dd></div>}
+        {!!row.managementApproval&&<div><dt>Management approval</dt><dd>{row.managementApproval}</dd></div>}
+        {!!row.remarksNote&&<div><dt>Remarks</dt><dd className="recv-pre">{row.remarksNote}</dd></div>}
         <div><dt>CRM job</dt><dd>{row.crmJobNo||"Not created yet"}{row.crmOwner&&` · ${row.crmOwner}`}</dd></div>
         <div><dt>Sales order</dt><dd>{row.soNo||"Not raised yet"}</dd></div>
         <div><dt>Amount</dt><dd>{money(row.amount,row.currency)}</dd></div>
@@ -235,37 +249,98 @@ function Detail({row,role,companies,close,saved,reload}:{row:Receivable;role:str
             onClick={()=>run(()=>receivablesApi.sendBack(row.id,back,note.trim()),
               `${row.ref} sent back to ${back}`)}>Send back</button></div>}
       </div>}
+      {/* Drawings, quotes and anything else the notification rests on. */}
+      <Attachments entityType="receivable" entityId={row.id} flash={()=>{}}/>
     </aside></div>}
 
-/* The job notification. Only the things known when a job is first heard about:
-   everything else is recorded by the stage that owns it. */
-function NewEntry({companies,close,added}:{companies:{id:string;name:string}[];
-  close:()=>void;added:(r:Receivable)=>void}){
-  const[customer,setCustomer]=useState(""),[companyId,setCompanyId]=useState(companies[0]?.id||"");
-  const[department,setDepartment]=useState(""),[description,setDescription]=useState("");
-  const[notifiedOn,setNotifiedOn]=useState(new Date().toISOString().slice(0,10));
+/* The job notification form: what the job is, for whom, under whom and on what terms.
+   The notification number and job code are the server's to issue, so they are shown
+   greyed as the numbers this notification will get. Files are uploaded once the
+   notification exists, since an attachment has to belong to something. */
+const JOB_TYPES=["Interior fit-out","Renovation","Civil works","MEP","Joinery","Maintenance","Other"];
+const PRIORITIES=["Low","Normal","High","Urgent"];
+const APPROVALS=["Approved","Pending","Not required"];
+
+function NewEntry({companies,departments,customers,close,added}:{companies:{id:string;name:string}[];departments:string[];
+  customers:string[];close:()=>void;added:(r:Receivable)=>void}){
+  const[f,setF]=useState<Record<string,string>>({companyId:companies[0]?.id||"",priority:"Normal",
+    notifiedOn:new Date().toISOString().slice(0,10),contractCurrency:"AED"});
+  const[files,setFiles]=useState<File[]>([]);
   const[busy,setBusy]=useState(false),[err,setErr]=useState("");
+  const set=(k:string,v:string)=>setF(x=>({...x,[k]:v}));
+  const numbers=useAsync(()=>receivablesApi.next(),[]);
+  const people=useAsync(()=>planningApi.people(),[]);
+  const clientList=useOptions("receivable.client",[]);
+  const jobTypes=useOptions("receivable.jobType",JOB_TYPES);
+  const clients=[...new Set([...clientList,...customers])].sort((a,b)=>a.localeCompare(b));
 
   const submit=async(e:React.FormEvent)=>{
     e.preventDefault();setBusy(true);setErr("");
-    try{added(await receivablesApi.create({customer:customer.trim(),companyId,department:department.trim(),
-      description:description.trim(),notifiedOn}))}
+    try{
+      const row=await receivablesApi.create(f as unknown as Partial<Receivable>);
+      /* The notification is saved; a file that fails to upload is reported rather than
+         undoing it, and can be added again from the notification itself. */
+      const failed:string[]=[];
+      for(const file of files){
+        try{const r=await fetch("/api/attachments",{method:"POST",headers:{"content-type":"application/json"},
+          body:JSON.stringify({entityType:"receivable",entityId:row.id,kind:"Other",fileName:file.name,dataUrl:await asDataUrl(file)})});
+          if(!r.ok)failed.push(file.name)}catch{failed.push(file.name)}}
+      if(failed.length)alert(`${row.ref} was raised, but these files did not upload: ${failed.join(", ")}. Add them from the notification.`);
+      added(row)}
     catch(x){setErr(x instanceof Error?x.message:"Could not raise it");setBusy(false)}};
 
-  return <div className="recv-drawer" role="dialog" aria-label="New job notification">
+  return <div className="recv-drawer wide" role="dialog" aria-label="Job notification form">
     <button className="recv-scrim" aria-label="Close" onClick={close}/>
-    <aside><header><div><small>ACCOUNTS RECEIVABLE</small><h3>New job notification</h3></div>
+    <aside><header><div><small>JOB NOTIFICATION FORM</small><h3>New job notification</h3>
+        <p className="recv-form-sub">Create and submit a new job notification for project / interior work.</p></div>
       <button onClick={close} aria-label="Close"><X/></button></header>
-      <form className="recv-act" onSubmit={submit}>
-        <label>Customer<input autoFocus required value={customer} onChange={e=>setCustomer(e.target.value)}/></label>
+      <form className="recv-act recv-form" onSubmit={submit}>
         <div className="recv-two">
-          <label>Company<select value={companyId} onChange={e=>setCompanyId(e.target.value)}>
-            <option value="">—</option>
-            {companies.map(c=><option key={c.id} value={c.id}>{c.name}</option>)}</select></label>
-          <label>Department<input value={department} onChange={e=>setDepartment(e.target.value)}/></label></div>
-        <label>Notified on<input type="date" value={notifiedOn} onChange={e=>setNotifiedOn(e.target.value)}/></label>
-        <label>Job description<textarea rows={3} required value={description}
-          onChange={e=>setDescription(e.target.value)} placeholder="What the job is, as notified"/></label>
+          <label><span className="recv-lbl">Company<i className="recv-req" aria-hidden="true">*</i></span><select required value={f.companyId||""} onChange={e=>set("companyId",e.target.value)}>
+            <option value="">Select company</option>{companies.map(c=><option key={c.id} value={c.id}>{c.name}</option>)}</select></label>
+          <label><span className="recv-lbl">Department<i className="recv-req" aria-hidden="true">*</i></span><select required value={f.department||""} onChange={e=>set("department",e.target.value)}>
+            <option value="">Select department</option>{departments.map(d=><option key={d}>{d}</option>)}</select></label></div>
+        <div className="recv-two">
+          <label>Job Notification No.<input readOnly className="recv-auto" value={numbers.data?.jobNo||"Issued on submit"}/></label>
+          <label><span className="recv-lbl">Job name<i className="recv-req" aria-hidden="true">*</i></span><input required value={f.jobName||""} onChange={e=>set("jobName",e.target.value)} placeholder="Enter job name"/></label></div>
+        <div className="recv-two">
+          <label><span className="recv-lbl">Client / customer<i className="recv-req" aria-hidden="true">*</i></span><input required list="recv-clients" value={f.customer||""} onChange={e=>set("customer",e.target.value)}
+            placeholder="Select or type the client"/>
+            <datalist id="recv-clients">{clients.map(c=><option key={c} value={c}/>)}</datalist></label>
+          <label>Project / contract name<input value={f.projectName||""} onChange={e=>set("projectName",e.target.value)} placeholder="Enter project / contract name"/></label></div>
+        <div className="recv-two">
+          <label>Job code<input readOnly className="recv-auto" value={numbers.data?.jobCode||"Issued on submit"}/></label>
+          <label>Job location<input value={f.jobLocation||""} onChange={e=>set("jobLocation",e.target.value)} placeholder="Enter job location"/></label></div>
+        <div className="recv-two">
+          <label>Project manager / responsible person<select value={f.pmEmail||""} onChange={e=>set("pmEmail",e.target.value)}>
+            <option value="">{people.loading?"Loading people…":"Select project manager"}</option>
+            {(people.data||[]).map(p=><option key={p.email} value={p.email}>{p.name?`${p.name} · ${p.email}`:p.email}</option>)}</select></label>
+          <label>Job start date<input type="date" value={f.startDate||""} onChange={e=>set("startDate",e.target.value)}/></label></div>
+        <div className="recv-two">
+          <label>Expected completion date<input type="date" min={f.startDate||undefined} value={f.endDate||""} onChange={e=>set("endDate",e.target.value)}/></label>
+          <label>Contract / PO number<input value={f.poNumber||""} onChange={e=>set("poNumber",e.target.value)} placeholder="Enter contract / PO number"/></label></div>
+        <div className="recv-two">
+          <label>Contract value / budget<span className="recv-money">
+            <select aria-label="Currency" value={f.contractCurrency||"AED"} onChange={e=>set("contractCurrency",e.target.value)}>
+              {["AED","INR","USD","SAR","EUR","GBP"].map(c=><option key={c}>{c}</option>)}</select>
+            <input type="number" min="0" step="0.01" value={f.contractValue||""} onChange={e=>set("contractValue",e.target.value)} placeholder="Enter amount"/></span></label>
+          <label><span className="recv-lbl">Job type<i className="recv-req" aria-hidden="true">*</i></span><select required value={f.jobType||""} onChange={e=>set("jobType",e.target.value)}>
+            <option value="">Select job type</option>{jobTypes.map(t=><option key={t}>{t}</option>)}</select></label></div>
+        <label><span className="recv-lbl">Scope of work<i className="recv-req" aria-hidden="true">*</i></span><textarea required rows={4} value={f.scope||""} onChange={e=>set("scope",e.target.value)} placeholder="Enter scope of work details…"/></label>
+        <div className="recv-two">
+          <label><span className="recv-lbl">BOQ / budget available<i className="recv-req" aria-hidden="true">*</i></span><select required value={f.boqAvailable||""} onChange={e=>set("boqAvailable",e.target.value)}>
+            <option value="">Yes / No</option><option>Yes</option><option>No</option></select></label>
+          <label><span className="recv-lbl">Management approval<i className="recv-req" aria-hidden="true">*</i></span><select required value={f.managementApproval||""} onChange={e=>set("managementApproval",e.target.value)}>
+            <option value="">Select approval</option>{APPROVALS.map(a=><option key={a}>{a}</option>)}</select></label></div>
+        <div className="recv-two">
+          <label><span className="recv-lbl">Priority<i className="recv-req" aria-hidden="true">*</i></span><select required value={f.priority||""} onChange={e=>set("priority",e.target.value)}>
+            <option value="">Select priority</option>{PRIORITIES.map(a=><option key={a}>{a}</option>)}</select></label>
+          <label><span className="recv-lbl">Notification date<i className="recv-req" aria-hidden="true">*</i></span><input type="date" required value={f.notifiedOn||""} onChange={e=>set("notifiedOn",e.target.value)}/></label></div>
+        <label>Remarks<textarea rows={2} value={f.remarksNote||""} onChange={e=>set("remarksNote",e.target.value)} placeholder="Enter any additional remarks…"/></label>
+        <label>Attachments<input type="file" multiple accept="image/*,application/pdf,.doc,.docx,.xls,.xlsx,.csv,.txt,.zip,.dwg"
+          onChange={e=>setFiles(Array.from(e.target.files||[]))}/>
+          {!!files.length&&<small className="recv-files">{files.map(x=>x.name).join(", ")}</small>}</label>
+        <p className="recv-legend">Fields marked * are required. The job notification number and job code are issued automatically.</p>
         {err&&<p className="recv-error">{err}</p>}
-        <button className="primary" type="submit" disabled={busy}>{busy?"Raising…":"Raise job notification"}</button>
+        <button className="primary" type="submit" disabled={busy}>{busy?"Submitting…":"Submit job notification"}</button>
       </form></aside></div>}

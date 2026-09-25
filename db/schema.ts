@@ -473,6 +473,26 @@ export const wfReceivables=sqliteTable("wf_receivables",{
   department:text("department").notNull().default(""),
   description:text("description").notNull().default(""),
   notifiedOn:text("notified_on").notNull().default(""),
+  /* The job notification form: what the job is, for whom, under whom, and on what
+     terms. The notification number is `ref`; `description` carries the job name for the
+     modules downstream that already read it. */
+  jobName:text("job_name").notNull().default(""),
+  projectName:text("project_name").notNull().default(""),
+  jobCode:text("job_code").notNull().default(""),
+  jobLocation:text("job_location").notNull().default(""),
+  pmName:text("pm_name").notNull().default(""),
+  pmEmail:text("pm_email").notNull().default(""),
+  startDate:text("start_date").notNull().default(""),
+  endDate:text("end_date").notNull().default(""),
+  poNumber:text("po_number").notNull().default(""),
+  contractValue:real("contract_value").notNull().default(0),
+  contractCurrency:text("contract_currency").notNull().default("AED"),
+  jobType:text("job_type").notNull().default(""),
+  scope:text("scope").notNull().default(""),
+  boqAvailable:text("boq_available").notNull().default(""),
+  managementApproval:text("management_approval").notNull().default(""),
+  priority:text("priority").notNull().default("Normal"),
+  remarksNote:text("notification_remarks").notNull().default(""),
   // stage 2: the job as CRM knows it
   crmJobNo:text("crm_job_no").notNull().default(""),
   crmOwner:text("crm_owner").notNull().default(""),

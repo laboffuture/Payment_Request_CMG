@@ -250,3 +250,24 @@
 /* The side panel's sentences - "nothing further is expected" and the like - on the
    application's text scale rather than the 16px they inherited. */
 .recv-drawer .recv-empty,.recv-drawer .recv-hint{font-size:12.5px}
+
+/* The job notification form: wider than the other panels, fields in pairs. */
+.recv-drawer.wide aside{width:min(760px,100vw)}
+.recv-form-sub{margin:3px 0 0;font-size:12px;color:var(--muted,#667085)}
+.recv-req{font-style:normal;color:#b42318;margin-left:3px}
+.recv-auto{background:#f2f4f7!important;color:#667085!important;font-variant-numeric:tabular-nums}
+.recv-money{display:flex;gap:6px}
+.recv-money select{flex:0 0 84px}
+.recv-money input{flex:1;min-width:0}
+.recv-files{display:block;margin-top:4px;font-size:11px;color:#475467}
+.recv-legend{margin:2px 0 0;font-size:11px;color:var(--muted,#667085)}
+.recv-pre{white-space:pre-wrap}
+@media(max-width:640px){.recv-form .recv-two{grid-template-columns:1fr}}
+/* A label's text and its required mark on one line; fields in a pair share the width
+   equally and never grow past it - a long name in a dropdown otherwise widens its column
+   and, on a phone, runs off the screen. */
+.recv-lbl{display:flex;align-items:baseline;gap:2px}
+.recv-form .recv-two{grid-template-columns:minmax(0,1fr) minmax(0,1fr)}
+.recv-form input,.recv-form select,.recv-form textarea{width:100%;min-width:0;max-width:100%;box-sizing:border-box}
+.recv-form .recv-money select{width:84px}
+@media(max-width:640px){.recv-form .recv-two{grid-template-columns:minmax(0,1fr)}}

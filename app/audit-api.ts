@@ -80,7 +80,10 @@ export type Receivable={id:string;ref:string;stage:string;customer:string;compan
   department:string;description:string;notifiedOn:string;crmJobNo:string;crmOwner:string;crmAt:string;
   soNo:string;amount:number;currency:string;soAt:string;submittedAt:string;verifiedBy:string;
   verifiedAt:string;remarks:string;returnNote:string;returnedAt:string;raisedByEmail:string;
-  createdAt:string;updatedAt:string};
+  createdAt:string;updatedAt:string;
+  jobName:string;projectName:string;jobCode:string;jobLocation:string;pmName:string;pmEmail:string;
+  startDate:string;endDate:string;poNumber:string;contractValue:number;contractCurrency:string;jobType:string;
+  scope:string;boqAvailable:string;managementApproval:string;priority:string;remarksNote:string};
 
 /* Accounts Receivable, module 4: Debt Collection - missed invoices, and the calls, emails,
    statuses and payments logged against each. */
@@ -151,6 +154,7 @@ export const receivablesApi={
     return asJson<{receivables:Receivable[];total:number}>(
       await fetch(`/api/receivables${q?`?${q}`:""}`))},
   create:async(r:Partial<Receivable>)=>(await send("/api/receivables","POST",r)).receivable as Receivable,
+  next:async()=>asJson<{jobNo:string;jobCode:string}>(await fetch("/api/receivables?next=1")),
   advance:async(id:string,fields:Partial<Receivable>={})=>
     (await send("/api/receivables","PATCH",{id,action:"advance",...fields})).receivable as Receivable,
   sendBack:async(id:string,stage:string,note:string)=>

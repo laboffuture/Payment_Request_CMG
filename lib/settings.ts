@@ -24,6 +24,8 @@ export const OPTION_LISTS=[
      because a code names one project at one site; separate lists would let a payment be
      booked against the wrong one. */
   {id:"payment.job",      label:"Jobs (code | project | location)", where:"Payment request form"},
+  {id:"receivable.client",label:"Clients / customers", where:"Job notification form"},
+  {id:"receivable.jobType",label:"Job type",          where:"Job notification form"},
 ] as const;
 
 export const isKnownList=(id:string)=>OPTION_LISTS.some(l=>l.id===id);
