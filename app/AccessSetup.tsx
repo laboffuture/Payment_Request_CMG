@@ -28,7 +28,7 @@ import{Pager}from"./WorkforceShared";
    a login can only be created for somebody already on an organisation chart, and the
    first password is generated, shown once, and must be changed at first sign-in. */
 
-const allRoles=["Requestor","Department Head","Accountant","Auditor","Finance","Management","Audit Head","Administrator"];
+const allRoles=["Requestor","Department Head","Accountant","Auditor","Finance","Management","Cost Control","Audit Head","Administrator"];
 
 type Person={id:string;name:string;code:string;department:string;email:string};
 

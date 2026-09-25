@@ -176,3 +176,43 @@
    inheriting 16px, larger than anything else on screen. */
 .recv-facts dt{font-size:11px}
 .recv-facts dd{font-size:12.5px;line-height:1.45}
+
+/* Completion and Billing. */
+.cb-views{display:inline-flex;gap:2px;padding:3px;border:1px solid var(--line,#e4e7ec);border-radius:10px;background:#fff}
+.cb-views button{border:0;background:none;border-radius:7px;padding:8px 12px;font:inherit;font-size:12px;font-weight:600;color:#475467;cursor:pointer;white-space:nowrap}
+.cb-views button.on{background:#0b1d3a;color:#fff}
+.cb-views button b{font-weight:700;opacity:.7;margin-left:3px}
+.cb-views.small button{padding:6px 10px;font-size:11px}
+/* Eight steps: two rows of four rather than eight slivers. */
+.cb-flow{display:grid;grid-template-columns:repeat(4,minmax(0,1fr))}
+@media(min-width:1500px){.cb-flow{grid-template-columns:repeat(8,minmax(0,1fr))}}
+.cb-job-cols,.cb-job-row{grid-template-columns:minmax(9rem,1fr) minmax(9rem,1.4fr) minmax(8rem,.9fr) minmax(9rem,1fr) minmax(9rem,.9fr)}
+.cb-job-row{cursor:default}
+.cb-job-row:hover{border-color:var(--line,#e4e7ec)}
+.recv-amt small{display:block;font-size:10.5px;font-weight:500;color:var(--muted,#667085)}
+.cb-schedule{display:flex;flex-direction:column;gap:3px;font-size:11.5px}
+.cb-schedule label{display:flex;align-items:center;gap:6px;color:#475467}
+.cb-schedule select{font:inherit;font-size:11.5px;padding:4px 6px;border:1px solid var(--line,#e4e7ec);border-radius:6px;background:#fff}
+.cb-schedule small{font-size:10.5px;color:var(--muted,#667085)}
+.cb-job-status{display:flex;flex-direction:column;align-items:flex-end;gap:6px}
+.cb-toggle{display:inline-flex;align-items:center;gap:7px;border:1px solid var(--line,#e4e7ec);background:#fff;border-radius:999px;
+  padding:4px 10px 4px 4px;font:inherit;font-size:11px;font-weight:700;color:#667085;cursor:pointer}
+.cb-toggle i{width:26px;height:15px;border-radius:999px;background:#d0d5dd;position:relative;transition:background .15s}
+.cb-toggle i:after{content:"";position:absolute;top:2px;left:2px;width:11px;height:11px;border-radius:50%;background:#fff;transition:left .15s}
+.cb-toggle.on{color:#027a48;border-color:#a6e3c3}
+.cb-toggle.on i{background:#12b76a}
+.cb-toggle.on i:after{left:13px}
+.cb-request{display:inline-flex;align-items:center;gap:5px;font-size:11px;padding:5px 9px}
+.cb-request svg{width:12px;height:12px}
+@container (max-width:640px){
+  .cb-job-row{grid-template-columns:1fr auto}
+  .cb-job-row .recv-nums,.cb-job-row .cb-schedule{grid-column:1/-1}
+  .cb-job-row .cb-job-status{grid-column:2;grid-row:1}}
+/* Completion cycle stage tints: 0 manager, 1 cost control, 2 management, 3 invoice,
+   4 audit, 5 verified. */
+.recv-tag.c0{background:#f2f4f7;color:#344054}
+.recv-tag.c1{background:#eff4ff;color:#175cd3}
+.recv-tag.c2{background:#fdf2fa;color:#c11574}
+.recv-tag.c3{background:#f4f3ff;color:#5925dc}
+.recv-tag.c4{background:#fffaeb;color:#b54708}
+.recv-tag.c5{background:#ecfdf3;color:#027a48}

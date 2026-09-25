@@ -22,6 +22,7 @@ import{Empty,ErrorBlock,Loading}from"./WorkforceShared";
 import{ACTION_LABEL,RETURNABLE_TO,STAGES,isVerified,mayAct,stageIndex}from"../lib/receivable-stages";
 import type{Stage}from"../lib/receivable-stages";
 import PlanningProcurement from"./PlanningProcurement";
+import CompletionBilling from"./CompletionBilling";
 import{RECEIVABLE_ROLES}from"../lib/planning-stages";
 
 type Props={role:string;userEmail?:string;companies?:{id:string;name:string}[];flash?:(m:string)=>void};
@@ -51,11 +52,13 @@ export default function AccountsReceived(props:Props){
     try{const v=localStorage.getItem(MODULE_KEY);return MODULES.some(m=>m.id===v)?v as ModuleId:"job"}
     catch{return"job"}});
   const pick=(id:ModuleId)=>{setMod(id);try{localStorage.setItem(MODULE_KEY,id)}catch{}};
-  /* Somebody whose role does not cover Accounts Receivable is here only as the project
-     manager of a plan, so they see that module alone. */
-  const managerOnly=!RECEIVABLE_ROLES.includes(props.role);
-  const tabs=managerOnly?MODULES.filter(m=>m.id==="planning"):MODULES;
-  const shownMod:ModuleId=managerOnly?"planning":mod;
+  /* Who sees which modules. Accounts and audit see all four. Cost control and management
+     act only in Completion and Billing. Anybody else is here as a project manager, and
+     sees the two modules a manager works in, each showing only their own jobs. */
+  const tabs=RECEIVABLE_ROLES.includes(props.role)?MODULES
+    :["Cost Control","Management"].includes(props.role)?MODULES.filter(m=>m.id==="billing")
+    :MODULES.filter(m=>m.id==="planning"||m.id==="billing");
+  const shownMod:ModuleId=tabs.some(m=>m.id===mod)?mod:tabs[0].id;
   const current=MODULES.find(m=>m.id===shownMod)||MODULES[0];
   return <div className="page recv">
     <div className="intro"><div><small>ACCOUNTS</small><h2>Accounts Receivable</h2>
@@ -66,6 +69,7 @@ export default function AccountsReceived(props:Props){
     </nav>
     {shownMod==="job"?<JobNotification {...props}/>
       :shownMod==="planning"?<PlanningProcurement role={props.role} userEmail={props.userEmail} flash={props.flash}/>
+      :shownMod==="billing"?<CompletionBilling role={props.role} userEmail={props.userEmail} flash={props.flash}/>
       :<ComingModule label={current.label} blurb={current.blurb} Icon={current.icon}/>}
   </div>}
 

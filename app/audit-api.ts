@@ -82,6 +82,28 @@ export type Receivable={id:string;ref:string;stage:string;customer:string;compan
   verifiedAt:string;remarks:string;returnNote:string;returnedAt:string;raisedByEmail:string;
   createdAt:string;updatedAt:string};
 
+/* Accounts Receivable, module 3: Completion and Billing - the jobs register and the
+   completion cycles each active job produces. */
+export type BillingJob={id:string;ref:string;jobId:string;planId:string;jobRef:string;customer:string;
+  companyId:string;description:string;pmName:string;pmEmail:string;contractValue:number;currency:string;
+  active:number;everyDays:number;lastRequestedAt:string;nextRequestAt:string;createdAt:string;updatedAt:string};
+export type Cycle={id:string;ref:string;stage:string;billingJobId:string;jobRef:string;customer:string;
+  pmName:string;pmEmail:string;contractValue:number;currency:string;requestedAt:string;requestedBy:string;
+  percentComplete:number;completionNotes:string;updatedBy:string;pmUpdatedAt:string;certifiedPercent:number;
+  certificationNotes:string;certifiedBy:string;certifiedAt:string;approvalNotes:string;approvedBy:string;
+  approvedAt:string;invoiceNo:string;invoiceDate:string;invoiceAmount:number;invoicedBy:string;invoicedAt:string;
+  verifiedBy:string;verifiedAt:string;remarks:string;returnNote:string;returnedAt:string;createdAt:string;updatedAt:string};
+export const completionApi={
+  load:async()=>asJson<{jobs:BillingJob[];cycles:Cycle[];totals:Record<string,{invoiced:number;certified:number}>}>(
+    await fetch("/api/completion")),
+  request:async(id:string)=>send("/api/completion","POST",{action:"request",id}),
+  setJob:async(id:string,fields:{active?:boolean;everyDays?:number})=>
+    (await send("/api/completion","POST",{action:"job",id,...fields})).job as BillingJob,
+  advance:async(id:string,fields:Record<string,unknown>={})=>
+    (await send("/api/completion","PATCH",{id,action:"advance",...fields})).cycle as Cycle,
+  sendBack:async(id:string,stage:string,note:string)=>
+    (await send("/api/completion","PATCH",{id,action:"return",stage,note})).cycle as Cycle};
+
 /* Accounts Receivable, module 2: Planning & Procurement. As with the receivables, the
    server decides every stage move. */
 export type Plan={id:string;ref:string;stage:string;jobId:string;jobRef:string;customer:string;
