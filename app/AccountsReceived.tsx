@@ -7,13 +7,14 @@
    the company. The label is the accounting term now; the file and module key keep the
    original spelling because renaming them buys nothing a reader can see.
 
-   The flow is: a job is notified, it is created in CRM, a sales order is cut against
-   it, and audit verifies the three agree. lib/receivable-stages.ts holds the stages and
+   Four modules, one tab each: Job Notification, Planning & Procurement, Completion and
+   Billing, Debt Collection. Job Notification's flow is: a job is notified, it is created
+   in CRM, a sales order is cut against it, and audit verifies the three agree. lib/receivable-stages.ts holds the stages and
    who may act at each; this screen only shows what that model already decided, so a
    button never appears for a role the server would refuse. */
 
 import{useMemo,useState}from"react";
-import{ArrowLeft,ArrowRight,Building2,CheckCircle2,Plus,RotateCcw,Search,ShieldCheck,X}from"lucide-react";
+import{ArrowLeft,ArrowRight,Building2,CheckCircle2,ClipboardList,FileCheck2,HandCoins,Megaphone,Plus,RotateCcw,Search,ShieldCheck,X}from"lucide-react";
 import{receivablesApi}from"./audit-api";
 import type{Receivable}from"./audit-api";
 import{useAsync}from"./workforce-store";
@@ -26,7 +27,46 @@ type Props={role:string;companies?:{id:string;name:string}[];flash?:(m:string)=>
 const money=(n:number,c:string)=>n?`${c} ${n.toLocaleString("en-GB",{minimumFractionDigits:2,maximumFractionDigits:2})}`:"—";
 const when=(iso:string)=>iso?new Date(iso).toLocaleDateString("en-GB",{day:"numeric",month:"short",year:"numeric"}):"—";
 
-export default function AccountsReceived({role,companies=[],flash}:Props){
+/* The four modules of Accounts Receivable, in the order a job moves through them. Each
+   has a flow of its own. Job Notification carries the register that existed before the
+   split; the other three are placeholders until their flows are defined. */
+const MODULES=[
+  {id:"job",label:"Job Notification",icon:Megaphone,
+    blurb:"A job is notified, created in CRM, a sales order is cut against it, and audit verifies the three agree."},
+  {id:"planning",label:"Planning & Procurement",icon:ClipboardList,
+    blurb:"Planning the job and procuring what it needs."},
+  {id:"billing",label:"Completion and Billing",icon:FileCheck2,
+    blurb:"Confirming the work is complete and billing the customer for it."},
+  {id:"collection",label:"Debt Collection",icon:HandCoins,
+    blurb:"Following up and collecting what the customer owes."}] as const;
+type ModuleId=typeof MODULES[number]["id"];
+const MODULE_KEY="ar-module";
+
+export default function AccountsReceived(props:Props){
+  /* The module last opened is remembered on this device only - a convenience, so it is
+     read and written defensively and the screen works without it. */
+  const[mod,setMod]=useState<ModuleId>(()=>{
+    try{const v=localStorage.getItem(MODULE_KEY);return MODULES.some(m=>m.id===v)?v as ModuleId:"job"}
+    catch{return"job"}});
+  const pick=(id:ModuleId)=>{setMod(id);try{localStorage.setItem(MODULE_KEY,id)}catch{}};
+  const current=MODULES.find(m=>m.id===mod)||MODULES[0];
+  return <div className="page recv">
+    <div className="intro"><div><small>ACCOUNTS</small><h2>Accounts Receivable</h2>
+      <p>From the job notification through to collecting what is owed, in four modules.</p></div></div>
+    <nav className="recv-modules" aria-label="Accounts Receivable modules">
+      {MODULES.map((m,i)=><button key={m.id} className={m.id===mod?"on":""} aria-current={m.id===mod?"page":undefined}
+        onClick={e=>{pick(m.id);e.currentTarget.scrollIntoView({block:"nearest",inline:"nearest",behavior:"smooth"})}}><m.icon/><span><i>{i+1}</i>{m.label}</span></button>)}
+    </nav>
+    {mod==="job"?<JobNotification {...props}/>:<ComingModule label={current.label} blurb={current.blurb} Icon={current.icon}/>}
+  </div>}
+
+/* A module whose flow has not been defined yet. Says so plainly rather than showing an
+   empty register that looks broken. */
+function ComingModule({label,blurb,Icon}:{label:string;blurb:string;Icon:typeof Megaphone}){
+  return <section className="panel recv-coming"><Icon/><h3>{label}</h3><p>{blurb}</p>
+    <span>The flow for this module is being set up and will appear here.</span></section>}
+
+function JobNotification({role,companies=[],flash}:Props){
   const[stage,setStage]=useState<string>("All stages"),[q,setQ]=useState(""),
     [open,setOpen]=useState<Receivable|null>(null),[form,setForm]=useState(false),
     /* Bumped after every write. The register is the server's copy, so a move is
@@ -51,10 +91,8 @@ export default function AccountsReceived({role,companies=[],flash}:Props){
   const canRaise=mayAct("Job Notification",[role]);
   const save=(r:Receivable)=>{setOpen(r);reload()};
 
-  return <div className="page recv">
-    <div className="intro"><div><small>ACCOUNTS</small><h2>Accounts Receivable</h2>
-      <p>Amounts owed to the company and not yet collected: from the job notification
-        through CRM and the sales order, to audit verification.</p></div>
+  return <div className="recv-module">
+    <div className="recv-subhead"><p>{MODULES[0].blurb}</p>
       {canRaise&&<button className="primary" onClick={()=>setForm(true)}><Plus/>New job notification</button>}</div>
 
     {/* The flow itself, as a row of stages. Clicking one filters the list, so the

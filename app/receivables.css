@@ -134,3 +134,31 @@
   color:var(--muted,#667085);border-radius:.6rem;padding:.45rem .7rem;
   font:inherit;font-size:.78rem;font-weight:600;cursor:pointer;white-space:nowrap}
 .recv-head .ghost:hover{border-color:var(--accent,#2563eb);color:var(--accent,#2563eb)}
+
+/* The four modules, as tabs across the top. Numbered because they are a sequence a job
+   passes through, not four unrelated screens; they scroll sideways on a phone rather
+   than wrapping into a second row. */
+.recv-modules{display:flex;gap:8px;margin:0 0 16px;overflow-x:auto;padding-bottom:2px;scrollbar-width:none}
+.recv-modules::-webkit-scrollbar{display:none}
+.recv-modules button{display:flex;align-items:center;gap:8px;flex:1 0 auto;min-height:44px;padding:0 16px;
+  border:1px solid var(--line,#e4e7ec);border-radius:10px;background:#fff;color:#475467;
+  font:inherit;font-size:12px;font-weight:600;white-space:nowrap;cursor:pointer}
+.recv-modules button:hover{border-color:#b9c3d1;color:#1d2939}
+.recv-modules button svg{width:16px;height:16px;flex:none;color:#98a2b3}
+.recv-modules button span{display:flex;align-items:center;gap:8px}
+.recv-modules button i{display:grid;place-items:center;width:18px;height:18px;border-radius:50%;
+  background:#f2f4f7;color:#667085;font-style:normal;font-size:10px;font-weight:700}
+.recv-modules button.on{background:#0b1d3a;border-color:#0b1d3a;color:#fff}
+.recv-modules button.on svg{color:#e4c766}
+.recv-modules button.on i{background:#e4c766;color:#0b1d3a}
+
+/* A module's own line: what it covers, and its main action. */
+.recv-subhead{display:flex;align-items:center;justify-content:space-between;gap:12px;margin:0 0 14px;flex-wrap:wrap}
+.recv-subhead p{margin:0;font-size:12px;color:var(--muted,#667085);max-width:640px}
+
+/* A module whose flow is still to come. */
+.recv-coming{display:flex;flex-direction:column;align-items:center;text-align:center;gap:6px;padding:48px 20px}
+.recv-coming>svg{width:34px;height:34px;color:#c9a227;margin-bottom:4px}
+.recv-coming h3{margin:0;font-size:17px}
+.recv-coming p{margin:0;font-size:12.5px;color:#475467;max-width:460px}
+.recv-coming span{margin-top:8px;padding:6px 12px;border-radius:999px;background:#f2f4f7;color:#667085;font-size:11px;font-weight:600}
