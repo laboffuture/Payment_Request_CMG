@@ -284,7 +284,9 @@ const NEW_CLIENT="__new__";
 
 function NewEntry({companies,departments,customers,close,added}:{companies:{id:string;name:string}[];departments:string[];
   customers:string[];close:()=>void;added:(r:Receivable)=>void}){
-  const[f,setF]=useState<Record<string,string>>({companyId:companies[0]?.id||"",priority:"Normal",
+  /* BOQ is a plain Yes/No with no placeholder, so it starts on the first choice and the
+     value sent always matches what the dropdown shows. */
+  const[f,setF]=useState<Record<string,string>>({companyId:companies[0]?.id||"",priority:"Normal",boqAvailable:"Yes",
     notifiedOn:new Date().toISOString().slice(0,10),contractCurrency:"AED"});
   const[files,setFiles]=useState<File[]>([]);
   const[newClient,setNewClient]=useState(false);
@@ -355,8 +357,8 @@ function NewEntry({companies,departments,customers,close,added}:{companies:{id:s
             <option value="">Select job type</option>{jobTypes.map(t=><option key={t}>{t}</option>)}</select></label></div>
         <label><span className="recv-lbl">Scope of work<i className="recv-req" aria-hidden="true">*</i></span><textarea required rows={4} value={f.scope||""} onChange={e=>set("scope",e.target.value)} placeholder="Enter scope of work details…"/></label>
         <div className="recv-two">
-          <label><span className="recv-lbl">BOQ / budget available<i className="recv-req" aria-hidden="true">*</i></span><select required value={f.boqAvailable||""} onChange={e=>set("boqAvailable",e.target.value)}>
-            <option value="">Yes / No</option><option>Yes</option><option>No</option></select></label>
+          <label><span className="recv-lbl">BOQ / budget available<i className="recv-req" aria-hidden="true">*</i></span><select required value={f.boqAvailable||"Yes"} onChange={e=>set("boqAvailable",e.target.value)}>
+            <option>Yes</option><option>No</option></select></label>
           <label><span className="recv-lbl">Management approval<i className="recv-req" aria-hidden="true">*</i></span><select required value={f.managementApproval||""} onChange={e=>set("managementApproval",e.target.value)}
             title="Management authorisation - maker-checker control">
             <option value="">Select approval</option>{APPROVALS.map(a=><option key={a}>{a}</option>)}</select></label></div>
