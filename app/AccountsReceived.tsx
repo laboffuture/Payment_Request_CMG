@@ -21,8 +21,10 @@ import{useAsync}from"./workforce-store";
 import{Empty,ErrorBlock,Loading}from"./WorkforceShared";
 import{ACTION_LABEL,RETURNABLE_TO,STAGES,isVerified,mayAct,stageIndex}from"../lib/receivable-stages";
 import type{Stage}from"../lib/receivable-stages";
+import PlanningProcurement from"./PlanningProcurement";
+import{RECEIVABLE_ROLES}from"../lib/planning-stages";
 
-type Props={role:string;companies?:{id:string;name:string}[];flash?:(m:string)=>void};
+type Props={role:string;userEmail?:string;companies?:{id:string;name:string}[];flash?:(m:string)=>void};
 
 const money=(n:number,c:string)=>n?`${c} ${n.toLocaleString("en-GB",{minimumFractionDigits:2,maximumFractionDigits:2})}`:"—";
 const when=(iso:string)=>iso?new Date(iso).toLocaleDateString("en-GB",{day:"numeric",month:"short",year:"numeric"}):"—";
@@ -49,15 +51,22 @@ export default function AccountsReceived(props:Props){
     try{const v=localStorage.getItem(MODULE_KEY);return MODULES.some(m=>m.id===v)?v as ModuleId:"job"}
     catch{return"job"}});
   const pick=(id:ModuleId)=>{setMod(id);try{localStorage.setItem(MODULE_KEY,id)}catch{}};
-  const current=MODULES.find(m=>m.id===mod)||MODULES[0];
+  /* Somebody whose role does not cover Accounts Receivable is here only as the project
+     manager of a plan, so they see that module alone. */
+  const managerOnly=!RECEIVABLE_ROLES.includes(props.role);
+  const tabs=managerOnly?MODULES.filter(m=>m.id==="planning"):MODULES;
+  const shownMod:ModuleId=managerOnly?"planning":mod;
+  const current=MODULES.find(m=>m.id===shownMod)||MODULES[0];
   return <div className="page recv">
     <div className="intro"><div><small>ACCOUNTS</small><h2>Accounts Receivable</h2>
       <p>From the job notification through to collecting what is owed, in four modules.</p></div></div>
     <nav className="recv-modules" aria-label="Accounts Receivable modules">
-      {MODULES.map((m,i)=><button key={m.id} className={m.id===mod?"on":""} aria-current={m.id===mod?"page":undefined}
-        onClick={e=>{pick(m.id);e.currentTarget.scrollIntoView({block:"nearest",inline:"nearest",behavior:"smooth"})}}><m.icon/><span><i>{i+1}</i>{m.label}</span></button>)}
+      {tabs.map(m=><button key={m.id} className={m.id===shownMod?"on":""} aria-current={m.id===shownMod?"page":undefined}
+        onClick={e=>{pick(m.id);e.currentTarget.scrollIntoView({block:"nearest",inline:"nearest",behavior:"smooth"})}}><m.icon/><span><i>{MODULES.indexOf(m)+1}</i>{m.label}</span></button>)}
     </nav>
-    {mod==="job"?<JobNotification {...props}/>:<ComingModule label={current.label} blurb={current.blurb} Icon={current.icon}/>}
+    {shownMod==="job"?<JobNotification {...props}/>
+      :shownMod==="planning"?<PlanningProcurement role={props.role} userEmail={props.userEmail} flash={props.flash}/>
+      :<ComingModule label={current.label} blurb={current.blurb} Icon={current.icon}/>}
   </div>}
 
 /* A module whose flow has not been defined yet. Says so plainly rather than showing an

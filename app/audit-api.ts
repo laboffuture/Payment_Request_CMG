@@ -82,6 +82,25 @@ export type Receivable={id:string;ref:string;stage:string;customer:string;compan
   verifiedAt:string;remarks:string;returnNote:string;returnedAt:string;raisedByEmail:string;
   createdAt:string;updatedAt:string};
 
+/* Accounts Receivable, module 2: Planning & Procurement. As with the receivables, the
+   server decides every stage move. */
+export type Plan={id:string;ref:string;stage:string;jobId:string;jobRef:string;customer:string;
+  companyId:string;description:string;pmName:string;pmEmail:string;pmAt:string;startDate:string;
+  endDate:string;planNotes:string;planAt:string;bomSummary:string;bomCost:number;currency:string;
+  procurementNotes:string;bomAt:string;submittedAt:string;verifiedBy:string;verifiedAt:string;
+  remarks:string;returnNote:string;returnedAt:string;raisedByEmail:string;createdAt:string;updatedAt:string};
+export type PlanJob={id:string;ref:string;customer:string;description:string;companyId:string};
+export const planningApi={
+  load:async()=>asJson<{plans:Plan[]}>(await fetch("/api/planning?limit=200")),
+  jobs:async()=>(await asJson<{jobs:PlanJob[]}>(await fetch("/api/planning?jobs=1"))).jobs,
+  people:async()=>(await asJson<{people:{name:string;email:string}[]}>(await fetch("/api/planning?people=1"))).people,
+  assigned:async()=>(await asJson<{count:number}>(await fetch("/api/planning?assigned=me"))).count,
+  start:async(jobId:string)=>(await send("/api/planning","POST",{jobId})).plan as Plan,
+  advance:async(id:string,fields:Partial<Plan>={})=>
+    (await send("/api/planning","PATCH",{id,action:"advance",...fields})).plan as Plan,
+  sendBack:async(id:string,stage:string,note:string)=>
+    (await send("/api/planning","PATCH",{id,action:"return",stage,note})).plan as Plan};
+
 /* Accounts Receivable. The stage moves are a PATCH rather than a field the client
    sets, because the server decides what the next stage is - see the route. */
 export const receivablesApi={

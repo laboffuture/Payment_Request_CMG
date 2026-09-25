@@ -496,3 +496,45 @@ export const wfReceivables=sqliteTable("wf_receivables",{
   updatedAt:text("updated_at").notNull().default("")},
   t=>[index("wf_recv_stage_idx").on(t.stage),index("wf_recv_company_idx").on(t.companyId),
       index("wf_recv_created_idx").on(t.createdAt),index("wf_recv_ref_idx").on(t.ref)]);
+
+/* Accounts Receivable, module 2: Planning & Procurement. One row per job being planned,
+   pointing back at the Job Notification entry it came from. The job's customer and
+   description are copied in when planning starts, so the plan still reads correctly if
+   the notification is later edited. */
+export const wfPlanning=sqliteTable("wf_planning",{
+  id:text("id").primaryKey(),
+  ref:text("ref").notNull(),
+  stage:text("stage").notNull().default("Assign Project Manager"),
+  // the job, from Job Notification
+  jobId:text("job_id").notNull().default(""),
+  jobRef:text("job_ref").notNull().default(""),
+  customer:text("customer").notNull().default(""),
+  companyId:text("company_id").notNull().default(""),
+  description:text("description").notNull().default(""),
+  // assign project manager
+  pmName:text("pm_name").notNull().default(""),
+  pmEmail:text("pm_email").notNull().default(""),
+  pmAt:text("pm_at").notNull().default(""),
+  // project schedule and planning
+  startDate:text("start_date").notNull().default(""),
+  endDate:text("end_date").notNull().default(""),
+  planNotes:text("plan_notes").notNull().default(""),
+  planAt:text("plan_at").notNull().default(""),
+  // detailed BOM and procurement planning
+  bomSummary:text("bom_summary").notNull().default(""),
+  bomCost:real("bom_cost").notNull().default(0),
+  currency:text("currency").notNull().default("AED"),
+  procurementNotes:text("procurement_notes").notNull().default(""),
+  bomAt:text("bom_at").notNull().default(""),
+  // audit
+  submittedAt:text("submitted_at").notNull().default(""),
+  verifiedBy:text("verified_by").notNull().default(""),
+  verifiedAt:text("verified_at").notNull().default(""),
+  remarks:text("remarks").notNull().default(""),
+  returnNote:text("return_note").notNull().default(""),
+  returnedAt:text("returned_at").notNull().default(""),
+  raisedByEmail:text("raised_by_email").notNull().default(""),
+  createdAt:text("created_at").notNull().default(""),
+  updatedAt:text("updated_at").notNull().default("")},
+  t=>[index("wf_plan_stage_idx").on(t.stage),index("wf_plan_job_idx").on(t.jobId),
+      index("wf_plan_pm_idx").on(t.pmEmail),index("wf_plan_created_idx").on(t.createdAt)]);

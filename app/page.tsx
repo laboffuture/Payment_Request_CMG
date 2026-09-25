@@ -179,7 +179,13 @@ export default function Home(){
     change them. The API enforces the same rule, so this only hides controls that would
     be refused anyway rather than being the rule itself. */
  const viewOnly=role==="Accountant"||role==="Requestor"||role==="Auditor";
- const visible=nav.filter(n=>(access[role]||[]).includes(n.id));
+ /* A project manager on a plan reaches Accounts Receivable through that plan even when
+    their role would not show it - the module then shows them their plans alone. */
+ const[managesPlans,setManagesPlans]=useState(false);
+ useEffect(()=>{if(!userEmail){setManagesPlans(false);return}
+   fetch("/api/planning?assigned=me").then(r=>(r.ok?r.json():{count:0}) as Promise<{count?:number}>)
+     .then(b=>setManagesPlans((b.count||0)>0)).catch(()=>{})},[userEmail]);
+ const visible=nav.filter(n=>(access[role]||[]).includes(n.id)||(n.id==="accountsreceived"&&managesPlans));
  const login=(u:Actor)=>{setExpired(false);setUserName(u.name);setUserEmail(u.email);setAllowedRoles(u.roles);setRole(u.roles[0]);setActive(u.roles[0]==="Requestor"?"requests":"dashboard")};
  /* Ask the server who this is. The session cookie is HttpOnly, so the browser cannot
     read it; only this call can say whether it is still valid, which is what makes a
@@ -239,7 +245,7 @@ export default function Home(){
  {active==="requests"&&<RequestorWorkspace rows={role==="Requestor"?mine:filtered} open={openRequest} create={()=>setForm(true)} scope={role==="Department Head"?"department":"own"}/>}
  {active==="payments"&&<PaymentWorkbench departments={departments} companies={companies.map(c=>c.name)} onDelete={removeRequest} rows={filtered} role={role} search={search} setSearch={setSearch} open={openRequest} create={()=>setForm(true)}/>}
  {active==="scheduled"&&<ScheduledPayments role={role} flash={flash}/>}
- {active==="accountsreceived"&&<AccountsReceived role={role} companies={companies} flash={flash}/>}
+ {active==="accountsreceived"&&<AccountsReceived role={role} userEmail={userEmail} companies={companies} flash={flash}/>}
   {active==="preaudit"&&<AuditTaskQueue title="Pre-audit tasks" kind="Pre-Audit" companies={companies} create={(t)=>createAuditTask("Pre-Audit",t)} tasks={auditTasks} role={role} accept={acceptAuditTask} update={updateAuditTask}/>} 
  {active==="postaudit"&&<AuditTaskQueue title="Post-audit tasks" kind="Post-Audit" companies={companies} create={(t)=>createAuditTask("Post-Audit",t)} tasks={auditTasks} role={role} accept={acceptAuditTask} update={updateAuditTask}/>} 
  {active==="specialaudit"&&<AuditTaskQueue title="Special audit tasks" kind="Special Audit" companies={companies} create={(t)=>createAuditTask("Special Audit",t)} tasks={auditTasks} role={role} accept={acceptAuditTask} update={updateAuditTask}/>} 

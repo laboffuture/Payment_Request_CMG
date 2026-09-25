@@ -162,3 +162,17 @@
 .recv-coming h3{margin:0;font-size:17px}
 .recv-coming p{margin:0;font-size:12.5px;color:#475467;max-width:460px}
 .recv-coming span{margin-top:8px;padding:6px 12px;border-radius:999px;background:#f2f4f7;color:#667085;font-size:11px;font-weight:600}
+
+/* Planning & Procurement stage tints: 1 project manager, 2 schedule, 3 BOM, 4 with audit,
+   5 verified. */
+.recv-tag.p1{background:#f2f4f7;color:#344054}
+.recv-tag.p2{background:#eff4ff;color:#175cd3}
+.recv-tag.p3{background:#f4f3ff;color:#5925dc}
+.recv-tag.p4{background:#fffaeb;color:#b54708}
+.recv-tag.p5{background:#ecfdf3;color:#027a48}
+.recv-facts dd svg{width:13px;height:13px;vertical-align:-2px;margin-right:4px;color:#98a2b3}
+.recv-drawer .wf-attach{margin-top:18px}
+/* The entry's facts in the side panel, on the application's text scale - they were
+   inheriting 16px, larger than anything else on screen. */
+.recv-facts dt{font-size:11px}
+.recv-facts dd{font-size:12.5px;line-height:1.45}
