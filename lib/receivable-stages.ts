@@ -60,3 +60,8 @@ export const FIELD_LABEL:Record<string,string>={
 
 /** The stages an auditor may send an entry back to: everything before verification. */
 export const RETURNABLE_TO=STAGES.slice(0,3) as readonly Stage[];
+
+/* The departments a job notification can be raised for. A deliberate short list rather
+   than the organisation's full department list, which runs to forty entries, most of
+   which never notify a job. The form offers these and the server accepts only these. */
+export const JOB_DEPARTMENTS=["Project","Procurement","Sales","Management","Marketing"] as const;

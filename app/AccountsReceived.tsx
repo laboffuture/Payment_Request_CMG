@@ -22,14 +22,14 @@ import FilePicker from"./FilePicker";
 import type{Receivable}from"./audit-api";
 import{useAsync}from"./workforce-store";
 import{Empty,ErrorBlock,Loading}from"./WorkforceShared";
-import{ACTION_LABEL,RETURNABLE_TO,STAGES,isVerified,mayAct,stageIndex}from"../lib/receivable-stages";
+import{ACTION_LABEL,JOB_DEPARTMENTS,RETURNABLE_TO,STAGES,isVerified,mayAct,stageIndex}from"../lib/receivable-stages";
 import type{Stage}from"../lib/receivable-stages";
 import PlanningProcurement from"./PlanningProcurement";
 import CompletionBilling from"./CompletionBilling";
 import DebtCollection from"./DebtCollection";
 import{RECEIVABLE_ROLES}from"../lib/planning-stages";
 
-type Props={role:string;userEmail?:string;companies?:{id:string;name:string}[];departments?:string[];flash?:(m:string)=>void};
+type Props={role:string;userEmail?:string;companies?:{id:string;name:string}[];flash?:(m:string)=>void};
 
 const money=(n:number,c:string)=>n?`${c} ${n.toLocaleString("en-GB",{minimumFractionDigits:2,maximumFractionDigits:2})}`:"—";
 const when=(iso:string)=>iso?new Date(iso).toLocaleDateString("en-GB",{day:"numeric",month:"short",year:"numeric"}):"—";
@@ -76,7 +76,7 @@ export default function AccountsReceived(props:Props){
       :<DebtCollection role={props.role} flash={props.flash}/>}
   </div>}
 
-function JobNotification({role,companies=[],departments=[],flash}:Props){
+function JobNotification({role,companies=[],flash}:Props){
   const[stage,setStage]=useState<string>("All stages"),[q,setQ]=useState(""),
     [open,setOpen]=useState<Receivable|null>(null),[form,setForm]=useState(false),
     /* Bumped after every write. The register is the server's copy, so a move is
@@ -165,7 +165,7 @@ function JobNotification({role,companies=[],departments=[],flash}:Props){
 
     {open&&<Detail row={open} role={role} companies={companies} close={()=>setOpen(null)}
       saved={(r,msg)=>{save(r);flash?.(msg)}} reload={reload}/>}
-    {form&&<NewEntry companies={companies} departments={departments}
+    {form&&<NewEntry companies={companies}
       customers={[...new Set(rows.map(r=>r.customer).filter(Boolean))]} close={()=>setForm(false)}
       added={r=>{setForm(false);reload();setOpen(r);flash?.(`${r.ref} raised`)}}/>}
   </div>}
@@ -282,7 +282,7 @@ const APPROVALS=["Approved","Pending","Not required"];
 /* The client dropdown's way out: a client not yet in the list is typed instead. */
 const NEW_CLIENT="__new__";
 
-function NewEntry({companies,departments,customers,close,added}:{companies:{id:string;name:string}[];departments:string[];
+function NewEntry({companies,customers,close,added}:{companies:{id:string;name:string}[];
   customers:string[];close:()=>void;added:(r:Receivable)=>void}){
   /* BOQ is a plain Yes/No with no placeholder, so it starts on the first choice and the
      value sent always matches what the dropdown shows. */
@@ -326,7 +326,7 @@ function NewEntry({companies,departments,customers,close,added}:{companies:{id:s
             <option value="">Select company</option>{companies.map(c=><option key={c.id} value={c.id}>{c.name}</option>)}</select></label></div>
         <div className="recv-two">
           <label><span className="recv-lbl">Department<i className="recv-req" aria-hidden="true">*</i></span><select required value={f.department||""} onChange={e=>set("department",e.target.value)}>
-            <option value="">Select department</option>{departments.map(d=><option key={d}>{d}</option>)}</select></label>
+            <option value="">Select department</option>{JOB_DEPARTMENTS.map(d=><option key={d}>{d}</option>)}</select></label>
           <label><span className="recv-lbl">Client / customer<i className="recv-req" aria-hidden="true">*</i></span>{newClient
             ?<span className="recv-newclient"><input autoFocus required value={f.customer||""} onChange={e=>set("customer",e.target.value)} placeholder="New client name"/>
                <button type="button" className="ghost" onClick={()=>{setNewClient(false);set("customer","")}}>List</button></span>

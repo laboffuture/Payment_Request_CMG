@@ -4,7 +4,7 @@ import{wfAttachments,wfPlanning,wfReceivables,wfUsers}from"../../../db/schema";
 import{deleteFile}from"../../../lib/storage";
 import{requireAuth}from"../../../lib/auth";
 import{emailsForRoles,notify}from"../../../lib/notify";
-import{ACCOUNTS_ROLES,AUDIT_ROLES,REQUIRED_TO_LEAVE,RETURNABLE_TO,STAGES,
+import{ACCOUNTS_ROLES,AUDIT_ROLES,JOB_DEPARTMENTS,REQUIRED_TO_LEAVE,RETURNABLE_TO,STAGES,
   mayAct,stageIndex}from"../../../lib/receivable-stages";
 import type{Stage}from"../../../lib/receivable-stages";
 import{actorOf,bad,num,oops,page,search,str,writeWithAudit}from"../../../lib/workforce-api";
@@ -92,6 +92,8 @@ export async function POST(req:Request){
     const missing=Object.entries(REQUIRED_ON_RAISE).filter(([k])=>!str(body[k]).trim()).map(([,l])=>l);
     if(missing.length)return bad(`${missing.join(", ")} ${missing.length===1?"is":"are"} required.`,422);
     if(!["Yes","No"].includes(str(body.boqAvailable)))return bad("Say whether a BOQ / budget is available.",422);
+    if(!(JOB_DEPARTMENTS as readonly string[]).includes(str(body.department)))
+      return bad(`Department must be one of ${JOB_DEPARTMENTS.join(", ")}.`,422);
     if(str(body.startDate)&&str(body.endDate)&&str(body.endDate)<str(body.startDate))
       return bad("The expected completion date cannot be before the job start date.",422);
     // Optional; when given it has to be an amount.
