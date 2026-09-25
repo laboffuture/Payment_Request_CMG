@@ -290,3 +290,15 @@
 .recv-drawer.recv-over{z-index:70}
 .recv-facts .recv-facts-head{margin-top:6px;padding-top:8px;border-top:1px solid var(--line,#e4e7ec)}
 .recv-facts .recv-facts-head dt{font-weight:700;letter-spacing:.06em;color:#344054}
+
+/* The search in each register's header, on the application's scale: it inherited 16px
+   type, so the box stood taller and heavier than the title beside it. Same height as the
+   header's buttons, text at the size of the rows it filters, and the whole width on a
+   narrow screen rather than a sliver. */
+.recv-head .recv-search{flex:0 1 380px;min-width:0;height:36px;padding:0 12px;gap:8px;border-radius:8px;box-sizing:border-box}
+.recv-head .recv-search:focus-within{border-color:#84adff;box-shadow:0 0 0 3px #eff4ff}
+.recv-head .recv-search svg{width:15px;height:15px}
+.recv-head .recv-search input{height:100%;padding:0;font-size:12.5px;line-height:1;min-width:0}
+.recv-head .recv-search input::placeholder{color:#98a2b3}
+.recv-head .ghost{height:36px;padding:0 12px;font-size:12px;box-sizing:border-box}
+@media(max-width:640px){.recv-head .recv-search{flex-basis:100%}}
