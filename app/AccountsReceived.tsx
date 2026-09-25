@@ -368,7 +368,6 @@ function NewEntry({companies,departments,customers,close,added}:{companies:{id:s
         <FilePicker files={files} onChange={setFiles} label="Attachments (optional)"
           accept="image/*,application/pdf,.doc,.docx,.xls,.xlsx,.csv,.txt,.zip,.dwg"/>
         <label><span className="recv-lbl">Next process<i className="recv-req" aria-hidden="true">*</i></span><input readOnly className="recv-auto" value={`${STAGES[1]} · ${ACTION_LABEL["Job Notification"]} (accounts)`}/></label>
-        <p className="recv-legend">Fields marked * are required. The job notification number, job code and next process are set automatically.</p>
         {err&&<p className="recv-error">{err}</p>}
         <button className="primary" type="submit" disabled={busy}>{busy?"Submitting…":"Submit job notification"}</button>
       </form></aside></div>}
