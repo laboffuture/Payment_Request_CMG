@@ -214,7 +214,7 @@ function Detail({row,role,companies,close,saved,reload}:{row:Receivable;role:str
         {!!row.jobLocation&&<div><dt>Location</dt><dd>{row.jobLocation}</dd></div>}
         {!!row.pmName&&<div><dt>Project manager</dt><dd>{row.pmName}</dd></div>}
         {(!!row.startDate||!!row.endDate)&&<div><dt>Schedule</dt><dd>{when(row.startDate)} → {when(row.endDate)}</dd></div>}
-        {!!row.poNumber&&<div><dt>Contract / PO</dt><dd>{row.poNumber}</dd></div>}
+        {!!row.poNumber&&<div><dt>Contract number</dt><dd>{row.poNumber}</dd></div>}
         {!!row.contractValue&&<div><dt>Contract value</dt><dd>{money(row.contractValue,row.contractCurrency)}</dd></div>}
         {!!row.scope&&<div><dt>Scope of work</dt><dd className="recv-pre">{row.scope}</dd></div>}
         {!!row.boqAvailable&&<div><dt>BOQ / budget</dt><dd>{row.boqAvailable==="Yes"?"Available":"Not available"}</dd></div>}
@@ -347,7 +347,7 @@ function NewEntry({companies,departments,customers,close,added}:{companies:{id:s
           <label><span className="recv-lbl">Job start date<i className="recv-req" aria-hidden="true">*</i></span><input type="date" required value={f.startDate||""} onChange={e=>set("startDate",e.target.value)}/></label></div>
         <div className="recv-two">
           <label><span className="recv-lbl">Expected completion date</span><input type="date" min={f.startDate||undefined} value={f.endDate||""} onChange={e=>set("endDate",e.target.value)}/></label>
-          <label><span className="recv-lbl">Contract / PO number</span><input value={f.poNumber||""} onChange={e=>set("poNumber",e.target.value)} placeholder="Enter contract / PO number"/></label></div>
+          <label><span className="recv-lbl">Contract number</span><input value={f.poNumber||""} onChange={e=>set("poNumber",e.target.value)} placeholder="Enter contract number"/></label></div>
         <div className="recv-two">
           <label><span className="recv-lbl">Contract value / budget</span><span className="recv-money">
             <select aria-label="Currency" value={f.contractCurrency||"AED"} onChange={e=>set("contractCurrency",e.target.value)}>
