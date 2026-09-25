@@ -181,3 +181,24 @@
 /* The note under the upload control inherited the spaced-out lettering of the panel's
    small caps labels, which does not suit a sentence. */
 .wf-attach-add small{letter-spacing:normal}
+
+/* The file picker: a drop box that adds to a list, and the list with a remove button on
+   each file. */
+.file-picker{display:flex;flex-direction:column;gap:8px}
+.file-picker-drop{position:relative;display:flex;flex-direction:column;align-items:center;gap:4px;padding:16px;
+  border:1.5px dashed #a9c8be;border-radius:10px;background:#fbfdfc;text-align:center;cursor:pointer;color:var(--green,#0b725d)}
+.file-picker.over .file-picker-drop{border-color:#0b725d;background:#eef8f4}
+.file-picker-drop input{position:absolute;inset:0;width:100%;height:100%;opacity:0;cursor:pointer}
+.file-picker-drop svg{width:18px;height:18px}
+.file-picker-drop b{font-size:12.5px}
+.file-picker-drop span{font-size:11px;color:var(--muted,#667085)}
+.file-picker-list{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:6px}
+.file-picker-list li{display:flex;align-items:center;gap:8px;padding:7px 8px 7px 10px;border:1px solid var(--line,#e4e7ec);
+  border-radius:8px;background:#fff;font-size:12px;min-width:0}
+.file-picker-list li>svg{width:15px;height:15px;flex:none;color:#667085}
+.file-picker-list li span{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;text-align:left;color:#1d2939}
+.file-picker-list li small{flex:none;font-size:10.5px;color:#98a2b3;font-variant-numeric:tabular-nums}
+.file-picker-list li button{flex:none;display:grid;place-items:center;width:26px;height:26px;border:0;border-radius:6px;
+  background:none;color:#98a2b3;cursor:pointer}
+.file-picker-list li button:hover{background:#fef3f2;color:#b42318}
+.file-picker-list li button svg{width:14px;height:14px}

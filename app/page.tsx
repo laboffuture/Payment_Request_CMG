@@ -2,6 +2,7 @@
 import {useCallback,useEffect,useMemo,useRef,useState} from "react";
 import {Bell,AlertTriangle,Building2,CalendarClock,CalendarDays,CheckCircle2,ChevronDown,CircleDollarSign,ClipboardCheck,FileBarChart,FileText,History,Import,LayoutDashboard,LogOut,Menu,MessageSquareText,Plus,ReceiptText,Search,Settings,ShieldCheck,SlidersHorizontal,Users,X,GraduationCap,Upload} from "lucide-react";
 import PaymentDetail from "./PaymentDetail";
+import FilePicker from "./FilePicker";
 import {asDataUrl} from "./Attachments";
 import PaymentWorkbench from "./PaymentWorkbench";
 import RequestorWorkspace from "./RequestorWorkspace";
@@ -469,13 +470,8 @@ for(const file of files){try{const dataUrl=await asDataUrl(file);await fetch("/a
    <textarea required={ruleFor(v.nature,"description")==="M"} value={v.description}
      onChange={e=>setV({...v,description:e.target.value})}/></label>
  {!!failed&&<p className="wide form-error">{failed}</p>}
- <label className="upload wide">
-   <input type="file" multiple required={ruleFor(v.nature,"documents")==="M"&&!files.length}
-     accept="image/*,application/pdf,.doc,.docx,.xls,.xlsx,.csv,.txt,.zip"
-     onChange={e=>setFiles(Array.from(e.target.files||[]))}/>
-   <Upload/><b>{labelFor(v.nature,"documents")}</b>
-   {files.length>0&&<small className="upload-list">{files.length} file{files.length===1?"":"s"}: {files.map(f=>f.name).join(", ")}</small>}
- </label></div><footer><button type="button" onClick={close}>Cancel</button><button className="primary" disabled={saving}>{saving?"Submitting…":"Submit to accountant"}</button></footer></form></>}
+ <FilePicker className="wide" files={files} onChange={setFiles} label={labelFor(v.nature,"documents")}
+   required={ruleFor(v.nature,"documents")==="M"}/></div><footer><button type="button" onClick={close}>Cancel</button><button className="primary" disabled={saving}>{saving?"Submitting…":"Submit to accountant"}</button></footer></form></>}
 
 /* Report centre: the payment and audit report, and the workforce report, under one
    menu entry.

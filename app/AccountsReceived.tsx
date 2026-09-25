@@ -18,6 +18,7 @@ import{ArrowLeft,ArrowRight,Building2,CheckCircle2,ClipboardList,FileCheck2,Hand
 import{planningApi,receivablesApi}from"./audit-api";
 import{useOptions}from"./options-store";
 import Attachments,{asDataUrl}from"./Attachments";
+import FilePicker from"./FilePicker";
 import type{Receivable}from"./audit-api";
 import{useAsync}from"./workforce-store";
 import{Empty,ErrorBlock,Loading}from"./WorkforceShared";
@@ -337,9 +338,8 @@ function NewEntry({companies,departments,customers,close,added}:{companies:{id:s
             <option value="">Select priority</option>{PRIORITIES.map(a=><option key={a}>{a}</option>)}</select></label>
           <label><span className="recv-lbl">Notification date<i className="recv-req" aria-hidden="true">*</i></span><input type="date" required value={f.notifiedOn||""} onChange={e=>set("notifiedOn",e.target.value)}/></label></div>
         <label>Remarks<textarea rows={2} value={f.remarksNote||""} onChange={e=>set("remarksNote",e.target.value)} placeholder="Enter any additional remarks…"/></label>
-        <label>Attachments<input type="file" multiple accept="image/*,application/pdf,.doc,.docx,.xls,.xlsx,.csv,.txt,.zip,.dwg"
-          onChange={e=>setFiles(Array.from(e.target.files||[]))}/>
-          {!!files.length&&<small className="recv-files">{files.map(x=>x.name).join(", ")}</small>}</label>
+        <FilePicker files={files} onChange={setFiles} label="Attachments"
+          accept="image/*,application/pdf,.doc,.docx,.xls,.xlsx,.csv,.txt,.zip,.dwg"/>
         <p className="recv-legend">Fields marked * are required. The job notification number and job code are issued automatically.</p>
         {err&&<p className="recv-error">{err}</p>}
         <button className="primary" type="submit" disabled={busy}>{busy?"Submitting…":"Submit job notification"}</button>
