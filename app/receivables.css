@@ -271,3 +271,14 @@
 .recv-form input,.recv-form select,.recv-form textarea{width:100%;min-width:0;max-width:100%;box-sizing:border-box}
 .recv-form .recv-money select{width:84px}
 @media(max-width:640px){.recv-form .recv-two{grid-template-columns:minmax(0,1fr)}}
+
+/* The administrator's delete, as a narrow last column on the register. */
+.recv-cols.with-del,.recv-row.with-del{grid-template-columns:minmax(9rem,1.1fr) minmax(8rem,2fr) minmax(8rem,1.1fr) minmax(7.5rem,.9fr) 7.5rem 30px}
+.recv-row[role="button"]:focus-visible{outline:2px solid #2e90fa;outline-offset:2px}
+.recv-del{display:grid;place-items:center;width:30px;height:30px;border:0;border-radius:7px;background:none;color:#98a2b3;cursor:pointer}
+.recv-del:hover{background:#fef3f2;color:#b42318}
+.recv-del:disabled{opacity:.4;cursor:wait}
+.recv-del svg{width:15px;height:15px}
+@container (max-width:640px){
+  .recv-row.with-del{grid-template-columns:1fr auto auto}
+  .recv-row.with-del .recv-del{grid-column:3;grid-row:1}}

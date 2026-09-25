@@ -1,6 +1,7 @@
 import{and,count,desc,eq,like,or,sql}from"drizzle-orm";
 import{getDb}from"../../../db";
-import{wfReceivables,wfUsers}from"../../../db/schema";
+import{wfAttachments,wfPlanning,wfReceivables,wfUsers}from"../../../db/schema";
+import{deleteFile}from"../../../lib/storage";
 import{requireAuth}from"../../../lib/auth";
 import{emailsForRoles,notify}from"../../../lib/notify";
 import{ACCOUNTS_ROLES,AUDIT_ROLES,REQUIRED_TO_LEAVE,RETURNABLE_TO,STAGES,
@@ -213,4 +214,36 @@ export async function PATCH(req:Request){
           module:"accountsreceived",recordId:id},actor?.email);
 
     return Response.json({receivable:{...row,...patch}});
+  }catch(e){return oops(e)}}
+
+/* Deleting a job notification. An administrator's action alone, as for payment requests:
+   the flow otherwise only moves forward, and this is for an entry raised in error.
+
+   Refused once the job has a plan in Planning & Procurement, because the plan - and the
+   completion cycles and collections after it - would be left pointing at a job that no
+   longer exists. Its documents go with it rather than being orphaned in storage, and the
+   deletion is written to the log. */
+export async function DELETE(req:Request){
+  try{
+    const{actor,response}=await requireAuth(req,"admin");
+    if(response)return response;
+    if(!(actor?.roles||[]).includes("Administrator"))
+      return bad("Only an administrator can delete a job notification.",403);
+    const id=str(new URL(req.url).searchParams.get("id"));
+    if(!id)return bad("id is required");
+    const db=await getDb();
+    const[row]=await db.select().from(wfReceivables).where(eq(wfReceivables.id,id));
+    if(!row)return bad("That entry no longer exists",404);
+    const[plan]=await db.select({ref:wfPlanning.ref}).from(wfPlanning).where(eq(wfPlanning.jobId,id));
+    if(plan)return bad(`${row.ref} is being planned as ${plan.ref} in Planning & Procurement, so it cannot be deleted.`,409);
+    const files=await db.select().from(wfAttachments)
+      .where(and(eq(wfAttachments.entityType,"receivable"),eq(wfAttachments.entityId,id)));
+    for(const f of files){try{await deleteFile(f.storageKey)}catch{/* already gone from storage */}}
+    await writeWithAudit([
+      db.delete(wfAttachments).where(and(eq(wfAttachments.entityType,"receivable"),eq(wfAttachments.entityId,id))),
+      db.delete(wfReceivables).where(eq(wfReceivables.id,id))],
+      actor?.name||actor?.email||"",
+      "receivable",id,"Job notification deleted",
+      `${row.ref} · ${row.jobName||row.description} · ${row.customer} · with ${files.length} document(s)`);
+    return Response.json({deleted:true,ref:row.ref,documents:files.length});
   }catch(e){return oops(e)}}

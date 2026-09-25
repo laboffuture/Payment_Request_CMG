@@ -155,6 +155,8 @@ export const receivablesApi={
       await fetch(`/api/receivables${q?`?${q}`:""}`))},
   create:async(r:Partial<Receivable>)=>(await send("/api/receivables","POST",r)).receivable as Receivable,
   next:async()=>asJson<{jobNo:string;jobCode:string}>(await fetch("/api/receivables?next=1")),
+  remove:async(id:string)=>asJson<{deleted:boolean;ref:string;documents:number}>(
+    await fetch(`/api/receivables?id=${encodeURIComponent(id)}`,{method:"DELETE"})),
   advance:async(id:string,fields:Partial<Receivable>={})=>
     (await send("/api/receivables","PATCH",{id,action:"advance",...fields})).receivable as Receivable,
   sendBack:async(id:string,stage:string,note:string)=>
