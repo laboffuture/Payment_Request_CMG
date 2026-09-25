@@ -349,10 +349,10 @@ function NewEntry({companies,departments,customers,close,added}:{companies:{id:s
           <label><span className="recv-lbl">Expected completion date</span><input type="date" min={f.startDate||undefined} value={f.endDate||""} onChange={e=>set("endDate",e.target.value)}/></label>
           <label><span className="recv-lbl">Contract / PO number</span><input value={f.poNumber||""} onChange={e=>set("poNumber",e.target.value)} placeholder="Enter contract / PO number"/></label></div>
         <div className="recv-two">
-          <label><span className="recv-lbl">Contract value / budget<i className="recv-req" aria-hidden="true">*</i></span><span className="recv-money">
+          <label><span className="recv-lbl">Contract value / budget</span><span className="recv-money">
             <select aria-label="Currency" value={f.contractCurrency||"AED"} onChange={e=>set("contractCurrency",e.target.value)}>
               {["AED","INR","USD","SAR","EUR","GBP"].map(c=><option key={c}>{c}</option>)}</select>
-            <input type="number" required min="0.01" step="0.01" value={f.contractValue||""} onChange={e=>set("contractValue",e.target.value)} placeholder="Enter amount"/></span></label>
+            <input type="number" min="0" step="0.01" value={f.contractValue||""} onChange={e=>set("contractValue",e.target.value)} placeholder="Enter amount"/></span></label>
           <label><span className="recv-lbl">Job type<i className="recv-req" aria-hidden="true">*</i></span><select required value={f.jobType||""} onChange={e=>set("jobType",e.target.value)}>
             <option value="">Select job type</option>{jobTypes.map(t=><option key={t}>{t}</option>)}</select></label></div>
         <label><span className="recv-lbl">Scope of work<i className="recv-req" aria-hidden="true">*</i></span><textarea required rows={4} value={f.scope||""} onChange={e=>set("scope",e.target.value)} placeholder="Enter scope of work details…"/></label>

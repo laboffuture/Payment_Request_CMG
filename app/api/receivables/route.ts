@@ -50,7 +50,7 @@ async function nextNumbers(){
 /* Mandatory on the job notification, as the field specification sets them out. */
 const REQUIRED_ON_RAISE:Record<string,string>={companyId:"Company",department:"Department",
   customer:"Client / customer",jobName:"Job name",pmEmail:"Project manager / responsible person",
-  startDate:"Job start date",contractValue:"Contract value / budget",jobType:"Job type",scope:"Scope of work",
+  startDate:"Job start date",jobType:"Job type",scope:"Scope of work",
   boqAvailable:"BOQ / budget available",managementApproval:"Management approval",priority:"Priority",
   notifiedOn:"Notification date"};
 
@@ -94,7 +94,9 @@ export async function POST(req:Request){
     if(!["Yes","No"].includes(str(body.boqAvailable)))return bad("Say whether a BOQ / budget is available.",422);
     if(str(body.startDate)&&str(body.endDate)&&str(body.endDate)<str(body.startDate))
       return bad("The expected completion date cannot be before the job start date.",422);
-    if(!(num(body.contractValue)>0))return bad("Contract value / budget must be an amount above zero.",422);
+    // Optional; when given it has to be an amount.
+    if(str(body.contractValue).trim()!==""&&!(Number(body.contractValue)>=0))
+      return bad("Contract value / budget must be an amount.",422);
     const db=await getDb();
     /* The project manager, if named, must have a login: they are emailed and act in the
        portal. Their name is taken from the login rather than from the form. */
