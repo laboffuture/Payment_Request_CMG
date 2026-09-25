@@ -605,3 +605,56 @@ export const wfCompletions=sqliteTable("wf_completions",{
   updatedAt:text("updated_at").notNull().default("")},
   t=>[index("wf_comp_stage_idx").on(t.stage),index("wf_comp_job_idx").on(t.billingJobId),
       index("wf_comp_pm_idx").on(t.pmEmail),index("wf_comp_created_idx").on(t.createdAt)]);
+
+/* Accounts Receivable, module 4: Debt Collection. One case per invoice whose due date has
+   passed unpaid - found among the invoices verified in Completion and Billing, or added by
+   hand for an invoice raised before the portal. What the customer has paid so far and the
+   latest position are kept on the case; everything that led there is in the log below. */
+export const wfCollections=sqliteTable("wf_collections",{
+  id:text("id").primaryKey(),
+  ref:text("ref").notNull(),
+  stage:text("stage").notNull().default("Invoice Missed"),
+  completionId:text("completion_id").notNull().default(""),
+  billingJobId:text("billing_job_id").notNull().default(""),
+  jobRef:text("job_ref").notNull().default(""),
+  customer:text("customer").notNull().default(""),
+  pmName:text("pm_name").notNull().default(""),
+  invoiceNo:text("invoice_no").notNull().default(""),
+  invoiceDate:text("invoice_date").notNull().default(""),
+  invoiceAmount:real("invoice_amount").notNull().default(0),
+  currency:text("currency").notNull().default("AED"),
+  creditDays:integer("credit_days").notNull().default(30),
+  dueDate:text("due_date").notNull().default(""),
+  status:text("status").notNull().default("Not contacted"),
+  promisedDate:text("promised_date").notNull().default(""),
+  amountReceived:real("amount_received").notNull().default(0),
+  followUps:integer("follow_ups").notNull().default(0),
+  lastFollowUpAt:text("last_follow_up_at").notNull().default(""),
+  collectorName:text("collector_name").notNull().default(""),
+  collectorEmail:text("collector_email").notNull().default(""),
+  submittedAt:text("submitted_at").notNull().default(""),
+  verifiedBy:text("verified_by").notNull().default(""),
+  verifiedAt:text("verified_at").notNull().default(""),
+  remarks:text("remarks").notNull().default(""),
+  returnNote:text("return_note").notNull().default(""),
+  returnedAt:text("returned_at").notNull().default(""),
+  source:text("source").notNull().default("billing"),
+  createdAt:text("created_at").notNull().default(""),
+  updatedAt:text("updated_at").notNull().default("")},
+  t=>[index("wf_coll_stage_idx").on(t.stage),index("wf_coll_completion_idx").on(t.completionId),
+      index("wf_coll_due_idx").on(t.dueDate),index("wf_coll_created_idx").on(t.createdAt)]);
+
+/* Every call, email, status update and payment recorded against a case, in order. */
+export const wfCollectionEvents=sqliteTable("wf_collection_events",{
+  id:text("id").primaryKey(),
+  caseId:text("case_id").notNull().default(""),
+  kind:text("kind").notNull().default(""),
+  at:text("at").notNull().default(""),
+  byName:text("by_name").notNull().default(""),
+  byEmail:text("by_email").notNull().default(""),
+  contact:text("contact").notNull().default(""),
+  notes:text("notes").notNull().default(""),
+  status:text("status").notNull().default(""),
+  amount:real("amount").notNull().default(0),
+  promisedDate:text("promised_date").notNull().default("")},
+  t=>[index("wf_collev_case_idx").on(t.caseId,t.at)]);

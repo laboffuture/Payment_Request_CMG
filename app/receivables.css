@@ -216,3 +216,37 @@
 .recv-tag.c3{background:#f4f3ff;color:#5925dc}
 .recv-tag.c4{background:#fffaeb;color:#b54708}
 .recv-tag.c5{background:#ecfdf3;color:#027a48}
+
+/* Debt Collection. */
+.dc-outstanding{color:#b42318;font-weight:700;white-space:nowrap}
+.dc-late{display:block;font-style:normal;font-size:10.5px;font-weight:600;color:#b42318;margin-top:1px}
+.dc-progress{height:8px;border-radius:999px;background:#f2f4f7;overflow:hidden;margin:4px 0 6px}
+.dc-progress i{display:block;height:100%;background:linear-gradient(90deg,#12b76a,#039855);border-radius:999px}
+.dc-progress-label{margin:0 0 14px;font-size:12px;color:#475467}
+.dc-kinds{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:4px;padding:3px;border:1px solid var(--line,#e4e7ec);border-radius:10px}
+.dc-kinds button{display:flex;flex-direction:column;align-items:center;gap:4px;border:0;background:none;border-radius:7px;padding:8px 4px;
+  font:inherit;font-size:10.5px;font-weight:600;color:#475467;cursor:pointer;text-align:center}
+.dc-kinds button svg{width:15px;height:15px}
+.dc-kinds button.on{background:#0b1d3a;color:#fff}
+.dc-submit{background:#027a48!important;border-color:#027a48!important}
+.dc-terms{display:flex;align-items:flex-end;gap:8px;padding-top:8px;border-top:1px dashed var(--line,#e4e7ec)}
+.dc-terms label{flex:0 0 120px}
+.dc-log{margin-top:18px}
+.dc-log h4{margin:0 0 8px;font-size:13px}
+.dc-log ol{list-style:none;margin:0;padding:0 0 0 14px;border-left:2px solid #eaecf0;display:flex;flex-direction:column;gap:10px}
+.dc-log li{position:relative;display:flex;flex-direction:column;gap:2px;font-size:12px}
+.dc-log li:before{content:"";position:absolute;left:-20px;top:4px;width:10px;height:10px;border-radius:50%;background:#98a2b3;border:2px solid #fff}
+.dc-log li.k-payment:before{background:#12b76a}
+.dc-log li.k-status:before{background:#f79009}
+.dc-log li.k-call:before,.dc-log li.k-email:before{background:#2e90fa}
+.dc-log li span{color:#475467;white-space:pre-wrap}
+.dc-log li small{font-size:10.5px;color:#98a2b3}
+/* Debt collection stage tints: 0 missed, 1 follow up, 2 status, 3 with audit, 4 verified. */
+.recv-tag.d0{background:#fef3f2;color:#b42318}
+.recv-tag.d1{background:#eff4ff;color:#175cd3}
+.recv-tag.d2{background:#fffaeb;color:#b54708}
+.recv-tag.d3{background:#f4f3ff;color:#5925dc}
+.recv-tag.d4{background:#ecfdf3;color:#027a48}
+/* The side panel's sentences - "nothing further is expected" and the like - on the
+   application's text scale rather than the 16px they inherited. */
+.recv-drawer .recv-empty,.recv-drawer .recv-hint{font-size:12.5px}

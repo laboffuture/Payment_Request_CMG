@@ -23,6 +23,7 @@ import{ACTION_LABEL,RETURNABLE_TO,STAGES,isVerified,mayAct,stageIndex}from"../li
 import type{Stage}from"../lib/receivable-stages";
 import PlanningProcurement from"./PlanningProcurement";
 import CompletionBilling from"./CompletionBilling";
+import DebtCollection from"./DebtCollection";
 import{RECEIVABLE_ROLES}from"../lib/planning-stages";
 
 type Props={role:string;userEmail?:string;companies?:{id:string;name:string}[];flash?:(m:string)=>void};
@@ -31,8 +32,8 @@ const money=(n:number,c:string)=>n?`${c} ${n.toLocaleString("en-GB",{minimumFrac
 const when=(iso:string)=>iso?new Date(iso).toLocaleDateString("en-GB",{day:"numeric",month:"short",year:"numeric"}):"—";
 
 /* The four modules of Accounts Receivable, in the order a job moves through them. Each
-   has a flow of its own. Job Notification carries the register that existed before the
-   split; the other three are placeholders until their flows are defined. */
+   has a flow of its own; Job Notification carries the register that existed before the
+   split, and the other three are PlanningProcurement, CompletionBilling and DebtCollection. */
 const MODULES=[
   {id:"job",label:"Job Notification",icon:Megaphone,
     blurb:"A job is notified, created in CRM, a sales order is cut against it, and audit verifies the three agree."},
@@ -59,7 +60,6 @@ export default function AccountsReceived(props:Props){
     :["Cost Control","Management"].includes(props.role)?MODULES.filter(m=>m.id==="billing")
     :MODULES.filter(m=>m.id==="planning"||m.id==="billing");
   const shownMod:ModuleId=tabs.some(m=>m.id===mod)?mod:tabs[0].id;
-  const current=MODULES.find(m=>m.id===shownMod)||MODULES[0];
   return <div className="page recv">
     <div className="intro"><div><small>ACCOUNTS</small><h2>Accounts Receivable</h2>
       <p>From the job notification through to collecting what is owed, in four modules.</p></div></div>
@@ -70,14 +70,8 @@ export default function AccountsReceived(props:Props){
     {shownMod==="job"?<JobNotification {...props}/>
       :shownMod==="planning"?<PlanningProcurement role={props.role} userEmail={props.userEmail} flash={props.flash}/>
       :shownMod==="billing"?<CompletionBilling role={props.role} userEmail={props.userEmail} flash={props.flash}/>
-      :<ComingModule label={current.label} blurb={current.blurb} Icon={current.icon}/>}
+      :<DebtCollection role={props.role} flash={props.flash}/>}
   </div>}
-
-/* A module whose flow has not been defined yet. Says so plainly rather than showing an
-   empty register that looks broken. */
-function ComingModule({label,blurb,Icon}:{label:string;blurb:string;Icon:typeof Megaphone}){
-  return <section className="panel recv-coming"><Icon/><h3>{label}</h3><p>{blurb}</p>
-    <span>The flow for this module is being set up and will appear here.</span></section>}
 
 function JobNotification({role,companies=[],flash}:Props){
   const[stage,setStage]=useState<string>("All stages"),[q,setQ]=useState(""),

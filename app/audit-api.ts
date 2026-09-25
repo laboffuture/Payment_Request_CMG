@@ -82,6 +82,24 @@ export type Receivable={id:string;ref:string;stage:string;customer:string;compan
   verifiedAt:string;remarks:string;returnNote:string;returnedAt:string;raisedByEmail:string;
   createdAt:string;updatedAt:string};
 
+/* Accounts Receivable, module 4: Debt Collection - missed invoices, and the calls, emails,
+   statuses and payments logged against each. */
+export type Collection={id:string;ref:string;stage:string;completionId:string;billingJobId:string;jobRef:string;
+  customer:string;pmName:string;invoiceNo:string;invoiceDate:string;invoiceAmount:number;currency:string;
+  creditDays:number;dueDate:string;status:string;promisedDate:string;amountReceived:number;followUps:number;
+  lastFollowUpAt:string;collectorName:string;collectorEmail:string;submittedAt:string;verifiedBy:string;
+  verifiedAt:string;remarks:string;returnNote:string;returnedAt:string;source:string;createdAt:string;updatedAt:string};
+export type CollectionEvent={id:string;caseId:string;kind:string;at:string;byName:string;byEmail:string;
+  contact:string;notes:string;status:string;amount:number;promisedDate:string};
+export const collectionApi={
+  load:async()=>(await asJson<{cases:Collection[]}>(await fetch("/api/collection"))).cases,
+  events:async(id:string)=>(await asJson<{events:CollectionEvent[]}>(await fetch(`/api/collection?case=${encodeURIComponent(id)}`))).events,
+  add:async(fields:Record<string,unknown>)=>(await send("/api/collection","POST",{action:"add",...fields})).case as Collection,
+  log:async(id:string,fields:Record<string,unknown>)=>(await send("/api/collection","POST",{action:"log",id,...fields})).case as Collection,
+  terms:async(id:string,creditDays:number)=>(await send("/api/collection","POST",{action:"terms",id,creditDays})).case as Collection,
+  move:async(id:string,action:"submit"|"verify"|"return",fields:Record<string,unknown>={})=>
+    (await send("/api/collection","PATCH",{id,action,...fields})).case as Collection};
+
 /* Accounts Receivable, module 3: Completion and Billing - the jobs register and the
    completion cycles each active job produces. */
 export type BillingJob={id:string;ref:string;jobId:string;planId:string;jobRef:string;customer:string;
