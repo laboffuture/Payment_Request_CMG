@@ -4,7 +4,7 @@ import{wfAttachments,wfCompanies,wfPlanning,wfReceivables,wfUsers}from"../../../
 import{deleteFile}from"../../../lib/storage";
 import{requireAuth}from"../../../lib/auth";
 import{emailsForRoles,notify}from"../../../lib/notify";
-import{ACCOUNTS_ROLES,AUDIT_ROLES,JOB_COMPANIES,JOB_DEPARTMENTS,isJobCompany,REQUIRED_TO_LEAVE,RETURNABLE_TO,STAGES,
+import{ACCOUNTS_ROLES,AUDIT_ROLES,FIELD_LABEL,JOB_COMPANIES,JOB_DEPARTMENTS,JOB_STATUSES,isJobCompany,REQUIRED_TO_LEAVE,RETURNABLE_TO,STAGES,
   mayAct,stageIndex}from"../../../lib/receivable-stages";
 import type{Stage}from"../../../lib/receivable-stages";
 import{actorOf,bad,num,oops,page,search,str,writeWithAudit}from"../../../lib/workforce-api";
@@ -190,12 +190,51 @@ export async function PATCH(req:Request){
     const filled:Row={...row,...body};
     const missing=REQUIRED_TO_LEAVE[from].filter(f=>{
       const v=filled[f];
-      return f==="amount"?!(num(v)>0):!str(v).trim()});
-    if(missing.length)return bad(`${missing.join(", ")} must be filled in first.`);
+      return f==="amount"||f==="contractValue"?!(num(v)>0):!str(v).trim()});
+    if(missing.length)return bad(`${missing.map(f=>FIELD_LABEL[f]||f).join(", ")} must be filled in first.`,422);
 
     const patch:Row={stage:next,updatedAt:now(),returnNote:"",returnedAt:""};
-    if(from==="Job Notification"){patch.crmJobNo=str(body.crmJobNo,row.crmJobNo);
-      patch.crmOwner=str(body.crmOwner,row.crmOwner)||actor?.name||"";patch.crmAt=now()}
+    if(from==="Job Notification"){
+      /* CRM Job Creation. The job code is the CRM key, so it is recorded as the CRM job
+         number; the notification's own fields are carried in, corrected if need be. */
+      if(!(JOB_STATUSES as readonly string[]).includes(str(filled.jobStatus)))
+        return bad(`Job status must be one of ${JOB_STATUSES.join(", ")}.`,422);
+      if(str(filled.endDate)&&str(filled.endDate)<str(filled.startDate))
+        return bad("The expected completion date cannot be before the project start date.",422);
+      const pct=(k:string)=>{const v=str(body[k]).trim();if(!v)return 0;const n=Number(v);return n>=0&&n<=100?n:NaN};
+      const amt=(k:string)=>{const v=str(body[k]).trim();if(!v)return 0;const n=Number(v);return n>=0?n:NaN};
+      const retention=pct("retentionPercent"),advance=pct("advancePercent");
+      const boqValue=amt("boqValue"),estimatedCost=amt("estimatedCost");
+      if([retention,advance].some(Number.isNaN))return bad("Retention % and advance % must be between 0 and 100.",422);
+      if([boqValue,estimatedCost].some(Number.isNaN))return bad("BOQ value and estimated cost must be amounts.",422);
+      /* People are chosen from those with a login; their names come from the login. */
+      const person=async(email:string)=>{
+        if(!email)return{name:"",email:""};
+        const[u]=await db.select({name:wfUsers.name,email:wfUsers.email,active:wfUsers.active}).from(wfUsers)
+          .where(sql`lower(${wfUsers.email}) = ${email.toLowerCase()}`);
+        return u&&u.active?{name:u.name||u.email,email:u.email}:null};
+      const pm=await person(str(filled.pmEmail).trim());
+      const sales=await person(str(body.salesPersonEmail).trim());
+      const estimation=await person(str(body.estimationPersonEmail).trim());
+      if(!pm)return bad("Choose the project manager from the list of people with a login.",422);
+      if(!sales)return bad("Choose the sales person from the list of people with a login.",422);
+      if(!estimation)return bad("Choose the estimation person from the list of people with a login.",422);
+      const contractValue=num(filled.contractValue);
+      // The margin is worked out, not typed: contract value less estimated cost.
+      const margin=estimatedCost?Math.round((contractValue-estimatedCost)*100)/100:0;
+      Object.assign(patch,{crmJobNo:row.jobCode||str(body.crmJobNo,row.crmJobNo),crmOwner:actor?.name||actor?.email||"",crmAt:now(),
+        jobName:str(filled.jobName).trim(),description:str(filled.jobName).trim(),customer:str(filled.customer).trim(),
+        clientContact:str(body.clientContact,row.clientContact).trim(),clientAddress:str(body.clientAddress,row.clientAddress).trim(),
+        projectName:str(filled.projectName).trim(),projectType:str(filled.projectType),jobLocation:str(filled.jobLocation).trim(),
+        poNumber:str(filled.poNumber).trim(),contractDate:str(body.contractDate,row.contractDate),contractValue,
+        contractCurrency:str(filled.contractCurrency),startDate:str(filled.startDate),endDate:str(filled.endDate),
+        pmName:pm.name,pmEmail:pm.email,salesPersonName:sales.name,salesPersonEmail:sales.email,
+        estimationPersonName:estimation.name,estimationPersonEmail:estimation.email,jobStatus:str(filled.jobStatus),
+        scope:str(filled.scope).trim(),boqValue,estimatedCost,estimatedMargin:margin,
+        marginPercent:estimatedCost&&contractValue?Math.round(margin/contractValue*10000)/100:0,
+        paymentTerms:str(body.paymentTerms,row.paymentTerms),retentionPercent:retention,advancePercent:advance,
+        managementApproval:str(filled.managementApproval)});
+    }
     if(from==="CRM JOB Creation"){patch.soNo=str(body.soNo,row.soNo);
       patch.amount=num(filled.amount);patch.currency=str(body.currency,row.currency||"AED");patch.soAt=now()}
     if(from==="Sales Order")patch.submittedAt=now();

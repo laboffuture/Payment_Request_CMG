@@ -83,7 +83,11 @@ export type Receivable={id:string;ref:string;stage:string;customer:string;compan
   createdAt:string;updatedAt:string;
   jobName:string;projectName:string;jobCode:string;jobLocation:string;pmName:string;pmEmail:string;
   startDate:string;endDate:string;poNumber:string;contractValue:number;contractCurrency:string;jobType:string;
-  scope:string;boqAvailable:string;managementApproval:string;priority:string;remarksNote:string};
+  scope:string;boqAvailable:string;managementApproval:string;priority:string;remarksNote:string;
+  clientContact:string;clientAddress:string;projectType:string;contractDate:string;salesPersonName:string;
+  salesPersonEmail:string;estimationPersonName:string;estimationPersonEmail:string;jobStatus:string;boqValue:number;
+  estimatedCost:number;estimatedMargin:number;marginPercent:number;paymentTerms:string;retentionPercent:number;
+  advancePercent:number};
 
 /* Accounts Receivable, module 4: Debt Collection - missed invoices, and the calls, emails,
    statuses and payments logged against each. */

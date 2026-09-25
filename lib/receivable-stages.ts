@@ -47,7 +47,9 @@ export const ACTION_LABEL:Record<Stage,string>={
 /* What must be filled in before an entry may leave a stage. Checked on the server;
    the form uses the same list so the two cannot disagree about what is required. */
 export const REQUIRED_TO_LEAVE:Record<Stage,string[]>={
-  "Job Notification":["crmJobNo"],
+  /* CRM Job Creation, as its field specification sets out the mandatory fields. */
+  "Job Notification":["jobName","customer","projectName","projectType","jobLocation","contractValue",
+    "contractCurrency","startDate","pmEmail","jobStatus","scope","managementApproval"],
   "CRM JOB Creation":["soNo","amount"],
   "Sales Order":[],
   "Audit Verification":[],
@@ -56,7 +58,14 @@ export const REQUIRED_TO_LEAVE:Record<Stage,string[]>={
 export const FIELD_LABEL:Record<string,string>={
   crmJobNo:"CRM job number",crmOwner:"CRM job owner",soNo:"Sales order number",
   amount:"Sales order amount",currency:"Currency",remarks:"Audit remarks",
-  customer:"Customer",description:"Job description",notifiedOn:"Notified on"};
+  customer:"Client name",description:"Job description",notifiedOn:"Notified on",
+  jobName:"Job name",projectName:"Project / contract name",projectType:"Project type",jobLocation:"Job location",
+  contractValue:"Contract value",contractCurrency:"Currency",startDate:"Project start date",pmEmail:"Project manager",
+  jobStatus:"Job status",scope:"Scope of work",managementApproval:"Management approval"};
+
+/* A CRM job's status, for monitoring progress and ageing. The code reads these values, so
+   they are fixed here rather than in an editable list. */
+export const JOB_STATUSES=["Not started","In progress","On hold","Completed","Cancelled"] as const;
 
 /** The stages an auditor may send an entry back to: everything before verification. */
 export const RETURNABLE_TO=STAGES.slice(0,3) as readonly Stage[];

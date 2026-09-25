@@ -286,3 +286,7 @@
 .recv-newclient{display:flex;gap:6px}
 .recv-newclient input{flex:1;min-width:0}
 .recv-newclient button{flex:none;padding:0 10px;font-size:11px}
+/* The CRM form opens over the entry's own panel. */
+.recv-drawer.recv-over{z-index:70}
+.recv-facts .recv-facts-head{margin-top:6px;padding-top:8px;border-top:1px solid var(--line,#e4e7ec)}
+.recv-facts .recv-facts-head dt{font-weight:700;letter-spacing:.06em;color:#344054}

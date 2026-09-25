@@ -22,7 +22,7 @@ import FilePicker from"./FilePicker";
 import type{Receivable}from"./audit-api";
 import{useAsync}from"./workforce-store";
 import{Empty,ErrorBlock,Loading}from"./WorkforceShared";
-import{ACTION_LABEL,JOB_DEPARTMENTS,RETURNABLE_TO,STAGES,isJobCompany,isVerified,mayAct,stageIndex}from"../lib/receivable-stages";
+import{ACTION_LABEL,JOB_DEPARTMENTS,JOB_STATUSES,RETURNABLE_TO,STAGES,isJobCompany,isVerified,mayAct,stageIndex}from"../lib/receivable-stages";
 import type{Stage}from"../lib/receivable-stages";
 import PlanningProcurement from"./PlanningProcurement";
 import CompletionBilling from"./CompletionBilling";
@@ -178,6 +178,7 @@ function Detail({row,role,companies,close,saved,reload}:{row:Receivable;role:str
   const[fields,setFields]=useState<Partial<Receivable>>({});
   const[note,setNote]=useState(""),[back,setBack]=useState<string>("");
   const[busy,setBusy]=useState(false),[err,setErr]=useState("");
+  const[crm,setCrm]=useState(false);
   const at=row.stage as Stage,mine=mayAct(at,[role]),done=isVerified(at);
   const set=(k:keyof Receivable,v:string|number)=>setFields(f=>({...f,[k]:v}));
   const company=companies.find(c=>c.id===row.companyId)?.name||row.companyId||"—";
@@ -220,6 +221,17 @@ function Detail({row,role,companies,close,saved,reload}:{row:Receivable;role:str
         {!!row.boqAvailable&&<div><dt>BOQ / budget</dt><dd>{row.boqAvailable==="Yes"?"Available":"Not available"}</dd></div>}
         {!!row.managementApproval&&<div><dt>Management approval</dt><dd>{row.managementApproval}</dd></div>}
         {!!row.remarksNote&&<div><dt>Remarks</dt><dd className="recv-pre">{row.remarksNote}</dd></div>}
+        {!!row.crmAt&&<>
+          <div className="recv-facts-head"><dt>CRM JOB</dt><dd>{row.crmOwner} · {when(row.crmAt)}</dd></div>
+          {!!(row.clientContact||row.clientAddress)&&<div><dt>Client contact</dt><dd className="recv-pre">{[row.clientContact,row.clientAddress].filter(Boolean).join("\n")}</dd></div>}
+          {!!row.projectType&&<div><dt>Project type</dt><dd>{row.projectType}</dd></div>}
+          {!!row.jobStatus&&<div><dt>Job status</dt><dd>{row.jobStatus}</dd></div>}
+          {!!row.contractDate&&<div><dt>Contract date</dt><dd>{when(row.contractDate)}</dd></div>}
+          {!!(row.salesPersonName||row.estimationPersonName)&&<div><dt>Sales / estimation</dt><dd>{row.salesPersonName||"—"} / {row.estimationPersonName||"—"}</dd></div>}
+          {!!row.boqValue&&<div><dt>BOQ value</dt><dd>{money(row.boqValue,row.contractCurrency)}</dd></div>}
+          {!!row.estimatedCost&&<div><dt>Estimated cost</dt><dd>{money(row.estimatedCost,row.contractCurrency)} · margin {money(row.estimatedMargin,row.contractCurrency)} ({row.marginPercent}%)</dd></div>}
+          {!!row.paymentTerms&&<div><dt>Payment terms</dt><dd>{row.paymentTerms}{row.advancePercent?` · advance ${row.advancePercent}%`:""}{row.retentionPercent?` · retention ${row.retentionPercent}%`:""}</dd></div>}
+        </>}
         <div><dt>CRM job</dt><dd>{row.crmJobNo||"Not created yet"}{row.crmOwner&&` · ${row.crmOwner}`}</dd></div>
         <div><dt>Sales order</dt><dd>{row.soNo||"Not raised yet"}</dd></div>
         <div><dt>Amount</dt><dd>{money(row.amount,row.currency)}</dd></div>
@@ -234,11 +246,8 @@ function Detail({row,role,companies,close,saved,reload}:{row:Receivable;role:str
       :!mine?<p className="recv-empty">This entry is with {at==="Audit Verification"?"audit":"accounts"}.
         Your role cannot act on it at this stage.</p>
       :<div className="recv-act">
-        {at==="Job Notification"&&<>
-          <label>CRM job number<input autoFocus value={String(fields.crmJobNo??"")}
-            onChange={e=>set("crmJobNo",e.target.value)} placeholder="e.g. CRM-2026-0481"/></label>
-          <label>CRM job owner<input value={String(fields.crmOwner??"")}
-            onChange={e=>set("crmOwner",e.target.value)} placeholder="Defaults to you"/></label></>}
+        {at==="Job Notification"&&<p className="recv-hint">Create the CRM job: the form opens filled in from this
+          notification - complete the client&apos;s contact, the commercial terms and the people on the job.</p>}
         {at==="CRM JOB Creation"&&<>
           <label>Sales order number<input autoFocus value={String(fields.soNo??"")}
             onChange={e=>set("soNo",e.target.value)} placeholder="e.g. SO-2026-1187"/></label>
@@ -253,9 +262,9 @@ function Detail({row,role,companies,close,saved,reload}:{row:Receivable;role:str
           onChange={e=>set("remarks",e.target.value)} placeholder="Optional"/></label>}
 
         <button className="primary" disabled={busy}
-          onClick={()=>run(()=>receivablesApi.advance(row.id,fields),
+          onClick={()=>at==="Job Notification"?setCrm(true):run(()=>receivablesApi.advance(row.id,fields),
             `${row.ref}: ${ACTION_LABEL[at].toLowerCase()} done`)}>
-          {busy?"Saving…":ACTION_LABEL[at]}<ArrowRight/></button>
+          {busy?"Saving…":at==="Job Notification"?"Open CRM job creation form":ACTION_LABEL[at]}<ArrowRight/></button>
 
         {at==="Audit Verification"&&<div className="recv-return">
           <b><ArrowLeft/>Send back for correction</b>
@@ -270,6 +279,7 @@ function Detail({row,role,companies,close,saved,reload}:{row:Receivable;role:str
       </div>}
       {/* Drawings, quotes and anything else the notification rests on. */}
       <Attachments entityType="receivable" entityId={row.id} flash={()=>{}}/>
+      {crm&&<CrmForm row={row} close={()=>setCrm(false)} saved={r=>{setCrm(false);saved(r,`${r.ref}: CRM job ${r.jobCode} created`)}}/>}
     </aside></div>}
 
 /* The job notification form: what the job is, for whom, under whom and on what terms.
@@ -375,3 +385,108 @@ function NewEntry({companies,customers,close,added}:{companies:{id:string;name:s
         {err&&<p className="recv-error">{err}</p>}
         <button className="primary" type="submit" disabled={busy}>{busy?"Submitting…":"Submit job notification"}</button>
       </form></aside></div>}
+
+/* CRM Job Creation, in the order of its field specification. It opens filled in from the
+   job notification: the job, the client, the contract, the dates, the project manager, the
+   scope and the approval are carried in and can be corrected here; the client's contact,
+   the commercial terms and the rest are added. The margin is worked out from the contract
+   value and the estimated cost, not typed. */
+const PROJECT_TYPES=["Commercial","Residential","Retail","Hospitality","Healthcare","Education","Industrial","Other"];
+const TERMS_FALLBACK=["Advance","30 days","45 days","60 days","90 days","On completion","Milestone based"];
+
+function CrmForm({row,close,saved}:{row:Receivable;close:()=>void;saved:(r:Receivable)=>void}){
+  const pick=(v:unknown)=>v===undefined||v===null||v===0?"":String(v);
+  const[f,setF]=useState<Record<string,string>>({jobName:row.jobName||row.description,customer:row.customer,
+    projectName:row.projectName,jobLocation:row.jobLocation,poNumber:row.poNumber,contractValue:pick(row.contractValue),
+    contractCurrency:row.contractCurrency||"AED",startDate:row.startDate,endDate:row.endDate,pmEmail:row.pmEmail,
+    scope:row.scope,managementApproval:row.managementApproval,clientContact:row.clientContact,clientAddress:row.clientAddress,
+    projectType:row.projectType,contractDate:row.contractDate,salesPersonEmail:row.salesPersonEmail,
+    estimationPersonEmail:row.estimationPersonEmail,jobStatus:row.jobStatus||"Not started",boqValue:pick(row.boqValue),
+    estimatedCost:pick(row.estimatedCost),paymentTerms:row.paymentTerms,retentionPercent:pick(row.retentionPercent),
+    advancePercent:pick(row.advancePercent)});
+  const[files,setFiles]=useState<File[]>([]);
+  const[busy,setBusy]=useState(false),[err,setErr]=useState("");
+  const set=(k:string,v:string)=>setF(x=>({...x,[k]:v}));
+  const people=useAsync(()=>planningApi.people(),[]);
+  const clientList=useOptions("receivable.client",[]);
+  const projectTypes=useOptions("receivable.projectType",PROJECT_TYPES);
+  const terms=useOptions("payment.terms",TERMS_FALLBACK);
+  const clients=[...new Set([...clientList,row.customer].filter(Boolean))].sort((a,b)=>a.localeCompare(b));
+  const value=Number(f.contractValue)||0,cost=Number(f.estimatedCost)||0;
+  const margin=cost?value-cost:0,marginPct=cost&&value?Math.round(margin/value*10000)/100:0;
+  const who=(k:string,label:string,required=false)=><label>{lbl(label,required)}<select required={required} value={f[k]||""} onChange={e=>set(k,e.target.value)}>
+    <option value="">{people.loading?"Loading people…":`Select ${label.toLowerCase()}`}</option>
+    {(people.data||[]).map(p=><option key={p.email} value={p.email}>{p.name?`${p.name} · ${p.email}`:p.email}</option>)}</select></label>;
+
+  const submit=async(e:React.FormEvent)=>{
+    e.preventDefault();setBusy(true);setErr("");
+    try{
+      const r=await receivablesApi.advance(row.id,f as unknown as Partial<Receivable>);
+      const failed:string[]=[];
+      for(const file of files){
+        try{const res=await fetch("/api/attachments",{method:"POST",headers:{"content-type":"application/json"},
+          body:JSON.stringify({entityType:"receivable",entityId:row.id,kind:"Other",fileName:file.name,dataUrl:await asDataUrl(file)})});
+          if(!res.ok)failed.push(file.name)}catch{failed.push(file.name)}}
+      if(failed.length)alert(`The CRM job was created, but these files did not upload: ${failed.join(", ")}. Add them from the entry.`);
+      saved(r)}
+    catch(x){setErr(x instanceof Error?x.message:"Could not create the CRM job");setBusy(false)}};
+
+  return <div className="recv-drawer wide recv-over" role="dialog" aria-label="CRM job creation">
+    <button className="recv-scrim" aria-label="Close" onClick={close}/>
+    <aside><header><div><small>CRM JOB CREATION · {row.ref}</small><h3>{row.jobName||row.description}</h3>
+        <p className="recv-form-sub">Filled in from the job notification. Complete the rest and create the CRM job.</p></div>
+      <button onClick={close} aria-label="Close"><X/></button></header>
+      <form className="recv-act recv-form" onSubmit={submit}>
+        <div className="recv-two">
+          <label>{lbl("Job code",true)}<input readOnly className="recv-auto" value={row.jobCode||"—"}
+            title="The common key linking all of this project's transactions"/></label>
+          <label>{lbl("Job name",true)}<input required value={f.jobName||""} onChange={e=>set("jobName",e.target.value)}/></label></div>
+        <div className="recv-two">
+          <label>{lbl("Client name",true)}<select required value={f.customer||""} onChange={e=>set("customer",e.target.value)}>
+            <option value="">Select client</option>{clients.map(c=><option key={c}>{c}</option>)}</select></label>
+          <label>{lbl("Client contact")}<input value={f.clientContact||""} onChange={e=>set("clientContact",e.target.value)} placeholder="Name, phone, email"/></label></div>
+        <label>{lbl("Client address")}<textarea rows={2} value={f.clientAddress||""} onChange={e=>set("clientAddress",e.target.value)}/></label>
+        <div className="recv-two">
+          <label>{lbl("Project / contract name",true)}<input required value={f.projectName||""} onChange={e=>set("projectName",e.target.value)}/></label>
+          <label>{lbl("Project type",true)}<select required value={f.projectType||""} onChange={e=>set("projectType",e.target.value)}>
+            <option value="">Select project type</option>{projectTypes.map(t=><option key={t}>{t}</option>)}</select></label></div>
+        <div className="recv-two">
+          <label>{lbl("Job location",true)}<input required value={f.jobLocation||""} onChange={e=>set("jobLocation",e.target.value)}/></label>
+          <label>{lbl("Contract / PO no.")}<input value={f.poNumber||""} onChange={e=>set("poNumber",e.target.value)}/></label></div>
+        <div className="recv-two">
+          <label>{lbl("Contract date")}<input type="date" value={f.contractDate||""} onChange={e=>set("contractDate",e.target.value)}/></label>
+          <label>{lbl("Contract value",true)}<input type="number" required min="0.01" step="0.01" value={f.contractValue||""} onChange={e=>set("contractValue",e.target.value)}/></label></div>
+        <div className="recv-two">
+          <label>{lbl("Currency",true)}<select required value={f.contractCurrency||""} onChange={e=>set("contractCurrency",e.target.value)}>
+            {["AED","INR","USD","SAR","QAR","BHD","EUR","GBP"].map(c=><option key={c}>{c}</option>)}</select></label>
+          <label>{lbl("Project start date",true)}<input type="date" required value={f.startDate||""} onChange={e=>set("startDate",e.target.value)}/></label></div>
+        <div className="recv-two">
+          <label>{lbl("Expected completion date")}<input type="date" min={f.startDate||undefined} value={f.endDate||""} onChange={e=>set("endDate",e.target.value)}/></label>
+          {who("pmEmail","Project manager",true)}</div>
+        <div className="recv-two">{who("salesPersonEmail","Sales person")}{who("estimationPersonEmail","Estimation person")}</div>
+        <label>{lbl("Job status",true)}<select required value={f.jobStatus||""} onChange={e=>set("jobStatus",e.target.value)}>
+          {JOB_STATUSES.map(t=><option key={t}>{t}</option>)}</select></label>
+        <label>{lbl("Scope of work",true)}<textarea required rows={4} value={f.scope||""} onChange={e=>set("scope",e.target.value)}/></label>
+        <div className="recv-two">
+          <label>{lbl("BOQ value")}<input type="number" min="0" step="0.01" value={f.boqValue||""} onChange={e=>set("boqValue",e.target.value)}/></label>
+          <label>{lbl("Estimated cost")}<input type="number" min="0" step="0.01" value={f.estimatedCost||""} onChange={e=>set("estimatedCost",e.target.value)}/></label></div>
+        <div className="recv-two">
+          <label>{lbl("Estimated margin")}<input readOnly className="recv-auto"
+            value={cost?`${f.contractCurrency||""} ${margin.toLocaleString("en-GB",{minimumFractionDigits:2,maximumFractionDigits:2})} · ${marginPct}%`:"Worked out from contract value and estimated cost"}/></label>
+          <label>{lbl("Payment terms")}<select value={f.paymentTerms||""} onChange={e=>set("paymentTerms",e.target.value)}>
+            <option value="">Select payment terms</option>{[...new Set([...terms,f.paymentTerms].filter(Boolean))].map(t=><option key={t}>{t}</option>)}</select></label></div>
+        <div className="recv-two">
+          <label>{lbl("Retention %")}<input type="number" min="0" max="100" step="0.01" value={f.retentionPercent||""} onChange={e=>set("retentionPercent",e.target.value)}/></label>
+          <label>{lbl("Advance %")}<input type="number" min="0" max="100" step="0.01" value={f.advancePercent||""} onChange={e=>set("advancePercent",e.target.value)}/></label></div>
+        <label>{lbl("Management approval",true)}<select required value={f.managementApproval||""} onChange={e=>set("managementApproval",e.target.value)}
+          title="Management authorisation - maker-checker control">
+          <option value="">Select approval</option>{APPROVALS.map(a=><option key={a}>{a}</option>)}</select></label>
+        <FilePicker files={files} onChange={setFiles} label="Supporting documents (optional)"
+          accept="image/*,application/pdf,.doc,.docx,.xls,.xlsx,.csv,.txt,.zip,.dwg"/>
+        {err&&<p className="recv-error">{err}</p>}
+        <button className="primary" type="submit" disabled={busy}>{busy?"Creating…":"Create CRM job"}</button>
+      </form></aside></div>}
+
+/* A form label with its required mark on the same line. */
+function lbl(text:string,required=false){
+  return <span className="recv-lbl">{text}{required&&<i className="recv-req" aria-hidden="true">*</i>}</span>}

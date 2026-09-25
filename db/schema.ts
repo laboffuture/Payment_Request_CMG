@@ -495,6 +495,25 @@ export const wfReceivables=sqliteTable("wf_receivables",{
   remarksNote:text("notification_remarks").notNull().default(""),
   // stage 2: the job as CRM knows it
   crmJobNo:text("crm_job_no").notNull().default(""),
+  /* The CRM job creation form: the client's contact, the commercial terms and the people
+     on the job. The job code is the CRM key; the fields the notification already held
+     are edited in place rather than duplicated. */
+  clientContact:text("client_contact").notNull().default(""),
+  clientAddress:text("client_address").notNull().default(""),
+  projectType:text("project_type").notNull().default(""),
+  contractDate:text("contract_date").notNull().default(""),
+  salesPersonName:text("sales_person_name").notNull().default(""),
+  salesPersonEmail:text("sales_person_email").notNull().default(""),
+  estimationPersonName:text("estimation_person_name").notNull().default(""),
+  estimationPersonEmail:text("estimation_person_email").notNull().default(""),
+  jobStatus:text("job_status").notNull().default(""),
+  boqValue:real("boq_value").notNull().default(0),
+  estimatedCost:real("estimated_cost").notNull().default(0),
+  estimatedMargin:real("estimated_margin").notNull().default(0),
+  marginPercent:real("margin_percent").notNull().default(0),
+  paymentTerms:text("payment_terms").notNull().default(""),
+  retentionPercent:real("retention_percent").notNull().default(0),
+  advancePercent:real("advance_percent").notNull().default(0),
   crmOwner:text("crm_owner").notNull().default(""),
   crmAt:text("crm_at").notNull().default(""),
   // stage 3: what was sold against that job
