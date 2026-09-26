@@ -73,5 +73,17 @@ export const PLAN_PEOPLE=[
   {key:"procurementPerson",label:"Procurement responsible person"},
   {key:"financeSpoc",label:"Finance SPOC"}] as const;
 
+/* An activity on the project schedule has the same statuses as the plan. */
+export const ACTIVITY_STATUSES=PLANNING_STATUSES;
+
+/** Whether this reader may add to or change a plan's schedule: its project manager or
+    accounts, as for the schedule stage itself, except while audit is verifying it. */
+export const mayEditSchedule=(stage:string,roles:string[]=[],isManager=false)=>
+  stage!==("Audit Verification" as Stage)&&(isManager||ACCOUNTS_ROLES.some(r=>roles.includes(r)));
+
+/** An activity past its planned completion date and not completed - for ageing. */
+export const isOverdue=(a:{plannedEnd:string;status:string},today:string)=>
+  !!a.plannedEnd&&a.status!=="Completed"&&a.plannedEnd<today;
+
 /** Where audit may send an entry back: every stage after the job and before audit. */
 export const RETURNABLE_TO=STAGES.slice(1,4) as readonly Stage[];

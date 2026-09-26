@@ -1,6 +1,6 @@
 import{and,desc,eq,sql}from"drizzle-orm";
 import{getDb}from"../../../db";
-import{wfPlanning,wfReceivables,wfUsers}from"../../../db/schema";
+import{wfPlanActivities,wfPlanning,wfReceivables,wfUsers}from"../../../db/schema";
 import{companyLock,inCompany,requireAuth}from"../../../lib/auth";
 import{emailsForRoles,notify}from"../../../lib/notify";
 import{ACCOUNTS_ROLES,AUDIT_ROLES,FIELD_LABEL,FIRST_OPEN,PLAN_PEOPLE,PLANNING_STATUSES,RECEIVABLE_ROLES,REQUIRED_TO_LEAVE,
@@ -146,6 +146,9 @@ export async function PATCH(req:Request){
       Object.assign(patch,{pmName:u.name||u.email,pmEmail:u.email,pmAt:now()});
     }
     if(from==="Project Schedule and Planning"){
+      /* The project schedule must have at least one activity. */
+      const[acts]=await db.select({n:sql<number>`count(*)`}).from(wfPlanActivities).where(eq(wfPlanActivities.planId,id));
+      if(!Number(acts?.n))return bad("Add at least one activity to the project schedule first.",422);
       /* Project Planning: the dates, the status, the people on the plan and remarks. */
       const start=str(body.startDate,row.startDate),end=str(body.endDate,row.endDate);
       if(end<start)return bad("The target completion date cannot be before the start date.",422);

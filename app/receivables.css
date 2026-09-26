@@ -317,3 +317,32 @@
 .recv-return .danger{align-self:flex-end;display:inline-flex;align-items:center;justify-content:center;height:36px;
   padding:0 16px;border:1px solid #fecdca;border-radius:8px;background:#fff;font-size:12px;font-weight:700;cursor:pointer}
 .recv-return .danger:hover:not(:disabled){background:#fef3f2;border-color:#fda29b}
+
+/* Planning & Procurement: the project schedule in a plan's details. */
+.pp-sched{border-top:1px solid var(--line,#e4e7ec);margin:1rem 0 0;padding:1rem 0 0}
+.pp-sched>header{display:flex;align-items:center;gap:.6rem;margin:0 0 .6rem}
+.pp-sched>header b{display:flex;align-items:center;gap:.4rem;font-size:.85rem}
+.pp-sched>header b svg{width:1rem;height:1rem;color:var(--muted,#667085)}
+.pp-sched>header span{font-size:.72rem;color:var(--muted,#667085)}
+.pp-sched>header button{margin-left:auto;display:inline-flex;align-items:center;gap:.3rem;font-size:.75rem;padding:.3rem .65rem}
+.pp-sched>header button svg{width:.85rem;height:.85rem}
+.pp-sched ul{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:.5rem}
+.pp-sched li>button{width:100%;text-align:left;display:flex;flex-direction:column;gap:.3rem;padding:.6rem .75rem;
+  border:1px solid var(--line,#e4e7ec);border-radius:.6rem;background:var(--card,#fff);cursor:pointer;font:inherit;color:inherit}
+.pp-sched li>button:hover:not(:disabled){border-color:var(--accent,#2563eb)}
+.pp-sched li>button:disabled{cursor:default}
+.pp-sched-top{display:flex;align-items:center;justify-content:space-between;gap:.5rem}
+.pp-sched-top b{font-size:.82rem}
+.pp-sched-meta{font-size:.72rem;color:var(--muted,#667085)}
+.pp-st{font-style:normal;font-size:.68rem;font-weight:600;padding:.12rem .5rem;border-radius:999px;background:#eff4ff;color:#175cd3;white-space:nowrap}
+.pp-st.done{background:#ecfdf3;color:#027a48}
+.pp-st.hold{background:#fffaeb;color:#b54708}
+.pp-st.late{background:#fef3f2;color:#b42318}
+.pp-bar{position:relative;height:.4rem;border-radius:999px;background:var(--chip,#f2f4f7);margin-right:2.4rem}
+.pp-bar span{position:absolute;inset:0 auto 0 0;border-radius:inherit;background:var(--accent,#2563eb)}
+.pp-bar em{position:absolute;right:-2.4rem;top:50%;transform:translateY(-50%);font-style:normal;font-size:.68rem;color:var(--muted,#667085)}
+.recv-form .ghost.danger{display:inline-flex;align-items:center;justify-content:center;gap:.35rem;height:36px;
+  padding:0 .9rem;border:1px solid #fecdca;border-radius:.5rem;background:var(--card,#fff);color:#b42318;
+  font:inherit;font-size:.78rem;font-weight:600;cursor:pointer}
+.recv-form .ghost.danger:hover:not(:disabled){background:#fef3f2;border-color:#fda29b}
+.recv-form .ghost.danger svg{width:.9rem;height:.9rem}

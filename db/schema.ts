@@ -610,6 +610,28 @@ export const wfPlanning=sqliteTable("wf_planning",{
   t=>[index("wf_plan_stage_idx").on(t.stage),index("wf_plan_job_idx").on(t.jobId),
       index("wf_plan_pm_idx").on(t.pmEmail),index("wf_plan_created_idx").on(t.createdAt)]);
 
+/* The project schedule of a plan: one row per activity, with its planned and actual
+   dates, the person responsible, its progress and status. */
+export const wfPlanActivities=sqliteTable("wf_plan_activities",{
+  id:text("id").primaryKey(),
+  planId:text("plan_id").notNull().default(""),
+  jobCode:text("job_code").notNull().default(""),
+  activity:text("activity").notNull().default(""),
+  startDate:text("start_date").notNull().default(""),
+  plannedEnd:text("planned_end").notNull().default(""),
+  actualStart:text("actual_start").notNull().default(""),
+  actualEnd:text("actual_end").notNull().default(""),
+  responsibleName:text("responsible_name").notNull().default(""),
+  responsibleEmail:text("responsible_email").notNull().default(""),
+  dependency:text("dependency").notNull().default(""),
+  percent:real("percent").notNull().default(0),
+  status:text("status").notNull().default(""),
+  remarks:text("remarks").notNull().default(""),
+  createdBy:text("created_by").notNull().default(""),
+  createdAt:text("created_at").notNull().default(""),
+  updatedAt:text("updated_at").notNull().default("")},
+  t=>[index("wf_planact_plan_idx").on(t.planId,t.startDate)]);
+
 /* Accounts Receivable, module 3: Completion and Billing - the jobs register. One row per
    job whose plan is verified in Planning & Procurement, active or not. While active, a
    completion request is issued every `everyDays` days (weekly unless changed); the job,

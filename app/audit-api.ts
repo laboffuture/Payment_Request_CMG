@@ -152,6 +152,16 @@ export const planningApi={
   sendBack:async(id:string,stage:string,note:string)=>
     (await send("/api/planning","PATCH",{id,action:"return",stage,note})).plan as Plan};
 
+/* The project schedule of a plan: its activities. */
+export type PlanActivity={id:string;planId:string;jobCode:string;activity:string;startDate:string;plannedEnd:string;
+  actualStart:string;actualEnd:string;responsibleName:string;responsibleEmail:string;dependency:string;percent:number;
+  status:string;remarks:string;createdBy:string;createdAt:string;updatedAt:string};
+export const activitiesApi={
+  load:async(planId:string)=>asJson<{activities:PlanActivity[];canEdit:boolean}>(
+    await fetch(`/api/planning/activities?planId=${encodeURIComponent(planId)}`)),
+  save:async(a:Partial<PlanActivity>)=>(await send("/api/planning/activities",a.id?"PATCH":"POST",a)).activity as PlanActivity,
+  remove:async(id:string)=>{await send(`/api/planning/activities?id=${encodeURIComponent(id)}`,"DELETE")}};
+
 /* Accounts Receivable. The stage moves are a PATCH rather than a field the client
    sets, because the server decides what the next stage is - see the route. */
 export const receivablesApi={

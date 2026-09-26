@@ -8,13 +8,14 @@
    this screen shows only what that model allows, and the server checks it again. */
 
 import{useMemo,useState}from"react";
-import{ArrowLeft,ArrowRight,CheckCircle2,Plus,RotateCcw,Search,ShieldCheck,UserRound,X}from"lucide-react";
-import{planningApi}from"./audit-api";
-import type{Plan,PlanJob}from"./audit-api";
+import{ArrowLeft,ArrowRight,CalendarClock,CheckCircle2,Plus,RotateCcw,Search,ShieldCheck,Trash2,UserRound,X}from"lucide-react";
+import{activitiesApi,planningApi}from"./audit-api";
+import type{Plan,PlanActivity,PlanJob}from"./audit-api";
 import{useAsync}from"./workforce-store";
 import{Empty,ErrorBlock,Loading}from"./WorkforceShared";
 import Attachments from"./Attachments";
-import{ACCOUNTS_ROLES,ACTION_LABEL,PLAN_PEOPLE,PLANNING_STATUSES,RECEIVABLE_ROLES,RETURNABLE_TO,STAGES,isVerified,mayAct,stageIndex}
+import{ACCOUNTS_ROLES,ACTION_LABEL,ACTIVITY_STATUSES,PLAN_PEOPLE,PLANNING_STATUSES,RECEIVABLE_ROLES,RETURNABLE_TO,STAGES,
+  isOverdue,isVerified,mayAct,stageIndex}
   from"../lib/planning-stages";
 import type{Stage}from"../lib/planning-stages";
 
@@ -147,8 +148,8 @@ function Detail({row,role,userEmail,close,saved,reload}:{row:Plan;role:string;us
             <option value="">{people.loading?"Loading people…":"Choose the project manager…"}</option>
             {(people.data||[]).map(p=><option key={p.email} value={p.email}>{p.name?`${p.name} · ${p.email}`:p.email}</option>)}
           </select></label>}
-        {at==="Project Schedule and Planning"&&<p className="recv-hint">Fill in the project planning form: the
-          dates, the planning status and the people on the project. Attach the project schedule below if there is one.</p>}
+        {at==="Project Schedule and Planning"&&<p className="recv-hint">Add the activities to the project schedule
+          below, then fill in the project planning form: the dates, the planning status and the people on the project.</p>}
         {at==="Detailed BOM - Procurement Planning"&&<>
           <label>BOM summary<textarea rows={3} value={val("bomSummary")} onChange={e=>set("bomSummary",e.target.value)}
             placeholder="Main materials and quantities - attach the detailed BOM below"/></label>
@@ -176,6 +177,8 @@ function Detail({row,role,userEmail,close,saved,reload}:{row:Plan;role:string;us
           <button className="ghost danger" disabled={busy||!back||!note.trim()}
             onClick={()=>run(()=>planningApi.sendBack(row.id,back,note.trim()),`${row.ref} sent back to ${back}`)}>Send back</button></div>}
       </div>}
+
+      <Schedule plan={row} flash={m=>{saved(row,m)}}/>
 
       {/* The schedule, the BOM and anything else the plan rests on. */}
       <Attachments entityType="planning" entityId={row.id} flash={()=>{}}/>
@@ -255,4 +258,90 @@ function StartPlan({jobs,close,added}:{jobs:PlanJob[];close:()=>void;added:(r:Pl
         {err&&<p className="recv-error">{err}</p>}
         <button className="primary" type="submit" disabled={busy||!jobId}>{busy?"Starting…":"Start planning"}</button>
       </form>}
+    </aside></div>}
+
+/* The project schedule: the plan's activities, with their progress. Overdue activities -
+   past their planned completion and not completed - are marked, for ageing. */
+function Schedule({plan,flash}:{plan:Plan;flash:(m:string)=>void}){
+  const[version,setVersion]=useState(0),[editing,setEditing]=useState<Partial<PlanActivity>|null>(null);
+  const{data,loading,error}=useAsync(()=>activitiesApi.load(plan.id),[plan.id,plan.stage,version]);
+  const[today]=useState(()=>new Date().toISOString().slice(0,10));
+  const acts=data?.activities||[],canEdit=!!data?.canEdit;
+  const overall=acts.length?Math.round(acts.reduce((t,a)=>t+a.percent,0)/acts.length):0;
+  return <section className="pp-sched">
+    <header><b><CalendarClock/>Project schedule</b>
+      {!!acts.length&&<span>{acts.length} {acts.length===1?"activity":"activities"} · {overall}% overall</span>}
+      {canEdit&&<button className="ghost" onClick={()=>setEditing({})}><Plus/>Add activity</button>}</header>
+    {error?<p className="recv-error">{error}</p>
+    :loading&&!data?<p className="recv-hint">Loading the schedule…</p>
+    :!acts.length?<p className="recv-hint">No activity yet.{canEdit?" Add the first one.":""}</p>
+    :<ul>{acts.map(a=>{const late=isOverdue(a,today);
+      return <li key={a.id}><button disabled={!canEdit} onClick={()=>setEditing(a)} title={canEdit?"Edit this activity":undefined}>
+        <div className="pp-sched-top"><b>{a.activity}</b>
+          <i className={`pp-st${late?" late":a.status==="Completed"?" done":a.status==="On hold"?" hold":""}`}>{late?"Overdue":a.status}</i></div>
+        <div className="pp-sched-meta">{day(a.startDate)} → {day(a.plannedEnd)} · {a.responsibleName}
+          {a.dependency&&<> · after {a.dependency}</>}</div>
+        {(a.actualStart||a.actualEnd)&&<div className="pp-sched-meta">Actual: {a.actualStart?day(a.actualStart):"—"} → {a.actualEnd?day(a.actualEnd):"—"}</div>}
+        <div className="pp-bar"><span style={{width:`${Math.min(100,Math.max(0,a.percent))}%`}}/><em>{a.percent}%</em></div>
+      </button></li>})}</ul>}
+    {editing&&<ActivityForm plan={plan} act={editing} close={()=>setEditing(null)}
+      saved={m=>{setEditing(null);setVersion(v=>v+1);flash(m)}}/>}
+  </section>}
+
+/* One activity of the project schedule, in the order of its field specification. */
+function ActivityForm({plan,act,close,saved}:{plan:Plan;act:Partial<PlanActivity>;close:()=>void;saved:(m:string)=>void}){
+  const[f,setF]=useState<Record<string,string>>({activity:act.activity||"",startDate:act.startDate||"",
+    plannedEnd:act.plannedEnd||"",actualStart:act.actualStart||"",actualEnd:act.actualEnd||"",
+    responsibleEmail:act.responsibleEmail||"",dependency:act.dependency||"",
+    percent:act.id?String(act.percent??0):"0",status:act.status||"Not started",remarks:act.remarks||""});
+  const[busy,setBusy]=useState(false),[err,setErr]=useState("");
+  const set=(k:string,v:string)=>setF(x=>({...x,[k]:v}));
+  const people=useAsync(()=>planningApi.people(),[]);
+  const go=async(fn:()=>Promise<unknown>,msg:string)=>{
+    setBusy(true);setErr("");
+    try{await fn();saved(msg)}
+    catch(x){setErr(x instanceof Error?x.message:"Could not save the activity");setBusy(false)}};
+  const submit=(e:React.FormEvent)=>{e.preventDefault();
+    go(()=>activitiesApi.save({...(f as unknown as Partial<PlanActivity>),id:act.id,planId:plan.id,percent:Number(f.percent)}),
+      `${f.activity}: ${act.id?"updated":"added to the schedule"}`)};
+  const del=()=>{if(act.id&&confirm(`Remove "${act.activity}" from the schedule?`))
+    go(()=>activitiesApi.remove(act.id!),`${act.activity}: removed from the schedule`)};
+
+  return <div className="recv-drawer wide recv-over" role="dialog" aria-label="Schedule activity">
+    <button className="recv-scrim" aria-label="Close" onClick={close}/>
+    <aside><header><div><small>PROJECT SCHEDULE · {plan.ref}</small><h3>{act.id?act.activity:"New activity"}</h3>
+        <p className="recv-form-sub">{plan.projectName||plan.customer}</p></div>
+      <button onClick={close} aria-label="Close"><X/></button></header>
+      <form className="recv-act recv-form" onSubmit={submit}>
+        <div className="recv-two">
+          <label>{lbl("Job code",true)}<input readOnly className="recv-auto" value={plan.jobCode||plan.jobRef}
+            title="The common key linking all of this project's transactions"/></label>
+          <label>{lbl("Activity",true)}<input required autoFocus value={f.activity} onChange={e=>set("activity",e.target.value)}
+            placeholder="e.g. Site survey, joinery installation"/></label></div>
+        <div className="recv-two">
+          <label>{lbl("Start date",true)}<input type="date" required value={f.startDate} onChange={e=>set("startDate",e.target.value)}/></label>
+          <label>{lbl("Planned completion date",true)}<input type="date" required min={f.startDate||undefined} value={f.plannedEnd}
+            onChange={e=>set("plannedEnd",e.target.value)}/></label></div>
+        <div className="recv-two">
+          <label>{lbl("Actual start date")}<input type="date" value={f.actualStart} onChange={e=>set("actualStart",e.target.value)}/></label>
+          <label>{lbl("Actual completion date")}<input type="date" min={f.actualStart||undefined} value={f.actualEnd}
+            onChange={e=>set("actualEnd",e.target.value)}/></label></div>
+        <div className="recv-two">
+          <label>{lbl("Responsible person",true)}<select required value={f.responsibleEmail} onChange={e=>set("responsibleEmail",e.target.value)}>
+            <option value="">{people.loading?"Loading people…":"Select a person"}</option>
+            {(people.data||[]).map(p=><option key={p.email} value={p.email}>{p.name?`${p.name} · ${p.email}`:p.email}</option>)}</select></label>
+          <label>{lbl("Dependency")}<input value={f.dependency} onChange={e=>set("dependency",e.target.value)}
+            placeholder="The activity this waits on, if any"/></label></div>
+        <div className="recv-two">
+          <label>{lbl("% completion",true)}<input type="number" required min="0" max="100" step="1" value={f.percent}
+            onChange={e=>set("percent",e.target.value)}/></label>
+          <label>{lbl("Status",true)}<select required value={f.status}
+            onChange={e=>{set("status",e.target.value);if(e.target.value==="Completed")set("percent","100")}}
+            title="For monitoring progress and ageing">
+            {ACTIVITY_STATUSES.map(s=><option key={s}>{s}</option>)}</select></label></div>
+        <label>{lbl("Remarks")}<textarea rows={3} value={f.remarks} onChange={e=>set("remarks",e.target.value)}/></label>
+        {err&&<p className="recv-error">{err}</p>}
+        <button className="primary" type="submit" disabled={busy}>{busy?"Saving…":act.id?"Save activity":"Add activity"}</button>
+        {act.id&&<button type="button" className="ghost danger" disabled={busy} onClick={del}><Trash2/>Remove activity</button>}
+      </form>
     </aside></div>}
