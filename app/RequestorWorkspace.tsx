@@ -3,6 +3,8 @@ import{useState}from"react";
 import{CheckCircle2,Clock3,Download,FileText,Plus,Search}from"lucide-react";
 import{stamp}from"../lib/stamp";
 import{csv}from"./workforce-store";
+import{paymentReport}from"../lib/payment-report";
+import type{ReportRow}from"../lib/payment-report";
 import{Pager}from"./WorkforceShared";
 import{STAGES,isFinished,stageIndex}from"../lib/payment-stages";
 
@@ -42,13 +44,8 @@ export default function RequestorWorkspace({rows,open,create,scope="own"}:{rows:
   const mine=found.slice(start,start+PER_PAGE);
   /* Paging is truncation the reader did not ask for, so the report covers everything; a
      search is a narrowing they did ask for, so the report follows it. */
-  const download=()=>csv([
-    ["Request","Status","Stage","Company","Department","Vendor","Nature","TDS","PO number",
-     "Currency","Amount","Due","Verified by","Remarks","Raised on"],
-    ...found.map(p=>[p.requestNo,p.status,STAGES[stageIndex(p.status)],p.company,p.department,
-      p.vendor,p.nature||"",p.tds||"",p.poNumber||"",p.currency,p.amount,p.due,
-      p.lastActionBy||"",p.lastActionNote||p.latestRemark||p.rejectionNote||p.resubmitNote||"",
-      (p.createdAt||"").slice(0,10)])],
+  /* Every field of the requests, the same columns as the accounts report. */
+  const download=()=>csv(paymentReport(found as unknown as ReportRow[]),
     `my-payment-requests-${new Date().toISOString().slice(0,10)}.csv`);
   return <div className="page rq-page">
     <div className="rq-head"><div><small>{dept?"DEPARTMENT HEAD":"PAYMENT REQUESTOR"}</small>

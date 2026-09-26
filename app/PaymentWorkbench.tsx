@@ -2,6 +2,8 @@
 import {AlertTriangle,CheckCircle2,CircleDollarSign,Clock3,Download,FileCheck2,Plus,Search,ShieldCheck,Trash2,WalletCards} from "lucide-react";
 import{stamp}from"../lib/stamp";
 import {csv} from "./workforce-store";
+import{amountColumn,paymentReport}from"../lib/payment-report";
+import type{ReportRow}from"../lib/payment-report";
 import {useMemo,useState} from "react";
 import{STAGES,stageIndex}from"../lib/payment-stages";
 type Payment={id:number;requestNo:string;company:string;vendor:string;amount:number;currency:string;due:string;urgency:string;status:string;owner:string;department:string;nature?:string;tds?:string;tdsPercent?:string;tdsValue?:string;projectCode?:string;invoiceNumber?:string;invoiceDate?:string;paymentTerms?:string;period?:string;lastActionBy?:string;lastActionNote?:string;latestRemark?:string;latestRemarkBy?:string;lastActionAt?:string;rejectionNote?:string;resubmitNote?:string;poNumber?:string;raisedBy?:string;createdAt?:string};
@@ -23,22 +25,19 @@ export default function PaymentWorkbench({rows,role,search,setSearch,open,create
  const companyChoices=withRegister(companies,rows.map(p=>p.company));
  const shown=useMemo(()=>rows.filter(p=>match(p)&&(department==="All departments"||p.department===department)&&(company==="All companies"||p.company===company)&&(status==="All statuses"||p.status===status)&&(!from&&!to||!!p.due&&(!from||p.due>=from)&&(!to||p.due<=to))),[rows,tab,department,company,status,from,to]);
  const download=()=>{
-  const head=["Request","Status","Company","Department","Vendor","Nature","TDS","TDS %","TDS value","PO number","Project code","Invoice","Invoice date","Payment terms","Period",
-    "Currency","Amount","Due","Urgency","Owner","Raised by","Raised on","Verified by","Remarks"];
-  const body=shown.map(p=>[p.requestNo,p.status,p.company,p.department,p.vendor,p.nature||"",p.tds||"",p.tdsPercent||"",p.tdsValue||"",
-    p.poNumber||"",p.projectCode||"",p.invoiceNumber||"",p.invoiceDate||"",
-    p.paymentTerms||"",p.period||"",p.currency,p.amount,p.due,p.urgency,p.owner,p.raisedBy||"",
-    (p.createdAt||"").slice(0,10),p.lastActionBy||"",p.lastActionNote||p.latestRemark||p.rejectionNote||p.resubmitNote||""]);
+  /* Every field of the requests, the same columns as the requestor's report. */
+  const report=paymentReport(shown as unknown as ReportRow[]);
   const total=shown.reduce((n,p)=>n+(Number(p.amount)||0),0);
   /* Currencies are mixed in these queues, so the total is only meaningful when one
      is in play - otherwise the figure would silently add dirhams to rupees. */
   const only=Array.from(new Set(shown.map(p=>p.currency)));
-  const foot=only.length===1?[[],["","","","","","","","","","","","","",only[0],total,"","","","","","",""]]:[];
+  const at=amountColumn(report);
+  const foot=only.length===1?[[],report[0].map((_,i)=>i===at-1?only[0]:i===at?total:"")]:[];
   const queue=(queues.find(([k])=>k===tab)||["","All requests"])[1];
   const slug=(s:string)=>s.toLowerCase().replace(/[^a-z0-9]+/g,"-").replace(/^-|-$/g,"");
   const span=from||to?`-due-${from||"start"}-to-${to||"end"}`:"";
   const picked=(company==="All companies"?"":"-"+slug(company))+(status==="All statuses"?"":"-"+slug(status));
-  csv([head,...body,...foot],
+  csv([...report,...foot],
     `payments-${slug(queue)}${department==="All departments"?"":"-"+slug(department)}${picked}${span}-${new Date().toISOString().slice(0,10)}.csv`);
  };
  const counts={accounts:rows.filter(p=>["Submitted","Requested"].includes(p.status)).length,audit:rows.filter(p=>p.status==="Pre-Audit Queue").length,obs:rows.filter(p=>["Observation - Audit Action","Audit Query"].includes(p.status)).length,recheck:rows.filter(p=>p.status==="Audit Reconfirmation").length,finance:rows.filter(p=>["Approved by Auditor – Ready to Release","Management Approval: Yes","Finance Queue"].includes(p.status)).length};
