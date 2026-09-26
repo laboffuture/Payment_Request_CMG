@@ -573,6 +573,19 @@ export const wfPlanning=sqliteTable("wf_planning",{
   pmName:text("pm_name").notNull().default(""),
   pmEmail:text("pm_email").notNull().default(""),
   pmAt:text("pm_at").notNull().default(""),
+  /* The job code and project, copied from the job when planning starts; the people on
+     the plan and its status, from the project planning form. */
+  jobCode:text("job_code").notNull().default(""),
+  projectName:text("project_name").notNull().default(""),
+  siteEngineerName:text("site_engineer_name").notNull().default(""),
+  siteEngineerEmail:text("site_engineer_email").notNull().default(""),
+  qsControllerName:text("qs_controller_name").notNull().default(""),
+  qsControllerEmail:text("qs_controller_email").notNull().default(""),
+  procurementPersonName:text("procurement_person_name").notNull().default(""),
+  procurementPersonEmail:text("procurement_person_email").notNull().default(""),
+  financeSpocName:text("finance_spoc_name").notNull().default(""),
+  financeSpocEmail:text("finance_spoc_email").notNull().default(""),
+  planningStatus:text("planning_status").notNull().default(""),
   // project schedule and planning
   startDate:text("start_date").notNull().default(""),
   endDate:text("end_date").notNull().default(""),

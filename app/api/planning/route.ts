@@ -3,7 +3,7 @@ import{getDb}from"../../../db";
 import{wfPlanning,wfReceivables,wfUsers}from"../../../db/schema";
 import{companyLock,inCompany,requireAuth}from"../../../lib/auth";
 import{emailsForRoles,notify}from"../../../lib/notify";
-import{ACCOUNTS_ROLES,AUDIT_ROLES,FIELD_LABEL,FIRST_OPEN,RECEIVABLE_ROLES,REQUIRED_TO_LEAVE,
+import{ACCOUNTS_ROLES,AUDIT_ROLES,FIELD_LABEL,FIRST_OPEN,PLAN_PEOPLE,PLANNING_STATUSES,RECEIVABLE_ROLES,REQUIRED_TO_LEAVE,
   RETURNABLE_TO,STAGES,mayAct,stageIndex}from"../../../lib/planning-stages";
 import type{Stage}from"../../../lib/planning-stages";
 import{actorOf,bad,num,oops,page,str,writeWithAudit}from"../../../lib/workforce-api";
@@ -35,10 +35,11 @@ export async function GET(req:Request){
         .where(sql`lower(${wfPlanning.pmEmail}) = ${me}`);
       return Response.json({count:Number(r?.n||0)});
     }
-    /* The people a project manager can be chosen from: everyone with an active login,
-       since the manager is emailed and acts in the portal. Accounts only. */
+    /* Everyone with an active login - offered for the project manager, and on the planning
+       form for the site engineer, QS, procurement and finance people. Any signed-in user
+       may read it: the project manager filling the form is often not in accounts, and the
+       same names are in the employee directory. */
     if(url.searchParams.get("people")){
-      if(!actor?.roles.some(r=>ACCOUNTS_ROLES.includes(r)))return bad("Only accounts assign a project manager.",403);
       const people=await db.select({name:wfUsers.name,email:wfUsers.email}).from(wfUsers)
         .where(eq(wfUsers.active,1)).orderBy(wfUsers.name);
       return Response.json({people});
@@ -50,7 +51,8 @@ export async function GET(req:Request){
          limit once there are more than a hundred plans. */
       const planned=new Set((await db.select({id:wfPlanning.jobId}).from(wfPlanning)).map(r=>r.id));
       const jobs=(await db.select({id:wfReceivables.id,ref:wfReceivables.ref,customer:wfReceivables.customer,
-        description:wfReceivables.description,companyId:wfReceivables.companyId}).from(wfReceivables)
+        description:wfReceivables.description,companyId:wfReceivables.companyId,
+        jobCode:wfReceivables.jobCode,projectName:wfReceivables.projectName}).from(wfReceivables)
         .where(eq(wfReceivables.stage,"Verified")).orderBy(desc(wfReceivables.createdAt)))
         .filter(j=>!planned.has(j.id)).filter(j=>inCompany(lock,{id:j.companyId})).slice(0,200);
       return Response.json({jobs});
@@ -82,6 +84,7 @@ export async function POST(req:Request){
     const stamp=Date.now().toString(36);
     const row={id:`PP-${stamp}`,ref:`PP-${stamp.toUpperCase()}`,stage:FIRST_OPEN as string,
       jobId:job.id,jobRef:job.ref,customer:job.customer,companyId:job.companyId,description:job.description,
+      jobCode:job.jobCode||"",projectName:job.projectName||"",
       currency:job.currency||"AED",raisedByEmail:actor?.email||"",createdAt:now(),updatedAt:now()};
     await writeWithAudit([db.insert(wfPlanning).values(row)],actorOf(req,body),"planning",row.id,
       "Planning started",`${row.ref} · ${job.ref} · ${job.customer}`);
@@ -143,9 +146,23 @@ export async function PATCH(req:Request){
       Object.assign(patch,{pmName:u.name||u.email,pmEmail:u.email,pmAt:now()});
     }
     if(from==="Project Schedule and Planning"){
+      /* Project Planning: the dates, the status, the people on the plan and remarks. */
       const start=str(body.startDate,row.startDate),end=str(body.endDate,row.endDate);
       if(end<start)return bad("The target completion date cannot be before the start date.",422);
-      Object.assign(patch,{startDate:start,endDate:end,planNotes:str(body.planNotes,row.planNotes).trim(),planAt:now()});
+      const status=str(filled.planningStatus);
+      if(!(PLANNING_STATUSES as readonly string[]).includes(status))
+        return bad(`Planning status must be one of ${PLANNING_STATUSES.join(", ")}.`,422);
+      Object.assign(patch,{startDate:start,endDate:end,planningStatus:status,
+        planNotes:str(body.planNotes,row.planNotes).trim(),planAt:now()});
+      /* Each person is optional, but must have a login; the name comes from it. */
+      for(const{key,label}of PLAN_PEOPLE){
+        const email=str(body[`${key}Email`],(row as Record<string,unknown>)[`${key}Email`] as string).trim();
+        if(!email){patch[`${key}Name`]="";patch[`${key}Email`]="";continue}
+        const[u]=await db.select({name:wfUsers.name,email:wfUsers.email,active:wfUsers.active}).from(wfUsers)
+          .where(sql`lower(${wfUsers.email}) = ${email.toLowerCase()}`);
+        if(!u||!u.active)return bad(`${label}: choose someone from the list of people with a login.`,422);
+        patch[`${key}Name`]=u.name||u.email;patch[`${key}Email`]=u.email;
+      }
     }
     if(from==="Detailed BOM - Procurement Planning")
       Object.assign(patch,{bomSummary:str(body.bomSummary,row.bomSummary).trim(),bomCost:num(filled.bomCost),

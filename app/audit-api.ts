@@ -133,11 +133,14 @@ export const completionApi={
 /* Accounts Receivable, module 2: Planning & Procurement. As with the receivables, the
    server decides every stage move. */
 export type Plan={id:string;ref:string;stage:string;jobId:string;jobRef:string;customer:string;
-  companyId:string;description:string;pmName:string;pmEmail:string;pmAt:string;startDate:string;
+  companyId:string;description:string;jobCode:string;projectName:string;planningStatus:string;
+  siteEngineerName:string;siteEngineerEmail:string;qsControllerName:string;qsControllerEmail:string;
+  procurementPersonName:string;procurementPersonEmail:string;financeSpocName:string;financeSpocEmail:string;pmName:string;pmEmail:string;pmAt:string;startDate:string;
   endDate:string;planNotes:string;planAt:string;bomSummary:string;bomCost:number;currency:string;
   procurementNotes:string;bomAt:string;submittedAt:string;verifiedBy:string;verifiedAt:string;
   remarks:string;returnNote:string;returnedAt:string;raisedByEmail:string;createdAt:string;updatedAt:string};
-export type PlanJob={id:string;ref:string;customer:string;description:string;companyId:string};
+export type PlanJob={id:string;ref:string;customer:string;description:string;companyId:string;
+  jobCode:string;projectName:string};
 export const planningApi={
   load:async()=>asJson<{plans:Plan[]}>(await fetch("/api/planning?limit=200")),
   jobs:async()=>(await asJson<{jobs:PlanJob[]}>(await fetch("/api/planning?jobs=1"))).jobs,

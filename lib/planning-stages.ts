@@ -51,7 +51,8 @@ export const ACTION_LABEL:Record<Stage,string>={
 export const REQUIRED_TO_LEAVE:Record<Stage,string[]>={
   "Job Notification":[],
   "Assign Project Manager":["pmEmail"],
-  "Project Schedule and Planning":["startDate","endDate","planNotes"],
+  /* Project Planning, as its field specification sets out the mandatory fields. */
+  "Project Schedule and Planning":["startDate","endDate","planningStatus"],
   "Detailed BOM - Procurement Planning":["bomSummary","bomCost"],
   "Audit Verification":[],
   "Verified":[]};
@@ -59,7 +60,18 @@ export const REQUIRED_TO_LEAVE:Record<Stage,string[]>={
 export const FIELD_LABEL:Record<string,string>={
   pmEmail:"Project manager",startDate:"Start date",endDate:"Target completion date",
   planNotes:"Planning notes",bomSummary:"BOM summary",bomCost:"Estimated procurement cost",
-  procurementNotes:"Procurement notes",remarks:"Audit remarks"};
+  procurementNotes:"Procurement notes",remarks:"Audit remarks",planningStatus:"Planning status"};
+
+/* A plan's status, for monitoring progress and ageing. Fixed here because the code reads
+   the values; an editable list would let a renamed status stop being counted. */
+export const PLANNING_STATUSES=["Not started","In progress","On hold","Completed"] as const;
+
+/* The people on a plan besides the project manager, as the planning form names them. */
+export const PLAN_PEOPLE=[
+  {key:"siteEngineer",label:"Site engineer"},
+  {key:"qsController",label:"QS / cost controller"},
+  {key:"procurementPerson",label:"Procurement responsible person"},
+  {key:"financeSpoc",label:"Finance SPOC"}] as const;
 
 /** Where audit may send an entry back: every stage after the job and before audit. */
 export const RETURNABLE_TO=STAGES.slice(1,4) as readonly Stage[];
