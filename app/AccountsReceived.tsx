@@ -273,7 +273,7 @@ function Detail({row,role,companies,close,saved,reload}:{row:Receivable;role:str
           <b><ArrowLeft/>Send back for correction</b>
           <select value={back} onChange={e=>setBack(e.target.value)}>
             <option value="">Choose the stage to send it back to…</option>
-            {RETURNABLE_TO.map(s=><option key={s} value={s}>{s}</option>)}</select>
+            {RETURNABLE_TO.map(s=><option key={s} value={s}>{RETURN_LABEL[s]||s}</option>)}</select>
           <textarea rows={2} value={note} onChange={e=>setNote(e.target.value)}
             placeholder="What needs correcting? Accounts see this on the entry."/>
           <button className="ghost danger" disabled={busy||!back||!note.trim()}
@@ -290,6 +290,15 @@ function Detail({row,role,companies,close,saved,reload}:{row:Receivable;role:str
    The notification number and job code are the server's to issue, so they are shown
    greyed as the numbers this notification will get. Files are uploaded once the
    notification exists, since an attachment has to belong to something. */
+/* What sending an entry back to each stage lets accounts correct. A stage here is named
+   for the step already done - an entry at "CRM JOB Creation" is waiting for its sales
+   order - so the stage name alone pointed one form too early: "Sales Order" read as
+   "correct the sales order" but reopened nothing. The options say what reopens. */
+const RETURN_LABEL:Record<string,string>={
+  "Job Notification":"CRM job details - reopens the CRM job creation form",
+  "CRM JOB Creation":"Sales order - reopens the sales order form",
+  "Sales Order":"Documents only - accounts attach or explain, then resend"};
+
 const JOB_TYPES=["Interior fit-out","Renovation","Civil works","MEP","Joinery","Maintenance","Other"];
 const PRIORITIES=["Low","Normal","High","Urgent"];
 const APPROVALS=["Approved","Pending","Not required"];
@@ -501,7 +510,9 @@ function lbl(text:string,required=false){
    worked out again by the server, which does not take them from the browser. */
 function SalesOrderForm({row,close,saved}:{row:Receivable;close:()=>void;saved:(r:Receivable)=>void}){
   const today=new Date().toISOString().slice(0,10);
-  const[f,setF]=useState<Record<string,string>>({soDate:today,soApprovalDate:today,taxAmount:"",boqReference:"",soApprovedByEmail:""});
+  /* Sent back for correction, the form opens with what was entered before. */
+  const[f,setF]=useState<Record<string,string>>({soDate:row.soDate||today,soApprovalDate:row.soApprovalDate||today,
+    taxAmount:row.taxAmount?String(row.taxAmount):"",boqReference:row.boqReference||"",soApprovedByEmail:row.soApprovedByEmail||""});
   const[files,setFiles]=useState<File[]>([]);
   const[busy,setBusy]=useState(false),[err,setErr]=useState("");
   const set=(k:string,v:string)=>setF(x=>({...x,[k]:v}));

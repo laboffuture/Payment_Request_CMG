@@ -302,3 +302,18 @@
 .recv-head .recv-search input::placeholder{color:#98a2b3}
 .recv-head .ghost{height:36px;padding:0 12px;font-size:12px;box-sizing:border-box}
 @media(max-width:640px){.recv-head .recv-search{flex-basis:100%}}
+
+/* Audit's "send back for correction": a framed panel of its own under the verify button,
+   the stage and the reason each the full width, the button at the right. It had no
+   layout at all, so the heading, dropdown, box and button ran on at their own widths. */
+.recv-return{display:flex;flex-direction:column;gap:8px;margin-top:6px;padding:12px;
+  border:1px solid #fecdca;border-radius:10px;background:#fffbfa}
+.recv-return b{color:#b42318;font-size:12.5px}
+.recv-return select,.recv-return textarea{width:100%;box-sizing:border-box;font:inherit;font-size:12.5px;
+  border:1px solid var(--line,#e4e7ec);border-radius:8px;background:#fff;color:#1d2939}
+.recv-return select{height:36px;padding:0 10px}
+.recv-return textarea{min-height:64px;padding:8px 10px;resize:vertical}
+.recv-return select:focus,.recv-return textarea:focus{outline:0;border-color:#fda29b;box-shadow:0 0 0 3px #fef3f2}
+.recv-return .danger{align-self:flex-end;display:inline-flex;align-items:center;justify-content:center;height:36px;
+  padding:0 16px;border:1px solid #fecdca;border-radius:8px;background:#fff;font-size:12px;font-weight:700;cursor:pointer}
+.recv-return .danger:hover:not(:disabled){background:#fef3f2;border-color:#fda29b}
