@@ -9,7 +9,12 @@ const shape=(e:Row)=>({id:str(e.id),code:str(e.code),name:str(e.name),designatio
   roleId:str(e.roleId),deptId:str(e.deptId,"d-group"),department:str(e.department),
   reportsTo:nullable(e.reportsTo),email:str(e.email),phone:str(e.phone),jd:str(e.jd),
   photoAt:str(e.photoAt),active:e.active===false?0:1,joined:str(e.joined),
-  companyId:str(e.companyId,"c-trg"),extra:str(e.extra)});
+  companyId:str(e.companyId,"c-trg"),portalCompanyId:str(e.portalCompanyId),extra:str(e.extra)});
+
+/* Only an administrator may set or change the company a person is limited to in the
+   portal - it decides what they can raise and see. Others may still save the rest of an
+   employee record, sending the company back unchanged. */
+const mayLock=(roles:string[]=[])=>roles.includes("Administrator");
 
 /* Always paginated and always filtered in SQL. The directory never pulls the whole
    register into the browser, so headcount does not change page weight. */
@@ -46,9 +51,11 @@ export async function GET(req:Request){
 
 export async function POST(req:Request){
   try{
-    const{response}=await requireAuth(req,"org");
+    const{actor,response}=await requireAuth(req,"org");
     if(response)return response;
     const body=await req.json() as Row;
+    if(str(body.portalCompanyId)&&!mayLock(actor?.roles))
+      return bad("Only an administrator can set the company an employee works for in the portal.",403);
     if(!str(body.name)||!str(body.code))return bad("name and code are required");
     const row=shape({...body,id:str(body.id)||`E-${Date.now().toString(36)}`});
     await writeWithAudit([(await getDb()).insert(wfEmployees).values(row)],
@@ -58,7 +65,7 @@ export async function POST(req:Request){
 
 export async function PATCH(req:Request){
   try{
-    const{response}=await requireAuth(req,"org");
+    const{actor,response}=await requireAuth(req,"org");
     if(response)return response;
     const body=await req.json() as Row;
     const id=str(body.id);
@@ -72,6 +79,9 @@ export async function PATCH(req:Request){
     const db=await getDb();
     const [current]=await db.select().from(wfEmployees).where(eq(wfEmployees.id,id)).limit(1);
     if(!current)return bad("Not found",404);
+    if(Object.prototype.hasOwnProperty.call(body,"portalCompanyId")&&str(body.portalCompanyId)!==current.portalCompanyId
+      &&!mayLock(actor?.roles))
+      return bad("Only an administrator can change the company an employee works for in the portal.",403);
     const shaped=shape({...current,...body});
     const row=Object.fromEntries(Object.entries(shaped)
       .filter(([k])=>k==="id"||Object.prototype.hasOwnProperty.call(body,k))) as typeof shaped;

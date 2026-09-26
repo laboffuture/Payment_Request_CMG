@@ -1,7 +1,7 @@
 import{asc,eq}from"drizzle-orm";
 import{getDb}from"../../../../db";
 import{wfAuditTasks,wfCompanies}from"../../../../db/schema";
-import{requireAuth}from"../../../../lib/auth";
+import{companyLock,inCompany,requireAuth}from"../../../../lib/auth";
 import{actorOf,bad,num,oops,str,writeWithAudit}from"../../../../lib/workforce-api";
 import type{Row}from"../../../../lib/workforce-api";
 
@@ -14,10 +14,13 @@ const shape=(c:Row)=>({id:str(c.id),name:str(c.name),code:str(c.code),
 
 export async function GET(req:Request){
   try{
-    const{response}=await requireAuth(req,"read");
+    const{actor,response}=await requireAuth(req,"read");
     if(response)return response;
     const rows=await (await getDb()).select().from(wfCompanies).orderBy(asc(wfCompanies.position));
-    return Response.json({companies:rows.map(r=>({...r,active:!!r.active}))});
+    /* Somebody limited to one company is offered that company alone - which is what every
+       company dropdown and filter in the screens is built from. */
+    const lock=await companyLock(actor);
+    return Response.json({companies:rows.filter(r=>inCompany(lock,{id:r.id})).map(r=>({...r,active:!!r.active}))});
   }catch(e){return oops(e)}}
 
 export async function POST(req:Request){

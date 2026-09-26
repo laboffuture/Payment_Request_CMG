@@ -15,7 +15,9 @@ export const roleTypes:RoleType[]=["Group","Vertical","Function","Support"];
 export type Dept={id:string;name:string;code:string;color:string;position:number};
 export type Role={id:string;deptId:string;name:string;type:RoleType;parentId:string|null;color:string;jd:string};
 export type Employee={id:string;code:string;name:string;designation:string;roleId:string;deptId:string;
-  department:string;reportsTo:string|null;email:string;phone:string;jd:string;photoAt:string;active:boolean;joined:string};
+  department:string;reportsTo:string|null;email:string;phone:string;jd:string;photoAt:string;active:boolean;joined:string;
+  /* The company this person works for in the portal; empty = every company. */
+  portalCompanyId?:string};
 export type Task={id:string;seriesId:string;name:string;description:string;frequency:Frequency;period:string;
   start:string;due:string;priority:Priority;employeeId:string;deptId:string;assignedBy:string;expectedOutput:string;
   remarks:string;status:WorkStatus;progress:number;qty:number;done:number;blocker:string;nextAction:string;

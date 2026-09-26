@@ -2,7 +2,7 @@ import{and,asc,desc,eq,like}from"drizzle-orm";
 import{getDb}from"../../../db";
 import{auditLogs,paymentRequests,wfAttachments}from"../../../db/schema";
 import{deleteFile}from"../../../lib/storage";
-import{departmentPeers,hasWriteRole,requireAuth}from"../../../lib/auth";
+import{companyLock,departmentPeers,hasWriteRole,inCompany,requireAuth}from"../../../lib/auth";
 import{emailsForRoles,notify,rolesActingOn}from"../../../lib/notify";
 import{FIELD_ORDER,REQUIRED_ON_SAVE,labelFor,ruleFor}from"../../../lib/payment-fields";
 import{rememberVendor}from"../../../lib/vendors";
@@ -62,6 +62,7 @@ export async function GET(req:Request){
     const{actor,response}=await requireAuth(req,"read");
     if(response)return response;
     const peers=await departmentPeers(actor);
+    const lock=await companyLock(actor);
     const db=await getDb();
     /* One request's trail - every decision, who took it, when, and the remark with it -
        so the request panel can show the real history rather than a description of one.
@@ -69,9 +70,10 @@ export async function GET(req:Request){
        read its trail either. */
     const historyOf=Number(new URL(req.url).searchParams.get("history"));
     if(historyOf){
-      const[p]=await db.select({raisedBy:paymentRequests.raisedBy}).from(paymentRequests)
+      const[p]=await db.select({raisedBy:paymentRequests.raisedBy,company:paymentRequests.company}).from(paymentRequests)
         .where(eq(paymentRequests.id,historyOf)).limit(1);
-      if(!p||(peers&&!peers.includes((p.raisedBy||"").toLowerCase())))return bad("Not found",404);
+      if(!p||(peers&&!peers.includes((p.raisedBy||"").toLowerCase()))||!inCompany(lock,{name:p.company}))
+        return bad("Not found",404);
       const history=await db.select().from(auditLogs).where(eq(auditLogs.recordId,historyOf))
         .orderBy(asc(auditLogs.id));
       return Response.json({history});
@@ -86,9 +88,10 @@ export async function GET(req:Request){
        whole register is one fetch away for anybody with a session, whatever the menu
        shows. Compared in lower case because addresses are stored as they were typed.
        null means the reader is not scoped at all; an empty list would mean nobody. */
-    const mine=peers
+    /* And to the reader's company, when an administrator has limited them to one. */
+    const mine=(peers
       ?rows.filter(r=>peers.includes((r.raisedBy||"").toLowerCase()))
-      :rows;
+      :rows).filter(r=>inCompany(lock,{name:r.company}));
     /* The last remark anybody left, with who left it. lastActionNote is only the most
        recent step's note, and most steps are taken without one - so a request accounts
        had written about arrived in the audit queue showing no remark at all. Status
@@ -124,6 +127,9 @@ export async function POST(req:Request){
        above zero. */
     if(!p.company||!Number.isFinite(amount)||amount<=0)
       return bad("A company and an amount above zero are required");
+    const lock=await companyLock(actor);
+    if(!inCompany(lock,{name:String(p.company)}))
+      return bad(`You raise requests for ${lock?.name} only.`,403);
     if(p.status&&STATUSES.indexOf(String(p.status))<0)return bad("Unknown status");
 
     /* The payment type decides which fields a request must carry. Enforced here as well
@@ -203,6 +209,7 @@ export async function PATCH(req:Request){
     const db=await getDb();
     const[old]=await db.select().from(paymentRequests).where(eq(paymentRequests.id,Number(id))).limit(1);
     if(!old)return bad("Not found",404);
+    if(!inCompany(await companyLock(actor),{name:old.company}))return bad("Not found",404);
 
     const ownResubmit=old.status===QUERY&&status==="Submitted"
       &&!!actor?.email&&(old.raisedBy||"")===actor.email;

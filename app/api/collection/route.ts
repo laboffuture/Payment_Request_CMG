@@ -1,7 +1,8 @@
 import{and,asc,desc,eq,sql}from"drizzle-orm";
 import{getBindings,getDb}from"../../../db";
-import{wfCollectionEvents,wfCollections,wfCompletions}from"../../../db/schema";
-import{requireAuth}from"../../../lib/auth";
+import{wfBillingJobs,wfCollectionEvents,wfCollections,wfCompletions}from"../../../db/schema";
+import{companyLock,inCompany,requireAuth}from"../../../lib/auth";
+import type{CompanyLock}from"../../../lib/auth";
 import{emailsForRoles,notify}from"../../../lib/notify";
 import{ACCOUNTS_ROLES,DEFAULT_CREDIT_DAYS,FOLLOW_UPS,STATUSES,isCollected,mayLog,mayVerify}
   from"../../../lib/collection-stages";
@@ -16,6 +17,14 @@ import type{Row}from"../../../lib/workforce-api";
    invoice it goes to audit. Every rule is checked on this side as well as in the screen. */
 
 type Db=Awaited<ReturnType<typeof getDb>>;
+
+/* A case belongs to the company of the job its invoice was raised for. For a reader limited
+   to one company, the jobs they may see; null when they are not limited. An invoice added
+   by hand has no job and so belongs to no company - only an unrestricted reader sees it. */
+async function allowedJobs(db:Db,lock:CompanyLock|null){
+  if(!lock)return null;
+  return new Set((await db.select({id:wfBillingJobs.id,companyId:wfBillingJobs.companyId}).from(wfBillingJobs))
+    .filter(j=>inCompany(lock,{id:j.companyId})).map(j=>j.id))}
 const now=()=>new Date().toISOString();
 const today=()=>now().slice(0,10);
 const dayPlus=(date:string,days:number)=>new Date(new Date(`${date}T00:00:00Z`).getTime()+days*86400000).toISOString().slice(0,10);
@@ -56,13 +65,19 @@ export async function GET(req:Request){
     if(!actor?.roles.some(r=>RECEIVABLE_ROLES.includes(r)))return bad("Your role cannot see debt collection.",403);
     const db=await getDb();
     const caseId=new URL(req.url).searchParams.get("case");
+    const jobs=await allowedJobs(db,await companyLock(actor));
     if(caseId){
+      if(jobs){
+        const[c]=await db.select({job:wfCollections.billingJobId}).from(wfCollections).where(eq(wfCollections.id,caseId));
+        if(!c||!jobs.has(c.job))return bad("That case no longer exists",404);
+      }
       const events=await db.select().from(wfCollectionEvents).where(eq(wfCollectionEvents.caseId,caseId))
         .orderBy(asc(wfCollectionEvents.at));
       return Response.json({events});
     }
     await findMissed(db);
-    const cases=await db.select().from(wfCollections).orderBy(desc(wfCollections.createdAt)).limit(300);
+    const cases=(await db.select().from(wfCollections).orderBy(desc(wfCollections.createdAt)).limit(300))
+      .filter(c=>!jobs||jobs.has(c.billingJobId));
     return Response.json({cases});
   }catch(e){return oops(e)}}
 
@@ -93,7 +108,11 @@ export async function POST(req:Request){
     const who=actor?.name||actor?.email||"";
     const action=str(body.action);
 
+    const jobs=await allowedJobs(db,await companyLock(actor));
     if(action==="add"){
+      /* A hand-added invoice has no job, so no company: somebody limited to one company
+         could add it but never see it again. */
+      if(jobs)return bad("Missed invoices are added by hand by accounts who are not limited to one company.",403);
       /* An invoice raised before the portal, or outside it. It is entered already
          overdue: that is the only kind this module holds. */
       const customer=str(body.customer).trim(),invoiceNo=str(body.invoiceNo).trim();
@@ -115,7 +134,7 @@ export async function POST(req:Request){
     }
 
     const[row]=await db.select().from(wfCollections).where(eq(wfCollections.id,str(body.id)));
-    if(!row)return bad("That case no longer exists",404);
+    if(!row||(jobs&&!jobs.has(row.billingJobId)))return bad("That case no longer exists",404);
 
     if(action==="terms"){
       if(!mayLog(row.stage,actor?.roles))return bad(`A case at ${row.stage} cannot be changed.`,422);
@@ -176,7 +195,8 @@ export async function PATCH(req:Request){
     const body=await req.json() as Row;
     const db=await getDb();
     const[row]=await db.select().from(wfCollections).where(eq(wfCollections.id,str(body.id)));
-    if(!row)return bad("That case no longer exists",404);
+    const jobs=await allowedJobs(db,await companyLock(actor));
+    if(!row||(jobs&&!jobs.has(row.billingJobId)))return bad("That case no longer exists",404);
     const who=actor?.name||actor?.email||"";
     const detail=[{label:"Customer",value:row.customer},{label:"Invoice",value:row.invoiceNo},
       {label:"Amount",value:`${row.currency} ${num(row.invoiceAmount).toLocaleString()}`},

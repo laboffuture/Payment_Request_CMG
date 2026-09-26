@@ -1,6 +1,6 @@
 import{and,eq,gt}from"drizzle-orm";
 import{getDb}from"../db";
-import{wfSessions,wfUsers}from"../db/schema";
+import{wfCompanies,wfEmployees,wfSessions,wfUsers}from"../db/schema";
 import{COOKIE_DAYS,SESSION_COOKIE,SESSION_HOURS,randomHex,readBearer,readCookie}from"./credentials";
 export*from"./credentials";
 
@@ -123,6 +123,30 @@ export async function departmentPeers(actor:Actor|null):Promise<string[]|null>{
     if(Array.isArray(parsed))assigned=parsed.map(x=>String(x||"").toLowerCase()).filter(Boolean)}
   catch{assigned=[]}
   return Array.from(new Set([...assigned,me]))}
+
+/* The one company a user works for in the portal, when an administrator has set it on
+   their employee record. Everyone else - and every administrator, whatever is set - gets
+   null: no restriction. Asked afresh on each request rather than held in the session, so
+   changing it takes effect at once rather than at the next sign-in.
+
+   A company that has since been deleted narrows to nothing rather than widening to all:
+   the lock names a company that cannot be matched, so nothing is shown. */
+export type CompanyLock={id:string;name:string};
+export async function companyLock(actor:Actor|null):Promise<CompanyLock|null>{
+  if(!actor||actor.roles.includes("Administrator")||!actor.employeeId)return null;
+  const db=await getDb();
+  const[e]=await db.select({companyId:wfEmployees.portalCompanyId}).from(wfEmployees)
+    .where(eq(wfEmployees.id,actor.employeeId)).limit(1);
+  if(!e?.companyId)return null;
+  const[c]=await db.select({id:wfCompanies.id,name:wfCompanies.name}).from(wfCompanies)
+    .where(eq(wfCompanies.id,e.companyId)).limit(1);
+  return c||{id:e.companyId,name:"\u0000no such company"}}
+
+/* Whether a company, by name or id, is inside a lock. No lock means yes. Names are
+   compared without regard to case or spacing, since payment requests store the name. */
+const squashName=(v:string)=>String(v||"").toLowerCase().replace(/\s+/g," ").trim();
+export const inCompany=(lock:CompanyLock|null,company:{id?:string;name?:string})=>
+  !lock||(!!company.id&&company.id===lock.id)||(!!company.name&&squashName(company.name)===squashName(lock.name));
 
 const deny=(message:string,status:number)=>
   Response.json({error:message},{status});

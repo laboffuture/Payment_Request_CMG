@@ -4,6 +4,7 @@ import{useOptions}from"./options-store";
 import{useEffect,useRef,useState}from"react";
 import{Camera,Loader2,Trash2,X,Upload}from"lucide-react";
 import Attachments,{asDataUrl} from"./Attachments";
+import{companiesApi}from"./audit-api";
 import{frequencies,initials,normalise,periodOf,photoUrl,priorities,queryStatuses,readable,resizeImage,
   roleTypes,statuses,today,useWorkforce}from"./workforce-store";
 import type{Dept,Employee,Frequency,Priority,Query,QueryStatus,Role,RoleType,Task,Token,WorkStatus}from"./workforce-store";
@@ -156,6 +157,10 @@ export function EmployeeEditor({employee,close,flash}:{employee:Partial<Employee
   const [e,setE]=useState<Partial<Employee>>(employee);
   const [busy,setBusy]=useState(false);
   const [managers,setManagers]=useState<Employee[]>([]);
+  /* The companies an administrator can limit this person to. The server decides who may
+     set it; everybody else saves the record with the company as it was. */
+  const [companies,setCompanies]=useState<{id:string;name:string;active:boolean}[]>([]);
+  useEffect(()=>{companiesApi.load().then(c=>setCompanies(c.map(x=>({id:x.id,name:x.name,active:!!x.active})))).catch(()=>{})},[]);
   const isNew=!employee.code||!!employee.id?.startsWith("new-");
   const set=<K extends keyof Employee>(k:K,v:Employee[K])=>setE(p=>({...p,[k]:v}));
   const submit=async(ev:React.FormEvent)=>{ev.preventDefault();setBusy(true);
@@ -184,6 +189,10 @@ export function EmployeeEditor({employee,close,flash}:{employee:Partial<Employee
         {wf.allRoles.filter(r=>r.deptId===(e.deptId||wf.dept)).map(r=><option key={r.id} value={r.id}>{r.name}</option>)}</select>
         <small className="wf-hint">Add a new designation on the Organisation screen.</small></label>
       <label>Team / vertical<input value={e.department||""} onChange={x=>set("department",x.target.value)}/></label>
+      <label>Company<select value={e.portalCompanyId||""} onChange={x=>set("portalCompanyId",x.target.value)}>
+        <option value="">All companies (not restricted)</option>
+        {companies.filter(c=>c.active||c.id===e.portalCompanyId).map(c=><option key={c.id} value={c.id}>{c.name}</option>)}</select>
+        <small className="wf-hint">Once set, this person raises requests for this company only and sees only its data. Administrators are never restricted.</small></label>
       <label className="wide">Reports to
         <input placeholder="Type a name to search" defaultValue="" onChange={x=>findManagers(x.target.value)}/>
         <select value={e.reportsTo||""} onChange={x=>set("reportsTo",x.target.value||null)}>

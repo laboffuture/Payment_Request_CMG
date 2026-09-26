@@ -1,7 +1,7 @@
 import{and,desc,eq,sql}from"drizzle-orm";
 import{getBindings,getDb}from"../../../db";
 import{wfBillingJobs,wfCompletions,wfPlanning,wfReceivables}from"../../../db/schema";
-import{requireAuth}from"../../../lib/auth";
+import{companyLock,inCompany,requireAuth}from"../../../lib/auth";
 import{emailsForRoles,notify}from"../../../lib/notify";
 import{ACCOUNTS_ROLES,AUDIT_ROLES,BILLING_ROLES,COST_CONTROL_ROLES,DEFAULT_EVERY_DAYS,FIELD_LABEL,FIRST,
   MANAGEMENT_ROLES,REQUIRED_TO_LEAVE,RETURNABLE_FROM,STAGES,mayAct,stageIndex}from"../../../lib/completion-stages";
@@ -97,16 +97,21 @@ export async function GET(req:Request){
     await syncJobs(db);
     await issueDue(db,"schedule");
     const mine=(col:typeof wfBillingJobs.pmEmail|typeof wfCompletions.pmEmail)=>all?undefined:sql`lower(${col}) = ${me}`;
-    const jobs=await db.select().from(wfBillingJobs).where(mine(wfBillingJobs.pmEmail)).orderBy(desc(wfBillingJobs.createdAt));
-    const cycles=await db.select().from(wfCompletions).where(mine(wfCompletions.pmEmail))
-      .orderBy(desc(wfCompletions.createdAt)).limit(300);
+    /* Limited to one company, a reader sees that company's jobs and their cycles. */
+    const lock=await companyLock(actor);
+    const jobs=(await db.select().from(wfBillingJobs).where(mine(wfBillingJobs.pmEmail)).orderBy(desc(wfBillingJobs.createdAt)))
+      .filter(j=>inCompany(lock,{id:j.companyId}));
+    const allowed=lock?new Set((await db.select({id:wfBillingJobs.id,companyId:wfBillingJobs.companyId}).from(wfBillingJobs))
+      .filter(j=>inCompany(lock,{id:j.companyId})).map(j=>j.id)):null;
+    const cycles=(await db.select().from(wfCompletions).where(mine(wfCompletions.pmEmail))
+      .orderBy(desc(wfCompletions.createdAt)).limit(300));
     /* Per job: what has been invoiced so far and the last certified completion, so the
        invoice can be suggested as the certified value not yet billed. */
     const billed=await db.select({job:wfCompletions.billingJobId,
       invoiced:sql<number>`coalesce(sum(case when ${wfCompletions.invoiceNo} <> '' then ${wfCompletions.invoiceAmount} else 0 end),0)`,
       certified:sql<number>`coalesce(max(case when ${wfCompletions.stage} in ('Raise Invoice','Audit Verification','Verified') then ${wfCompletions.certifiedPercent} end),0)`})
       .from(wfCompletions).groupBy(wfCompletions.billingJobId);
-    return Response.json({jobs,cycles,totals:Object.fromEntries(billed.map(b=>[b.job,{invoiced:Number(b.invoiced),certified:Number(b.certified)}]))});
+    return Response.json({jobs,cycles:cycles.filter(c=>!allowed||allowed.has(c.billingJobId)),totals:Object.fromEntries(billed.map(b=>[b.job,{invoiced:Number(b.invoiced),certified:Number(b.certified)}]))});
   }catch(e){return oops(e)}}
 
 /* POST does three things:
@@ -137,7 +142,7 @@ export async function POST(req:Request){
     const body=await req.json() as Row;
     const db=await getDb();
     const[job]=await db.select().from(wfBillingJobs).where(eq(wfBillingJobs.id,str(body.id)));
-    if(!job)return bad("That job is not on the register.",404);
+    if(!job||!inCompany(await companyLock(actor),{id:job.companyId}))return bad("That job is not on the register.",404);
     const who=actor?.name||actor?.email||"";
     if(str(body.action)==="request"){
       if(!job.active)return bad(`${job.jobRef} is inactive. Make it active to request its completion.`,422);
@@ -177,6 +182,11 @@ export async function PATCH(req:Request){
     const id=str(body.id);
     const[row]=await db.select().from(wfCompletions).where(eq(wfCompletions.id,id));
     if(!row)return bad("That cycle no longer exists",404);
+    const lock=await companyLock(actor);
+    if(lock){
+      const[owner]=await db.select({companyId:wfBillingJobs.companyId}).from(wfBillingJobs).where(eq(wfBillingJobs.id,row.billingJobId));
+      if(!owner||!inCompany(lock,{id:owner.companyId}))return bad("That cycle no longer exists",404);
+    }
     const from=row.stage as Stage;
     const isManager=!!row.pmEmail&&lower(row.pmEmail)===lower(actor?.email);
     if(!mayAct(from,actor?.roles,isManager))return bad(`Your role cannot act on a cycle at ${from}.`,403);

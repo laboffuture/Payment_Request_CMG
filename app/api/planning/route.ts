@@ -1,7 +1,7 @@
 import{and,desc,eq,sql}from"drizzle-orm";
 import{getDb}from"../../../db";
 import{wfPlanning,wfReceivables,wfUsers}from"../../../db/schema";
-import{requireAuth}from"../../../lib/auth";
+import{companyLock,inCompany,requireAuth}from"../../../lib/auth";
 import{emailsForRoles,notify}from"../../../lib/notify";
 import{ACCOUNTS_ROLES,AUDIT_ROLES,FIELD_LABEL,FIRST_OPEN,RECEIVABLE_ROLES,REQUIRED_TO_LEAVE,
   RETURNABLE_TO,STAGES,mayAct,stageIndex}from"../../../lib/planning-stages";
@@ -26,6 +26,7 @@ export async function GET(req:Request){
     const url=new URL(req.url);
     const db=await getDb();
     const me=lower(actor?.email);
+    const lock=await companyLock(actor);
 
     /* How many entries name the reader as project manager - which is what puts
        Accounts Receivable in the menu of somebody whose role would not show it. */
@@ -51,7 +52,7 @@ export async function GET(req:Request){
       const jobs=(await db.select({id:wfReceivables.id,ref:wfReceivables.ref,customer:wfReceivables.customer,
         description:wfReceivables.description,companyId:wfReceivables.companyId}).from(wfReceivables)
         .where(eq(wfReceivables.stage,"Verified")).orderBy(desc(wfReceivables.createdAt)))
-        .filter(j=>!planned.has(j.id)).slice(0,200);
+        .filter(j=>!planned.has(j.id)).filter(j=>inCompany(lock,{id:j.companyId})).slice(0,200);
       return Response.json({jobs});
     }
     const{limit,offset}=page(url);
@@ -60,7 +61,7 @@ export async function GET(req:Request){
     const rows=await db.select().from(wfPlanning)
       .where(sees(actor?.roles)?undefined:sql`lower(${wfPlanning.pmEmail}) = ${me}`)
       .orderBy(desc(wfPlanning.createdAt)).limit(limit).offset(offset);
-    return Response.json({plans:rows});
+    return Response.json({plans:rows.filter(r=>inCompany(lock,{id:r.companyId}))});
   }catch(e){return oops(e)}}
 
 /* Starting a plan: choosing its job. The job must be verified in Job Notification and
@@ -74,7 +75,7 @@ export async function POST(req:Request){
     const body=await req.json() as Row;
     const db=await getDb();
     const[job]=await db.select().from(wfReceivables).where(eq(wfReceivables.id,str(body.jobId)));
-    if(!job)return bad("Choose a job from Job Notification.");
+    if(!job||!inCompany(await companyLock(actor),{id:job.companyId}))return bad("Choose a job from Job Notification.");
     if(job.stage!=="Verified")return bad(`${job.ref} is at ${job.stage}. A job is planned once it is verified.`,422);
     const[already]=await db.select({ref:wfPlanning.ref}).from(wfPlanning).where(eq(wfPlanning.jobId,job.id));
     if(already)return bad(`${job.ref} is already being planned as ${already.ref}.`,409);
@@ -100,7 +101,7 @@ export async function PATCH(req:Request){
     if(!id)return bad("id is required");
     const db=await getDb();
     const[row]=await db.select().from(wfPlanning).where(eq(wfPlanning.id,id));
-    if(!row)return bad("That entry no longer exists",404);
+    if(!row||!inCompany(await companyLock(actor),{id:row.companyId}))return bad("That entry no longer exists",404);
     const from=row.stage as Stage;
     const isManager=!!row.pmEmail&&lower(row.pmEmail)===lower(actor?.email);
     if(!mayAct(from,actor?.roles,isManager))

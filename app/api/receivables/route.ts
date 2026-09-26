@@ -2,7 +2,7 @@ import{and,count,desc,eq,like,or,sql}from"drizzle-orm";
 import{getDb}from"../../../db";
 import{wfAttachments,wfCompanies,wfPlanning,wfReceivables,wfUsers}from"../../../db/schema";
 import{deleteFile}from"../../../lib/storage";
-import{requireAuth}from"../../../lib/auth";
+import{companyLock,inCompany,requireAuth}from"../../../lib/auth";
 import{emailsForRoles,notify}from"../../../lib/notify";
 import{ACCOUNTS_ROLES,AUDIT_ROLES,FIELD_LABEL,JOB_COMPANIES,JOB_DEPARTMENTS,JOB_STATUSES,isJobCompany,REQUIRED_TO_LEAVE,RETURNABLE_TO,STAGES,
   mayAct,stageIndex}from"../../../lib/receivable-stages";
@@ -57,8 +57,9 @@ const REQUIRED_ON_RAISE:Record<string,string>={companyId:"Company",department:"D
 
 export async function GET(req:Request){
   try{
-    const{response}=await requireAuth(req,"read");
+    const{actor,response}=await requireAuth(req,"read");
     if(response)return response;
+    const lock=await companyLock(actor);
     const url=new URL(req.url);
     // The numbers the next notification will get, shown greyed on the form.
     if(url.searchParams.get("next"))return Response.json(await nextNumbers());
@@ -70,6 +71,8 @@ export async function GET(req:Request){
     const filters=[
       stage?eq(wfReceivables.stage,stage):undefined,
       companyId?eq(wfReceivables.companyId,companyId):undefined,
+      // limited to one company: that company's entries only
+      lock?eq(wfReceivables.companyId,lock.id):undefined,
       q?or(like(wfReceivables.ref,q),like(wfReceivables.customer,q),like(wfReceivables.jobName,q),
         like(wfReceivables.jobCode,q),like(wfReceivables.crmJobNo,q),like(wfReceivables.soNo,q)):undefined].filter(Boolean);
     const where=filters.length?and(...filters):undefined;
@@ -101,6 +104,8 @@ export async function POST(req:Request){
     if(str(body.contractValue).trim()!==""&&!(Number(body.contractValue)>=0))
       return bad("Contract value / budget must be an amount.",422);
     const db=await getDb();
+    if(!inCompany(await companyLock(actor),{id:str(body.companyId)}))
+      return bad("You raise job notifications for your own company only.",403);
     const[company]=await db.select({name:wfCompanies.name,active:wfCompanies.active}).from(wfCompanies)
       .where(eq(wfCompanies.id,str(body.companyId)));
     if(!company||!company.active||!isJobCompany(company.name))
@@ -154,7 +159,7 @@ export async function PATCH(req:Request){
     if(!id)return bad("id is required");
     const db=await getDb();
     const[row]=await db.select().from(wfReceivables).where(eq(wfReceivables.id,id));
-    if(!row)return bad("That entry no longer exists",404);
+    if(!row||!inCompany(await companyLock(actor),{id:row.companyId}))return bad("That entry no longer exists",404);
 
     const from=row.stage as Stage;
     const at=stageIndex(from);
@@ -305,7 +310,7 @@ export async function DELETE(req:Request){
     if(!id)return bad("id is required");
     const db=await getDb();
     const[row]=await db.select().from(wfReceivables).where(eq(wfReceivables.id,id));
-    if(!row)return bad("That entry no longer exists",404);
+    if(!row||!inCompany(await companyLock(actor),{id:row.companyId}))return bad("That entry no longer exists",404);
     const[plan]=await db.select({ref:wfPlanning.ref}).from(wfPlanning).where(eq(wfPlanning.jobId,id));
     if(plan)return bad(`${row.ref} is being planned as ${plan.ref} in Planning & Procurement, so it cannot be deleted.`,409);
     const files=await db.select().from(wfAttachments)

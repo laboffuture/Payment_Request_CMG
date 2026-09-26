@@ -100,6 +100,12 @@ export const wfEmployees=sqliteTable("wf_employees",{
   active:integer("active").notNull().default(1),
   joined:text("joined").notNull().default(""),
   companyId:text("company_id").notNull().default("c-trg"),
+  /* The company this person works for in the portal. Empty means every company, as
+     before; once an administrator sets it, a user who is not an administrator raises
+     requests for this company alone and sees only its data. Kept apart from companyId,
+     which came in with the employee import and places people on the organisation chart -
+     using that would have locked accountants who work for every company to one. */
+  portalCompanyId:text("portal_company_id").notNull().default(""),
   extra:text("extra").notNull().default("")},
   t=>[index("wf_emp_role_idx").on(t.roleId),index("wf_emp_dept_idx").on(t.deptId),
       index("wf_emp_reports_idx").on(t.reportsTo),index("wf_emp_name_idx").on(t.name),
