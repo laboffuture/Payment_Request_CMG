@@ -24,13 +24,14 @@ import{bad,oops,str}from"../../../lib/workforce-api";
    rather than printed as blanks. */
 const paymentDetail=(p:{vendor?:string|null;currency?:string|null;amount?:number|null;
   company?:string|null;department?:string|null;nature?:string|null;due?:string|null;
-  raisedBy?:string|null;paymentMode?:string|null})=>[
+  raisedBy?:string|null;paymentMode?:string|null;utrNumber?:string|null})=>[
   {label:"Vendor",value:String(p.vendor||"")},
   {label:"Amount",value:`${p.currency||""} ${Number(p.amount||0).toLocaleString()}`.trim()},
   {label:"Company",value:[p.company,p.department].filter(Boolean).join(" · ")},
   {label:"Nature",value:String(p.nature||"")},
   {label:"Paid by",value:String(p.paymentMode||"")},
   {label:"Due",value:String(p.due||"")},
+  {label:"UTR number",value:String(p.utrNumber||"")},
   {label:"Raised by",value:String(p.raisedBy||"")}];
 
 /* Two ways to send a request back, and they are not the same thing.
@@ -302,7 +303,16 @@ export async function PATCH(req:Request){
         if(before!==after)changed.push([k as FieldKey,before||"(empty)",after||"(empty)"]);
       }
     }
-    if(sent&&!tdsOnly){
+    /* Releasing carries the bank's reference for the payment. Its own narrow path, like
+       TDS: only this key, only a write role, only when marking the request released. */
+    const releaseOnly=!!sent&&Object.keys(sent).length>0&&Object.keys(sent).every(k=>k==="utrNumber");
+    if(releaseOnly&&sent){
+      if(!hasWriteRole(actor?.roles))return bad("Your role cannot release payments.",403);
+      if(status!=="Payment Released")return bad("The UTR number is recorded when the payment is released.",422);
+      const utr=str(sent.utrNumber).trim().slice(0,60);
+      if(utr!==(old.utrNumber||"")){edits.utrNumber=utr;changed.push(["utrNumber" as FieldKey,old.utrNumber||"",utr])}
+    }
+    if(sent&&!tdsOnly&&!releaseOnly){
       if(!ownResubmit)
         return bad("Only the person who raised a returned request can correct it.",403);
       const nature=String(sent.nature??old.nature??"");
@@ -352,7 +362,7 @@ export async function PATCH(req:Request){
     const effective=String(edits.nature??old.nature??"");
     for(const[field,before,after]of changed)
       await db.insert(auditLogs).values({recordId:Number(id),
-        action:`Corrected ${labelFor(effective,field)}`,
+        action:(field as string)==="utrNumber"?"UTR number recorded":`Corrected ${labelFor(effective,field)}`,
         actor:actor?.name||actor?.email||"system",
         previousValue:before||"(empty)",newValue:after||"(empty)"});
     /* Tell whoever the request now waits on, and keep the person who raised it informed

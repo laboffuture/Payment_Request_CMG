@@ -4,14 +4,14 @@ import{FIELD_ORDER,labelFor,ruleFor}from"../lib/payment-fields";
 import type{FieldKey}from"../lib/payment-fields";
 import{useEffect,useMemo,useState}from"react";
 import{AlertTriangle,Check,Clock3,FileCheck2,HelpCircle,Paperclip,ShieldCheck,X}from"lucide-react";
-import Attachments from"./Attachments";
+import Attachments,{asDataUrl}from"./Attachments";
 import{stamp as stampAt}from"../lib/stamp";
 import{distinct,jobFor}from"../lib/jobs";
 import type{Job}from"../lib/jobs";
 type Payment={projectCode?:string;invoiceNumber?:string;invoiceDate?:string;paymentTerms?:string;period?:string;extra?:string;tds?:string;nature?:string;poNumber?:string;resubmitNote?:string;resubmittedAt?:string;rejectionNote?:string;rejectedBy?:string;rejectedAt?:string;raisedBy?:string;tdsPercent?:string;tdsValue?:string;
   /* The note left by whoever moved the request last. This panel declares its own Payment
      type rather than sharing page.tsx's, so a field added there does not arrive here. */
-  lastActionNote?:string;lastActionBy?:string;id:number;requestNo:string;company:string;vendor:string;amount:number;currency:string;due:string;urgency:string;status:string;owner:string;department:string};
+  lastActionNote?:string;lastActionBy?:string;utrNumber?:string;id:number;requestNo:string;company:string;vendor:string;amount:number;currency:string;due:string;urgency:string;status:string;owner:string;department:string};
 /* The badge was hardcoded blue, so a rejected request looked the same as one in
    progress. Colour follows the status. */
 const statusTone=(s:string)=>s==="Query Raised"||s==="Audit Query"?"amber":/reject|query/i.test(s)?"red"
@@ -123,6 +123,19 @@ export default function PaymentDetail({payment:p,busy=false,role,onClose,onActio
  const noteBox=(label:string,hint:string)=><label className="wf-note">{label}
    <textarea value={stageNote} onChange={e=>setStageNote(e.target.value)} placeholder={hint}/></label>;
  const withNote=()=>stageNote.trim()||undefined;
+ const[utr,setUtr]=useState(""),[releaseFile,setReleaseFile]=useState<File|null>(null),[releaseErr,setReleaseErr]=useState("");
+ /* The proof goes up first, so a failed upload stops the release rather than leaving a
+    released request with no proof and nobody told. */
+ const release=async()=>{
+   setReleaseErr("");
+   if(releaseFile){
+     try{const r=await fetch("/api/attachments",{method:"POST",headers:{"content-type":"application/json"},
+       body:JSON.stringify({entityType:"payment",entityId:String(p.id),kind:"Bank/payment proof",
+         fileName:releaseFile.name,dataUrl:await asDataUrl(releaseFile)})});
+       if(!r.ok){const b=await r.json().catch(()=>({})) as {error?:string};throw new Error(b.error||"upload refused")}}
+     catch(e){setReleaseErr(`The proof did not upload (${e instanceof Error?e.message:"error"}). Try again, or release without it.`);return}
+   }
+   onAction("Payment Released",withNote(),utr.trim()?{utrNumber:utr.trim()}:undefined)};
 
  /* TDS is an accounts determination, not something a requestor asserts, which is why it
     left the request form and arrives here instead. Whatever the requestor answered before
@@ -174,7 +187,18 @@ export default function PaymentDetail({payment:p,busy=false,role,onClose,onActio
      title={stageNote.trim().length<5?"Write your reply to audit first":""}
      onClick={()=>onAction("Pre-Audit Queue",stageNote.trim())}><Check/>Reply and send back to Audit</button></div></>;
  if(recheck&&can("Auditor"))action=<><div className="wf-callout wf-tds-seen"><ShieldCheck/>{p.tds?`TDS recorded by Accounts: ${tdsLine(p)}`:"Accounts have not recorded TDS on this request."}</div><div className="wf-callout"><FileCheck2/>Accounts responded with correction proof. Reconfirm before approval.</div>{list(auditKeys)}<div className="wf-actions"><button className="wf-reject" onClick={()=>onAction("Observation - Audit Action")}>Return Again</button>{rejectForm(true)}<button className="wf-primary" disabled={!complete(auditKeys)} onClick={()=>onAction("Approved by Auditor – Ready to Release")}>Reconfirm & Approve</button></div></>;
- if(approved&&(can("Accountant")||can("Finance")))action=<><div className="wf-success"><FileCheck2/><div><b>Approved by Auditor</b><p>Upload payment/bank proof before marking this request as released.</p></div></div><label className="wf-proof"><Paperclip/>Upload release proof<input type="file" onChange={e=>setProof(e.target.files?.[0]?.name||"")}/>{proof&&<b>{proof}</b>}</label><button className="wf-primary" disabled={!proof} onClick={()=>onAction("Payment Released",withNote())}>Mark as Released</button></>;
+ /* Release. The proof is optional and, when chosen, is uploaded to the request as a bank /
+    payment proof - it used to be read for its name alone, to enable the button, and never
+    saved. The UTR is the bank's reference for the payment; remarks go into the trail. */
+ if(approved&&(can("Accountant")||can("Finance")))action=<><div className="wf-success"><FileCheck2/><div><b>Approved by Auditor</b>
+   <p>Record the payment: the UTR number, the bank proof if you have it, and any remarks.</p></div></div>
+   <label className="wf-note">UTR number<input className="wf-utr" value={utr} onChange={e=>setUtr(e.target.value)} placeholder="Bank reference for this payment (optional)"/></label>
+   <label className="wf-proof"><Paperclip/>{releaseFile?"Release proof":"Upload release proof (optional)"}
+     <input type="file" accept="image/*,application/pdf" onChange={e=>setReleaseFile(e.target.files?.[0]||null)}/>
+     {releaseFile&&<b>{releaseFile.name}</b>}</label>
+   {noteBox("Remarks","Anything worth recording with the release (optional)")}
+   {releaseErr&&<p className="wf-release-error">{releaseErr}</p>}
+   <button className="wf-primary" onClick={release}>Mark as Released</button></>;
  if(p.status==="Rejected")action=<><div className="wf-observation"><X/><div>
    <small>REQUEST REJECTED</small>
    <b>{p.rejectionNote||"No reason was recorded."}</b>
@@ -259,7 +283,7 @@ export default function PaymentDetail({payment:p,busy=false,role,onClose,onActio
  if((role==="Requestor"||role==="Payment Requestor")&&p.status!=="Rejected"&&p.status!=="Query Raised")
    action=<div className="wf-callout"><Clock3/>Status-only access. Accounts and Audit actions are hidden.</div>;
  const title=p.status==="Rejected"?"Rejected - closed":p.status==="Query Raised"?"Query - correct and resubmit":accountQueue?"Accounts acceptance":accountWork?"Accountant verification":auditQueue?"Audit acceptance":auditWork?"Audit verification":correction?"Respond to audit observation":recheck?"Audit reconfirmation":approved?"Upload proof & release":auditQuery?"Answer audit query":"Completed";
- return <><button className="overlay" onClick={onClose}/><aside className="detail workflow-detail"><header><div><small>PAYMENT CONTROL · {role.toUpperCase()}</small><h2>{p.requestNo}</h2></div><button onClick={onClose}><X/></button></header><div className="detail-body"><div className="wf-summary"><div><span className={`badge ${statusTone(p.status)}`}>{p.status}</span><h3>{p.vendor}</h3><b className="amount">{p.currency} {p.amount.toLocaleString()}</b></div><dl><div><dt>Company</dt><dd>{p.company}</dd></div><div><dt>Department</dt><dd>{p.department}</dd></div>{p.poNumber&&<div><dt>PO number</dt><dd>{p.poNumber}</dd></div>}{!!p.nature&&<div><dt>Nature</dt><dd>{p.nature}</dd></div>}{!!p.tds&&<div className={p.tds==="Yes"?"wide":""}><dt>TDS</dt><dd>{tdsLine(p)}</dd></div>}{!!p.projectCode&&<div><dt>Project code</dt><dd>{p.projectCode}</dd></div>}
+ return <><button className="overlay" onClick={onClose}/><aside className="detail workflow-detail"><header><div><small>PAYMENT CONTROL · {role.toUpperCase()}</small><h2>{p.requestNo}</h2></div><button onClick={onClose}><X/></button></header><div className="detail-body"><div className="wf-summary"><div><span className={`badge ${statusTone(p.status)}`}>{p.status}</span><h3>{p.vendor}</h3><b className="amount">{p.currency} {p.amount.toLocaleString()}</b></div><dl><div><dt>Company</dt><dd>{p.company}</dd></div><div><dt>Department</dt><dd>{p.department}</dd></div>{p.poNumber&&<div><dt>PO number</dt><dd>{p.poNumber}</dd></div>}{!!p.nature&&<div><dt>Nature</dt><dd>{p.nature}</dd></div>}{!!p.utrNumber&&<div><dt>UTR number</dt><dd>{p.utrNumber}</dd></div>}{!!p.tds&&<div className={p.tds==="Yes"?"wide":""}><dt>TDS</dt><dd>{tdsLine(p)}</dd></div>}{!!p.projectCode&&<div><dt>Project code</dt><dd>{p.projectCode}</dd></div>}
       {!!p.invoiceNumber&&<div><dt>Invoice</dt><dd>{p.invoiceNumber}{p.invoiceDate?` · ${p.invoiceDate}`:""}</dd></div>}
       {!!p.paymentTerms&&<div><dt>Payment terms</dt><dd>{p.paymentTerms}</dd></div>}
       {!!p.period&&<div><dt>Period</dt><dd>{p.period}</dd></div>}{(()=>{try{return(JSON.parse(p.extra||"[]") as {id:string;label:string;value:string}[])

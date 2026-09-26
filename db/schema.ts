@@ -18,6 +18,8 @@ export const paymentRequests=sqliteTable("payment_requests",{id:integer("id").pr
   project:text("project").notNull().default(""),
   jobLocation:text("job_location").notNull().default(""),
   workType:text("work_type").notNull().default(""),
+  /* The bank's reference for the payment, recorded when it is released. */
+  utrNumber:text("utr_number").notNull().default(""),
   extra:text("extra").notNull().default(""),
   projectCode:text("project_code").notNull().default(""),
   invoiceNumber:text("invoice_number").notNull().default(""),

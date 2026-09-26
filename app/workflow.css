@@ -202,3 +202,7 @@
   background:none;color:#98a2b3;cursor:pointer}
 .file-picker-list li button:hover{background:#fef3f2;color:#b42318}
 .file-picker-list li button svg{width:14px;height:14px}
+/* The release step's UTR field and the message when a proof fails to upload. */
+.wf-note input.wf-utr{display:block;width:100%;height:36px;margin-top:5px;padding:0 10px;border:1px solid #d0d5dd;border-radius:6px;font:inherit;font-size:12px;box-sizing:border-box}
+.wf-release-error{margin:4px 0 8px!important;padding:0!important;background:none!important;color:#b42318;font-size:11.5px!important}
+.wf-work .wf-note input.wf-utr{font-size:11px;height:36px;padding:0 9px;font-family:inherit}
