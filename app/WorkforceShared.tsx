@@ -186,13 +186,11 @@ export function EmployeeEditor({employee,close,flash}:{employee:Partial<Employee
         onChange={x=>{const picked=wf.allRoles.find(r=>r.id===x.target.value);
           setE(p=>({...p,roleId:x.target.value,designation:picked?picked.name:""}))}}>
         <option value="">— select a designation —</option>
-        {wf.allRoles.filter(r=>r.deptId===(e.deptId||wf.dept)).map(r=><option key={r.id} value={r.id}>{r.name}</option>)}</select>
-        <small className="wf-hint">Add a new designation on the Organisation screen.</small></label>
+        {wf.allRoles.filter(r=>r.deptId===(e.deptId||wf.dept)).map(r=><option key={r.id} value={r.id}>{r.name}</option>)}</select></label>
       <label>Team / vertical<input value={e.department||""} onChange={x=>set("department",x.target.value)}/></label>
       <label>Company<select value={e.portalCompanyId||""} onChange={x=>set("portalCompanyId",x.target.value)}>
         <option value="">All companies (not restricted)</option>
-        {companies.filter(c=>c.active||c.id===e.portalCompanyId).map(c=><option key={c.id} value={c.id}>{c.name}</option>)}</select>
-        <small className="wf-hint">Once set, this person raises requests for this company only and sees only its data. Administrators are never restricted.</small></label>
+        {companies.filter(c=>c.active||c.id===e.portalCompanyId).map(c=><option key={c.id} value={c.id}>{c.name}</option>)}</select></label>
       <label className="wide">Reports to
         <input placeholder="Type a name to search" defaultValue="" onChange={x=>findManagers(x.target.value)}/>
         <select value={e.reportsTo||""} onChange={x=>set("reportsTo",x.target.value||null)}>
