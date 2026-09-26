@@ -103,3 +103,28 @@
 .access-picked button{border:1px solid var(--line);background:#fff;border-radius:6px;
   padding:5px 9px;font-size:10px;cursor:pointer}
 .access-picked button:hover{border-color:#0b1d3a}
+
+/* The search boxes in Users & access. The editor gives every input its own border,
+   padding and margin, so the one inside the search frame drew a second box within the
+   first - 62px tall, 16px text, a tiny icon - and it stopped short of the list under it.
+   One frame now, full width, the height and type of the rest of the panel. */
+.access-editor .recv-search,.access-tools .recv-search{display:flex;align-items:center;gap:8px;height:38px;padding:0 12px;
+  border:1px solid var(--line,#e4e7ec);border-radius:8px;background:#fff;box-sizing:border-box}
+.access-editor .recv-search{width:100%;max-width:none;margin:4px 0 10px}
+.access-editor .recv-search:focus-within,.access-tools .recv-search:focus-within{border-color:#84adff;box-shadow:0 0 0 3px #eff4ff}
+.access-editor .recv-search svg,.access-tools .recv-search svg{width:15px;height:15px;flex:none;color:#98a2b3}
+.access-editor .recv-search input,.access-tools .recv-search input{display:block;width:100%;min-width:0;height:100%;margin:0;padding:0;
+  border:0;border-radius:0;background:none;box-shadow:none;outline:0;font:inherit;font-size:12.5px;color:#1d2939}
+.access-editor .recv-search input::placeholder,.access-tools .recv-search input::placeholder{color:#98a2b3}
+.access-tools{align-items:center;gap:12px}
+
+/* The editor's footer: Cancel and Save the same height and type, at the right. */
+.access-editor footer{display:flex;justify-content:flex-end;align-items:center;gap:8px;padding:14px 20px;border-top:1px solid var(--line,#e4e7ec)}
+.access-editor footer button{display:inline-flex;align-items:center;justify-content:center;gap:6px;height:38px;margin:0;padding:0 16px;
+  border-radius:8px;font:inherit;font-size:12px;font-weight:600;line-height:1;cursor:pointer}
+.access-editor footer button:not(.primary){border:1px solid var(--line,#e4e7ec);background:#fff;color:#344054}
+.access-editor footer button:not(.primary):hover{background:#f9fafb}
+
+/* The notes inside the editor - the account's email, the hint above the requestors - sit
+   with the form, not centred like an empty list. */
+.access-editor .queue-empty{text-align:left;padding:0;margin:0 0 10px;font-size:12px;color:#667085}
