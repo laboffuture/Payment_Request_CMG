@@ -885,3 +885,28 @@ export const wfCollectionEvents=sqliteTable("wf_collection_events",{
   remarks:text("remarks").notNull().default(""),
   promisedDate:text("promised_date").notNull().default("")},
   t=>[index("wf_collev_case_idx").on(t.caseId,t.at)]);
+
+/* The task catalogue: each entity's recurring accounts, compliance and audit tasks, as
+   the business's daily task template lists them. Master data for the pre-audit form's
+   dropdowns. The text is kept as imported (next_due as written, e.g. "Ongoing - every
+   week"); next_due_date holds it as a date where it is one. assignee_email is the portal
+   login the assignee's name was matched to. */
+export const wfTaskCatalogue=sqliteTable("wf_task_catalogue",{
+  id:text("id").primaryKey(),
+  title:text("title").notNull().default(""),
+  description:text("description").notNull().default(""),
+  category:text("category").notNull().default(""),
+  entity:text("entity").notNull().default(""),
+  assigneeName:text("assignee_name").notNull().default(""),
+  assigneeEmail:text("assignee_email").notNull().default(""),
+  frequency:text("frequency").notNull().default(""),
+  dueRule:text("due_rule").notNull().default(""),
+  nextDue:text("next_due").notNull().default(""),
+  nextDueDate:text("next_due_date").notNull().default(""),
+  status:text("status").notNull().default(""),
+  position:integer("position").notNull().default(0),
+  active:integer("active").notNull().default(1),
+  source:text("source").notNull().default(""),
+  createdAt:text("created_at").notNull().default(""),
+  updatedAt:text("updated_at").notNull().default("")},
+  t=>[index("wf_taskcat_entity_idx").on(t.entity,t.category)]);
