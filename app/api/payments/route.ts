@@ -274,8 +274,10 @@ export async function PATCH(req:Request){
     const TDS_KEYS=["tds","tdsPercent","tdsValue"];
     /* Verification, not acceptance. TDS is asked for where accounts do the checking, so
        the server accepts it only from there - the acceptance step no longer offers the
-       field and must not be able to write it either. */
-    const ACCOUNTS_STAGES=["Accountant Accepted","Accountant Review"];
+       field and must not be able to write it either. It is accepted again where accounts
+       answer audit - a query or an observation - since the answer is often a corrected
+       TDS; the change is logged field by field like any other. */
+    const ACCOUNTS_STAGES=["Accountant Accepted","Accountant Review","Audit Query","Observation - Audit Action"];
     const tdsOnly=!!sent&&Object.keys(sent).length>0
       &&Object.keys(sent).every(k=>TDS_KEYS.includes(k));
     if(tdsOnly&&sent){
