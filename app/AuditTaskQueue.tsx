@@ -1,12 +1,17 @@
 "use client";
 import{ExtraFields,packExtra}from"./ExtraFields";
 import{useExtraFields}from"./ExtraFields";
-import{CalendarClock,CheckCircle2,Plus,Search,X}from"lucide-react";
+import{CalendarClock,CheckCircle2,Download,Plus,Search,Trash2,UserCog,X}from"lucide-react";
+import{auditTasksApi}from"./audit-api";
+import{csv}from"./workforce-store";
 import{useMemo,useState}from"react";import type{AuditTask}from"./page";
 import{useAsync,useWorkforce}from"./workforce-store";
 import{useOptions}from"./options-store";
 import type{Employee}from"./workforce-store";
-import{ObservationForm,PreAuditTaskForm,RemarksForm}from"./PreAuditForms";
+import{AssignForm,ObservationForm,PreAuditTaskForm,RemarksForm,preAuditReport}from"./PreAuditForms";
+/* Who runs the pre-audit queue: assigns auditors, deletes tasks and downloads the report.
+   The server checks the same roles. */
+const HEAD_ROLES=["Audit Head","Administrator"];
 /* Tasks, tokens and training had screens of their own. They are raised on the meeting
    form now and listed beside meetings, so one screen holds everything the audit team
    schedules rather than four that behaved the same way. */
@@ -19,6 +24,12 @@ const RECURRING=["Daily","Weekly","Monthly"];
 const WEEKDAYS=["Sunday","Monday","Tuesday","Wednesday","Thursday","Friday","Saturday"];
 type Tab="Queue"|"Accepted & In Progress"|"Completed";
 export default function AuditTaskQueue({title,kind,tasks,role,accept,update,create,companies=[],departments=[],userName="",flash,refresh}:{companies?:{id:string;name:string}[];departments?:string[];userName?:string;refresh?:()=>void;flash?:(m:string)=>void;create?:(t:{title:string;department:string;companyId:string;due:string;notes:string;attendees?:string;extra?:string;kind?:string;frequency?:string;recurDay?:string;recurUntil?:string;category?:string;entity?:string;dueRule?:string;catalogueId?:string;assignedTo?:string;status?:string})=>Promise<void>|void;title:string;kind:AuditTask["kind"];tasks:AuditTask[];role:string;accept:(id:string)=>void;update:(id:string,status:AuditTask["status"])=>void}){const[obsTask,setObsTask]=useState<AuditTask|null>(null),[remTask,setRemTask]=useState<AuditTask|null>(null);
+  const head=kind==="Pre-Audit"&&HEAD_ROLES.includes(role);
+  const[assignTask,setAssignTask]=useState<AuditTask|null>(null),[reporting,setReporting]=useState(false);
+  const removeTask=async(t:AuditTask)=>{
+    if(!confirm(`Delete ${t.id} (${t.title})? Observations raised on it stay in the register.`))return;
+    try{await auditTasksApi.remove(t.id);flash?.(`${t.id} deleted`);refresh?.()}
+    catch(e){flash?.(e instanceof Error?e.message:"Could not delete it")}};
   const remarkCount=(t:AuditTask)=>{try{const r=JSON.parse(t.remarks||"[]");return Array.isArray(r)?r.length:0}catch{return 0}};const[tab,setTab]=useState<Tab>("Queue"),[open,setOpen]=useState(false),[busy,setBusy]=useState(false),[form,setForm]=useState({title:"",department:"",companyId:"",due:"",notes:"",kind:"Meeting",frequency:"One time",recurDay:"",recurUntil:""}),[guests,setGuests]=useState<{id:string;name:string}[]>([]),[term,setTerm]=useState(""),[search,setSearch]=useState(""),[dept,setDept]=useState("All departments"),[entity,setEntity]=useState("All companies");const wf=useWorkforce();
   const frequencies=useOptions("audittask.frequency",FREQUENCY_FALLBACK);
   const xFields=useExtraFields("audittask");
@@ -35,6 +46,12 @@ export default function AuditTaskQueue({title,kind,tasks,role,accept,update,crea
       .map(id=>m.get(id)||id);
   },[roster]);
   const base=tasks.filter(t=>kind==="Meeting"?(RAISED_ON_MEETINGS as readonly string[]).includes(t.kind):t.kind===kind),rows=useMemo(()=>base.filter(t=>(tab==="Queue"?t.status==="Available":tab==="Completed"?t.status==="Completed":!["Available","Completed"].includes(t.status))&&(dept==="All departments"||t.department===dept)&&(entity==="All companies"||(t.entity||t.company)===entity)&&`${t.id} ${t.title} ${t.company} ${t.entity||""} ${t.category||""} ${t.department}`.toLowerCase().includes(search.toLowerCase())),[base,tab,search,dept,entity]);return <div className="page audit-list-page"><div className="intro"><div><small>AUDIT DEPARTMENT</small><h2>{title}</h2><p>Queue, accepted work in progress, and completed tasks in one consistent list.</p></div><div className="audit-list-actions">
+   {/* The report is of the tasks the tab and filters show, so the Audit Head chooses what it covers. */}
+   {head&&<button disabled={reporting||!rows.length} onClick={async()=>{setReporting(true);
+     try{csv(await preAuditReport(rows),`pre-audit-report-${tab.toLowerCase().replace(/[^a-z]+/g,"-")}-${new Date().toISOString().slice(0,10)}.csv`);
+       flash?.(`Report downloaded: ${rows.length} task${rows.length===1?"":"s"}`)}
+     catch(e){flash?.(e instanceof Error?e.message:"Could not build the report")}
+     finally{setReporting(false)}}}><Download/>{reporting?"Preparing…":"Download report"}</button>}
    {create&&(kind==="Meeting"||role!=="Requestor")&&<button className="primary" onClick={()=>setOpen(true)}><Plus/>New {kind==="Meeting"?"meeting":kind.toLowerCase()+" task"}</button>}
    </div></div><section className="panel audit-list"><div className="audit-list-tabs">{(["Queue","Accepted & In Progress","Completed"] as Tab[]).map(x=><button className={tab===x?"active":""} onClick={()=>setTab(x)} key={x}>{x}<i>{base.filter(t=>x==="Queue"?t.status==="Available":x==="Completed"?t.status==="Completed":!["Available","Completed"].includes(t.status)).length}</i></button>)}</div><div className="audit-list-tools"><label><Search/><input value={search} onChange={e=>setSearch(e.target.value)} placeholder="Search task, company or department"/></label><select value={dept} onChange={e=>setDept(e.target.value)}><option>All departments</option>{Array.from(new Set(base.map(t=>t.department))).map(x=><option key={x}>{x}</option>)}</select><select value={entity} onChange={e=>setEntity(e.target.value)}><option>All companies</option>{Array.from(new Set(base.map(t=>t.entity||t.company))).map(x=><option key={x}>{x}</option>)}</select></div><div className="table-wrap"><table><thead><tr><th>PROGRAM / TASK</th><th>COMPANY / DEPT</th><th>AUDIT TYPE</th><th>PLANNED TIME</th><th>{kind==="Meeting"?"ATTENDING":"ASSIGNED TO"}</th><th>CURRENT STATUS</th><th>NEXT ACTION</th></tr></thead><tbody>{rows.map(t=><tr key={t.id}><td><b>{t.id}</b><small>{t.title}</small></td><td>{t.entity||t.company}<small>{[t.category,t.department].filter(Boolean).filter((x,i,a)=>a.indexOf(x)===i).join(" · ")}</small></td><td>{t.kind}{t.frequency&&t.frequency!=="One time"?` · ${t.frequency}`:""}<small>{t.dueRule||(t.dataProvider?`Provider: ${t.dataProvider}`:"Evidence required")}</small></td><td><b>{t.plannedStart||t.due||"Not set"}</b><small>to {t.plannedEnd||t.due||"Not set"}</small></td><td>{kind==="Meeting"
               ?(()=>{const who=nameOf(t.attendees||"");
@@ -46,8 +63,13 @@ export default function AuditTaskQueue({title,kind,tasks,role,accept,update,crea
               :kind==="Pre-Audit"?<div className="wb-next-pair"><button className="wb-next" onClick={()=>setObsTask(t)}>Raise observation</button>
                 <button className="wb-next" onClick={()=>setRemTask(t)}>Remarks{remarkCount(t)?` (${remarkCount(t)})`:""}</button>
                 <button className="wb-next" onClick={()=>update(t.id,"Completed")}>Mark completed</button></div>
-              :<button className="wb-next" onClick={()=>update(t.id,"Completed")}>Mark completed</button>}</td></tr>)}</tbody></table>{!rows.length&&<div className="wb-empty"><CheckCircle2/><b>No tasks in this section</b><span>Tasks will appear here when their status changes.</span></div>}</div></section>
+              :<button className="wb-next" onClick={()=>update(t.id,"Completed")}>Mark completed</button>}
+              {head&&<div className="pa-head">
+                {t.status!=="Completed"&&<button onClick={()=>setAssignTask(t)} title="Assign or change the auditor"><UserCog/>{t.assignedTo?"Change auditor":"Assign auditor"}</button>}
+                <button className="pa-del" onClick={()=>removeTask(t)} title="Delete this task"><Trash2/>Delete</button></div>}</td></tr>)}</tbody></table>{!rows.length&&<div className="wb-empty"><CheckCircle2/><b>No tasks in this section</b><span>Tasks will appear here when their status changes.</span></div>}</div></section>
   {open&&kind==="Pre-Audit"&&create&&<PreAuditTaskForm departments={departments} close={()=>setOpen(false)} create={t=>create(t)}/>}
+  {assignTask&&<AssignForm task={assignTask} close={()=>setAssignTask(null)}
+    saved={m=>{setAssignTask(null);flash?.(m);refresh?.()}}/>}
   {remTask&&<RemarksForm task={remTask} close={()=>setRemTask(null)}
     saved={m=>{setRemTask(null);flash?.(m);refresh?.()}}/>}
   {obsTask&&<ObservationForm task={obsTask} userName={userName} close={()=>setObsTask(null)}

@@ -120,6 +120,51 @@ export function PreAuditTaskForm({close,create,departments=[]}:{close:()=>void;c
         <button className="primary" disabled={busy}><Plus/>{busy?"Saving…":"Create"}</button></footer>
     </form></>}
 
+/* The Audit Head assigns - or changes - the auditor of a task. */
+export function AssignForm({task,close,saved}:{task:AuditTask;close:()=>void;saved:(msg:string)=>void}){
+  const people=useAsync(()=>catalogueApi.auditors(),[]);
+  const[who,setWho]=useState(task.assignedTo||""),[busy,setBusy]=useState(false),[err,setErr]=useState("");
+  const submit=async(e:React.FormEvent)=>{
+    e.preventDefault();setBusy(true);setErr("");
+    try{await auditTasksApi.update({id:task.id,action:"assign",assignedTo:who} as never);saved(`${task.id} assigned to ${who}`)}
+    catch(x){setErr(x instanceof Error?x.message:"Could not assign the auditor");setBusy(false)}};
+  return <><button className="overlay" onClick={close}/>
+    <form className="modal" onSubmit={submit}>
+      <header><div><small>ASSIGN AUDITOR · {task.id}</small><h2>{task.title}</h2></div>
+        <button type="button" onClick={close}><X/></button></header>
+      <div className="form">
+        <label className="wide">Audit by {req}
+          <select required autoFocus value={who} onChange={e=>setWho(e.target.value)}>
+            <option value="">{people.loading?"Loading auditors…":"Select an auditor"}</option>
+            {uniq([...(people.data||[]).map(p=>p.name),who]).map(x=><option key={x}>{x}</option>)}</select></label>
+        <p className="wide pa-note">The auditor is emailed. {task.assignedTo?`Currently ${task.assignedTo}.`:"Nobody is assigned yet."}</p>
+        {err&&<p className="wide form-error">{err}</p>}
+      </div>
+      <footer><button type="button" onClick={close}>Cancel</button>
+        <button className="primary" disabled={busy||!who||who===task.assignedTo}>{busy?"Saving…":"Assign"}</button></footer>
+    </form></>}
+
+/* The pre-audit report: every task shown, with its remarks and the observations raised
+   on it, as rows for a spreadsheet. */
+export async function preAuditReport(tasks:AuditTask[]){
+  type Obs={ref:string;taskId:string;risk:string;status:string;title:string;target:string;responsibility:string};
+  const obs:Obs[]=[];
+  for(let offset=0;offset<5000;offset+=200){
+    const res=await fetch(`/api/workforce/observations?limit=200&offset=${offset}`);
+    const d=await res.json().catch(()=>({})) as {observations?:Obs[];total?:number};
+    if(!res.ok)break;
+    obs.push(...(d.observations||[]));
+    if(offset+200>=(d.total||0))break}
+  const remarks=(t:AuditTask)=>{try{const r=JSON.parse(t.remarks||"[]");return Array.isArray(r)?r as {by:string;at:string;text:string}[]:[]}catch{return[]}};
+  const status=(s:string)=>s==="Available"?"Not started":s;
+  return[["Task ID","Task title","Vertical / entity","Category (area)","Department","Audit by","Frequency","Due date rule",
+    "Next due date","Status","Description / instructions","Remarks","Latest remark","Observations","High risk","Open observations","Observation details"],
+    ...tasks.map(t=>{const mine=obs.filter(o=>o.taskId===t.id),r=remarks(t),last=r[r.length-1];
+      return[t.id,t.title,t.entity||t.company,t.category||"",t.department,t.assignedTo||"",t.frequency||"",t.dueRule||"",
+        t.due||"",status(t.status),t.notes||"",r.length,last?`${last.text} (${last.by})`:"",mine.length,
+        mine.filter(o=>o.risk==="High").length,mine.filter(o=>!["Resolved","Closed"].includes(o.status)).length,
+        mine.map(o=>`${o.ref} [${o.risk}, ${o.status}] ${o.title} - ${o.responsibility||"—"} by ${o.target||"—"}`).join(" | ")]})]}
+
 /* Remarks on a task: everything recorded so far, oldest first, and a box to add one.
    Remarks are added to, never edited, so the list is the task's running record. */
 export function RemarksForm({task,close,saved}:{task:AuditTask;close:()=>void;saved:(msg:string)=>void}){
