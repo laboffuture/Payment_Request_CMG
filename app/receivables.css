@@ -370,3 +370,4 @@
   .pp-quote b{grid-column:1/-1}}
 .pp-quote input{font-size:.78rem;height:36px;box-sizing:border-box}
 .pp-quote .pp-none{color:var(--muted,#98a2b3)}
+.recv-desc .cb-statuses{display:block;font-size:11px;color:var(--muted,#667085);margin-top:.15rem}

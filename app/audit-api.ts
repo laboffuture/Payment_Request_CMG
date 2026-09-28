@@ -112,13 +112,17 @@ export const collectionApi={
    completion cycles each active job produces. */
 export type BillingJob={id:string;ref:string;jobId:string;planId:string;jobRef:string;customer:string;
   companyId:string;description:string;pmName:string;pmEmail:string;contractValue:number;currency:string;
-  active:number;everyDays:number;lastRequestedAt:string;nextRequestAt:string;createdAt:string;updatedAt:string};
+  active:number;everyDays:number;lastRequestedAt:string;nextRequestAt:string;createdAt:string;updatedAt:string;
+  jobCode:string;projectName:string;startDate:string;expectedCompletion:string};
 export type Cycle={id:string;ref:string;stage:string;billingJobId:string;jobRef:string;customer:string;
   pmName:string;pmEmail:string;contractValue:number;currency:string;requestedAt:string;requestedBy:string;
   percentComplete:number;completionNotes:string;updatedBy:string;pmUpdatedAt:string;certifiedPercent:number;
   certificationNotes:string;certifiedBy:string;certifiedAt:string;approvalNotes:string;approvedBy:string;
   approvedAt:string;invoiceNo:string;invoiceDate:string;invoiceAmount:number;invoicedBy:string;invoicedAt:string;
-  verifiedBy:string;verifiedAt:string;remarks:string;returnNote:string;returnedAt:string;createdAt:string;updatedAt:string};
+  verifiedBy:string;verifiedAt:string;remarks:string;returnNote:string;returnedAt:string;createdAt:string;updatedAt:string;
+  jobCode:string;projectName:string;startDate:string;expectedCompletion:string;billingStatus:string;collectionStatus:string;
+  jobStatus:string;completionRequestDate:string;actualCompletionDate:string;pendingWork:string;delayReason:string;
+  updatedByEmail:string;ccCertification:string;certifiedByEmail:string;managementApproval:string;approvedByEmail:string};
 export const completionApi={
   load:async()=>asJson<{jobs:BillingJob[];cycles:Cycle[];totals:Record<string,{invoiced:number;certified:number}>}>(
     await fetch("/api/completion")),

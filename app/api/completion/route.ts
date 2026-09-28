@@ -3,8 +3,8 @@ import{getBindings,getDb}from"../../../db";
 import{wfBillingJobs,wfCompletions,wfPlanning,wfReceivables}from"../../../db/schema";
 import{companyLock,inCompany,requireAuth}from"../../../lib/auth";
 import{emailsForRoles,notify}from"../../../lib/notify";
-import{ACCOUNTS_ROLES,AUDIT_ROLES,BILLING_ROLES,COST_CONTROL_ROLES,DEFAULT_EVERY_DAYS,FIELD_LABEL,FIRST,
-  MANAGEMENT_ROLES,REQUIRED_TO_LEAVE,RETURNABLE_FROM,STAGES,mayAct,stageIndex}from"../../../lib/completion-stages";
+import{ACCOUNTS_ROLES,AUDIT_ROLES,BILLING_ROLES,BILLING_STATUSES,COLLECTION_STATUSES,COST_CONTROL_ROLES,
+  DEFAULT_EVERY_DAYS,FIELD_LABEL,FIRST,JOB_STATUSES,MANAGEMENT_ROLES,REQUIRED_TO_LEAVE,RETURNABLE_FROM,STAGES,mayAct,stageIndex}from"../../../lib/completion-stages";
 import type{Stage}from"../../../lib/completion-stages";
 import{actorOf,bad,num,oops,str,writeWithAudit}from"../../../lib/workforce-api";
 import type{Row}from"../../../lib/workforce-api";
@@ -38,12 +38,17 @@ async function syncJobs(db:Db){
   const listed=new Set((await db.select({planId:wfBillingJobs.planId}).from(wfBillingJobs)).map(r=>r.planId));
   const plans=(await db.select().from(wfPlanning).where(eq(wfPlanning.stage,"Verified"))).filter(p=>!listed.has(p.id));
   for(const p of plans){
-    const[job]=await db.select({amount:wfReceivables.amount,currency:wfReceivables.currency})
+    const[job]=await db.select({amount:wfReceivables.amount,currency:wfReceivables.currency,
+      contractValue:wfReceivables.contractValue,contractCurrency:wfReceivables.contractCurrency})
       .from(wfReceivables).where(eq(wfReceivables.id,p.jobId));
+    /* The contract value from the CRM job, or the job notification's amount before it. */
+    const byContract=num(job?.contractValue)>0;
     const id=`BJ-${stamp()}`;
     await db.insert(wfBillingJobs).values({id,ref:p.jobRef||id.toUpperCase(),jobId:p.jobId,planId:p.id,jobRef:p.jobRef,
       customer:p.customer,companyId:p.companyId,description:p.description,pmName:p.pmName,pmEmail:p.pmEmail,
-      contractValue:num(job?.amount),currency:job?.currency||p.currency||"AED",active:1,everyDays:DEFAULT_EVERY_DAYS,
+      contractValue:byContract?num(job?.contractValue):num(job?.amount),
+      currency:(byContract?job?.contractCurrency:job?.currency)||p.currency||"AED",active:1,everyDays:DEFAULT_EVERY_DAYS,
+      jobCode:p.jobCode||"",projectName:p.projectName||"",startDate:p.startDate||"",expectedCompletion:p.endDate||"",
       nextRequestAt:addDays(p.verifiedAt||now(),DEFAULT_EVERY_DAYS),createdAt:now(),updatedAt:now()});
   }}
 
@@ -57,10 +62,18 @@ async function issue(db:Db,job:typeof wfBillingJobs.$inferSelect,by:string,actor
   await db.update(wfBillingJobs).set({lastRequestedAt:at,nextRequestAt:addDays(at,job.everyDays||DEFAULT_EVERY_DAYS),updatedAt:at})
     .where(eq(wfBillingJobs.id,job.id));
   if(open)return{created:false,ref:open.ref};
+  /* The statuses carry over from the job's last update, so the manager changes only
+     what has changed. */
+  const[last]=await db.select({billingStatus:wfCompletions.billingStatus,collectionStatus:wfCompletions.collectionStatus,
+    jobStatus:wfCompletions.jobStatus}).from(wfCompletions)
+    .where(and(eq(wfCompletions.billingJobId,job.id),sql`${wfCompletions.billingStatus} <> ''`)).orderBy(desc(wfCompletions.createdAt)).limit(1);
   const s=stamp();
   const row={id:`CB-${s}`,ref:`CB-${s.toUpperCase()}`,stage:FIRST as string,billingJobId:job.id,jobRef:job.jobRef,
     customer:job.customer,pmName:job.pmName,pmEmail:job.pmEmail,contractValue:job.contractValue,currency:job.currency,
-    requestedAt:at,requestedBy:by,createdAt:at,updatedAt:at};
+    requestedAt:at,requestedBy:by,createdAt:at,updatedAt:at,
+    jobCode:job.jobCode,projectName:job.projectName,startDate:job.startDate,expectedCompletion:job.expectedCompletion,
+    billingStatus:last?.billingStatus||"Not billed",collectionStatus:last?.collectionStatus||"Not due",
+    jobStatus:last?.jobStatus||"In progress",completionRequestDate:at.slice(0,10)};
   await writeWithAudit([db.insert(wfCompletions).values(row)],by,"completion",row.id,"Completion requested",
     `${row.ref} · ${job.jobRef} · ${job.customer}`);
   const to=job.pmEmail?[job.pmEmail]:await emailsForRoles(ACCOUNTS_ROLES);
@@ -206,7 +219,12 @@ export async function PATCH(req:Request){
       if(!allowed.includes(to))return bad(`From ${from} a cycle may be sent back to ${allowed.join(", ")}.`,422);
       const note=str(body.note).trim();
       if(!note)return bad("Say what needs correcting before sending it back.",422);
-      const patch={stage:to,returnNote:`${from}: ${note}`,returnedAt:now(),updatedAt:now()};
+      const patch:Row={stage:to,returnNote:`${from}: ${note}`,returnedAt:now(),updatedAt:now()};
+      /* Sending back from these two stages is their negative answer, recorded as such. */
+      if(from==="Cost Control Certification")Object.assign(patch,{ccCertification:"Not certified",
+        certificationNotes:note,certifiedBy:who,certifiedByEmail:actor?.email||"",certifiedAt:now()});
+      if(from==="Management Approval")Object.assign(patch,{managementApproval:"Rejected",
+        approvalNotes:note,approvedBy:who,approvedByEmail:actor?.email||"",approvedAt:now()});
       await writeWithAudit([db.update(wfCompletions).set(patch).where(eq(wfCompletions.id,id))],
         actorOf(req,body),"completion",id,`Returned to ${to}`,`${row.ref} · ${note}`);
       const t=await tell(to);
@@ -227,22 +245,50 @@ export async function PATCH(req:Request){
     const pct=(v:unknown)=>{const n=num(v);return n>=0&&n<=100?n:NaN};
 
     const patch:Row={stage:next,updatedAt:now(),returnNote:"",returnedAt:""};
+    const oneOf=(v:unknown,list:readonly string[],label:string)=>
+      list.includes(str(v))?"":`${label} must be one of ${list.join(", ")}.`;
+    const date=(v:unknown)=>!str(v)||/^\d{4}-\d{2}-\d{2}$/.test(str(v));
     if(from==="Project Manager Update"){
       const p=pct(filled.percentComplete);
       if(Number.isNaN(p))return bad("Completion % must be between 0 and 100.",422);
-      Object.assign(patch,{percentComplete:p,completionNotes:str(filled.completionNotes).trim(),updatedBy:who,pmUpdatedAt:now()});
+      const wrong=oneOf(filled.billingStatus,BILLING_STATUSES,"Billing status")||oneOf(filled.collectionStatus,COLLECTION_STATUSES,"Collection status")
+        ||oneOf(filled.jobStatus,JOB_STATUSES,"Job status");
+      if(wrong)return bad(wrong,422);
+      if(!date(filled.completionRequestDate)||!date(filled.actualCompletionDate))return bad("Enter the dates as dates.",422);
+      Object.assign(patch,{percentComplete:p,billingStatus:str(filled.billingStatus),collectionStatus:str(filled.collectionStatus),
+        jobStatus:str(filled.jobStatus),completionRequestDate:str(filled.completionRequestDate),
+        actualCompletionDate:str(filled.actualCompletionDate),pendingWork:str(filled.pendingWork).trim(),
+        delayReason:str(filled.delayReason).trim(),completionNotes:str(filled.completionNotes).trim(),
+        updatedBy:who,updatedByEmail:actor?.email||"",pmUpdatedAt:now(),
+        /* A fresh update is certified and approved afresh. */
+        ccCertification:"",managementApproval:""});
     }
     if(from==="Cost Control Certification"){
+      if(str(filled.ccCertification)!=="Certified")
+        return bad("To mark it not certified, send it back to the project manager with the reason.",422);
       const p=pct(filled.certifiedPercent);
       if(Number.isNaN(p))return bad("Certified completion % must be between 0 and 100.",422);
-      Object.assign(patch,{certifiedPercent:p,certificationNotes:str(body.certificationNotes,row.certificationNotes).trim(),
-        certifiedBy:who,certifiedAt:now()});
+      Object.assign(patch,{ccCertification:"Certified",certifiedPercent:p,
+        certificationNotes:str(body.certificationNotes,row.certificationNotes).trim(),
+        certifiedBy:who,certifiedByEmail:actor?.email||"",certifiedAt:now()});
     }
-    if(from==="Management Approval")
-      Object.assign(patch,{approvalNotes:str(body.approvalNotes,row.approvalNotes).trim(),approvedBy:who,approvedAt:now()});
+    if(from==="Management Approval"){
+      if(str(filled.managementApproval)!=="Approved")
+        return bad("To reject it, send it back with the reason.",422);
+      /* Maker-checker: nobody approves a completion they reported or certified. */
+      const me=lower(actor?.email);
+      if(me&&(me===lower(row.updatedByEmail)||me===lower(row.certifiedByEmail)))
+        return bad("You updated or certified this completion, so someone else in management must approve it (maker-checker).",403);
+      Object.assign(patch,{managementApproval:"Approved",approvalNotes:str(body.approvalNotes,row.approvalNotes).trim(),
+        approvedBy:who,approvedByEmail:actor?.email||"",approvedAt:now()});
+    }
     if(from==="Raise Invoice"){
       const amount=num(filled.invoiceAmount);
       if(!(amount>0))return bad("Invoice amount must be above zero.",422);
+      /* Accounts bring the billing and collection statuses up to date with the invoice. */
+      const wrong=oneOf(filled.billingStatus,BILLING_STATUSES,"Billing status")||oneOf(filled.collectionStatus,COLLECTION_STATUSES,"Collection status");
+      if(wrong)return bad(wrong,422);
+      Object.assign(patch,{billingStatus:str(filled.billingStatus),collectionStatus:str(filled.collectionStatus)});
       Object.assign(patch,{invoiceNo:str(filled.invoiceNo).trim(),invoiceDate:str(filled.invoiceDate),invoiceAmount:amount,
         currency:str(body.currency,row.currency||"AED"),invoicedBy:who,invoicedAt:now()});
     }

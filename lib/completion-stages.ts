@@ -51,21 +51,36 @@ export const ACTION_LABEL:Record<Stage,string>={
   "Audit Verification":"Verify",
   "Verified":""};
 
+/* As the Completion & Billing field specification sets out the mandatory fields. */
 export const REQUIRED_TO_LEAVE:Record<Stage,string[]>={
-  "Project Manager Update":["percentComplete","completionNotes"],
-  "Cost Control Certification":["certifiedPercent"],
-  "Management Approval":[],
+  "Project Manager Update":["percentComplete","billingStatus","collectionStatus","jobStatus"],
+  "Cost Control Certification":["ccCertification","certifiedPercent"],
+  "Management Approval":["managementApproval"],
   "Raise Invoice":["invoiceNo","invoiceDate","invoiceAmount"],
   "Audit Verification":[],
   "Verified":[]};
 
 export const FIELD_LABEL:Record<string,string>={
   percentComplete:"Completion %",completionNotes:"Completion notes",certifiedPercent:"Certified completion %",
+  billingStatus:"Billing status",collectionStatus:"Collection status",jobStatus:"Job status",
+  ccCertification:"Cost control certification",managementApproval:"Management approval",
   invoiceNo:"Invoice number",invoiceDate:"Invoice date",invoiceAmount:"Invoice amount"};
 
 /* Where a cycle may be sent back from each approving stage: anything before it. */
 export const RETURNABLE_FROM:Partial<Record<Stage,Stage[]>>={
+  /* "Not certified" by cost control goes back to the project manager. */
+  "Cost Control Certification":["Project Manager Update"],
   "Management Approval":["Project Manager Update","Cost Control Certification"],
   "Audit Verification":["Project Manager Update","Cost Control Certification","Management Approval","Raise Invoice"]};
 
 export const DEFAULT_EVERY_DAYS=7;
+
+/* The dropdowns of the Completion & Billing form. Fixed here because the code reads them. */
+export const BILLING_STATUSES=["Not billed","Partly billed","Fully billed"] as const;
+export const COLLECTION_STATUSES=["Not due","Pending","Partly collected","Fully collected","Overdue"] as const;
+export{JOB_STATUSES}from"./receivable-stages";
+/* Cost control either certifies the completion or sends it back as not certified; the
+   same for management, whose approval is maker-checker - whoever updated or certified a
+   cycle cannot also approve it. */
+export const CC_CERTIFICATIONS=["Certified","Not certified"] as const;
+export const MANAGEMENT_APPROVALS=["Approved","Rejected"] as const;

@@ -15,7 +15,8 @@ import type{BillingJob,Cycle}from"./audit-api";
 import{useAsync}from"./workforce-store";
 import{Empty,ErrorBlock,Loading}from"./WorkforceShared";
 import Attachments from"./Attachments";
-import{ACCOUNTS_ROLES,ACTION_LABEL,BILLING_ROLES,FLOW,RETURNABLE_FROM,isVerified,mayAct,stageIndex}
+import{ACCOUNTS_ROLES,ACTION_LABEL,BILLING_ROLES,BILLING_STATUSES,CC_CERTIFICATIONS,COLLECTION_STATUSES,FLOW,JOB_STATUSES,
+  MANAGEMENT_APPROVALS,RETURNABLE_FROM,isVerified,mayAct,stageIndex}
   from"../lib/completion-stages";
 import type{Stage}from"../lib/completion-stages";
 import{stamp}from"../lib/stamp";
@@ -48,7 +49,7 @@ export default function CompletionBilling({role,userEmail="",flash}:Props){
     c["Request for Project Completion"]=cycles.filter(r=>new Date(r.requestedAt).getTime()>=weekAgo).length;
     return c},[cycles,jobs,weekAgo]);
   const shown=useMemo(()=>cycles.filter(r=>(stage==="All stages"||r.stage===stage)&&
-    (!q.trim()||[r.ref,r.jobRef,r.customer,r.pmName,r.invoiceNo].join(" ").toLowerCase().includes(q.trim().toLowerCase()))),
+    (!q.trim()||[r.ref,r.jobRef,r.jobCode,r.projectName,r.customer,r.pmName,r.invoiceNo].join(" ").toLowerCase().includes(q.trim().toLowerCase()))),
     [cycles,stage,q]);
 
   return <div className="recv-module">
@@ -89,7 +90,8 @@ export default function CompletionBilling({role,userEmail="",flash}:Props){
           <span>Completion</span><span className="num">Invoice</span><span className="num">Status</span></div>
         {shown.map(r=><button key={r.id} className="recv-row" onClick={()=>setOpen(r)}>
           <div className="recv-ref"><b>{r.ref}</b><small>{r.customer}</small></div>
-          <div className="recv-desc">{r.jobRef} · requested {day(r.requestedAt)}
+          <div className="recv-desc">{r.jobCode||r.jobRef} · requested {day(r.requestedAt)}
+            {!!r.jobStatus&&<small className="cb-statuses">{r.jobStatus} · {r.billingStatus} · {r.collectionStatus}</small>}
             {r.returnNote&&<i className="recv-back"><RotateCcw/>Sent back: {r.returnNote}</i>}</div>
           <div className="recv-nums"><span><i>PM</i>{r.pmUpdatedAt?`${r.percentComplete}%`:"Awaited"}</span>
             <span><i>CERT</i>{r.certifiedAt?`${r.certifiedPercent}%`:"—"}</span></div>
@@ -127,7 +129,7 @@ function JobsRegister({jobs,totals,accounts,reload,flash}:{jobs:BillingJob[];tot
       <div className="recv-cols cb-job-cols" aria-hidden="true"><span>Job</span><span>Project manager</span>
         <span className="num">Contract / invoiced</span><span>Completion requests</span><span className="num">Status</span></div>
       {list.map(j=><div key={j.id} className="recv-row cb-job-row">
-        <div className="recv-ref"><b>{j.jobRef}</b><small>{j.customer}</small></div>
+        <div className="recv-ref"><b>{j.jobCode||j.jobRef}</b><small>{j.customer}</small></div>
         <div className="recv-nums"><span>{j.pmName||"—"}</span><span>{j.description}</span></div>
         <div className="recv-amt">{money(j.contractValue,j.currency)}
           <small>{money(totals[j.id]?.invoiced||0,j.currency)} invoiced</small></div>
@@ -153,9 +155,12 @@ function CycleDetail({row,role,userEmail,totals,close,saved,reload}:{row:Cycle;r
   close:()=>void;saved:(r:Cycle,msg:string)=>void;reload:()=>void}){
   const[f,setF]=useState<Record<string,string>>({});
   const[note,setNote]=useState(""),[back,setBack]=useState("");
-  const[busy,setBusy]=useState(false),[err,setErr]=useState("");
+  const[busy,setBusy]=useState(false),[err,setErr]=useState(""),[form,setForm]=useState(false);
   const at=row.stage as Stage,done=isVerified(at);
   const mine=mayAct(at,[role],same(row.pmEmail,userEmail));
+  /* Maker-checker: who updated or certified this cycle cannot approve it. */
+  const madeIt=same(row.updatedByEmail,userEmail)||same(row.certifiedByEmail,userEmail);
+  const cc=f.ccCertification??"",approval=f.managementApproval??"";
   const set=(k:string,v:string)=>setF(x=>({...x,[k]:v}));
   const val=(k:keyof Cycle,fallback="")=>f[k]??(row[k]?String(row[k]):fallback);
   const certified=Number(val("certifiedPercent",String(row.percentComplete||"")))||0;
@@ -163,7 +168,7 @@ function CycleDetail({row,role,userEmail,totals,close,saved,reload}:{row:Cycle;r
   /* The invoice suggested: the certified value of work to date, less what has already been
      invoiced for the job. Only a suggestion - accounts type what they actually invoice. */
   const suggested=Math.max(0,row.contractValue*(row.certifiedPercent||0)/100-(totals[row.billingJobId]?.invoiced||0));
-  const returnable=RETURNABLE_FROM[at]||[];
+  const returnable=at==="Audit Verification"?RETURNABLE_FROM[at]||[]:[];
 
   const run=async(fn:()=>Promise<Cycle>,msg:string)=>{
     setBusy(true);setErr("");
@@ -182,14 +187,25 @@ function CycleDetail({row,role,userEmail,totals,close,saved,reload}:{row:Cycle;r
       {row.returnNote&&<p className="recv-back-note"><RotateCcw/><span><b>Sent back:</b> {row.returnNote}</span></p>}
 
       <dl className="recv-facts">
+        {!!row.jobCode&&<div><dt>Job code</dt><dd>{row.jobCode}</dd></div>}
+        {!!row.projectName&&<div><dt>Project</dt><dd>{row.projectName}</dd></div>}
         <div><dt>Project manager</dt><dd><UserRound/>{row.pmName||"—"}</dd></div>
         <div><dt>Contract value</dt><dd>{money(row.contractValue,row.currency)}</dd></div>
+        {!!(row.startDate||row.expectedCompletion)&&<div><dt>Schedule</dt><dd>{day(row.startDate)} → {day(row.expectedCompletion)}</dd></div>}
+        {!!row.jobStatus&&<div><dt>Job status</dt><dd>{row.jobStatus}</dd></div>}
+        {!!row.billingStatus&&<div><dt>Billing status</dt><dd>{row.billingStatus}</dd></div>}
+        {!!row.collectionStatus&&<div><dt>Collection status</dt><dd>{row.collectionStatus}</dd></div>}
+        {!!row.completionRequestDate&&<div><dt>Completion request</dt><dd>{day(row.completionRequestDate)}</dd></div>}
+        {!!row.actualCompletionDate&&<div><dt>Actual completion</dt><dd>{day(row.actualCompletionDate)}</dd></div>}
+        {!!row.pendingWork&&<div><dt>Pending work</dt><dd>{row.pendingWork}</dd></div>}
+        {!!row.delayReason&&<div><dt>Reason for delay</dt><dd>{row.delayReason}</dd></div>}
         <div><dt>Requested</dt><dd>{stamp(row.requestedAt)}{row.requestedBy&&row.requestedBy!=="schedule"?` · ${row.requestedBy}`:" · weekly schedule"}</dd></div>
         {!!row.pmUpdatedAt&&<div><dt>Completion</dt><dd>{row.percentComplete}% · {row.updatedBy} · {day(row.pmUpdatedAt)}</dd></div>}
         {!!row.completionNotes&&<div><dt>Completion notes</dt><dd>{row.completionNotes}</dd></div>}
-        {!!row.certifiedAt&&<div><dt>Certified</dt><dd><ShieldCheck/>{row.certifiedPercent}% · {row.certifiedBy} · {day(row.certifiedAt)}</dd></div>}
-        {!!row.certificationNotes&&<div><dt>Certification notes</dt><dd>{row.certificationNotes}</dd></div>}
-        {!!row.approvedAt&&<div><dt>Approved</dt><dd>{row.approvedBy} · {day(row.approvedAt)}{row.approvalNotes?` · ${row.approvalNotes}`:""}</dd></div>}
+        {!!row.ccCertification&&<div><dt>Cost control</dt><dd><ShieldCheck/>{row.ccCertification==="Not certified"?"Not certified"
+          :`${row.ccCertification} · ${row.certifiedPercent}%`} · {row.certifiedBy} · {day(row.certifiedAt)}</dd></div>}
+        {!!row.ccCertification&&!!row.certificationNotes&&<div><dt>Certification notes</dt><dd>{row.certificationNotes}</dd></div>}
+        {!!row.managementApproval&&<div><dt>Management</dt><dd>{row.managementApproval} · {row.approvedBy} · {day(row.approvedAt)}{row.approvalNotes?` · ${row.approvalNotes}`:""}</dd></div>}
         {!!row.invoiceNo&&<div><dt>Invoice</dt><dd>{row.invoiceNo} · {day(row.invoiceDate)} · {money(row.invoiceAmount,row.currency)}</dd></div>}
         {done&&<div><dt>Verified</dt><dd><ShieldCheck/>{row.verifiedBy} · {day(row.verifiedAt)}{row.remarks?` · ${row.remarks}`:""}</dd></div>}
       </dl>
@@ -199,22 +215,39 @@ function CycleDetail({row,role,userEmail,totals,close,saved,reload}:{row:Cycle;r
       {done?<p className="recv-empty">Verified. Nothing further is expected on this cycle.</p>
       :!mine?<p className="recv-empty">This cycle is with {owner[at]}. Your role cannot act on it at this stage.</p>
       :<div className="recv-act">
-        {at==="Project Manager Update"&&<>
-          <label>Completion to date (%)<input autoFocus type="number" min="0" max="100" step="1" value={val("percentComplete")}
-            onChange={e=>set("percentComplete",e.target.value)}/></label>
-          <label>Completion notes<textarea rows={3} value={val("completionNotes")} onChange={e=>set("completionNotes",e.target.value)}
-            placeholder="What was done this period, what remains, any delays"/></label>
-          <p className="recv-hint">Attach site photos or a progress report below.</p></>}
+        {at==="Project Manager Update"&&<p className="recv-hint">Fill in the completion &amp; billing form: the completion,
+          the billing, collection and job statuses, the dates, pending work and any reason for delay. Attach site photos or a
+          progress report below.</p>}
         {at==="Cost Control Certification"&&<>
-          <label>Certified completion (%)<input autoFocus type="number" min="0" max="100" step="1"
+          <label>Cost control certification<select autoFocus value={cc} onChange={e=>set("ccCertification",e.target.value)}>
+            <option value="">Select certification</option>{CC_CERTIFICATIONS.map(c=><option key={c}>{c}</option>)}</select></label>
+          {cc==="Certified"&&<><label>Certified completion (%)<input type="number" min="0" max="100" step="1"
             value={f.certifiedPercent??String(row.certifiedPercent||row.percentComplete||"")}
             onChange={e=>set("certifiedPercent",e.target.value)}/></label>
-          <p className="recv-hint">Value of work to date at {certified}%: <b>{money(workValue,row.currency)}</b></p>
-          <label>Certification notes<textarea rows={2} value={val("certificationNotes")} onChange={e=>set("certificationNotes",e.target.value)}
-            placeholder="Optional"/></label></>}
-        {at==="Management Approval"&&<label>Approval notes<textarea rows={2} value={val("approvalNotes")}
-          onChange={e=>set("approvalNotes",e.target.value)} placeholder="Optional"/></label>}
+          <p className="recv-hint">Value of work to date at {certified}%: <b>{money(workValue,row.currency)}</b></p></>}
+          {!!cc&&<label>{cc==="Certified"?"Certification notes":"Why it is not certified"}<textarea rows={2}
+            value={cc==="Certified"?val("certificationNotes"):note} placeholder={cc==="Certified"?"Optional":"The project manager sees this"}
+            onChange={e=>cc==="Certified"?set("certificationNotes",e.target.value):setNote(e.target.value)}/></label>}</>}
+        {at==="Management Approval"&&<>
+          {madeIt&&<p className="recv-back-note"><ShieldCheck/><span>You updated or certified this completion, so someone else
+            in management must approve it (maker-checker). You can still reject it.</span></p>}
+          <label>Management approval<select autoFocus value={approval} onChange={e=>set("managementApproval",e.target.value)}
+            title="Management authorisation - maker-checker control">
+            <option value="">Select approval</option>{MANAGEMENT_APPROVALS.map(a=><option key={a} disabled={a==="Approved"&&madeIt}>{a}</option>)}</select></label>
+          {approval==="Approved"&&<label>Approval notes<textarea rows={2} value={val("approvalNotes")}
+            onChange={e=>set("approvalNotes",e.target.value)} placeholder="Optional"/></label>}
+          {approval==="Rejected"&&<>
+            <label>Send it back to<select value={back} onChange={e=>setBack(e.target.value)}>
+              <option value="">Choose the stage…</option>
+              {(RETURNABLE_FROM[at]||[]).map(s=><option key={s} value={s}>{s}</option>)}</select></label>
+            <label>Reason for rejecting<textarea rows={2} value={note} onChange={e=>setNote(e.target.value)}
+              placeholder="What needs correcting?"/></label></>}</>}
         {at==="Raise Invoice"&&<>
+          <div className="recv-two">
+            <label>Billing status<select value={f.billingStatus??(row.billingStatus==="Not billed"||!row.billingStatus?"Partly billed":row.billingStatus)}
+              onChange={e=>set("billingStatus",e.target.value)}>{BILLING_STATUSES.map(s=><option key={s}>{s}</option>)}</select></label>
+            <label>Collection status<select value={f.collectionStatus??(row.collectionStatus==="Not due"||!row.collectionStatus?"Pending":row.collectionStatus)}
+              onChange={e=>set("collectionStatus",e.target.value)}>{COLLECTION_STATUSES.map(s=><option key={s}>{s}</option>)}</select></label></div>
           <div className="recv-two">
             <label>Invoice number<input autoFocus value={val("invoiceNo")} onChange={e=>set("invoiceNo",e.target.value)}/></label>
             <label>Invoice date<input type="date" value={val("invoiceDate",new Date().toISOString().slice(0,10))}
@@ -227,13 +260,24 @@ function CycleDetail({row,role,userEmail,totals,close,saved,reload}:{row:Cycle;r
         {at==="Audit Verification"&&<label>Audit remarks<textarea rows={2} value={val("remarks")}
           onChange={e=>set("remarks",e.target.value)} placeholder="Optional"/></label>}
 
-        <button className="primary" disabled={busy} onClick={()=>{
+        {at==="Cost Control Certification"&&cc==="Not certified"
+        ?<button className="primary" disabled={busy||!note.trim()}
+          onClick={()=>run(()=>completionApi.sendBack(row.id,"Project Manager Update",note.trim()),`${row.ref}: not certified, sent back to the project manager`)}>
+          {busy?"Saving…":"Send back as not certified"}<ArrowLeft/></button>
+        :at==="Management Approval"&&approval==="Rejected"
+        ?<button className="primary" disabled={busy||!back||!note.trim()}
+          onClick={()=>run(()=>completionApi.sendBack(row.id,back,note.trim()),`${row.ref}: rejected, sent back to ${back}`)}>
+          {busy?"Saving…":"Reject and send back"}<ArrowLeft/></button>
+        :<button className="primary" disabled={busy||(at==="Cost Control Certification"&&!cc)||(at==="Management Approval"&&!approval)}
+          onClick={()=>{if(at==="Project Manager Update"){setForm(true);return}
           const fields:Record<string,string>={...f};
           if(at==="Cost Control Certification"&&fields.certifiedPercent===undefined)fields.certifiedPercent=String(row.certifiedPercent||row.percentComplete||"");
           if(at==="Raise Invoice"){if(fields.invoiceDate===undefined)fields.invoiceDate=row.invoiceDate||new Date().toISOString().slice(0,10);
-            if(fields.invoiceAmount===undefined&&!row.invoiceAmount&&suggested)fields.invoiceAmount=suggested.toFixed(2)}
+            if(fields.invoiceAmount===undefined&&!row.invoiceAmount&&suggested)fields.invoiceAmount=suggested.toFixed(2)
+            if(fields.billingStatus===undefined)fields.billingStatus=row.billingStatus==="Not billed"||!row.billingStatus?"Partly billed":row.billingStatus;
+            if(fields.collectionStatus===undefined)fields.collectionStatus=row.collectionStatus==="Not due"||!row.collectionStatus?"Pending":row.collectionStatus}
           run(()=>completionApi.advance(row.id,fields),`${row.ref}: ${ACTION_LABEL[at].toLowerCase()} done`)}}>
-          {busy?"Saving…":ACTION_LABEL[at]}<ArrowRight/></button>
+          {busy?"Saving…":at==="Project Manager Update"?"Open completion & billing form":ACTION_LABEL[at]}<ArrowRight/></button>}
 
         {!!returnable.length&&<div className="recv-return">
           <b><ArrowLeft/>Send back for correction</b>
@@ -246,5 +290,58 @@ function CycleDetail({row,role,userEmail,totals,close,saved,reload}:{row:Cycle;r
       </div>}
 
       <Attachments entityType="completion" entityId={row.id} flash={()=>{}}/>
+    </aside>
+    {form&&<CompletionForm row={row} close={()=>setForm(false)}
+      saved={r=>{setForm(false);saved(r,`${r.ref}: completion update submitted`)}}/>}</div>}
+
+const lbl=(text:string,required=false)=><span className="recv-lbl">{text}{required&&<i className="recv-req" aria-hidden="true">*</i>}</span>;
+
+/* Completion & Billing, in the order of its field specification. The job code, client,
+   project manager, contract value and dates come from the job and are shown, not
+   entered; the statuses start from the job's last update. */
+function CompletionForm({row,close,saved}:{row:Cycle;close:()=>void;saved:(r:Cycle)=>void}){
+  const[f,setF]=useState<Record<string,string>>({percentComplete:row.percentComplete?String(row.percentComplete):"",
+    billingStatus:row.billingStatus||"Not billed",collectionStatus:row.collectionStatus||"Not due",jobStatus:row.jobStatus||"In progress",
+    completionRequestDate:row.completionRequestDate||row.requestedAt.slice(0,10),actualCompletionDate:row.actualCompletionDate,
+    pendingWork:row.pendingWork,delayReason:row.delayReason});
+  const[busy,setBusy]=useState(false),[err,setErr]=useState("");
+  const set=(k:string,v:string)=>setF(x=>({...x,[k]:v}));
+  const pick=(k:string,label:string,list:readonly string[],title?:string)=><label>{lbl(label,true)}
+    <select required value={f[k]} onChange={e=>set(k,e.target.value)} title={title}>{list.map(o=><option key={o}>{o}</option>)}</select></label>;
+  const late=!!row.expectedCompletion&&new Date().toISOString().slice(0,10)>row.expectedCompletion&&f.jobStatus!=="Completed";
+  const submit=async(e:React.FormEvent)=>{
+    e.preventDefault();setBusy(true);setErr("");
+    try{saved(await completionApi.advance(row.id,f))}
+    catch(x){setErr(x instanceof Error?x.message:"Could not submit the update");setBusy(false)}};
+  const auto=(label:string,value:string)=><label>{lbl(label,true)}<input readOnly className="recv-auto" value={value||"—"}/></label>;
+  const autoOpt=(label:string,value:string)=><label>{lbl(label)}<input readOnly className="recv-auto" value={value||"—"}/></label>;
+
+  return <div className="recv-drawer wide recv-over" role="dialog" aria-label="Completion and billing">
+    <button className="recv-scrim" aria-label="Close" onClick={close}/>
+    <aside><header><div><small>COMPLETION &amp; BILLING · {row.ref}</small><h3>{row.projectName||row.customer}</h3>
+        <p className="recv-form-sub">Requested {day(row.requestedAt)}. The job&apos;s details come from the job; update the rest and submit.</p></div>
+      <button onClick={close} aria-label="Close"><X/></button></header>
+      <form className="recv-act recv-form" onSubmit={submit}>
+        <div className="recv-two">{auto("Job code",row.jobCode||row.jobRef)}{auto("Client",row.customer)}</div>
+        <div className="recv-two">{auto("Project manager",row.pmName)}{auto("Contract value",money(row.contractValue,row.currency))}</div>
+        <div className="recv-two">{autoOpt("Start date",row.startDate?day(row.startDate):"")}{autoOpt("Expected completion",row.expectedCompletion?day(row.expectedCompletion):"")}</div>
+        <div className="recv-two">
+          <label>{lbl("% completion",true)}<input type="number" required autoFocus min="0" max="100" step="1" value={f.percentComplete}
+            onChange={e=>set("percentComplete",e.target.value)}/></label>
+          {pick("billingStatus","Billing status",BILLING_STATUSES,"For monitoring progress and ageing")}</div>
+        <div className="recv-two">{pick("collectionStatus","Collection status",COLLECTION_STATUSES,"For monitoring progress and ageing")}
+          {pick("jobStatus","Job status",JOB_STATUSES,"For monitoring progress and ageing")}</div>
+        <div className="recv-two">
+          <label>{lbl("Completion request date")}<input type="date" value={f.completionRequestDate} onChange={e=>set("completionRequestDate",e.target.value)}/></label>
+          <label>{lbl("Actual completion date")}<input type="date" value={f.actualCompletionDate} onChange={e=>set("actualCompletionDate",e.target.value)}/></label></div>
+        <label>{lbl("Pending work")}<textarea rows={3} value={f.pendingWork} onChange={e=>set("pendingWork",e.target.value)}/></label>
+        <label>{lbl("Reason for delay")}<textarea rows={3} value={f.delayReason} onChange={e=>set("delayReason",e.target.value)}
+          placeholder={late?"The expected completion date has passed - say why":""}/></label>
+        <div className="recv-two">
+          {auto("Cost control certification","Given by cost control after you submit")}
+          {auto("Management approval","Given by management after certification")}</div>
+        {err&&<p className="recv-error">{err}</p>}
+        <button className="primary" type="submit" disabled={busy}>{busy?"Submitting…":"Submit completion update"}<ArrowRight/></button>
+      </form>
     </aside></div>}
 
