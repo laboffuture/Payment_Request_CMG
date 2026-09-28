@@ -113,7 +113,7 @@ export const collectionApi={
 export type BillingJob={id:string;ref:string;jobId:string;planId:string;jobRef:string;customer:string;
   companyId:string;description:string;pmName:string;pmEmail:string;contractValue:number;currency:string;
   active:number;everyDays:number;lastRequestedAt:string;nextRequestAt:string;createdAt:string;updatedAt:string;
-  jobCode:string;projectName:string;startDate:string;expectedCompletion:string};
+  jobCode:string;projectName:string;startDate:string;expectedCompletion:string;retentionPercent:number;advancePercent:number};
 export type Cycle={id:string;ref:string;stage:string;billingJobId:string;jobRef:string;customer:string;
   pmName:string;pmEmail:string;contractValue:number;currency:string;requestedAt:string;requestedBy:string;
   percentComplete:number;completionNotes:string;updatedBy:string;pmUpdatedAt:string;certifiedPercent:number;
@@ -122,7 +122,10 @@ export type Cycle={id:string;ref:string;stage:string;billingJobId:string;jobRef:
   verifiedBy:string;verifiedAt:string;remarks:string;returnNote:string;returnedAt:string;createdAt:string;updatedAt:string;
   jobCode:string;projectName:string;startDate:string;expectedCompletion:string;billingStatus:string;collectionStatus:string;
   jobStatus:string;completionRequestDate:string;actualCompletionDate:string;pendingWork:string;delayReason:string;
-  updatedByEmail:string;ccCertification:string;certifiedByEmail:string;managementApproval:string;approvedByEmail:string};
+  updatedByEmail:string;ccCertification:string;certifiedByEmail:string;managementApproval:string;approvedByEmail:string;
+  invoiceType:string;previousBilling:number;currentBilling:number;cumulativeBilling:number;advanceAdjustment:number;
+  retentionAmount:number;taxAmount:number;invoicedByEmail:string;invoiceApproval:string;invoiceApprovalNote:string;
+  invoiceApprovedBy:string;invoiceApprovedByEmail:string;invoiceApprovedAt:string};
 export const completionApi={
   load:async()=>asJson<{jobs:BillingJob[];cycles:Cycle[];totals:Record<string,{invoiced:number;certified:number}>}>(
     await fetch("/api/completion")),
@@ -131,6 +134,11 @@ export const completionApi={
     (await send("/api/completion","POST",{action:"job",id,...fields})).job as BillingJob,
   advance:async(id:string,fields:Record<string,unknown>={})=>
     (await send("/api/completion","PATCH",{id,action:"advance",...fields})).cycle as Cycle,
+  /* Invoice Raising: accounts submit the invoice; management approves or rejects it. */
+  invoice:async(id:string,fields:Record<string,string>)=>
+    (await send("/api/completion","PATCH",{id,action:"invoice",...fields})).cycle as Cycle,
+  decideInvoice:async(id:string,invoiceApproval:string,note:string)=>
+    (await send("/api/completion","PATCH",{id,action:"invoiceDecision",invoiceApproval,note})).cycle as Cycle,
   sendBack:async(id:string,stage:string,note:string)=>
     (await send("/api/completion","PATCH",{id,action:"return",stage,note})).cycle as Cycle};
 

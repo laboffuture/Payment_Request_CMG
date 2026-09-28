@@ -56,7 +56,8 @@ export const REQUIRED_TO_LEAVE:Record<Stage,string[]>={
   "Project Manager Update":["percentComplete","billingStatus","collectionStatus","jobStatus"],
   "Cost Control Certification":["ccCertification","certifiedPercent"],
   "Management Approval":["managementApproval"],
-  "Raise Invoice":["invoiceNo","invoiceDate","invoiceAmount"],
+  /* Leaving Raise Invoice is management approving the invoice - see INVOICE_TYPES. */
+  "Raise Invoice":["invoiceNo","invoiceDate","invoiceAmount","invoiceApproval"],
   "Audit Verification":[],
   "Verified":[]};
 
@@ -64,6 +65,7 @@ export const FIELD_LABEL:Record<string,string>={
   percentComplete:"Completion %",completionNotes:"Completion notes",certifiedPercent:"Certified completion %",
   billingStatus:"Billing status",collectionStatus:"Collection status",jobStatus:"Job status",
   ccCertification:"Cost control certification",managementApproval:"Management approval",
+  invoiceApproval:"Management approval of the invoice",
   invoiceNo:"Invoice number",invoiceDate:"Invoice date",invoiceAmount:"Invoice amount"};
 
 /* Where a cycle may be sent back from each approving stage: anything before it. */
@@ -84,3 +86,15 @@ export{JOB_STATUSES}from"./receivable-stages";
    cycle cannot also approve it. */
 export const CC_CERTIFICATIONS=["Certified","Not certified"] as const;
 export const MANAGEMENT_APPROVALS=["Approved","Rejected"] as const;
+
+/* Invoice Raising. Accounts prepare the invoice (the maker) and a different person in
+   management approves it (the checker) before it goes to audit. */
+export const INVOICE_TYPES=["Progress bill","Advance invoice","Final bill","Retention release","Variation"] as const;
+
+/* The worked-out figures of an invoice: cumulative = previous + current billing; net =
+   current - advance adjustment - retention + GST / tax. */
+const r2=(n:number)=>Math.round(n*100)/100;
+export const invoiceFigures=(v:{previousBilling:number;currentBilling:number;advanceAdjustment:number;
+  retentionAmount:number;taxAmount:number})=>({
+  cumulativeBilling:r2(v.previousBilling+v.currentBilling),
+  net:r2(v.currentBilling-v.advanceAdjustment-v.retentionAmount+v.taxAmount)});

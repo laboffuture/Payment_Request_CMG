@@ -4,7 +4,7 @@ import{wfBillingJobs,wfCompletions,wfPlanning,wfReceivables}from"../../../db/sch
 import{companyLock,inCompany,requireAuth}from"../../../lib/auth";
 import{emailsForRoles,notify}from"../../../lib/notify";
 import{ACCOUNTS_ROLES,AUDIT_ROLES,BILLING_ROLES,BILLING_STATUSES,COLLECTION_STATUSES,COST_CONTROL_ROLES,
-  DEFAULT_EVERY_DAYS,FIELD_LABEL,FIRST,JOB_STATUSES,MANAGEMENT_ROLES,REQUIRED_TO_LEAVE,RETURNABLE_FROM,STAGES,mayAct,stageIndex}from"../../../lib/completion-stages";
+  DEFAULT_EVERY_DAYS,FIELD_LABEL,FIRST,INVOICE_TYPES,JOB_STATUSES,MANAGEMENT_ROLES,REQUIRED_TO_LEAVE,invoiceFigures,RETURNABLE_FROM,STAGES,mayAct,stageIndex}from"../../../lib/completion-stages";
 import type{Stage}from"../../../lib/completion-stages";
 import{actorOf,bad,num,oops,str,writeWithAudit}from"../../../lib/workforce-api";
 import type{Row}from"../../../lib/workforce-api";
@@ -39,7 +39,8 @@ async function syncJobs(db:Db){
   const plans=(await db.select().from(wfPlanning).where(eq(wfPlanning.stage,"Verified"))).filter(p=>!listed.has(p.id));
   for(const p of plans){
     const[job]=await db.select({amount:wfReceivables.amount,currency:wfReceivables.currency,
-      contractValue:wfReceivables.contractValue,contractCurrency:wfReceivables.contractCurrency})
+      contractValue:wfReceivables.contractValue,contractCurrency:wfReceivables.contractCurrency,
+      retentionPercent:wfReceivables.retentionPercent,advancePercent:wfReceivables.advancePercent})
       .from(wfReceivables).where(eq(wfReceivables.id,p.jobId));
     /* The contract value from the CRM job, or the job notification's amount before it. */
     const byContract=num(job?.contractValue)>0;
@@ -49,6 +50,7 @@ async function syncJobs(db:Db){
       contractValue:byContract?num(job?.contractValue):num(job?.amount),
       currency:(byContract?job?.contractCurrency:job?.currency)||p.currency||"AED",active:1,everyDays:DEFAULT_EVERY_DAYS,
       jobCode:p.jobCode||"",projectName:p.projectName||"",startDate:p.startDate||"",expectedCompletion:p.endDate||"",
+      retentionPercent:num(job?.retentionPercent),advancePercent:num(job?.advancePercent),
       nextRequestAt:addDays(p.verifiedAt||now(),DEFAULT_EVERY_DAYS),createdAt:now(),updatedAt:now()});
   }}
 
@@ -121,7 +123,8 @@ export async function GET(req:Request){
     /* Per job: what has been invoiced so far and the last certified completion, so the
        invoice can be suggested as the certified value not yet billed. */
     const billed=await db.select({job:wfCompletions.billingJobId,
-      invoiced:sql<number>`coalesce(sum(case when ${wfCompletions.invoiceNo} <> '' then ${wfCompletions.invoiceAmount} else 0 end),0)`,
+      /* Billed so far: the current billing of every invoice raised, before deductions. */
+      invoiced:sql<number>`coalesce(sum(case when ${wfCompletions.invoiceNo} <> '' then ${wfCompletions.currentBilling} else 0 end),0)`,
       certified:sql<number>`coalesce(max(case when ${wfCompletions.stage} in ('Raise Invoice','Audit Verification','Verified') then ${wfCompletions.certifiedPercent} end),0)`})
       .from(wfCompletions).groupBy(wfCompletions.billingJobId);
     return Response.json({jobs,cycles:cycles.filter(c=>!allowed||allowed.has(c.billingJobId)),totals:Object.fromEntries(billed.map(b=>[b.job,{invoiced:Number(b.invoiced),certified:Number(b.certified)}]))});
@@ -202,7 +205,10 @@ export async function PATCH(req:Request){
     }
     const from=row.stage as Stage;
     const isManager=!!row.pmEmail&&lower(row.pmEmail)===lower(actor?.email);
-    if(!mayAct(from,actor?.roles,isManager))return bad(`Your role cannot act on a cycle at ${from}.`,403);
+    /* Management's decision on an invoice is taken at Raise Invoice, which is otherwise
+       accounts' stage - checked below instead. */
+    if(str(body.action)!=="invoiceDecision"&&!mayAct(from,actor?.roles,isManager))
+      return bad(`Your role cannot act on a cycle at ${from}.`,403);
     const who=actor?.name||actor?.email||"";
     const detail=[{label:"Customer",value:row.customer},{label:"Job",value:row.jobRef}];
     const tell=async(stage:Stage)=>stage==="Project Manager Update"?{to:row.pmEmail?[row.pmEmail]:await emailsForRoles(ACCOUNTS_ROLES),roles:undefined}
@@ -211,6 +217,77 @@ export async function PATCH(req:Request){
       :stage==="Raise Invoice"?{to:await emailsForRoles(["Accountant"]),roles:["Accountant"]}
       :stage==="Audit Verification"?{to:await emailsForRoles(["Auditor","Audit Head"]),roles:["Auditor","Audit Head"]}
       :{to:row.pmEmail?[row.pmEmail]:[],roles:undefined};
+
+    /* Invoice Raising. Accounts submit the invoice (the maker); it waits at Raise Invoice
+       until a different person in management approves it (the checker), which sends it on
+       to audit, or rejects it back to accounts. */
+    if(str(body.action)==="invoice"||str(body.action)==="invoiceDecision"){
+      if(from!=="Raise Invoice")return bad(`This cycle is at ${from}. Reopen it to see where it is now.`,409);
+      if(str(body.action)==="invoice"){
+        if(row.invoiceApproval==="Approved")return bad("This invoice is already approved.",409);
+        const figure=(k:string)=>{const s=str(body[k]).trim();return s===""?0:Number(s)};
+        const v={previousBilling:figure("previousBilling"),currentBilling:figure("currentBilling"),
+          advanceAdjustment:figure("advanceAdjustment"),retentionAmount:figure("retentionAmount"),taxAmount:figure("taxAmount")};
+        if(Object.values(v).some(n=>!Number.isFinite(n)||n<0))return bad("The amounts must be numbers, 0 or more.",422);
+        if(!(INVOICE_TYPES as readonly string[]).includes(str(body.invoiceType)))
+          return bad(`Invoice type must be one of ${INVOICE_TYPES.join(", ")}.`,422);
+        if(!(v.currentBilling>0))return bad("Current billing must be above zero.",422);
+        if(!/^\d{4}-\d{2}-\d{2}$/.test(str(body.invoiceDate)))return bad("Invoice date must be filled in.",422);
+        const{cumulativeBilling,net}=invoiceFigures(v);
+        if(!(net>0))return bad("The net invoice value must be above zero - check the deductions.",422);
+        const wrong=[["billingStatus",BILLING_STATUSES,"Billing status"],["collectionStatus",COLLECTION_STATUSES,"Collection status"]]
+          .map(([k,list,l])=>(list as readonly string[]).includes(str(body[k as string]))?"":`${l} must be one of ${(list as readonly string[]).join(", ")}.`).find(Boolean);
+        if(wrong)return bad(wrong,422);
+        /* The invoice number is issued once, on the first submission, and kept. */
+        let invoiceNo=row.invoiceNo;
+        if(!invoiceNo){
+          const stem=`INV-${new Date().getFullYear()}-`;
+          const[top]=await db.select({n:sql<string>`max(${wfCompletions.invoiceNo})`}).from(wfCompletions)
+            .where(sql`${wfCompletions.invoiceNo} like ${stem+"%"}`);
+          invoiceNo=stem+String((Number(String(top?.n||"").slice(stem.length))||0)+1).padStart(4,"0");
+        }
+        const patch:Row={...v,cumulativeBilling,invoiceAmount:net,invoiceNo,invoiceType:str(body.invoiceType),
+          invoiceDate:str(body.invoiceDate),currency:str(body.currency,row.currency||"AED").trim()||"AED",
+          billingStatus:str(body.billingStatus),collectionStatus:str(body.collectionStatus),
+          invoicedBy:who,invoicedByEmail:actor?.email||"",invoicedAt:now(),
+          invoiceApproval:"Pending",invoiceApprovalNote:"",invoiceApprovedBy:"",invoiceApprovedByEmail:"",invoiceApprovedAt:"",
+          updatedAt:now()};
+        const res=await db.update(wfCompletions).set(patch).where(and(eq(wfCompletions.id,id),eq(wfCompletions.stage,from)));
+        if((res as{meta?:{changes?:number}})?.meta?.changes===0)return bad("Somebody else moved this cycle. Reopen it to see where it is now.",409);
+        await writeWithAudit([],actorOf(req,body),"completion",id,"Invoice submitted for approval",
+          `${row.ref} · ${invoiceNo} · ${str(body.invoiceType)} · net ${patch.currency} ${net}`);
+        const t=await owners(MANAGEMENT_ROLES);
+        await notify(t.to,{title:`${invoiceNo} waits for your approval`,body:`${row.customer} · ${row.jobCode||row.jobRef}`,
+          reference:invoiceNo,detail:[...detail,{label:"Current billing",value:`${patch.currency} ${v.currentBilling.toLocaleString()}`},
+            {label:"Net invoice value",value:`${patch.currency} ${net.toLocaleString()}`}],
+          action:"Open the cycle in Accounts Receivable → Completion and Billing and approve or reject the invoice.",
+          module:"accountsreceived",recordId:id},actor?.email,t.roles);
+        return Response.json({cycle:{...row,...patch}});
+      }
+      if(!(actor?.roles||[]).some(r=>MANAGEMENT_ROLES.includes(r)))return bad("Only management may approve an invoice.",403);
+      if(row.invoiceApproval!=="Pending")return bad("This invoice is not waiting for approval.",409);
+      if(lower(row.invoicedByEmail)===lower(actor?.email))
+        return bad("You prepared this invoice, so someone else in management must approve it (maker-checker).",403);
+      const decision=str(body.invoiceApproval),note=str(body.note).trim();
+      if(decision!=="Approved"&&decision!=="Rejected")return bad("Choose Approved or Rejected.",422);
+      if(decision==="Rejected"&&!note)return bad("Say why the invoice is rejected.",422);
+      const patch:Row={invoiceApproval:decision,invoiceApprovalNote:note,invoiceApprovedBy:who,
+        invoiceApprovedByEmail:actor?.email||"",invoiceApprovedAt:now(),updatedAt:now(),
+        ...(decision==="Approved"?{stage:"Audit Verification",returnNote:"",returnedAt:""}:{})};
+      const res=await db.update(wfCompletions).set(patch)
+        .where(and(eq(wfCompletions.id,id),eq(wfCompletions.stage,from),eq(wfCompletions.invoiceApproval,"Pending")));
+      if((res as{meta?:{changes?:number}})?.meta?.changes===0)return bad("Somebody else decided this invoice first. Reopen it.",409);
+      await writeWithAudit([],actorOf(req,body),"completion",id,`Invoice ${decision.toLowerCase()}`,
+        `${row.ref} · ${row.invoiceNo}${note?` · ${note}`:""}`);
+      const t=decision==="Approved"?await tell("Audit Verification"):{to:[row.invoicedByEmail].filter(Boolean),roles:undefined};
+      if(t.to.length)await notify(t.to,{title:decision==="Approved"?`${row.invoiceNo}: audit verification needed`:`${row.invoiceNo} rejected`,
+        body:decision==="Approved"?`${row.customer} · approved by ${who}`:note,reference:row.invoiceNo,
+        tone:decision==="Approved"?"normal":"warning",detail,
+        action:decision==="Approved"?"Check the completion, the certification, the approvals and the invoice, then verify or send it back."
+          :"Open the cycle in Accounts Receivable → Completion and Billing, correct the invoice and submit it again.",
+        module:"accountsreceived",recordId:id},actor?.email,t.roles);
+      return Response.json({cycle:{...row,...patch}});
+    }
 
     if(str(body.action,"advance")==="return"){
       const allowed=RETURNABLE_FROM[from]||[];
@@ -223,6 +300,8 @@ export async function PATCH(req:Request){
       /* Sending back from these two stages is their negative answer, recorded as such. */
       if(from==="Cost Control Certification")Object.assign(patch,{ccCertification:"Not certified",
         certificationNotes:note,certifiedBy:who,certifiedByEmail:actor?.email||"",certifiedAt:now()});
+      /* Back at Raise Invoice, the invoice is prepared and approved again. */
+      if(to==="Raise Invoice")patch.invoiceApproval="";
       if(from==="Management Approval")Object.assign(patch,{managementApproval:"Rejected",
         approvalNotes:note,approvedBy:who,approvedByEmail:actor?.email||"",approvedAt:now()});
       await writeWithAudit([db.update(wfCompletions).set(patch).where(eq(wfCompletions.id,id))],
@@ -280,18 +359,10 @@ export async function PATCH(req:Request){
       if(me&&(me===lower(row.updatedByEmail)||me===lower(row.certifiedByEmail)))
         return bad("You updated or certified this completion, so someone else in management must approve it (maker-checker).",403);
       Object.assign(patch,{managementApproval:"Approved",approvalNotes:str(body.approvalNotes,row.approvalNotes).trim(),
-        approvedBy:who,approvedByEmail:actor?.email||"",approvedAt:now()});
+        approvedBy:who,approvedByEmail:actor?.email||"",approvedAt:now(),invoiceApproval:""});
     }
-    if(from==="Raise Invoice"){
-      const amount=num(filled.invoiceAmount);
-      if(!(amount>0))return bad("Invoice amount must be above zero.",422);
-      /* Accounts bring the billing and collection statuses up to date with the invoice. */
-      const wrong=oneOf(filled.billingStatus,BILLING_STATUSES,"Billing status")||oneOf(filled.collectionStatus,COLLECTION_STATUSES,"Collection status");
-      if(wrong)return bad(wrong,422);
-      Object.assign(patch,{billingStatus:str(filled.billingStatus),collectionStatus:str(filled.collectionStatus)});
-      Object.assign(patch,{invoiceNo:str(filled.invoiceNo).trim(),invoiceDate:str(filled.invoiceDate),invoiceAmount:amount,
-        currency:str(body.currency,row.currency||"AED"),invoicedBy:who,invoicedAt:now()});
-    }
+    /* Raise Invoice is left only by management approving the invoice, above. */
+    if(from==="Raise Invoice")return bad("Submit the invoice for management approval; approving it sends it to audit.",422);
     if(from==="Audit Verification")
       Object.assign(patch,{verifiedBy:who,verifiedAt:now(),remarks:str(body.remarks,row.remarks).trim()});
 

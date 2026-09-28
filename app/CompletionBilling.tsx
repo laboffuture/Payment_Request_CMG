@@ -14,9 +14,10 @@ import{completionApi}from"./audit-api";
 import type{BillingJob,Cycle}from"./audit-api";
 import{useAsync}from"./workforce-store";
 import{Empty,ErrorBlock,Loading}from"./WorkforceShared";
-import Attachments from"./Attachments";
-import{ACCOUNTS_ROLES,ACTION_LABEL,BILLING_ROLES,BILLING_STATUSES,CC_CERTIFICATIONS,COLLECTION_STATUSES,FLOW,JOB_STATUSES,
-  MANAGEMENT_APPROVALS,RETURNABLE_FROM,isVerified,mayAct,stageIndex}
+import Attachments,{asDataUrl}from"./Attachments";
+import FilePicker from"./FilePicker";
+import{ACCOUNTS_ROLES,ACTION_LABEL,BILLING_ROLES,BILLING_STATUSES,CC_CERTIFICATIONS,COLLECTION_STATUSES,FLOW,INVOICE_TYPES,
+  JOB_STATUSES,MANAGEMENT_APPROVALS,MANAGEMENT_ROLES,RETURNABLE_FROM,invoiceFigures,isVerified,mayAct,stageIndex}
   from"../lib/completion-stages";
 import type{Stage}from"../lib/completion-stages";
 import{stamp}from"../lib/stamp";
@@ -100,7 +101,7 @@ export default function CompletionBilling({role,userEmail="",flash}:Props){
         </button>)}</div>}
     </section>}
 
-    {open&&<CycleDetail row={open} role={role} userEmail={userEmail} totals={totals} close={()=>setOpen(null)} reload={reload}
+    {open&&<CycleDetail row={open} job={jobs.find(j=>j.id===open.billingJobId)} role={role} userEmail={userEmail} totals={totals} close={()=>setOpen(null)} reload={reload}
       saved={(r,msg)=>{setOpen(r);reload();flash?.(msg)}}/>}
   </div>}
 
@@ -151,7 +152,7 @@ function JobsRegister({jobs,totals,accounts,reload,flash}:{jobs:BillingJob[];tot
   </section>}
 
 /* One cycle, and the single action its stage allows. */
-function CycleDetail({row,role,userEmail,totals,close,saved,reload}:{row:Cycle;role:string;userEmail:string;totals:Totals;
+function CycleDetail({row,job,role,userEmail,totals,close,saved,reload}:{row:Cycle;job?:BillingJob;role:string;userEmail:string;totals:Totals;
   close:()=>void;saved:(r:Cycle,msg:string)=>void;reload:()=>void}){
   const[f,setF]=useState<Record<string,string>>({});
   const[note,setNote]=useState(""),[back,setBack]=useState("");
@@ -161,13 +162,14 @@ function CycleDetail({row,role,userEmail,totals,close,saved,reload}:{row:Cycle;r
   /* Maker-checker: who updated or certified this cycle cannot approve it. */
   const madeIt=same(row.updatedByEmail,userEmail)||same(row.certifiedByEmail,userEmail);
   const cc=f.ccCertification??"",approval=f.managementApproval??"";
+  /* Management's decision on the invoice, taken at Raise Invoice. */
+  const decider=at==="Raise Invoice"&&row.invoiceApproval==="Pending"&&MANAGEMENT_ROLES.includes(role);
+  const preparedIt=same(row.invoicedByEmail,userEmail);
+  const[invoiceForm,setInvoiceForm]=useState(false),[verdict,setVerdict]=useState("");
   const set=(k:string,v:string)=>setF(x=>({...x,[k]:v}));
   const val=(k:keyof Cycle,fallback="")=>f[k]??(row[k]?String(row[k]):fallback);
   const certified=Number(val("certifiedPercent",String(row.percentComplete||"")))||0;
   const workValue=row.contractValue*certified/100;
-  /* The invoice suggested: the certified value of work to date, less what has already been
-     invoiced for the job. Only a suggestion - accounts type what they actually invoice. */
-  const suggested=Math.max(0,row.contractValue*(row.certifiedPercent||0)/100-(totals[row.billingJobId]?.invoiced||0));
   const returnable=at==="Audit Verification"?RETURNABLE_FROM[at]||[]:[];
 
   const run=async(fn:()=>Promise<Cycle>,msg:string)=>{
@@ -206,14 +208,34 @@ function CycleDetail({row,role,userEmail,totals,close,saved,reload}:{row:Cycle;r
           :`${row.ccCertification} · ${row.certifiedPercent}%`} · {row.certifiedBy} · {day(row.certifiedAt)}</dd></div>}
         {!!row.ccCertification&&!!row.certificationNotes&&<div><dt>Certification notes</dt><dd>{row.certificationNotes}</dd></div>}
         {!!row.managementApproval&&<div><dt>Management</dt><dd>{row.managementApproval} · {row.approvedBy} · {day(row.approvedAt)}{row.approvalNotes?` · ${row.approvalNotes}`:""}</dd></div>}
-        {!!row.invoiceNo&&<div><dt>Invoice</dt><dd>{row.invoiceNo} · {day(row.invoiceDate)} · {money(row.invoiceAmount,row.currency)}</dd></div>}
+        {!!row.invoiceNo&&<div><dt>Invoice</dt><dd>{row.invoiceNo} · {row.invoiceType||"Invoice"} · {day(row.invoiceDate)}</dd></div>}
+        {!!row.invoiceNo&&!!row.currentBilling&&<div><dt>Billing</dt><dd>Current {money(row.currentBilling,row.currency)} ·
+          cumulative {money(row.cumulativeBilling,row.currency)}</dd></div>}
+        {!!row.invoiceNo&&<div><dt>Net invoice value</dt><dd>{money(row.invoiceAmount,row.currency)}
+          {!!(row.advanceAdjustment||row.retentionAmount||row.taxAmount)&&` (advance −${(row.advanceAdjustment||0).toLocaleString()}, retention −${(row.retentionAmount||0).toLocaleString()}, tax +${(row.taxAmount||0).toLocaleString()})`}</dd></div>}
+        {!!row.invoiceApproval&&<div><dt>Invoice approval</dt><dd>{row.invoiceApproval==="Pending"?"Awaiting management"
+          :`${row.invoiceApproval} · ${row.invoiceApprovedBy} · ${day(row.invoiceApprovedAt)}`}{row.invoiceApprovalNote?` · ${row.invoiceApprovalNote}`:""}</dd></div>}
         {done&&<div><dt>Verified</dt><dd><ShieldCheck/>{row.verifiedBy} · {day(row.verifiedAt)}{row.remarks?` · ${row.remarks}`:""}</dd></div>}
       </dl>
 
       {err&&<p className="recv-error">{err}</p>}
 
       {done?<p className="recv-empty">Verified. Nothing further is expected on this cycle.</p>
-      :!mine?<p className="recv-empty">This cycle is with {owner[at]}. Your role cannot act on it at this stage.</p>
+      :decider&&(!mine||!ACCOUNTS_ROLES.includes(role)||!preparedIt)?<div className="recv-act">
+        {preparedIt&&<p className="recv-back-note"><ShieldCheck/><span>You prepared this invoice, so someone else in management
+          must approve it (maker-checker). You can still reject it.</span></p>}
+        <label>Management approval<select autoFocus value={verdict} onChange={e=>setVerdict(e.target.value)}
+          title="Management authorisation - maker-checker control">
+          <option value="">Select approval</option>{MANAGEMENT_APPROVALS.map(a=><option key={a} disabled={a==="Approved"&&preparedIt}>{a}</option>)}</select></label>
+        {verdict==="Rejected"&&<label>Reason for rejecting<textarea rows={2} value={note} onChange={e=>setNote(e.target.value)}
+          placeholder="Accounts see this"/></label>}
+        <button className="primary" disabled={busy||!verdict||(verdict==="Rejected"&&!note.trim())}
+          onClick={()=>run(()=>completionApi.decideInvoice(row.id,verdict,note.trim()),`${row.invoiceNo}: invoice ${verdict.toLowerCase()}`)}>
+          {busy?"Saving…":verdict==="Rejected"?"Reject invoice":"Approve invoice"}{verdict==="Rejected"?<ArrowLeft/>:<ArrowRight/>}</button>
+      </div>
+      :!mine?<p className="recv-empty">{at==="Raise Invoice"&&row.invoiceApproval==="Pending"
+        ?"The invoice is waiting for management approval."
+        :`This cycle is with ${owner[at]}. Your role cannot act on it at this stage.`}</p>
       :<div className="recv-act">
         {at==="Project Manager Update"&&<p className="recv-hint">Fill in the completion &amp; billing form: the completion,
           the billing, collection and job statuses, the dates, pending work and any reason for delay. Attach site photos or a
@@ -242,25 +264,17 @@ function CycleDetail({row,role,userEmail,totals,close,saved,reload}:{row:Cycle;r
               {(RETURNABLE_FROM[at]||[]).map(s=><option key={s} value={s}>{s}</option>)}</select></label>
             <label>Reason for rejecting<textarea rows={2} value={note} onChange={e=>setNote(e.target.value)}
               placeholder="What needs correcting?"/></label></>}</>}
-        {at==="Raise Invoice"&&<>
-          <div className="recv-two">
-            <label>Billing status<select value={f.billingStatus??(row.billingStatus==="Not billed"||!row.billingStatus?"Partly billed":row.billingStatus)}
-              onChange={e=>set("billingStatus",e.target.value)}>{BILLING_STATUSES.map(s=><option key={s}>{s}</option>)}</select></label>
-            <label>Collection status<select value={f.collectionStatus??(row.collectionStatus==="Not due"||!row.collectionStatus?"Pending":row.collectionStatus)}
-              onChange={e=>set("collectionStatus",e.target.value)}>{COLLECTION_STATUSES.map(s=><option key={s}>{s}</option>)}</select></label></div>
-          <div className="recv-two">
-            <label>Invoice number<input autoFocus value={val("invoiceNo")} onChange={e=>set("invoiceNo",e.target.value)}/></label>
-            <label>Invoice date<input type="date" value={val("invoiceDate",new Date().toISOString().slice(0,10))}
-              onChange={e=>set("invoiceDate",e.target.value)}/></label></div>
-          <div className="recv-two">
-            <label>Invoice amount<input type="number" min="0" step="0.01" value={f.invoiceAmount??(row.invoiceAmount?String(row.invoiceAmount):suggested?suggested.toFixed(2):"")}
-              onChange={e=>set("invoiceAmount",e.target.value)}/></label>
-            <label>Currency<input value={val("currency")} onChange={e=>set("currency",e.target.value)}/></label></div>
-          <p className="recv-hint">Suggested: {row.certifiedPercent}% of {money(row.contractValue,row.currency)}, less {money(totals[row.billingJobId]?.invoiced||0,row.currency)} already invoiced. Attach the invoice below.</p></>}
+        {at==="Raise Invoice"&&<p className="recv-hint">{row.invoiceApproval==="Pending"
+          ?"The invoice waits for management approval. You can still correct it; it stays with management."
+          :row.invoiceApproval==="Rejected"?"Management rejected the invoice. Correct it and submit it again."
+          :"Prepare the invoice: the billing, deductions and tax, with supporting documents. Management approves it before it goes to audit."}</p>}
         {at==="Audit Verification"&&<label>Audit remarks<textarea rows={2} value={val("remarks")}
           onChange={e=>set("remarks",e.target.value)} placeholder="Optional"/></label>}
 
-        {at==="Cost Control Certification"&&cc==="Not certified"
+        {at==="Raise Invoice"
+        ?<button className="primary" disabled={busy} onClick={()=>setInvoiceForm(true)}>
+          {row.invoiceApproval==="Pending"?"Correct the invoice":row.invoiceApproval==="Rejected"?"Correct and resubmit the invoice":"Open invoice form"}<ArrowRight/></button>
+        :at==="Cost Control Certification"&&cc==="Not certified"
         ?<button className="primary" disabled={busy||!note.trim()}
           onClick={()=>run(()=>completionApi.sendBack(row.id,"Project Manager Update",note.trim()),`${row.ref}: not certified, sent back to the project manager`)}>
           {busy?"Saving…":"Send back as not certified"}<ArrowLeft/></button>
@@ -272,10 +286,6 @@ function CycleDetail({row,role,userEmail,totals,close,saved,reload}:{row:Cycle;r
           onClick={()=>{if(at==="Project Manager Update"){setForm(true);return}
           const fields:Record<string,string>={...f};
           if(at==="Cost Control Certification"&&fields.certifiedPercent===undefined)fields.certifiedPercent=String(row.certifiedPercent||row.percentComplete||"");
-          if(at==="Raise Invoice"){if(fields.invoiceDate===undefined)fields.invoiceDate=row.invoiceDate||new Date().toISOString().slice(0,10);
-            if(fields.invoiceAmount===undefined&&!row.invoiceAmount&&suggested)fields.invoiceAmount=suggested.toFixed(2)
-            if(fields.billingStatus===undefined)fields.billingStatus=row.billingStatus==="Not billed"||!row.billingStatus?"Partly billed":row.billingStatus;
-            if(fields.collectionStatus===undefined)fields.collectionStatus=row.collectionStatus==="Not due"||!row.collectionStatus?"Pending":row.collectionStatus}
           run(()=>completionApi.advance(row.id,fields),`${row.ref}: ${ACTION_LABEL[at].toLowerCase()} done`)}}>
           {busy?"Saving…":at==="Project Manager Update"?"Open completion & billing form":ACTION_LABEL[at]}<ArrowRight/></button>}
 
@@ -291,6 +301,8 @@ function CycleDetail({row,role,userEmail,totals,close,saved,reload}:{row:Cycle;r
 
       <Attachments entityType="completion" entityId={row.id} flash={()=>{}}/>
     </aside>
+    {invoiceForm&&<InvoiceForm row={row} job={job} invoiced={totals[row.billingJobId]?.invoiced||0} close={()=>setInvoiceForm(false)}
+      saved={r=>{setInvoiceForm(false);saved(r,`${r.invoiceNo}: submitted for management approval`)}}/>}
     {form&&<CompletionForm row={row} close={()=>setForm(false)}
       saved={r=>{setForm(false);saved(r,`${r.ref}: completion update submitted`)}}/>}</div>}
 
@@ -345,3 +357,86 @@ function CompletionForm({row,close,saved}:{row:Cycle;close:()=>void;saved:(r:Cyc
       </form>
     </aside></div>}
 
+
+/* Invoice Raising, in the order of its field specification. The invoice number is issued
+   by the server; the job's details are shown, not entered; cumulative billing and the net
+   invoice value are worked out as the figures are typed, and again on the server. */
+function InvoiceForm({row,job,invoiced,close,saved}:{row:Cycle;job?:BillingJob;invoiced:number;close:()=>void;saved:(r:Cycle)=>void}){
+  const n=(v:number)=>v?String(v):"";
+  /* Billed before this invoice: the job's total, less this invoice if it was raised already. */
+  const before=Math.max(0,invoiced-(row.invoiceNo?row.currentBilling||0:0));
+  const due=Math.max(0,Math.round((row.contractValue*(row.certifiedPercent||0)/100-before)*100)/100);
+  const[f,setF]=useState<Record<string,string>>({invoiceType:row.invoiceType||"Progress bill",
+    previousBilling:row.invoiceNo?n(row.previousBilling):n(before),currentBilling:row.invoiceNo?n(row.currentBilling):n(due),
+    advanceAdjustment:n(row.advanceAdjustment),retentionAmount:n(row.retentionAmount),taxAmount:n(row.taxAmount),
+    invoiceDate:row.invoiceDate||new Date().toISOString().slice(0,10),currency:row.currency||"AED",
+    billingStatus:row.billingStatus==="Not billed"||!row.billingStatus?"Partly billed":row.billingStatus,
+    collectionStatus:row.collectionStatus==="Not due"||!row.collectionStatus?"Pending":row.collectionStatus});
+  const[files,setFiles]=useState<File[]>([]);
+  const[busy,setBusy]=useState(false),[err,setErr]=useState("");
+  const set=(k:string,v:string)=>setF(x=>({...x,[k]:v}));
+  const c=f.currency||"AED";
+  const amount=(k:string)=>Number(f[k])||0;
+  const calc=invoiceFigures({previousBilling:amount("previousBilling"),currentBilling:amount("currentBilling"),
+    advanceAdjustment:amount("advanceAdjustment"),retentionAmount:amount("retentionAmount"),taxAmount:amount("taxAmount")});
+  const pctOf=(p?:number)=>p?Math.round(amount("currentBilling")*p)/100:0;
+  const submit=async(e:React.FormEvent)=>{
+    e.preventDefault();setBusy(true);setErr("");
+    try{
+      const r=await completionApi.invoice(row.id,f);
+      const failed:string[]=[];
+      for(const file of files){
+        try{const res=await fetch("/api/attachments",{method:"POST",headers:{"content-type":"application/json"},
+          body:JSON.stringify({entityType:"completion",entityId:row.id,kind:"Invoice",fileName:file.name,
+            note:`Supporting document · ${r.invoiceNo}`,dataUrl:await asDataUrl(file)})});
+          if(!res.ok)failed.push(file.name)}catch{failed.push(file.name)}}
+      if(failed.length)alert(`The invoice was submitted, but these files did not upload: ${failed.join(", ")}. Add them from the cycle.`);
+      saved(r)}
+    catch(x){setErr(x instanceof Error?x.message:"Could not submit the invoice");setBusy(false)}};
+  const auto=(label:string,value:string)=><label>{lbl(label,true)}<input readOnly className="recv-auto" value={value||"—"}/></label>;
+  const money2=(v:number)=>money(v,c);
+  const amt=(k:string,label:string,required=false,hint?:string)=><label>{lbl(label,required)}
+    <input type="number" required={required} min={required?"0.01":"0"} step="0.01" value={f[k]} onChange={e=>set(k,e.target.value)}
+      placeholder={hint}/></label>;
+
+  return <div className="recv-drawer wide recv-over" role="dialog" aria-label="Invoice raising">
+    <button className="recv-scrim" aria-label="Close" onClick={close}/>
+    <aside><header><div><small>INVOICE RAISING · {row.ref}</small><h3>{row.invoiceNo||"New invoice"}</h3>
+        <p className="recv-form-sub">Certified {row.certifiedPercent}% of {money(row.contractValue,row.currency)}. Management approves the
+          invoice before it goes to audit.</p></div>
+      <button onClick={close} aria-label="Close"><X/></button></header>
+      <form className="recv-act recv-form" onSubmit={submit}>
+        <div className="recv-two">{auto("Invoice no.",row.invoiceNo||"Issued on submit")}{auto("Job code",row.jobCode||row.jobRef)}</div>
+        <div className="recv-two">{auto("Client",row.customer)}{auto("Project",row.projectName)}</div>
+        <div className="recv-two">{auto("Contract value",money(row.contractValue,row.currency))}
+          <label>{lbl("Invoice type",true)}<select required value={f.invoiceType} onChange={e=>set("invoiceType",e.target.value)}>
+            {INVOICE_TYPES.map(t=><option key={t}>{t}</option>)}</select></label></div>
+        <div className="recv-two">{amt("previousBilling","Previous billing",false,"Billed before this invoice")}
+          {amt("currentBilling","Current billing",true,due?`Certified value not yet billed: ${due.toFixed(2)}`:undefined)}</div>
+        <div className="recv-two">
+          <label>{lbl("Cumulative billing",true)}<input readOnly className="recv-auto" value={money2(calc.cumulativeBilling)}
+            title="Previous billing + current billing"/></label>
+          {amt("advanceAdjustment","Advance adjustment",false,job?.advancePercent?`${job.advancePercent}% advance: ${pctOf(job.advancePercent).toFixed(2)}`:undefined)}</div>
+        <div className="recv-two">
+          {amt("retentionAmount","Retention",false,job?.retentionPercent?`${job.retentionPercent}% retention: ${pctOf(job.retentionPercent).toFixed(2)}`:undefined)}
+          {amt("taxAmount","GST / tax")}</div>
+        <div className="recv-two">
+          <label>{lbl("Net invoice value",true)}<input readOnly className={`recv-auto${calc.net<=0?" cb-neg":""}`} value={money2(calc.net)}
+            title="Current billing − advance adjustment − retention + GST / tax"/></label>
+          <label>{lbl("Management approval",true)}<input readOnly className="recv-auto" title="Management authorisation - maker-checker control"
+            value={row.invoiceApproval==="Rejected"?"Rejected - resubmit for approval":"Given by management after you submit"}/></label></div>
+        <div className="recv-two">
+          <label>{lbl("Invoice date",true)}<input type="date" required value={f.invoiceDate} onChange={e=>set("invoiceDate",e.target.value)}/></label>
+          <label>{lbl("Currency",true)}<input required value={f.currency} onChange={e=>set("currency",e.target.value.toUpperCase())}/></label></div>
+        <div className="recv-two">
+          <label>{lbl("Billing status",true)}<select required value={f.billingStatus} onChange={e=>set("billingStatus",e.target.value)}>
+            {BILLING_STATUSES.map(s=><option key={s}>{s}</option>)}</select></label>
+          <label>{lbl("Collection status",true)}<select required value={f.collectionStatus} onChange={e=>set("collectionStatus",e.target.value)}>
+            {COLLECTION_STATUSES.map(s=><option key={s}>{s}</option>)}</select></label></div>
+        <FilePicker files={files} onChange={setFiles} label="Supporting documents (optional)"
+          accept="image/*,application/pdf,.doc,.docx,.xls,.xlsx,.csv,.txt,.zip"/>
+        {row.invoiceApproval==="Rejected"&&!!row.invoiceApprovalNote&&<p className="recv-back-note"><RotateCcw/><span><b>Rejected:</b> {row.invoiceApprovalNote}</span></p>}
+        {err&&<p className="recv-error">{err}</p>}
+        <button className="primary" type="submit" disabled={busy||calc.net<=0}>{busy?"Submitting…":"Submit for management approval"}<ArrowRight/></button>
+      </form>
+    </aside></div>}
