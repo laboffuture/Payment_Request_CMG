@@ -346,3 +346,5 @@
   font:inherit;font-size:.78rem;font-weight:600;cursor:pointer}
 .recv-form .ghost.danger:hover:not(:disabled){background:#fef3f2;border-color:#fda29b}
 .recv-form .ghost.danger svg{width:.9rem;height:.9rem}
+.pp-neg{color:#b42318!important}
+.pp-pos{color:#027a48}

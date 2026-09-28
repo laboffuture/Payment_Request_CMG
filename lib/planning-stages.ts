@@ -53,7 +53,8 @@ export const REQUIRED_TO_LEAVE:Record<Stage,string[]>={
   "Assign Project Manager":["pmEmail"],
   /* Project Planning, as its field specification sets out the mandatory fields. */
   "Project Schedule and Planning":["startDate","endDate","planningStatus"],
-  "Detailed BOM - Procurement Planning":["bomSummary","bomCost"],
+  /* The BOM lines themselves are checked on the server: at least one is needed. */
+  "Detailed BOM - Procurement Planning":[],
   "Audit Verification":[],
   "Verified":[]};
 
@@ -84,6 +85,23 @@ export const mayEditSchedule=(stage:string,roles:string[]=[],isManager=false)=>
 /** An activity past its planned completion date and not completed - for ageing. */
 export const isOverdue=(a:{plannedEnd:string;status:string},today:string)=>
   !!a.plannedEnd&&a.status!=="Completed"&&a.plannedEnd<today;
+
+/* The starting lists for the BOM's material category and unit. Administrators edit
+   them under Settings; these apply until they do. */
+export const MATERIAL_CATEGORIES=["Joinery","Flooring","Ceiling","Partitions & drywall","Paint & finishes",
+  "Glass & aluminium","Tiles & stone","Sanitaryware","Hardware & ironmongery","Furniture","Lighting",
+  "Electrical","Plumbing","HVAC","Civil","Other"];
+export const BOM_UNITS=["Nos","Sqm","Sqft","Rm","Lm","Cum","Kg","Ton","Ltr","Set","Lot","Roll","Sheet","Box","Pair"];
+
+/* The worked-out figures of a BOM line, as the server stores and the form shows them:
+   BOQ value = quantity x rate; balance = required - purchased; variance = estimated
+   cost - actual cost, so a negative variance is an overrun. Null when an input is absent. */
+const r2=(n:number)=>Math.round(n*100)/100;
+export const bomFigures=(l:{boqQty:number;boqRate:number;requiredQty:number;purchasedQty:number|null;
+  estimatedCost:number|null;actualCost:number|null})=>({
+  boqValue:r2(l.boqQty*l.boqRate),
+  balanceQty:l.purchasedQty===null?null:r2(l.requiredQty-l.purchasedQty),
+  variance:l.estimatedCost===null||l.actualCost===null?null:r2(l.estimatedCost-l.actualCost)});
 
 /** Where audit may send an entry back: every stage after the job and before audit. */
 export const RETURNABLE_TO=STAGES.slice(1,4) as readonly Stage[];

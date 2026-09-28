@@ -1,9 +1,9 @@
 import{and,asc,eq,sql}from"drizzle-orm";
 import{getDb}from"../../../../db";
-import{wfPlanActivities,wfPlanning,wfUsers}from"../../../../db/schema";
-import{companyLock,inCompany,requireAuth}from"../../../../lib/auth";
-import type{Actor}from"../../../../lib/auth";
-import{ACTIVITY_STATUSES,RECEIVABLE_ROLES,mayEditSchedule}from"../../../../lib/planning-stages";
+import{wfPlanActivities,wfUsers}from"../../../../db/schema";
+import{requireAuth}from"../../../../lib/auth";
+import{planFor}from"../../../../lib/planning-access";
+import{ACTIVITY_STATUSES}from"../../../../lib/planning-stages";
 import{actorOf,bad,num,oops,str,writeWithAudit}from"../../../../lib/workforce-api";
 import type{Row}from"../../../../lib/workforce-api";
 
@@ -13,17 +13,6 @@ import type{Row}from"../../../../lib/workforce-api";
 const now=()=>new Date().toISOString();
 const lower=(v:unknown)=>str(v).trim().toLowerCase();
 const date=/^\d{4}-\d{2}-\d{2}$/;
-
-/* The plan, if this reader may see it, and whether they may change its schedule. */
-async function planFor(actor:Actor|null|undefined,planId:string){
-  const db=await getDb();
-  const[plan]=await db.select().from(wfPlanning).where(eq(wfPlanning.id,planId));
-  if(!plan||!inCompany(await companyLock(actor??null),{id:plan.companyId}))return null;
-  const isManager=!!plan.pmEmail&&lower(plan.pmEmail)===lower(actor?.email);
-  const roles=actor?.roles||[];
-  if(!isManager&&!roles.some(r=>RECEIVABLE_ROLES.includes(r)))return null;
-  return{plan,edit:mayEditSchedule(plan.stage,roles,isManager)};
-}
 
 /* The fields of an activity from the request, checked; or the reason they cannot be saved. */
 async function fieldsOf(body:Row):Promise<Row|string>{

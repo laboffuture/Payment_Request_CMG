@@ -8,14 +8,15 @@
    this screen shows only what that model allows, and the server checks it again. */
 
 import{useMemo,useState}from"react";
-import{ArrowLeft,ArrowRight,CalendarClock,CheckCircle2,Plus,RotateCcw,Search,ShieldCheck,Trash2,UserRound,X}from"lucide-react";
-import{activitiesApi,planningApi}from"./audit-api";
-import type{Plan,PlanActivity,PlanJob}from"./audit-api";
+import{ArrowLeft,ArrowRight,CalendarClock,CheckCircle2,Package,Plus,RotateCcw,Search,ShieldCheck,Trash2,UserRound,X}from"lucide-react";
+import{activitiesApi,bomApi,planningApi}from"./audit-api";
+import type{BomLine,Plan,PlanActivity,PlanJob}from"./audit-api";
+import{useOptions}from"./options-store";
 import{useAsync}from"./workforce-store";
 import{Empty,ErrorBlock,Loading}from"./WorkforceShared";
 import Attachments from"./Attachments";
-import{ACCOUNTS_ROLES,ACTION_LABEL,ACTIVITY_STATUSES,PLAN_PEOPLE,PLANNING_STATUSES,RECEIVABLE_ROLES,RETURNABLE_TO,STAGES,
-  isOverdue,isVerified,mayAct,stageIndex}
+import{ACCOUNTS_ROLES,ACTION_LABEL,ACTIVITY_STATUSES,BOM_UNITS,MATERIAL_CATEGORIES,PLAN_PEOPLE,PLANNING_STATUSES,RECEIVABLE_ROLES,RETURNABLE_TO,STAGES,
+  bomFigures,isOverdue,isVerified,mayAct,stageIndex}
   from"../lib/planning-stages";
 import type{Stage}from"../lib/planning-stages";
 
@@ -130,7 +131,7 @@ function Detail({row,role,userEmail,close,saved,reload}:{row:Plan;role:string;us
         <div><dt>Schedule</dt><dd>{row.startDate?`${day(row.startDate)} → ${day(row.endDate)}`:"Not planned yet"}</dd></div>
         {!!row.planningStatus&&<div><dt>Planning status</dt><dd>{row.planningStatus}</dd></div>}
         {!!row.planNotes&&<div><dt>Remarks</dt><dd>{row.planNotes}</dd></div>}
-        <div><dt>BOM</dt><dd>{row.bomSummary||"Not detailed yet"}</dd></div>
+        {!!row.bomSummary&&<div><dt>BOM summary</dt><dd>{row.bomSummary}</dd></div>}
         <div><dt>Est. procurement</dt><dd>{money(row.bomCost,row.currency)}</dd></div>
         {!!row.procurementNotes&&<div><dt>Procurement notes</dt><dd>{row.procurementNotes}</dd></div>}
         {!!row.submittedAt&&<div><dt>Sent for audit</dt><dd>{day(row.submittedAt)}</dd></div>}
@@ -151,14 +152,13 @@ function Detail({row,role,userEmail,close,saved,reload}:{row:Plan;role:string;us
         {at==="Project Schedule and Planning"&&<p className="recv-hint">Add the activities to the project schedule
           below, then fill in the project planning form: the dates, the planning status and the people on the project.</p>}
         {at==="Detailed BOM - Procurement Planning"&&<>
-          <label>BOM summary<textarea rows={3} value={val("bomSummary")} onChange={e=>set("bomSummary",e.target.value)}
-            placeholder="Main materials and quantities - attach the detailed BOM below"/></label>
+          <p className="recv-hint">Add the material lines to the detailed BOM below. The estimated procurement cost
+            is their total - each line&apos;s estimated cost, or its BOQ value where none is entered.</p>
           <div className="recv-two">
-            <label>Estimated procurement cost<input type="number" min="0" step="0.01" value={f.bomCost===undefined?(row.bomCost||""):String(f.bomCost)}
-              onChange={e=>set("bomCost",e.target.value)}/></label>
+            <label>BOM summary<input value={val("bomSummary")} onChange={e=>set("bomSummary",e.target.value)} placeholder="Optional"/></label>
             <label>Currency<input value={val("currency")} onChange={e=>set("currency",e.target.value)}/></label></div>
           <label>Procurement notes<textarea rows={2} value={val("procurementNotes")} onChange={e=>set("procurementNotes",e.target.value)}
-            placeholder="Vendors, lead times, what is ordered when"/></label></>}
+            placeholder="Vendors, lead times, what is ordered when (optional)"/></label></>}
         {at==="Audit Verification"&&<label>Audit remarks<textarea rows={2} value={val("remarks")}
           onChange={e=>set("remarks",e.target.value)} placeholder="Optional"/></label>}
 
@@ -179,6 +179,7 @@ function Detail({row,role,userEmail,close,saved,reload}:{row:Plan;role:string;us
       </div>}
 
       <Schedule plan={row} flash={m=>{saved(row,m)}}/>
+      <Bom plan={row} flash={m=>{saved(row,m)}}/>
 
       {/* The schedule, the BOM and anything else the plan rests on. */}
       <Attachments entityType="planning" entityId={row.id} flash={()=>{}}/>
@@ -343,5 +344,111 @@ function ActivityForm({plan,act,close,saved}:{plan:Plan;act:Partial<PlanActivity
         {err&&<p className="recv-error">{err}</p>}
         <button className="primary" type="submit" disabled={busy}>{busy?"Saving…":act.id?"Save activity":"Add activity"}</button>
         {act.id&&<button type="button" className="ghost danger" disabled={busy} onClick={del}><Trash2/>Remove activity</button>}
+      </form>
+    </aside></div>}
+
+const qty=(n:number|null)=>n===null?"—":n.toLocaleString("en-GB",{maximumFractionDigits:3});
+const amt=(n:number|null,c:string)=>n===null?"—":`${c} ${n.toLocaleString("en-GB",{minimumFractionDigits:2,maximumFractionDigits:2})}`;
+
+/* The detailed BOM: the plan's material lines, with the quantities still to buy and the
+   cost against the estimate. A negative variance is an overrun. */
+function Bom({plan,flash}:{plan:Plan;flash:(m:string)=>void}){
+  const[version,setVersion]=useState(0),[editing,setEditing]=useState<Partial<BomLine>|null>(null);
+  const{data,loading,error}=useAsync(()=>bomApi.load(plan.id),[plan.id,plan.stage,version]);
+  const lines=data?.lines||[],canEdit=!!data?.canEdit,c=plan.currency||"AED";
+  const boq=lines.reduce((t,l)=>t+l.boqValue,0);
+  return <section className="pp-sched">
+    <header><b><Package/>Detailed BOM</b>
+      {!!lines.length&&<span>{lines.length} {lines.length===1?"line":"lines"} · BOQ {amt(boq,c)}</span>}
+      {canEdit&&<button className="ghost" onClick={()=>setEditing({})}><Plus/>Add BOM line</button>}</header>
+    {error?<p className="recv-error">{error}</p>
+    :loading&&!data?<p className="recv-hint">Loading the BOM…</p>
+    :!lines.length?<p className="recv-hint">No BOM line yet.{canEdit?" Add the first one.":""}</p>
+    :<ul>{lines.map(l=><li key={l.id}><button disabled={!canEdit} onClick={()=>setEditing(l)} title={canEdit?"Edit this line":undefined}>
+        <div className="pp-sched-top"><b>{l.boqItem} · {l.description}</b><i className="pp-st">{l.category}</i></div>
+        <div className="pp-sched-meta">BOQ {qty(l.boqQty)} {l.unit} × {amt(l.boqRate,c)} = {amt(l.boqValue,c)}</div>
+        <div className="pp-sched-meta">Required {qty(l.requiredQty)} {l.unit} by {day(l.requiredDate)}
+          {l.purchasedQty!==null&&<> · purchased {qty(l.purchasedQty)} · balance {qty(l.balanceQty)}</>}</div>
+        {(l.estimatedCost!==null||l.actualCost!==null)&&<div className="pp-sched-meta">Estimated {amt(l.estimatedCost,c)} · actual {amt(l.actualCost,c)}
+          {l.variance!==null&&<> · variance <span className={l.variance<0?"pp-neg":"pp-pos"}>{amt(l.variance,c)}</span></>}</div>}
+        <div className="pp-sched-meta">Approved by {l.approvedByName}</div>
+      </button></li>)}</ul>}
+    {editing&&<BomForm plan={plan} line={editing} close={()=>setEditing(null)}
+      saved={m=>{setEditing(null);setVersion(v=>v+1);flash(m)}}/>}
+  </section>}
+
+/* One line of the detailed BOM, in the order of its field specification. The BOQ value,
+   balance quantity and variance are worked out as the figures are typed; the server
+   works them out again when it saves. */
+function BomForm({plan,line,close,saved}:{plan:Plan;line:Partial<BomLine>;close:()=>void;saved:(m:string)=>void}){
+  const n=(v:number|null|undefined)=>v===null||v===undefined?"":String(v);
+  const[f,setF]=useState<Record<string,string>>({boqItem:line.boqItem||"",category:line.category||"",
+    description:line.description||"",specification:line.specification||"",unit:line.unit||"",
+    boqQty:n(line.boqQty),boqRate:n(line.boqRate),requiredQty:n(line.requiredQty),purchasedQty:n(line.purchasedQty),
+    estimatedCost:n(line.estimatedCost),actualCost:n(line.actualCost),requiredDate:line.requiredDate||"",
+    approvedByEmail:line.approvedByEmail||"",remarks:line.remarks||""});
+  const[busy,setBusy]=useState(false),[err,setErr]=useState("");
+  const set=(k:string,v:string)=>setF(x=>({...x,[k]:v}));
+  const people=useAsync(()=>planningApi.people(),[]);
+  const categories=useOptions("planning.materialCategory",MATERIAL_CATEGORIES);
+  const units=useOptions("planning.unit",BOM_UNITS);
+  const c=plan.currency||"AED";
+  const opt=(v:string)=>v.trim()===""?null:Number(v)||0;
+  const calc=bomFigures({boqQty:Number(f.boqQty)||0,boqRate:Number(f.boqRate)||0,requiredQty:Number(f.requiredQty)||0,
+    purchasedQty:opt(f.purchasedQty),estimatedCost:opt(f.estimatedCost),actualCost:opt(f.actualCost)});
+  const go=async(fn:()=>Promise<unknown>,msg:string)=>{
+    setBusy(true);setErr("");
+    try{await fn();saved(msg)}
+    catch(x){setErr(x instanceof Error?x.message:"Could not save the BOM line");setBusy(false)}};
+  const submit=(e:React.FormEvent)=>{e.preventDefault();
+    go(()=>bomApi.save({...f,id:line.id,planId:plan.id}),`${f.boqItem}: ${line.id?"updated":"added to the BOM"}`)};
+  const del=()=>{if(line.id&&confirm(`Remove "${line.boqItem}" from the BOM?`))
+    go(()=>bomApi.remove(line.id!),`${line.boqItem}: removed from the BOM`)};
+  const pick=(k:string,label:string,list:readonly string[])=><label>{lbl(label,true)}
+    <select required value={f[k]} onChange={e=>set(k,e.target.value)}><option value="">Select {label.toLowerCase()}</option>
+      {[...new Set([...list,f[k]].filter(Boolean))].map(o=><option key={o}>{o}</option>)}</select></label>;
+  const num=(k:string,label:string,required=false,step="0.01")=><label>{lbl(label,required)}
+    <input type="number" required={required} min="0" step={step} value={f[k]} onChange={e=>set(k,e.target.value)}/></label>;
+
+  return <div className="recv-drawer wide recv-over" role="dialog" aria-label="BOM line">
+    <button className="recv-scrim" aria-label="Close" onClick={close}/>
+    <aside><header><div><small>DETAILED BOM · {plan.ref}</small><h3>{line.id?line.boqItem:"New BOM line"}</h3>
+        <p className="recv-form-sub">Figures in {c}. The BOQ value, balance quantity and variance are worked out.</p></div>
+      <button onClick={close} aria-label="Close"><X/></button></header>
+      <form className="recv-act recv-form" onSubmit={submit}>
+        <div className="recv-two">
+          <label>{lbl("Job code",true)}<input readOnly className="recv-auto" value={plan.jobCode||plan.jobRef}
+            title="The common key linking all of this project's transactions"/></label>
+          <label>{lbl("Project",true)}<input readOnly className="recv-auto" value={plan.projectName||plan.description||plan.customer}/></label></div>
+        <div className="recv-two">
+          <label>{lbl("BOQ item",true)}<input required autoFocus value={f.boqItem} onChange={e=>set("boqItem",e.target.value)}
+            placeholder="e.g. 3.2.1"/></label>
+          {pick("category","Material category",categories)}</div>
+        <label>{lbl("Material description",true)}<input required value={f.description} onChange={e=>set("description",e.target.value)}/></label>
+        <label>{lbl("Specification")}<textarea rows={3} value={f.specification} onChange={e=>set("specification",e.target.value)}
+          placeholder="Make, grade, finish, size"/></label>
+        <div className="recv-two">{pick("unit","Unit",units)}{num("boqQty","BOQ quantity",true,"any")}</div>
+        <div className="recv-two">{num("boqRate","BOQ rate",true)}
+          <label>{lbl("BOQ value",true)}<input readOnly className="recv-auto" value={amt(calc.boqValue,c)}
+            title="BOQ quantity × BOQ rate"/></label></div>
+        <div className="recv-two">{num("requiredQty","Required quantity",true,"any")}{num("purchasedQty","Purchased quantity",false,"any")}</div>
+        <div className="recv-two">
+          <label>{lbl("Balance quantity")}<input readOnly className="recv-auto"
+            value={calc.balanceQty===null?"Worked out once a purchased quantity is entered":`${qty(calc.balanceQty)} ${f.unit}`}
+            title="Required quantity − purchased quantity"/></label>
+          {num("estimatedCost","Estimated cost")}</div>
+        <div className="recv-two">{num("actualCost","Actual cost")}
+          <label>{lbl("Variance")}<input readOnly className={`recv-auto${calc.variance!==null&&calc.variance<0?" pp-neg":""}`}
+            value={calc.variance===null?"Worked out from estimated and actual cost":amt(calc.variance,c)}
+            title="Estimated cost − actual cost; negative is an overrun"/></label></div>
+        <div className="recv-two">
+          <label>{lbl("Required date",true)}<input type="date" required value={f.requiredDate} onChange={e=>set("requiredDate",e.target.value)}/></label>
+          <label>{lbl("Approved by",true)}<select required value={f.approvedByEmail} onChange={e=>set("approvedByEmail",e.target.value)}>
+            <option value="">{people.loading?"Loading people…":"Select a person"}</option>
+            {(people.data||[]).map(p=><option key={p.email} value={p.email}>{p.name?`${p.name} · ${p.email}`:p.email}</option>)}</select></label></div>
+        <label>{lbl("Remarks")}<textarea rows={3} value={f.remarks} onChange={e=>set("remarks",e.target.value)}/></label>
+        {err&&<p className="recv-error">{err}</p>}
+        <button className="primary" type="submit" disabled={busy}>{busy?"Saving…":line.id?"Save BOM line":"Add BOM line"}</button>
+        {line.id&&<button type="button" className="ghost danger" disabled={busy} onClick={del}><Trash2/>Remove BOM line</button>}
       </form>
     </aside></div>}

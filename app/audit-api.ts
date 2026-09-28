@@ -162,6 +162,17 @@ export const activitiesApi={
   save:async(a:Partial<PlanActivity>)=>(await send("/api/planning/activities",a.id?"PATCH":"POST",a)).activity as PlanActivity,
   remove:async(id:string)=>{await send(`/api/planning/activities?id=${encodeURIComponent(id)}`,"DELETE")}};
 
+/* The detailed BOM of a plan: its material lines. Optional figures are null when not entered. */
+export type BomLine={id:string;planId:string;jobCode:string;projectName:string;boqItem:string;category:string;
+  description:string;specification:string;unit:string;boqQty:number;boqRate:number;boqValue:number;requiredQty:number;
+  purchasedQty:number|null;balanceQty:number|null;estimatedCost:number|null;actualCost:number|null;variance:number|null;
+  requiredDate:string;approvedByName:string;approvedByEmail:string;remarks:string;createdBy:string;createdAt:string;updatedAt:string};
+export const bomApi={
+  load:async(planId:string)=>asJson<{lines:BomLine[];canEdit:boolean}>(
+    await fetch(`/api/planning/bom?planId=${encodeURIComponent(planId)}`)),
+  save:async(l:Record<string,unknown>)=>(await send("/api/planning/bom",l.id?"PATCH":"POST",l)).line as BomLine,
+  remove:async(id:string)=>{await send(`/api/planning/bom?id=${encodeURIComponent(id)}`,"DELETE")}};
+
 /* Accounts Receivable. The stage moves are a PATCH rather than a field the client
    sets, because the server decides what the next stage is - see the route. */
 export const receivablesApi={

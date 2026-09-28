@@ -1,6 +1,6 @@
 import{and,desc,eq,sql}from"drizzle-orm";
 import{getDb}from"../../../db";
-import{wfPlanActivities,wfPlanning,wfReceivables,wfUsers}from"../../../db/schema";
+import{wfPlanActivities,wfPlanBom,wfPlanning,wfReceivables,wfUsers}from"../../../db/schema";
 import{companyLock,inCompany,requireAuth}from"../../../lib/auth";
 import{emailsForRoles,notify}from"../../../lib/notify";
 import{ACCOUNTS_ROLES,AUDIT_ROLES,FIELD_LABEL,FIRST_OPEN,PLAN_PEOPLE,PLANNING_STATUSES,RECEIVABLE_ROLES,REQUIRED_TO_LEAVE,
@@ -167,10 +167,17 @@ export async function PATCH(req:Request){
         patch[`${key}Name`]=u.name||u.email;patch[`${key}Email`]=u.email;
       }
     }
-    if(from==="Detailed BOM - Procurement Planning")
-      Object.assign(patch,{bomSummary:str(body.bomSummary,row.bomSummary).trim(),bomCost:num(filled.bomCost),
+    if(from==="Detailed BOM - Procurement Planning"){
+      /* The detailed BOM must have at least one line. The estimated procurement cost is
+         its total: each line's estimated cost, or its BOQ value where none is entered. */
+      const lines=await db.select({est:wfPlanBom.estimatedCost,boq:wfPlanBom.boqValue}).from(wfPlanBom)
+        .where(eq(wfPlanBom.planId,id));
+      if(!lines.length)return bad("Add at least one line to the detailed BOM first.",422);
+      const cost=Math.round(lines.reduce((t,l)=>t+(l.est??l.boq),0)*100)/100;
+      Object.assign(patch,{bomSummary:str(body.bomSummary,row.bomSummary).trim(),bomCost:cost,
         currency:str(body.currency,row.currency||"AED"),procurementNotes:str(body.procurementNotes,row.procurementNotes).trim(),
         bomAt:now(),submittedAt:now()});
+    }
     if(from==="Audit Verification")
       Object.assign(patch,{verifiedBy:who,verifiedAt:now(),remarks:str(body.remarks,row.remarks).trim()});
 

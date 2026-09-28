@@ -632,6 +632,37 @@ export const wfPlanActivities=sqliteTable("wf_plan_activities",{
   updatedAt:text("updated_at").notNull().default("")},
   t=>[index("wf_planact_plan_idx").on(t.planId,t.startDate)]);
 
+/* The detailed BOM of a plan: one row per material line. The BOQ value, balance quantity
+   and variance are worked out on the server from the figures entered and stored, so a
+   report reads them as they were saved. Optional figures are null when not entered. */
+export const wfPlanBom=sqliteTable("wf_plan_bom",{
+  id:text("id").primaryKey(),
+  planId:text("plan_id").notNull().default(""),
+  jobCode:text("job_code").notNull().default(""),
+  projectName:text("project_name").notNull().default(""),
+  boqItem:text("boq_item").notNull().default(""),
+  category:text("category").notNull().default(""),
+  description:text("description").notNull().default(""),
+  specification:text("specification").notNull().default(""),
+  unit:text("unit").notNull().default(""),
+  boqQty:real("boq_qty").notNull().default(0),
+  boqRate:real("boq_rate").notNull().default(0),
+  boqValue:real("boq_value").notNull().default(0),
+  requiredQty:real("required_qty").notNull().default(0),
+  purchasedQty:real("purchased_qty"),
+  balanceQty:real("balance_qty"),
+  estimatedCost:real("estimated_cost"),
+  actualCost:real("actual_cost"),
+  variance:real("variance"),
+  requiredDate:text("required_date").notNull().default(""),
+  approvedByName:text("approved_by_name").notNull().default(""),
+  approvedByEmail:text("approved_by_email").notNull().default(""),
+  remarks:text("remarks").notNull().default(""),
+  createdBy:text("created_by").notNull().default(""),
+  createdAt:text("created_at").notNull().default(""),
+  updatedAt:text("updated_at").notNull().default("")},
+  t=>[index("wf_planbom_plan_idx").on(t.planId,t.createdAt)]);
+
 /* Accounts Receivable, module 3: Completion and Billing - the jobs register. One row per
    job whose plan is verified in Planning & Procurement, active or not. While active, a
    completion request is issued every `everyDays` days (weekly unless changed); the job,
