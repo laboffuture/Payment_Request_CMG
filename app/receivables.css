@@ -348,3 +348,25 @@
 .recv-form .ghost.danger svg{width:.9rem;height:.9rem}
 .pp-neg{color:#b42318!important}
 .pp-pos{color:#027a48}
+
+/* Planning & Procurement: procurement planning. */
+.recv-row .pp-await{display:inline-flex;align-items:center;gap:.3rem;font-style:normal;font-size:11px;color:#b54708;margin-top:.2rem}
+.recv-row .pp-await svg{width:.8rem;height:.8rem}
+.pp-fields{border:0;margin:0;padding:0;min-width:0;display:contents}
+.pp-quotes{display:flex;flex-direction:column;gap:.45rem;padding:.75rem;border:1px solid var(--line,#e4e7ec);border-radius:.6rem;background:var(--chip,#f9fafb)}
+.pp-quote-head,.pp-quote{display:grid;grid-template-columns:6.5rem minmax(0,1.4fr) minmax(0,1fr) minmax(0,1fr);gap:.5rem;align-items:center}
+.pp-quote-head span{font-size:.7rem;font-weight:600;letter-spacing:.04em;text-transform:uppercase;color:var(--muted,#667085)}
+.pp-quote b{font-size:.78rem;font-weight:600}
+.pp-file{display:flex;align-items:center;gap:.3rem;min-width:0;font-size:.75rem}
+.pp-file a{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--accent,#2563eb)}
+.pp-file button{border:0;background:none;cursor:pointer;color:var(--muted,#667085);display:flex;padding:0}
+.pp-file button svg{width:.85rem;height:.85rem}
+.recv-form .pp-pick{display:inline-flex;align-items:center;justify-content:center;height:36px;padding:0 .75rem;border:1px dashed var(--line,#d0d5dd);
+  border-radius:.5rem;background:var(--card,#fff);cursor:pointer;font-size:.75rem;color:var(--muted,#475467);flex-direction:row}
+.pp-pick input{display:none}
+@media (max-width:640px){
+  .pp-quote-head{display:none}
+  .pp-quote{grid-template-columns:1fr 1fr}
+  .pp-quote b{grid-column:1/-1}}
+.pp-quote input{font-size:.78rem;height:36px;box-sizing:border-box}
+.pp-quote .pp-none{color:var(--muted,#98a2b3)}

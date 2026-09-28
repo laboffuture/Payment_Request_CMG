@@ -1,9 +1,9 @@
 import{and,desc,eq,sql}from"drizzle-orm";
 import{getDb}from"../../../db";
-import{wfPlanActivities,wfPlanBom,wfPlanning,wfReceivables,wfUsers}from"../../../db/schema";
+import{wfPlanActivities,wfPlanBom,wfPlanProcurement,wfPlanning,wfReceivables,wfUsers}from"../../../db/schema";
 import{companyLock,inCompany,requireAuth}from"../../../lib/auth";
 import{emailsForRoles,notify}from"../../../lib/notify";
-import{ACCOUNTS_ROLES,AUDIT_ROLES,FIELD_LABEL,FIRST_OPEN,PLAN_PEOPLE,PLANNING_STATUSES,RECEIVABLE_ROLES,REQUIRED_TO_LEAVE,
+import{ACCOUNTS_ROLES,AUDIT_ROLES,FIELD_LABEL,FIRST_OPEN,PLAN_PEOPLE,PLAN_READ_ROLES,PLANNING_STATUSES,REQUIRED_TO_LEAVE,
   RETURNABLE_TO,STAGES,mayAct,stageIndex}from"../../../lib/planning-stages";
 import type{Stage}from"../../../lib/planning-stages";
 import{actorOf,bad,num,oops,page,str,writeWithAudit}from"../../../lib/workforce-api";
@@ -17,7 +17,7 @@ import type{Row}from"../../../lib/workforce-api";
 
 const now=()=>new Date().toISOString();
 const lower=(v:unknown)=>str(v).trim().toLowerCase();
-const sees=(roles:string[]=[])=>roles.some(r=>RECEIVABLE_ROLES.includes(r));
+const sees=(roles:string[]=[])=>roles.some(r=>PLAN_READ_ROLES.includes(r));
 
 export async function GET(req:Request){
   try{
@@ -63,7 +63,11 @@ export async function GET(req:Request){
     const rows=await db.select().from(wfPlanning)
       .where(sees(actor?.roles)?undefined:sql`lower(${wfPlanning.pmEmail}) = ${me}`)
       .orderBy(desc(wfPlanning.createdAt)).limit(limit).offset(offset);
-    return Response.json({plans:rows.filter(r=>inCompany(lock,{id:r.companyId}))});
+    /* How many purchases on each plan wait for management approval. */
+    const pending=new Map((await db.select({id:wfPlanProcurement.planId,n:sql<number>`count(*)`}).from(wfPlanProcurement)
+      .where(eq(wfPlanProcurement.approval,"Pending")).groupBy(wfPlanProcurement.planId)).map(r=>[r.id,Number(r.n)]));
+    return Response.json({plans:rows.filter(r=>inCompany(lock,{id:r.companyId}))
+      .map(r=>({...r,pendingApprovals:pending.get(r.id)||0}))});
   }catch(e){return oops(e)}}
 
 /* Starting a plan: choosing its job. The job must be verified in Job Notification and

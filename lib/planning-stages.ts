@@ -24,6 +24,10 @@ export const AUDIT_ROLES=["Auditor","Audit Head","Administrator"];
 /* The roles that see Accounts Receivable as a whole. Anybody else reaches this module
    only as the project manager of an entry, and sees only those entries. */
 export const RECEIVABLE_ROLES=["Accountant","Administrator","Auditor","Audit Head"];
+/* Management approves procurement (the checker of maker-checker), so it reads every plan
+   too, though it acts on none of the stages. */
+export const APPROVER_ROLES=["Management","Administrator"];
+export const PLAN_READ_ROLES=[...RECEIVABLE_ROLES,"Management"];
 
 /* The schedule and the BOM are the project manager's work. Accounts may record them too,
    so a plan does not stall because the manager is away or does not use the portal. */
@@ -102,6 +106,13 @@ export const bomFigures=(l:{boqQty:number;boqRate:number;requiredQty:number;purc
   boqValue:r2(l.boqQty*l.boqRate),
   balanceQty:l.purchasedQty===null?null:r2(l.requiredQty-l.purchasedQty),
   variance:l.estimatedCost===null||l.actualCost===null?null:r2(l.estimatedCost-l.actualCost)});
+
+/* Procurement planning. A purchase moves through these statuses; the ones from "PO
+   issued" on need the management approval first. Fixed here because the code reads them. */
+export const PROCUREMENT_STATUSES=["Requested","Quotations received","Awaiting approval","PO issued",
+  "Partly delivered","Delivered","Cancelled"] as const;
+export const NEEDS_APPROVAL=["PO issued","Partly delivered","Delivered"];
+export const APPROVALS=["Pending","Approved","Rejected"] as const;
 
 /** Where audit may send an entry back: every stage after the job and before audit. */
 export const RETURNABLE_TO=STAGES.slice(1,4) as readonly Stage[];

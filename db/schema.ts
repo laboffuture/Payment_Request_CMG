@@ -663,6 +663,53 @@ export const wfPlanBom=sqliteTable("wf_plan_bom",{
   updatedAt:text("updated_at").notNull().default("")},
   t=>[index("wf_planbom_plan_idx").on(t.planId,t.createdAt)]);
 
+/* Procurement planning of a plan: one row per purchase of a BOM material - the quantity
+   to buy, up to three quotations (vendor, amount and the quotation file), the vendor and
+   rate chosen, the purchase order, its management approval and delivery. The approval
+   is maker-checker: `makerEmail` is whoever last set the commercial terms, and only a
+   different person with an approving role may approve them. */
+export const wfPlanProcurement=sqliteTable("wf_plan_procurement",{
+  id:text("id").primaryKey(),
+  planId:text("plan_id").notNull().default(""),
+  bomId:text("bom_id").notNull().default(""),
+  jobCode:text("job_code").notNull().default(""),
+  projectName:text("project_name").notNull().default(""),
+  material:text("material").notNull().default(""),
+  unit:text("unit").notNull().default(""),
+  requiredQty:real("required_qty").notNull().default(0),
+  availableStock:real("available_stock"),
+  balanceRequired:real("balance_required").notNull().default(0),
+  requiredDate:text("required_date").notNull().default(""),
+  prNo:text("pr_no").notNull().default(""),
+  q1Vendor:text("q1_vendor").notNull().default(""),
+  q1Amount:real("q1_amount"),
+  q1FileId:text("q1_file_id").notNull().default(""),
+  q1FileName:text("q1_file_name").notNull().default(""),
+  q2Vendor:text("q2_vendor").notNull().default(""),
+  q2Amount:real("q2_amount"),
+  q2FileId:text("q2_file_id").notNull().default(""),
+  q2FileName:text("q2_file_name").notNull().default(""),
+  q3Vendor:text("q3_vendor").notNull().default(""),
+  q3Amount:real("q3_amount"),
+  q3FileId:text("q3_file_id").notNull().default(""),
+  q3FileName:text("q3_file_name").notNull().default(""),
+  selectedVendor:text("selected_vendor").notNull().default(""),
+  selectedRate:real("selected_rate").notNull().default(0),
+  poNo:text("po_no").notNull().default(""),
+  poDate:text("po_date").notNull().default(""),
+  approval:text("approval").notNull().default(""),
+  approvedByName:text("approved_by_name").notNull().default(""),
+  approvedByEmail:text("approved_by_email").notNull().default(""),
+  approvedAt:text("approved_at").notNull().default(""),
+  makerEmail:text("maker_email").notNull().default(""),
+  expectedDelivery:text("expected_delivery").notNull().default(""),
+  actualDelivery:text("actual_delivery").notNull().default(""),
+  status:text("status").notNull().default(""),
+  createdBy:text("created_by").notNull().default(""),
+  createdAt:text("created_at").notNull().default(""),
+  updatedAt:text("updated_at").notNull().default("")},
+  t=>[index("wf_planproc_plan_idx").on(t.planId,t.createdAt),index("wf_planproc_approval_idx").on(t.approval)]);
+
 /* Accounts Receivable, module 3: Completion and Billing - the jobs register. One row per
    job whose plan is verified in Planning & Procurement, active or not. While active, a
    completion request is issued every `everyDays` days (weekly unless changed); the job,

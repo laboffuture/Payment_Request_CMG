@@ -138,7 +138,9 @@ export type Plan={id:string;ref:string;stage:string;jobId:string;jobRef:string;c
   procurementPersonName:string;procurementPersonEmail:string;financeSpocName:string;financeSpocEmail:string;pmName:string;pmEmail:string;pmAt:string;startDate:string;
   endDate:string;planNotes:string;planAt:string;bomSummary:string;bomCost:number;currency:string;
   procurementNotes:string;bomAt:string;submittedAt:string;verifiedBy:string;verifiedAt:string;
-  remarks:string;returnNote:string;returnedAt:string;raisedByEmail:string;createdAt:string;updatedAt:string};
+  remarks:string;returnNote:string;returnedAt:string;raisedByEmail:string;createdAt:string;updatedAt:string;
+  /* Purchases waiting for management approval. */
+  pendingApprovals?:number};
 export type PlanJob={id:string;ref:string;customer:string;description:string;companyId:string;
   jobCode:string;projectName:string};
 export const planningApi={
@@ -172,6 +174,23 @@ export const bomApi={
     await fetch(`/api/planning/bom?planId=${encodeURIComponent(planId)}`)),
   save:async(l:Record<string,unknown>)=>(await send("/api/planning/bom",l.id?"PATCH":"POST",l)).line as BomLine,
   remove:async(id:string)=>{await send(`/api/planning/bom?id=${encodeURIComponent(id)}`,"DELETE")}};
+
+/* Procurement planning of a plan: one row per purchase of a BOM material. */
+export type Purchase={id:string;planId:string;bomId:string;jobCode:string;projectName:string;material:string;unit:string;
+  requiredQty:number;availableStock:number|null;balanceRequired:number;requiredDate:string;prNo:string;
+  q1Vendor:string;q1Amount:number|null;q1FileId:string;q1FileName:string;
+  q2Vendor:string;q2Amount:number|null;q2FileId:string;q2FileName:string;
+  q3Vendor:string;q3Amount:number|null;q3FileId:string;q3FileName:string;
+  selectedVendor:string;selectedRate:number;poNo:string;poDate:string;approval:string;approvedByName:string;
+  approvedByEmail:string;approvedAt:string;makerEmail:string;expectedDelivery:string;actualDelivery:string;status:string;
+  createdBy:string;createdAt:string;updatedAt:string};
+export const procurementApi={
+  load:async(planId:string)=>asJson<{lines:Purchase[];canEdit:boolean;canApprove:boolean}>(
+    await fetch(`/api/planning/procurement?planId=${encodeURIComponent(planId)}`)),
+  save:async(p:Record<string,unknown>)=>(await send("/api/planning/procurement",p.id?"PATCH":"POST",p)).line as Purchase,
+  decide:async(id:string,approval:string)=>
+    (await send("/api/planning/procurement","PATCH",{id,action:"approve",approval})).line as Purchase,
+  remove:async(id:string)=>{await send(`/api/planning/procurement?id=${encodeURIComponent(id)}`,"DELETE")}};
 
 /* Accounts Receivable. The stage moves are a PATCH rather than a field the client
    sets, because the server decides what the next stage is - see the route. */

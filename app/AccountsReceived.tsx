@@ -56,11 +56,12 @@ export default function AccountsReceived(props:Props){
     try{const v=localStorage.getItem(MODULE_KEY);return MODULES.some(m=>m.id===v)?v as ModuleId:"job"}
     catch{return"job"}});
   const pick=(id:ModuleId)=>{setMod(id);try{localStorage.setItem(MODULE_KEY,id)}catch{}};
-  /* Who sees which modules. Accounts and audit see all four. Cost control and management
-     act only in Completion and Billing. Anybody else is here as a project manager, and
-     sees the two modules a manager works in, each showing only their own jobs. */
+  /* Who sees which modules. Accounts and audit see all four. Cost control acts only in
+     Completion and Billing; management there and in Planning & Procurement, where it
+     approves purchases. Anybody else is here as a project manager, and sees the two
+     modules a manager works in, each showing only their own jobs. */
   const tabs=RECEIVABLE_ROLES.includes(props.role)?MODULES
-    :["Cost Control","Management"].includes(props.role)?MODULES.filter(m=>m.id==="billing")
+    :props.role==="Cost Control"?MODULES.filter(m=>m.id==="billing")
     :MODULES.filter(m=>m.id==="planning"||m.id==="billing");
   const shownMod:ModuleId=tabs.some(m=>m.id===mod)?mod:tabs[0].id;
   return <div className="page recv">

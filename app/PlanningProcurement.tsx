@@ -7,15 +7,16 @@
    verifies the plan. lib/planning-stages.ts holds the flow and who may act at each stage;
    this screen shows only what that model allows, and the server checks it again. */
 
-import{useMemo,useState}from"react";
-import{ArrowLeft,ArrowRight,CalendarClock,CheckCircle2,Package,Plus,RotateCcw,Search,ShieldCheck,Trash2,UserRound,X}from"lucide-react";
-import{activitiesApi,bomApi,planningApi}from"./audit-api";
-import type{BomLine,Plan,PlanActivity,PlanJob}from"./audit-api";
+import{useEffect,useMemo,useState}from"react";
+import{ArrowLeft,ArrowRight,CalendarClock,CheckCircle2,Package,Plus,RotateCcw,Search,ShieldCheck,ShoppingCart,Trash2,UserRound,X}from"lucide-react";
+import{activitiesApi,bomApi,planningApi,procurementApi}from"./audit-api";
+import type{BomLine,Plan,PlanActivity,PlanJob,Purchase}from"./audit-api";
+import{asDataUrl}from"./Attachments";
 import{useOptions}from"./options-store";
 import{useAsync}from"./workforce-store";
 import{Empty,ErrorBlock,Loading}from"./WorkforceShared";
 import Attachments from"./Attachments";
-import{ACCOUNTS_ROLES,ACTION_LABEL,ACTIVITY_STATUSES,BOM_UNITS,MATERIAL_CATEGORIES,PLAN_PEOPLE,PLANNING_STATUSES,RECEIVABLE_ROLES,RETURNABLE_TO,STAGES,
+import{ACCOUNTS_ROLES,ACTION_LABEL,ACTIVITY_STATUSES,BOM_UNITS,MATERIAL_CATEGORIES,NEEDS_APPROVAL,PLAN_PEOPLE,PLAN_READ_ROLES,PROCUREMENT_STATUSES,PLANNING_STATUSES,RETURNABLE_TO,STAGES,
   bomFigures,isOverdue,isVerified,mayAct,stageIndex}
   from"../lib/planning-stages";
 import type{Stage}from"../lib/planning-stages";
@@ -42,7 +43,7 @@ export default function PlanningProcurement({role,userEmail="",flash}:Props){
   const counts=useMemo(()=>{const c:Record<string,number>={};
     rows.forEach(r=>c[r.stage]=(c[r.stage]||0)+1);
     c["Job Notification"]=waiting.data?.length||0;return c},[rows,waiting.data]);
-  const managerOnly=!RECEIVABLE_ROLES.includes(role);
+  const managerOnly=!PLAN_READ_ROLES.includes(role);
 
   return <div className="recv-module">
     <div className="recv-subhead"><p>{managerOnly
@@ -77,7 +78,8 @@ export default function PlanningProcurement({role,userEmail="",flash}:Props){
         {shown.map(r=><button key={r.id} className="recv-row" onClick={()=>setOpen(r)}>
           <div className="recv-ref"><b>{r.ref}</b><small>{r.customer}</small></div>
           <div className="recv-desc">{r.jobCode||r.jobRef} · {r.projectName||r.description||"—"}
-            {r.returnNote&&<i className="recv-back"><RotateCcw/>Sent back: {r.returnNote}</i>}</div>
+            {r.returnNote&&<i className="recv-back"><RotateCcw/>Sent back: {r.returnNote}</i>}
+            {!!r.pendingApprovals&&<i className="pp-await"><ShoppingCart/>{r.pendingApprovals} purchase{r.pendingApprovals===1?"":"s"} awaiting approval</i>}</div>
           <div className="recv-nums"><span>{r.pmName||"Not assigned"}</span>
             {r.startDate&&<span>{day(r.startDate)} → {day(r.endDate)}</span>}
             {r.planningStatus&&<span>{r.planningStatus}</span>}</div>
@@ -180,6 +182,7 @@ function Detail({row,role,userEmail,close,saved,reload}:{row:Plan;role:string;us
 
       <Schedule plan={row} flash={m=>{saved(row,m)}}/>
       <Bom plan={row} flash={m=>{saved(row,m)}}/>
+      <Procurement plan={row} userEmail={userEmail} flash={m=>{saved(row,m)}}/>
 
       {/* The schedule, the BOM and anything else the plan rests on. */}
       <Attachments entityType="planning" entityId={row.id} flash={()=>{}}/>
@@ -450,5 +453,173 @@ function BomForm({plan,line,close,saved}:{plan:Plan;line:Partial<BomLine>;close:
         {err&&<p className="recv-error">{err}</p>}
         <button className="primary" type="submit" disabled={busy}>{busy?"Saving…":line.id?"Save BOM line":"Add BOM line"}</button>
         {line.id&&<button type="button" className="ghost danger" disabled={busy} onClick={del}><Trash2/>Remove BOM line</button>}
+      </form>
+    </aside></div>}
+
+const APPROVAL_CLASS:Record<string,string>={Pending:"hold",Approved:"done",Rejected:"late"};
+
+/* Procurement planning: what is bought for each BOM material, from whom and at what
+   rate, with the management approval (maker-checker), the PO and delivery. */
+function Procurement({plan,userEmail,flash}:{plan:Plan;userEmail:string;flash:(m:string)=>void}){
+  const[version,setVersion]=useState(0),[editing,setEditing]=useState<Partial<Purchase>|null>(null);
+  const{data,loading,error}=useAsync(()=>procurementApi.load(plan.id),[plan.id,plan.stage,version]);
+  const bom=useAsync(()=>bomApi.load(plan.id),[plan.id,version]);
+  const lines=data?.lines||[],canEdit=!!data?.canEdit,c=plan.currency||"AED";
+  const materials=bom.data?.lines||[];
+  const waiting=lines.filter(l=>l.approval==="Pending").length;
+  return <section className="pp-sched">
+    <header><b><ShoppingCart/>Procurement planning</b>
+      {!!lines.length&&<span>{lines.length} {lines.length===1?"purchase":"purchases"}{waiting?` · ${waiting} awaiting approval`:""}</span>}
+      {canEdit&&!!materials.length&&<button className="ghost" onClick={()=>setEditing({})}><Plus/>Add purchase</button>}</header>
+    {error?<p className="recv-error">{error}</p>
+    :loading&&!data?<p className="recv-hint">Loading procurement…</p>
+    :!lines.length?<p className="recv-hint">No purchase planned yet.{canEdit?materials.length?" Add the first one."
+      :" Add the materials to the detailed BOM first.":""}</p>
+    :<ul>{lines.map(l=><li key={l.id}><button onClick={()=>setEditing(l)} title="Open this purchase">
+        <div className="pp-sched-top"><b>{l.prNo} · {l.material}</b>
+          <i className={`pp-st ${APPROVAL_CLASS[l.approval]||""}`}>{l.approval==="Pending"?"Awaiting approval":l.approval}</i></div>
+        <div className="pp-sched-meta">{qty(l.balanceRequired)} {l.unit} to buy by {day(l.requiredDate)} · {l.selectedVendor} @ {amt(l.selectedRate,c)}</div>
+        <div className="pp-sched-meta">{l.status}{l.poNo&&<> · {l.poNo} of {day(l.poDate)}</>}
+          {l.expectedDelivery&&!l.actualDelivery&&<> · expected {day(l.expectedDelivery)}</>}
+          {l.actualDelivery&&<> · delivered {day(l.actualDelivery)}</>}</div>
+      </button></li>)}</ul>}
+    {editing&&<PurchaseForm plan={plan} line={editing} materials={materials} canEdit={canEdit}
+      canApprove={!!data?.canApprove} userEmail={userEmail} close={()=>setEditing(null)}
+      saved={m=>{setEditing(null);setVersion(v=>v+1);flash(m)}}/>}
+  </section>}
+
+/* A vendor, typed or picked from the vendor register and the vendors already quoted. */
+function VendorInput({value,onChange,extra=[],required=false,disabled=false}:{value:string;onChange:(v:string)=>void;
+  extra?:string[];required?:boolean;disabled?:boolean}){
+  const[hints,setHints]=useState<string[]>([]);
+  const[id]=useState(()=>`vendors-${Math.random().toString(36).slice(2,8)}`);
+  useEffect(()=>{const q=value.trim();let live=true;
+    const t=setTimeout(()=>{fetch(`/api/vendors?q=${encodeURIComponent(q)}&limit=12`)
+      .then(r=>r.json() as Promise<{vendors?:{name:string}[]}>)
+      .then(d=>{if(live)setHints((d.vendors||[]).map(x=>x.name))}).catch(()=>{})},200);
+    return()=>{live=false;clearTimeout(t)}},[value]);
+  return <><input list={id} required={required} disabled={disabled} value={value} onChange={e=>onChange(e.target.value)}
+    placeholder="Select or type a vendor" autoComplete="off"/>
+    <datalist id={id}>{[...new Set([...extra.filter(Boolean),...hints])].map(v=><option key={v} value={v}/>)}</datalist></>}
+
+/* One purchase, in the order of its field specification. The maker fills it in; a
+   different person in management then approves or rejects it. */
+function PurchaseForm({plan,line,materials,canEdit,canApprove,userEmail,close,saved}:{plan:Plan;line:Partial<Purchase>;
+  materials:BomLine[];canEdit:boolean;canApprove:boolean;userEmail:string;close:()=>void;saved:(m:string)=>void}){
+  const n=(v:number|null|undefined)=>v===null||v===undefined?"":String(v);
+  const[f,setF]=useState<Record<string,string>>(()=>{
+    const v:Record<string,string>={bomId:line.bomId||"",requiredQty:n(line.requiredQty),availableStock:n(line.availableStock),
+      requiredDate:line.requiredDate||"",selectedVendor:line.selectedVendor||"",selectedRate:n(line.selectedRate),
+      poDate:line.poDate||"",expectedDelivery:line.expectedDelivery||"",actualDelivery:line.actualDelivery||"",
+      status:line.status||"Requested",approval:line.approval||"Pending"};
+    for(const q of[1,2,3]){const k=`q${q}` as "q1";
+      v[`${k}Vendor`]=String(line[`${k}Vendor`]??"");v[`${k}Amount`]=n(line[`${k}Amount`]);
+      v[`${k}FileId`]=String(line[`${k}FileId`]??"");v[`${k}FileName`]=String(line[`${k}FileName`]??"")}
+    return v});
+  const[busy,setBusy]=useState(false),[err,setErr]=useState(""),[uploading,setUploading]=useState(0);
+  const set=(k:string,v:string)=>setF(x=>({...x,[k]:v}));
+  const c=plan.currency||"AED";
+  /* The checker: approving roles, not whoever set these terms, while a decision is due. */
+  const checker=!!line.id&&canApprove&&line.approval==="Pending"&&!same(line.makerEmail,userEmail);
+  const locked=!canEdit||checker;
+  const bom=materials.find(m=>m.id===f.bomId);
+  const balance=Math.max(0,(Number(f.requiredQty)||0)-(Number(f.availableStock)||0));
+  const quoted=[f.q1Vendor,f.q2Vendor,f.q3Vendor].filter(Boolean);
+  /* Choosing the material fills in what the BOM line already says. */
+  const pickMaterial=(id:string)=>{const m=materials.find(x=>x.id===id);
+    setF(x=>({...x,bomId:id,requiredQty:x.requiredQty||(m?String(m.balanceQty??m.requiredQty):""),
+      requiredDate:x.requiredDate||m?.requiredDate||""}))};
+  const upload=async(q:number,file?:File)=>{
+    if(!file)return;
+    setUploading(u=>u+1);setErr("");
+    try{const res=await fetch("/api/attachments",{method:"POST",headers:{"content-type":"application/json"},
+        body:JSON.stringify({entityType:"procurement",entityId:plan.id,kind:"Quotation",fileName:file.name,
+          note:`Quotation ${q}${line.prNo?` · ${line.prNo}`:""}`,dataUrl:await asDataUrl(file)})});
+      const d=await res.json() as {attachment?:{id:string;fileName:string};error?:string};
+      if(!res.ok||!d.attachment)throw new Error(d.error||"The file did not upload");
+      setF(x=>({...x,[`q${q}FileId`]:d.attachment!.id,[`q${q}FileName`]:d.attachment!.fileName}))}
+    catch(x){setErr(`Quotation ${q}: ${x instanceof Error?x.message:"the file did not upload"}`)}
+    finally{setUploading(u=>u-1)}};
+  const go=async(fn:()=>Promise<unknown>,msg:string)=>{
+    setBusy(true);setErr("");
+    try{await fn();saved(msg)}
+    catch(x){setErr(x instanceof Error?x.message:"Could not save the purchase");setBusy(false)}};
+  const submit=(e:React.FormEvent)=>{e.preventDefault();
+    if(checker){if(f.approval==="Pending"){setErr("Choose Approved or Rejected.");return}
+      go(()=>procurementApi.decide(line.id!,f.approval),`${line.prNo}: ${f.approval.toLowerCase()}`);return}
+    go(()=>procurementApi.save({...f,id:line.id,planId:plan.id}),line.id?`${line.prNo}: updated`:"Purchase planned - sent to management for approval")};
+  const del=()=>{if(line.id&&confirm(`Remove ${line.prNo} (${line.material})?`))
+    go(()=>procurementApi.remove(line.id!),`${line.prNo}: removed`)};
+  const decided=line.approval&&line.approval!=="Pending"
+    ?`${line.approval} by ${line.approvedByName}${line.approvedAt?` on ${day(line.approvedAt)}`:""}`:"Pending - awaiting management approval";
+
+  return <div className="recv-drawer wide recv-over" role="dialog" aria-label="Purchase">
+    <button className="recv-scrim" aria-label="Close" onClick={close}/>
+    <aside><header><div><small>PROCUREMENT PLANNING · {plan.ref}</small><h3>{line.id?`${line.prNo} · ${line.material}`:"New purchase"}</h3>
+        <p className="recv-form-sub">{checker?"Review the terms below and approve or reject them. You cannot change them here."
+          :`Figures in ${c}. Management approves each purchase; changing its terms later needs a fresh approval.`}</p></div>
+      <button onClick={close} aria-label="Close"><X/></button></header>
+      <form className="recv-act recv-form" onSubmit={submit}>
+        <fieldset className="pp-fields" disabled={locked}>
+        <div className="recv-two">
+          <label>{lbl("Job code",true)}<input readOnly className="recv-auto" value={plan.jobCode||plan.jobRef}
+            title="The common key linking all of this project's transactions"/></label>
+          <label>{lbl("Project",true)}<input readOnly className="recv-auto" value={plan.projectName||plan.description||plan.customer}/></label></div>
+        <div className="recv-two">
+          <label>{lbl("Material",true)}<select required value={f.bomId} onChange={e=>pickMaterial(e.target.value)}>
+            <option value="">Select a BOM material</option>
+            {materials.map(m=><option key={m.id} value={m.id}>{m.boqItem} · {m.description} ({m.unit})</option>)}</select></label>
+          <label>{lbl("Purchase request no.")}<input readOnly className="recv-auto" value={line.prNo||"Issued on save"}/></label></div>
+        <div className="recv-two">
+          <label>{lbl("Required quantity",true)}<input type="number" required min="0" step="any" value={f.requiredQty}
+            onChange={e=>set("requiredQty",e.target.value)}/></label>
+          <label>{lbl("Available stock")}<input type="number" min="0" step="any" value={f.availableStock}
+            onChange={e=>set("availableStock",e.target.value)}/></label></div>
+        <div className="recv-two">
+          <label>{lbl("Balance required")}<input readOnly className="recv-auto" value={`${qty(balance)} ${bom?.unit||line.unit||""}`}
+            title="Required quantity − available stock"/></label>
+          <label>{lbl("Required date",true)}<input type="date" required value={f.requiredDate} onChange={e=>set("requiredDate",e.target.value)}/></label></div>
+        <div className="pp-quotes">
+          <div className="pp-quote-head"><span>Quotations</span><span>Vendor</span><span>Amount</span><span>File</span></div>
+          {[1,2,3].map(q=><div className="pp-quote" key={q}><b>Quotation {q}</b>
+            <VendorInput value={f[`q${q}Vendor`]} onChange={v=>set(`q${q}Vendor`,v)} disabled={locked}/>
+            <input type="number" min="0" step="0.01" value={f[`q${q}Amount`]} onChange={e=>set(`q${q}Amount`,e.target.value)} placeholder={c}/>
+            <span className="pp-file">{f[`q${q}FileId`]
+              ?<><a href={`/api/attachments?id=${encodeURIComponent(f[`q${q}FileId`])}`} target="_blank" rel="noreferrer">{f[`q${q}FileName`]||"View file"}</a>
+                {!locked&&<button type="button" aria-label={`Remove quotation ${q} file`} onClick={()=>{set(`q${q}FileId`,"");set(`q${q}FileName`,"")}}><X/></button>}</>
+              :locked?<span className="pp-none">No file</span>
+              :<label className="pp-pick">Choose file<input type="file" accept="image/*,application/pdf,.doc,.docx,.xls,.xlsx"
+                onChange={e=>{upload(q,e.target.files?.[0]);e.target.value=""}}/></label>}</span>
+          </div>)}</div>
+        <div className="recv-two">
+          <label>{lbl("Selected vendor",true)}<VendorInput required value={f.selectedVendor} onChange={v=>set("selectedVendor",v)} extra={quoted} disabled={locked}/></label>
+          <label>{lbl("Selected rate",true)}<input type="number" required min="0" step="0.01" value={f.selectedRate}
+            onChange={e=>set("selectedRate",e.target.value)} placeholder={`${c} per ${bom?.unit||"unit"}`}/></label></div>
+        <div className="recv-two">
+          <label>{lbl("PO number")}<input readOnly className="recv-auto" value={line.poNo||"Issued on approval"}/></label>
+          <label>{lbl("PO date")}<input type="date" value={f.poDate} onChange={e=>set("poDate",e.target.value)}/></label></div>
+        </fieldset>
+        <div className="recv-two">
+          <label>{lbl("Approval",true)}{checker
+            ?<select required value={f.approval} onChange={e=>set("approval",e.target.value)}
+              title="Management authorisation - maker-checker control">
+              <option value="Pending">Select approval</option><option>Approved</option><option>Rejected</option></select>
+            :<input readOnly className="recv-auto" value={decided} title="Management authorisation - maker-checker control"/>}</label>
+          <fieldset className="pp-fields" disabled={locked}>
+          <label>{lbl("Status",true)}<select required value={f.status} onChange={e=>set("status",e.target.value)}
+            title="For monitoring progress and ageing">
+            {PROCUREMENT_STATUSES.map(s=><option key={s} disabled={NEEDS_APPROVAL.includes(s)&&line.approval!=="Approved"}>{s}</option>)}</select></label>
+          </fieldset></div>
+        <fieldset className="pp-fields" disabled={locked}>
+        <div className="recv-two">
+          <label>{lbl("Expected delivery")}<input type="date" value={f.expectedDelivery} onChange={e=>set("expectedDelivery",e.target.value)}/></label>
+          <label>{lbl("Actual delivery")}<input type="date" value={f.actualDelivery} onChange={e=>set("actualDelivery",e.target.value)}/></label></div>
+        </fieldset>
+        {!!line.id&&canApprove&&line.approval==="Pending"&&same(line.makerEmail,userEmail)&&
+          <p className="recv-hint">You set these terms, so someone else in management must approve them.</p>}
+        {err&&<p className="recv-error">{err}</p>}
+        {(checker||canEdit)&&<button className="primary" type="submit" disabled={busy||uploading>0}>
+          {busy?"Saving…":uploading?"Uploading…":checker?"Record decision":line.id?"Save purchase":"Plan purchase"}</button>}
+        {!!line.id&&canEdit&&!checker&&line.approval!=="Approved"&&<button type="button" className="ghost danger" disabled={busy} onClick={del}><Trash2/>Remove purchase</button>}
       </form>
     </aside></div>}
