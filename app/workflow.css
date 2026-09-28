@@ -207,3 +207,7 @@
 .wf-release-error{margin:4px 0 8px!important;padding:0!important;background:none!important;color:#b42318;font-size:11.5px!important}
 .wf-work .wf-note input.wf-utr{font-size:11px;height:36px;padding:0 9px;font-family:inherit}
 .wf-note .wf-req{color:#d92d20;font-style:normal;font-weight:700}
+
+/* The pre-audit forms: a required field's mark, and two actions side by side in a row. */
+.pa-req{font-style:normal;font-weight:700;color:#d92d20;margin-left:2px}
+.wb-next-pair{display:flex;flex-direction:column;gap:6px;align-items:stretch}

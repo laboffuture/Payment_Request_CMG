@@ -20,7 +20,15 @@ const shape=(t:Row)=>({id:str(t.id),ref:str(t.ref),title:str(t.title),kind:str(t
   /* Every write goes through here, so a recurrence left out of this is silently dropped on
      insert and the form reports a success that saved nothing. */
   recurDay:str(t.recurDay),recurUntil:str(t.recurUntil),seriesId:str(t.seriesId),
-  createdAt:str(t.createdAt)||now(),acceptedAt:str(t.acceptedAt),completedAt:str(t.completedAt),extra:str(t.extra)});
+  createdAt:str(t.createdAt)||now(),acceptedAt:str(t.acceptedAt),completedAt:str(t.completedAt),extra:str(t.extra),
+  category:str(t.category),entity:str(t.entity),dueRule:str(t.dueRule),catalogueId:str(t.catalogueId)});
+
+/* The pre-audit form's required fields, from the Daily Task Import template. Checked for
+   pre-audit tasks only - the other kinds share this route and have forms of their own. */
+function preAuditMissing(t:Row){
+  return([["title","Task title"],["category","Category (area)"],["entity","Project / entity (vertical)"],
+    ["assignedTo","Assigned to"],["dueRule","Due date rule"],["due","Next due date"]] as const)
+    .filter(([k])=>!str(t[k]).trim()).map(([,l])=>l)}
 
 /* Creates the occurrences a recurring series is missing.
 
@@ -106,6 +114,14 @@ export async function POST(req:Request){
     if(KINDS.indexOf(str(body.kind,"Pre-Audit"))<0)return bad(`kind must be one of ${KINDS.join(", ")}`);
     if(!MEETING_KINDS.includes(str(body.kind,"Pre-Audit"))&&!hasWriteRole(actor?.roles))
       return bad("Your role cannot create audit programmes.",403);
+    if(str(body.kind,"Pre-Audit")==="Pre-Audit"){
+      const missing=preAuditMissing(body);
+      if(missing.length)return bad(`${missing.join(", ")} must be filled in.`,422);
+      if(!/^\d{4}-\d{2}-\d{2}$/.test(str(body.due)))return bad("Enter the next due date as a date.",422);
+      /* A pre-audit task may start already under way or done, as the template's status
+         says; anything else starts in the queue. */
+      if(!["Available","In Progress","Completed"].includes(str(body.status,"Available")))body.status="Available";
+    }else body.status="Available";
     const id=str(body.id)||`AT-${Date.now().toString(36)}`;
     /* The first occurrence's own id becomes the series id, so a recurring task can be
        followed from the moment it is created rather than once a second one exists. A task

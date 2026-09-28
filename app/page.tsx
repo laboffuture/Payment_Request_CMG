@@ -29,7 +29,7 @@ import {EmployeeProfile} from "./EmployeeProfile";
 import {WorkforceOverview,WorkforceReports} from "./WorkforceReports";
 import {auditTasksApi,companiesApi} from "./audit-api";
 type Payment={createdAt?:string;tds?:string;nature?:string;poNumber?:string;resubmitNote?:string;resubmittedAt?:string;rejectionNote?:string;rejectedBy?:string;rejectedAt?:string;raisedBy?:string;id:number;requestNo:string;company:string;vendor:string;amount:number;currency:string;due:string;urgency:string;status:string;owner:string;department:string};
-export type AuditTask={frequency?:string;recurDay?:string;recurUntil?:string;seriesId?:string;attendees?:string;id:string;title:string;company:string;department:string;kind:"Pre-Audit"|"Post-Audit"|"Meeting"|"Special Audit"|"Task"|"Token"|"Training";status:"Available"|"Accepted"|"In Progress"|"Observation Submitted"|"Response Received"|"Completed";due?:string;assignedTo?:string;plannedStart?:string;plannedEnd?:string;notes?:string;dataProvider?:string};
+export type AuditTask={category?:string;entity?:string;dueRule?:string;frequency?:string;recurDay?:string;recurUntil?:string;seriesId?:string;attendees?:string;id:string;title:string;company:string;department:string;kind:"Pre-Audit"|"Post-Audit"|"Meeting"|"Special Audit"|"Task"|"Token"|"Training";status:"Available"|"Accepted"|"In Progress"|"Observation Submitted"|"Response Received"|"Completed";due?:string;assignedTo?:string;plannedStart?:string;plannedEnd?:string;notes?:string;dataProvider?:string};
 type Module="dashboard"|"requests"|"payments"|"scheduled"|"accountsreceived"|"preaudit"|"postaudit"|"specialaudit"|"observations"|"meetings"|"reports"|"companies"|"settings"|"users"|"imports"|"organisation"|"employees";
 const seed:Payment[]=[];
 const auditSeed:AuditTask[]=[];
@@ -79,7 +79,7 @@ export default function Home(){
    setAuditTasks(d.tasks.map(t=>({id:t.id,title:t.title,company:name.get(t.companyId)||t.companyId||"—",
      department:t.department,kind:t.kind as AuditTask["kind"],status:t.status as AuditTask["status"],
      due:t.due,assignedTo:t.assignedTo,attendees:t.attendees,frequency:t.frequency,plannedStart:t.plannedStart,plannedEnd:t.plannedEnd,
-     notes:t.notes,dataProvider:t.dataProvider})))}catch{}};
+     notes:t.notes,dataProvider:t.dataProvider,category:t.category,entity:t.entity,dueRule:t.dueRule})))}catch{}};
  useEffect(()=>{if(!userEmail)return;loadAuditTasks()},[userEmail]);
  // the company selector is driven by the companies actually in the database, not a fixed list
  useEffect(()=>{if(!userEmail)return;companiesApi.load().then(c=>setCompanies(c.filter(x=>x.active).map(x=>({id:x.id,name:x.name})))).catch(()=>{})},[userEmail]);
@@ -164,10 +164,14 @@ export default function Home(){
   }catch(e){flash(e instanceof Error?e.message:"That request could not be deleted")}};
  /* Meetings and audit tasks are the same record with a different kind, so one handler
     serves every queue. */
- const createAuditTask=async(kind:AuditTask["kind"],t:{title:string;department:string;companyId:string;due:string;notes:string;attendees?:string;extra?:string;kind?:string;frequency?:string;recurDay?:string;recurUntil?:string})=>{
-  try{await auditTasksApi.create({...t,kind:t.kind||kind,status:"Available"});await loadAuditTasks();
+ const createAuditTask=async(kind:AuditTask["kind"],t:{title:string;department:string;companyId:string;due:string;notes:string;attendees?:string;extra?:string;kind?:string;frequency?:string;recurDay?:string;recurUntil?:string;
+   category?:string;entity?:string;dueRule?:string;catalogueId?:string;assignedTo?:string;status?:string})=>{
+  /* The status a pre-audit task starts in comes from its form; the server holds every
+     other kind to Available. */
+  try{await auditTasksApi.create({...t,kind:t.kind||kind,status:t.status||"Available"});await loadAuditTasks();
    flash(`${t.kind&&t.kind!=="Meeting"?t.kind:kind==="Meeting"?"Meeting":kind+" task"} created`)}
-  catch(e){flash(e instanceof Error?e.message:"Could not create it")}};
+  /* Passed on as well, so a form can keep what was typed and say what was refused. */
+  catch(e){flash(e instanceof Error?e.message:"Could not create it");throw e}};
  const acceptAuditTask=async(id:string)=>{
    try{await auditTasksApi.update({id,action:"accept"});await loadAuditTasks();
      flash(`${id} accepted and moved to My Tasks`)}
@@ -248,7 +252,7 @@ export default function Home(){
  {active==="payments"&&<PaymentWorkbench departments={departments} companies={companies.map(c=>c.name)} onDelete={removeRequest} rows={filtered} role={role} search={search} setSearch={setSearch} open={openRequest} create={()=>setForm(true)}/>}
  {active==="scheduled"&&<ScheduledPayments role={role} flash={flash}/>}
  {active==="accountsreceived"&&<AccountsReceived role={role} userEmail={userEmail} companies={companies} flash={flash}/>}
-  {active==="preaudit"&&<AuditTaskQueue title="Pre-audit tasks" kind="Pre-Audit" companies={companies} create={(t)=>createAuditTask("Pre-Audit",t)} tasks={auditTasks} role={role} accept={acceptAuditTask} update={updateAuditTask}/>} 
+  {active==="preaudit"&&<AuditTaskQueue title="Pre-audit tasks" kind="Pre-Audit" companies={companies} userName={userName} flash={flash} create={(t)=>createAuditTask("Pre-Audit",t)} tasks={auditTasks} role={role} accept={acceptAuditTask} update={updateAuditTask}/>} 
  {active==="postaudit"&&<AuditTaskQueue title="Post-audit tasks" kind="Post-Audit" companies={companies} create={(t)=>createAuditTask("Post-Audit",t)} tasks={auditTasks} role={role} accept={acceptAuditTask} update={updateAuditTask}/>} 
  {active==="specialaudit"&&<AuditTaskQueue title="Special audit tasks" kind="Special Audit" companies={companies} create={(t)=>createAuditTask("Special Audit",t)} tasks={auditTasks} role={role} accept={acceptAuditTask} update={updateAuditTask}/>} 
  {active==="observations"&&<ObservationDesk openProfile={setProfile} flash={flash} canManage={role!=="Requestor"}/>}

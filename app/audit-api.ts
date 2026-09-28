@@ -19,7 +19,13 @@ export type Company={extra?:string;id:string;name:string;code:string;currency:st
   reminderDays:number;escalationDays:number;managementEmail:string;active:boolean;position:number};
 export type AuditRow={frequency?:string;recurDay?:string;recurUntil?:string;seriesId?:string;id:string;ref:string;title:string;kind:string;companyId:string;department:string;
   status:string;attendees?:string;assignedTo:string;due:string;plannedStart:string;plannedEnd:string;notes:string;
-  dataProvider:string;createdAt:string;acceptedAt:string;completedAt:string};
+  dataProvider:string;createdAt:string;acceptedAt:string;completedAt:string;
+  category?:string;entity?:string;dueRule?:string;catalogueId?:string};
+/* A task in the task catalogue - the pre-audit form's dropdowns. */
+export type CatalogueTask={id:string;title:string;description:string;category:string;entity:string;assigneeName:string;
+  assigneeEmail:string;frequency:string;dueRule:string;nextDue:string;nextDueDate:string;status:string};
+export const catalogueApi={
+  load:async()=>(await asJson<{tasks:CatalogueTask[]}>(await fetch("/api/task-catalogue"))).tasks};
 export type Batch={extra?:string;id:string;vendor:string;requested:number;approved:number|null;currency:string;
   companyId:string;statement:string;reconciliation:string;gl:string;status:string;reason:string;
   proof:string;raisedBy:string;createdAt:string;releasedAt:string};

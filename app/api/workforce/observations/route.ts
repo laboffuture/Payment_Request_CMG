@@ -14,7 +14,8 @@ const shape=(o:Row)=>({id:str(o.id),ref:str(o.ref),title:str(o.title),detail:str
   replyCount:num(o.replyCount),lastReplyAt:str(o.lastReplyAt),
   area:str(o.area),impact:str(o.impact),stakeholder:str(o.stakeholder),
   rootCause:str(o.rootCause),transactionValue:str(o.transactionValue),
-  responsibility:str(o.responsibility),actionPlan:str(o.actionPlan),raisedByEmail:str(o.raisedByEmail)});
+  responsibility:str(o.responsibility),actionPlan:str(o.actionPlan),raisedByEmail:str(o.raisedByEmail),
+  entity:str(o.entity),dateIdentified:str(o.dateIdentified),recommendation:str(o.recommendation)});
 
 /* Tag rows are read for the page of observations being returned, never for the whole
    table, so the cost of listing does not grow with history. */

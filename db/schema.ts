@@ -243,7 +243,13 @@ export const wfObservations=sqliteTable("wf_observations",{
   rootCause:text("root_cause").notNull().default(""),
   transactionValue:text("transaction_value").notNull().default(""),
   responsibility:text("responsibility").notNull().default(""),
-  actionPlan:text("action_plan").notNull().default("")},
+  actionPlan:text("action_plan").notNull().default(""),
+  /* The Audit Observation template: the vertical / entity, the date it was identified
+     and the auditor's recommendation. The auditor is raisedBy, the target closure date
+     target, the responsible person responsibility (and a tag). */
+  entity:text("entity").notNull().default(""),
+  dateIdentified:text("date_identified").notNull().default(""),
+  recommendation:text("recommendation").notNull().default("")},
   t=>[index("wf_obs_dept_idx").on(t.deptId),index("wf_obs_status_idx").on(t.status),
       index("wf_obs_raised_idx").on(t.raisedAt),index("wf_obs_task_idx").on(t.taskId)]);
 
@@ -347,7 +353,14 @@ export const wfAuditTasks=sqliteTable("wf_audit_tasks",{
      be followed without a second table to keep in step with this one. */
   recurDay:text("recur_day").notNull().default(""),
   recurUntil:text("recur_until").notNull().default(""),
-  seriesId:text("series_id").notNull().default("")},
+  seriesId:text("series_id").notNull().default(""),
+  /* The pre-audit form, from the Daily Task Import template: category (area), project /
+     entity (vertical), the due date rule as the business states it, and the task
+     catalogue row it was picked from, if any. */
+  category:text("category").notNull().default(""),
+  entity:text("entity").notNull().default(""),
+  dueRule:text("due_rule").notNull().default(""),
+  catalogueId:text("catalogue_id").notNull().default("")},
   t=>[index("wf_at_kind_idx").on(t.kind),index("wf_at_status_idx").on(t.status),
       index("wf_at_company_idx").on(t.companyId),index("wf_at_assigned_idx").on(t.assignedTo),
       index("wf_at_kind_status_idx").on(t.kind,t.status)]);

@@ -1,0 +1,190 @@
+"use client";
+/* The pre-audit queue's two forms, from the business's templates.
+
+   New pre-audit task follows the Daily Task Import template. Its dropdowns read the task
+   catalogue: choose the entity, then the category, then the task, and the task's own
+   description, assignee, frequency, due date rule and next due date are filled in from
+   the catalogue - each still changeable, and a task not in the catalogue can be typed.
+
+   Raise observation follows the Audit Observation template, against a pre-audit task.
+   It is saved to the observation register, tagged to the responsible person, so it is
+   answered and closed there like every other observation. */
+
+import{useMemo,useState}from"react";
+import{Plus,X}from"lucide-react";
+import{catalogueApi,planningApi}from"./audit-api";
+import type{CatalogueTask}from"./audit-api";
+import{ExtraFields,packExtra,useExtraFields}from"./ExtraFields";
+import{useAsync,useWorkforce}from"./workforce-store";
+import type{AuditTask}from"./page";
+
+const uniq=(xs:string[])=>[...new Set(xs.map(x=>x.trim()).filter(Boolean))];
+const req=<i className="pa-req" aria-hidden="true">*</i>;
+const opt=<i className="field-optional">optional</i>;
+const today=()=>new Date().toISOString().slice(0,10);
+
+/* The template's statuses, and the queue status each starts a task in. */
+const TASK_STATUS:Record<string,string>={"Not started":"Available","In progress":"In Progress","Completed":"Completed"};
+/* The frequencies the queue repeats (lib/recurrence), and one time. A catalogue value
+   outside these - "Daily / Weekly" - is offered too and kept, but does not repeat. */
+const FREQUENCIES=["One time","Daily","Weekly","Monthly","Quarterly","Annual"];
+const RISKS=["High","Medium","Low"];
+const OBS_STATUS=["Open","Resolved"];
+
+type NewTask={title:string;department:string;companyId:string;due:string;notes:string;kind?:string;frequency?:string;
+  extra?:string;category:string;entity:string;dueRule:string;catalogueId:string;assignedTo:string;status:string};
+
+export function PreAuditTaskForm({close,create}:{close:()=>void;create:(t:NewTask)=>Promise<void>|void}){
+  const catalogue=useAsync(()=>catalogueApi.load(),[]);
+  const people=useAsync(()=>planningApi.people(),[]);
+  const xFields=useExtraFields("audittask");
+  const[xVals,setXVals]=useState<Record<string,string>>({});
+  const[f,setF]=useState({entity:"",category:"",title:"",description:"",assignedTo:"",frequency:"Monthly",
+    dueRule:"",due:"",status:"Not started",catalogueId:""});
+  const[busy,setBusy]=useState(false),[err,setErr]=useState("");
+  const set=(k:keyof typeof f,v:string)=>setF(x=>({...x,[k]:v}));
+  const rows:CatalogueTask[]=useMemo(()=>catalogue.data||[],[catalogue.data]);
+  const entities=uniq(rows.map(r=>r.entity));
+  const categories=uniq(rows.filter(r=>!f.entity||r.entity===f.entity).map(r=>r.category));
+  const titles=uniq(rows.filter(r=>(!f.entity||r.entity===f.entity)&&(!f.category||r.category===f.category)).map(r=>r.title));
+  const rules=uniq(rows.map(r=>r.dueRule));
+  /* The assignee as the portal knows them: the login the catalogue matched, by name. */
+  const personFor=(r:CatalogueTask)=>(people.data||[]).find(p=>p.email.toLowerCase()===r.assigneeEmail.toLowerCase())?.name||r.assigneeName;
+  const assignees=uniq([...(people.data||[]).map(p=>p.name||p.email),f.assignedTo]);
+  const frequencies=uniq([...FREQUENCIES,f.frequency]);
+
+  /* Choosing a catalogue task fills in what the catalogue says about it. */
+  const pickTitle=(title:string)=>{
+    const r=rows.find(x=>x.title===title&&(!f.entity||x.entity===f.entity)&&(!f.category||x.category===f.category));
+    setF(x=>r?{...x,title,entity:r.entity,category:r.category,description:r.description,assignedTo:personFor(r),
+      frequency:r.frequency||"One time",dueRule:r.dueRule,due:r.nextDueDate||x.due,
+      status:r.status&&TASK_STATUS[r.status]?r.status:x.status,catalogueId:r.id}
+      :{...x,title,catalogueId:""})};
+
+  const submit=async(e:React.FormEvent)=>{
+    e.preventDefault();setBusy(true);setErr("");
+    try{await create({title:f.title.trim(),department:f.category,companyId:"",due:f.due,notes:f.description.trim(),
+      kind:"Pre-Audit",frequency:f.frequency,extra:packExtra(xFields,xVals),category:f.category,entity:f.entity,
+      dueRule:f.dueRule.trim(),catalogueId:f.catalogueId,assignedTo:f.assignedTo,status:TASK_STATUS[f.status]||"Available"});
+      close()}
+    catch(x){setErr(x instanceof Error?x.message:"Could not create the task")}
+    finally{setBusy(false)}};
+
+  return <><button className="overlay" onClick={close}/>
+    <form className="modal" onSubmit={submit}>
+      <header><div><small>AUDIT DEPARTMENT</small><h2>New pre-audit task</h2></div>
+        <button type="button" onClick={close}><X/></button></header>
+      <div className="form">
+        <label>Project / entity (vertical) {req}
+          <select required value={f.entity} onChange={e=>setF(x=>({...x,entity:e.target.value,category:"",title:"",catalogueId:""}))}>
+            <option value="">{catalogue.loading?"Loading…":"Select entity"}</option>
+            {uniq([...entities,f.entity]).map(x=><option key={x}>{x}</option>)}</select></label>
+        <label>Category (area) {req}
+          <select required value={f.category} onChange={e=>setF(x=>({...x,category:e.target.value,title:"",catalogueId:""}))}>
+            <option value="">Select category</option>
+            {uniq([...categories,f.category]).map(x=><option key={x}>{x}</option>)}</select></label>
+        <label className="wide">Task title {req}
+          <input required list="pre-audit-titles" value={f.title} onChange={e=>pickTitle(e.target.value)}
+            placeholder={titles.length?"Choose a task, or type a new one":"Type the task"}/>
+          <datalist id="pre-audit-titles">{titles.map(t=><option key={t} value={t}/>)}</datalist></label>
+        <label className="wide">Description / instructions {opt}
+          <textarea value={f.description} onChange={e=>set("description",e.target.value)}
+            placeholder="What needs checking, and against what evidence"/></label>
+        <label>Assigned to {req}
+          <select required value={f.assignedTo} onChange={e=>set("assignedTo",e.target.value)}>
+            <option value="">{people.loading?"Loading people…":"Select a person"}</option>
+            {assignees.map(x=><option key={x}>{x}</option>)}</select></label>
+        <label>Frequency {opt}
+          <select value={f.frequency} onChange={e=>set("frequency",e.target.value)}>
+            {frequencies.map(x=><option key={x}>{x}</option>)}</select></label>
+        <label className="wide">Due date rule {req}
+          <input required list="pre-audit-rules" value={f.dueRule} onChange={e=>set("dueRule",e.target.value)}
+            placeholder="e.g. By 10th of following month"/>
+          <datalist id="pre-audit-rules">{rules.map(r=><option key={r} value={r}/>)}</datalist></label>
+        <label>Next due date {req}
+          <input type="date" required value={f.due} onChange={e=>set("due",e.target.value)}/></label>
+        <label>Status {opt}
+          <select value={f.status} onChange={e=>set("status",e.target.value)}>
+            {Object.keys(TASK_STATUS).map(x=><option key={x}>{x}</option>)}</select></label>
+        <ExtraFields form="audittask" values={xVals} onChange={setXVals}/>
+        {err&&<p className="wide form-error">{err}</p>}
+      </div>
+      <footer><button type="button" onClick={close}>Cancel</button>
+        <button className="primary" disabled={busy}><Plus/>{busy?"Saving…":"Create"}</button></footer>
+    </form></>}
+
+export function ObservationForm({task,userName,close,done}:{task:AuditTask;userName:string;close:()=>void;done:(msg:string)=>void}){
+  const catalogue=useAsync(()=>catalogueApi.load(),[]);
+  const people=useAsync(()=>planningApi.people(),[]);
+  const wf=useWorkforce();
+  const[term,setTerm]=useState(""),[who,setWho]=useState<{id:string;name:string}|null>(null);
+  const{data:found}=useAsync(()=>wf.api.employees({q:term,limit:25,active:"1"}),[term],term.length>1);
+  const[f,setF]=useState({entity:task.entity||"",area:task.category||"",auditor:userName,dateIdentified:today(),
+    description:"",risk:"",rootCause:"",recommendation:"",target:"",status:"Open"});
+  const[busy,setBusy]=useState(false),[err,setErr]=useState("");
+  const set=(k:keyof typeof f,v:string)=>setF(x=>({...x,[k]:v}));
+  const rows=catalogue.data||[];
+  const entities=uniq([...rows.map(r=>r.entity),f.entity]);
+  const areas=uniq([...rows.filter(r=>!f.entity||r.entity===f.entity).map(r=>r.category),f.area]);
+  const auditors=uniq([...(people.data||[]).map(p=>p.name||p.email),f.auditor]);
+
+  const submit=async(e:React.FormEvent)=>{
+    e.preventDefault();
+    if(!who){setErr("Choose the responsible person from the list.");return}
+    setBusy(true);setErr("");
+    try{
+      const text=f.description.trim();
+      const res=await fetch("/api/workforce/observations",{method:"POST",headers:{"content-type":"application/json"},
+        body:JSON.stringify({title:text.length>90?`${text.slice(0,87)}…`:text,detail:text,taskId:task.id,deptId:"d-group",
+          risk:f.risk,area:f.area,entity:f.entity,raisedBy:f.auditor,dateIdentified:f.dateIdentified,
+          rootCause:f.rootCause.trim(),recommendation:f.recommendation.trim(),responsibility:who.name,
+          target:f.target,status:f.status,tags:[who.id]})});
+      const b=await res.json().catch(()=>({})) as {error?:string;observation?:{ref:string}};
+      if(!res.ok)throw new Error(b.error||"Could not save the observation");
+      done(`${b.observation?.ref||"Observation"} raised on ${task.id}`)}
+    catch(x){setErr(x instanceof Error?x.message:"Could not save the observation");setBusy(false)}};
+
+  return <><button className="overlay" onClick={close}/>
+    <form className="modal" onSubmit={submit}>
+      <header><div><small>AUDIT OBSERVATION · {task.id}</small><h2>Raise observation</h2></div>
+        <button type="button" onClick={close}><X/></button></header>
+      <div className="form">
+        <label>Observation ID {opt}<input readOnly value="Issued on save"/></label>
+        <label>Vertical / entity {req}
+          <select required value={f.entity} onChange={e=>set("entity",e.target.value)}>
+            <option value="">Select entity</option>{entities.map(x=><option key={x}>{x}</option>)}</select></label>
+        <label>Area {req}
+          <select required value={f.area} onChange={e=>set("area",e.target.value)}>
+            <option value="">Select area</option>{areas.map(x=><option key={x}>{x}</option>)}</select></label>
+        <label>Auditor {req}
+          <select required value={f.auditor} onChange={e=>set("auditor",e.target.value)}>
+            <option value="">Select auditor</option>{auditors.map(x=><option key={x}>{x}</option>)}</select></label>
+        <label>Date identified {req}
+          <input type="date" required max={today()} value={f.dateIdentified} onChange={e=>set("dateIdentified",e.target.value)}/></label>
+        <label>Risk rating {req}
+          <select required value={f.risk} onChange={e=>set("risk",e.target.value)}>
+            <option value="">Select risk</option>{RISKS.map(x=><option key={x}>{x}</option>)}</select></label>
+        <label className="wide">Observation description {req}
+          <textarea required value={f.description} onChange={e=>set("description",e.target.value)}
+            placeholder="What was found, where, and what it affects"/></label>
+        <label className="wide">Root cause {opt}
+          <textarea value={f.rootCause} onChange={e=>set("rootCause",e.target.value)}/></label>
+        <label className="wide">Recommendation {opt}
+          <textarea value={f.recommendation} onChange={e=>set("recommendation",e.target.value)}/></label>
+        <label className="wide">Responsible person {req}
+          {who?<span className="wf-tags"><span className="wf-tag on">{who.name}
+              <button type="button" onClick={()=>setWho(null)} aria-label="Change the responsible person">×</button></span></span>
+            :<input value={term} onChange={e=>setTerm(e.target.value)} placeholder="Type a name to search, then pick from the list"/>}
+          {!who&&!!(found?.employees||[]).length&&<div className="wf-picker">{(found?.employees||[]).map(p=>
+            <button type="button" key={p.id} onClick={()=>{setWho({id:p.id,name:p.name});setTerm("")}}>
+              <b>{p.name}</b><small>{p.designation||p.code}</small></button>)}</div>}</label>
+        <label>Target closure date {req}
+          <input type="date" required min={f.dateIdentified||undefined} value={f.target} onChange={e=>set("target",e.target.value)}/></label>
+        <label>Status {opt}
+          <select value={f.status} onChange={e=>set("status",e.target.value)}>
+            {OBS_STATUS.map(x=><option key={x}>{x}</option>)}</select></label>
+        {err&&<p className="wide form-error">{err}</p>}
+      </div>
+      <footer><button type="button" onClick={close}>Cancel</button>
+        <button className="primary" disabled={busy}><Plus/>{busy?"Saving…":"Raise observation"}</button></footer>
+    </form></>}

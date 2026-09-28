@@ -40,8 +40,9 @@ export function onOrAfter(from:string,day:Weekday):string{
 /* A series recurs only while its frequency says so. Anything else - "One time", an empty
    value, a word an administrator added to the list that means nothing here - does not, and
    is treated as not recurring rather than guessed at. */
+export const RECURRING_FREQUENCIES=["Daily","Weekly","Monthly","Quarterly","Annual"];
 export const recurs=(frequency?:string)=>
-  ["Daily","Weekly","Monthly"].includes(String(frequency||"").trim());
+  RECURRING_FREQUENCIES.includes(String(frequency||"").trim());
 
 /** The date after `due` for this frequency. Weekly honours the chosen day; without one it
     simply adds seven, which keeps whatever day the first occurrence was set on. */
@@ -49,6 +50,9 @@ export function nextDue(frequency:string,due:string,day?:string):string{
   const f=String(frequency||"").trim();
   if(f==="Daily")return shiftDays(due,1);
   if(f==="Monthly")return addMonths(due,1);
+  /* The task catalogue has quarterly returns and annual renewals. */
+  if(f==="Quarterly")return addMonths(due,3);
+  if(f==="Annual")return addMonths(due,12);
   if(f==="Weekly"){
     const wanted=WEEKDAYS.includes(day as Weekday)?day as Weekday:undefined;
     return wanted?onOrAfter(shiftDays(due,1),wanted):shiftDays(due,7)}
@@ -95,5 +99,5 @@ export function describe(frequency?:string,day?:string,until?:string):string{
   if(!recurs(frequency))return "Does not repeat";
   const f=String(frequency).trim();
   const base=f==="Weekly"&&WEEKDAYS.includes(day as Weekday)?`Every ${day}`
-    :f==="Daily"?"Every day":f==="Weekly"?"Every week":"Every month";
+    :f==="Daily"?"Every day":f==="Weekly"?"Every week":f==="Quarterly"?"Every quarter":f==="Annual"?"Every year":"Every month";
   return until?`${base}, until ${until}`:base}
