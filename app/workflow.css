@@ -211,3 +211,8 @@
 /* The pre-audit forms: a required field's mark, and two actions side by side in a row. */
 .pa-req{font-style:normal;font-weight:700;color:#d92d20;margin-left:2px}
 .wb-next-pair{display:flex;flex-direction:column;gap:6px;align-items:stretch}
+.pa-remarks{display:flex;flex-direction:column;gap:8px;max-height:260px;overflow-y:auto}
+.pa-remarks p{margin:0;padding:9px 11px;border:1px solid #e4e7ec;border-radius:8px;background:#f9fafb;display:flex;flex-direction:column;gap:3px}
+.pa-remarks b{font-size:12.5px;font-weight:600;white-space:pre-wrap}
+.pa-remarks span{font-size:11px;color:#667085}
+.pa-remarks .pa-none{background:none;border-style:dashed;color:#667085;font-size:12px}

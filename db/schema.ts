@@ -360,7 +360,10 @@ export const wfAuditTasks=sqliteTable("wf_audit_tasks",{
   category:text("category").notNull().default(""),
   entity:text("entity").notNull().default(""),
   dueRule:text("due_rule").notNull().default(""),
-  catalogueId:text("catalogue_id").notNull().default("")},
+  catalogueId:text("catalogue_id").notNull().default(""),
+  /* Remarks added while the task is worked, as a JSON list of {by, at, text}. Appended to
+     by the server only, so an earlier remark cannot be edited away. */
+  remarks:text("remarks").notNull().default("")},
   t=>[index("wf_at_kind_idx").on(t.kind),index("wf_at_status_idx").on(t.status),
       index("wf_at_company_idx").on(t.companyId),index("wf_at_assigned_idx").on(t.assignedTo),
       index("wf_at_kind_status_idx").on(t.kind,t.status)]);

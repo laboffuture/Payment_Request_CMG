@@ -12,7 +12,7 @@
 
 import{useMemo,useState}from"react";
 import{Plus,X}from"lucide-react";
-import{catalogueApi}from"./audit-api";
+import{auditTasksApi,catalogueApi}from"./audit-api";
 import type{CatalogueTask}from"./audit-api";
 import{ExtraFields,packExtra,useExtraFields}from"./ExtraFields";
 import{useAsync,useWorkforce}from"./workforce-store";
@@ -118,6 +118,32 @@ export function PreAuditTaskForm({close,create,departments=[]}:{close:()=>void;c
       </div>
       <footer><button type="button" onClick={close}>Cancel</button>
         <button className="primary" disabled={busy}><Plus/>{busy?"Saving…":"Create"}</button></footer>
+    </form></>}
+
+/* Remarks on a task: everything recorded so far, oldest first, and a box to add one.
+   Remarks are added to, never edited, so the list is the task's running record. */
+export function RemarksForm({task,close,saved}:{task:AuditTask;close:()=>void;saved:(msg:string)=>void}){
+  const[text,setText]=useState(""),[busy,setBusy]=useState(false),[err,setErr]=useState("");
+  const list:{by:string;at:string;text:string}[]=useMemo(()=>{try{const r=JSON.parse(task.remarks||"[]");return Array.isArray(r)?r:[]}catch{return[]}},[task.remarks]);
+  const submit=async(e:React.FormEvent)=>{
+    e.preventDefault();if(!text.trim())return;setBusy(true);setErr("");
+    try{await auditTasksApi.update({id:task.id,action:"remark",remark:text.trim()} as never);saved(`Remark added to ${task.id}`)}
+    catch(x){setErr(x instanceof Error?x.message:"Could not save the remark");setBusy(false)}};
+  return <><button className="overlay" onClick={close}/>
+    <form className="modal" onSubmit={submit}>
+      <header><div><small>REMARKS · {task.id}</small><h2>{task.title}</h2></div>
+        <button type="button" onClick={close}><X/></button></header>
+      <div className="form">
+        <div className="wide pa-remarks">{list.length?list.map((r,i)=><p key={i}><b>{r.text}</b>
+            <span>{r.by} · {new Date(r.at).toLocaleString("en-GB",{day:"numeric",month:"short",year:"numeric",hour:"2-digit",minute:"2-digit"})}</span></p>)
+          :<p className="pa-none">No remarks yet.</p>}</div>
+        <label className="wide">New remark {req}
+          <textarea required autoFocus value={text} onChange={e=>setText(e.target.value)}
+            placeholder="What was checked, found, asked for or agreed"/></label>
+        {err&&<p className="wide form-error">{err}</p>}
+      </div>
+      <footer><button type="button" onClick={close}>Cancel</button>
+        <button className="primary" disabled={busy||!text.trim()}><Plus/>{busy?"Saving…":"Add remark"}</button></footer>
     </form></>}
 
 export function ObservationForm({task,userName,close,done}:{task:AuditTask;userName:string;close:()=>void;done:(msg:string)=>void}){

@@ -6,7 +6,7 @@ import{useMemo,useState}from"react";import type{AuditTask}from"./page";
 import{useAsync,useWorkforce}from"./workforce-store";
 import{useOptions}from"./options-store";
 import type{Employee}from"./workforce-store";
-import{ObservationForm,PreAuditTaskForm}from"./PreAuditForms";
+import{ObservationForm,PreAuditTaskForm,RemarksForm}from"./PreAuditForms";
 /* Tasks, tokens and training had screens of their own. They are raised on the meeting
    form now and listed beside meetings, so one screen holds everything the audit team
    schedules rather than four that behaved the same way. */
@@ -18,7 +18,8 @@ const FREQUENCY_FALLBACK=["One time","Daily","Weekly","Monthly"];
 const RECURRING=["Daily","Weekly","Monthly"];
 const WEEKDAYS=["Sunday","Monday","Tuesday","Wednesday","Thursday","Friday","Saturday"];
 type Tab="Queue"|"Accepted & In Progress"|"Completed";
-export default function AuditTaskQueue({title,kind,tasks,role,accept,update,create,companies=[],departments=[],userName="",flash}:{companies?:{id:string;name:string}[];departments?:string[];userName?:string;flash?:(m:string)=>void;create?:(t:{title:string;department:string;companyId:string;due:string;notes:string;attendees?:string;extra?:string;kind?:string;frequency?:string;recurDay?:string;recurUntil?:string;category?:string;entity?:string;dueRule?:string;catalogueId?:string;assignedTo?:string;status?:string})=>Promise<void>|void;title:string;kind:AuditTask["kind"];tasks:AuditTask[];role:string;accept:(id:string)=>void;update:(id:string,status:AuditTask["status"])=>void}){const[obsTask,setObsTask]=useState<AuditTask|null>(null);const[tab,setTab]=useState<Tab>("Queue"),[open,setOpen]=useState(false),[busy,setBusy]=useState(false),[form,setForm]=useState({title:"",department:"",companyId:"",due:"",notes:"",kind:"Meeting",frequency:"One time",recurDay:"",recurUntil:""}),[guests,setGuests]=useState<{id:string;name:string}[]>([]),[term,setTerm]=useState(""),[search,setSearch]=useState(""),[dept,setDept]=useState("All departments"),[entity,setEntity]=useState("All companies");const wf=useWorkforce();
+export default function AuditTaskQueue({title,kind,tasks,role,accept,update,create,companies=[],departments=[],userName="",flash,refresh}:{companies?:{id:string;name:string}[];departments?:string[];userName?:string;refresh?:()=>void;flash?:(m:string)=>void;create?:(t:{title:string;department:string;companyId:string;due:string;notes:string;attendees?:string;extra?:string;kind?:string;frequency?:string;recurDay?:string;recurUntil?:string;category?:string;entity?:string;dueRule?:string;catalogueId?:string;assignedTo?:string;status?:string})=>Promise<void>|void;title:string;kind:AuditTask["kind"];tasks:AuditTask[];role:string;accept:(id:string)=>void;update:(id:string,status:AuditTask["status"])=>void}){const[obsTask,setObsTask]=useState<AuditTask|null>(null),[remTask,setRemTask]=useState<AuditTask|null>(null);
+  const remarkCount=(t:AuditTask)=>{try{const r=JSON.parse(t.remarks||"[]");return Array.isArray(r)?r.length:0}catch{return 0}};const[tab,setTab]=useState<Tab>("Queue"),[open,setOpen]=useState(false),[busy,setBusy]=useState(false),[form,setForm]=useState({title:"",department:"",companyId:"",due:"",notes:"",kind:"Meeting",frequency:"One time",recurDay:"",recurUntil:""}),[guests,setGuests]=useState<{id:string;name:string}[]>([]),[term,setTerm]=useState(""),[search,setSearch]=useState(""),[dept,setDept]=useState("All departments"),[entity,setEntity]=useState("All companies");const wf=useWorkforce();
   const frequencies=useOptions("audittask.frequency",FREQUENCY_FALLBACK);
   const xFields=useExtraFields("audittask");
   const[xVals,setXVals]=useState<Record<string,string>>({});
@@ -43,9 +44,12 @@ export default function AuditTaskQueue({title,kind,tasks,role,accept,update,crea
               :t.assignedTo||"Unassigned queue"}</td><td><span className={`badge ${t.status==="Completed"?"green":t.status==="Available"?"amber":"blue"}`}>{t.status}</span><small>{t.notes||"No additional notes"}</small></td><td>{role==="Requestor"?<span className="wb-next wb-readonly">{t.status==="Completed"?"Completed":t.status==="Available"?"Waiting to be picked up":"In progress"}</span>:t.status==="Available"?<button className="wb-next" onClick={()=>accept(t.id)}>Accept to start</button>:t.status==="Completed"?<button className="wb-next">View completed</button>
               /* A pre-audit task under way can raise observations as well as be completed. */
               :kind==="Pre-Audit"?<div className="wb-next-pair"><button className="wb-next" onClick={()=>setObsTask(t)}>Raise observation</button>
+                <button className="wb-next" onClick={()=>setRemTask(t)}>Remarks{remarkCount(t)?` (${remarkCount(t)})`:""}</button>
                 <button className="wb-next" onClick={()=>update(t.id,"Completed")}>Mark completed</button></div>
               :<button className="wb-next" onClick={()=>update(t.id,"Completed")}>Mark completed</button>}</td></tr>)}</tbody></table>{!rows.length&&<div className="wb-empty"><CheckCircle2/><b>No tasks in this section</b><span>Tasks will appear here when their status changes.</span></div>}</div></section>
   {open&&kind==="Pre-Audit"&&create&&<PreAuditTaskForm departments={departments} close={()=>setOpen(false)} create={t=>create(t)}/>}
+  {remTask&&<RemarksForm task={remTask} close={()=>setRemTask(null)}
+    saved={m=>{setRemTask(null);flash?.(m);refresh?.()}}/>}
   {obsTask&&<ObservationForm task={obsTask} userName={userName} close={()=>setObsTask(null)}
     done={m=>{const id=obsTask.id;setObsTask(null);flash?.(m);
       if(!["Observation Submitted","Response Received","Completed"].includes(obsTask.status))update(id,"Observation Submitted")}}/>}

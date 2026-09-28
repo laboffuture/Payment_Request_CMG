@@ -22,7 +22,11 @@ const shape=(t:Row)=>({id:str(t.id),ref:str(t.ref),title:str(t.title),kind:str(t
      insert and the form reports a success that saved nothing. */
   recurDay:str(t.recurDay),recurUntil:str(t.recurUntil),seriesId:str(t.seriesId),
   createdAt:str(t.createdAt)||now(),acceptedAt:str(t.acceptedAt),completedAt:str(t.completedAt),extra:str(t.extra),
-  category:str(t.category),entity:str(t.entity),dueRule:str(t.dueRule),catalogueId:str(t.catalogueId)});
+  category:str(t.category),entity:str(t.entity),dueRule:str(t.dueRule),catalogueId:str(t.catalogueId),
+  remarks:str(t.remarks)});
+
+type Remark={by:string;at:string;text:string};
+const remarksOf=(v:unknown):Remark[]=>{try{const r=JSON.parse(str(v)||"[]");return Array.isArray(r)?r:[]}catch{return[]}};
 
 /* The pre-audit form's required fields, from the Daily Task Import template. Checked for
    pre-audit tasks only - the other kinds share this route and have forms of their own. */
@@ -177,7 +181,17 @@ export async function PATCH(req:Request){
       if(!invitee||(action!=="accept"&&action!=="complete"))
         return bad("Your role cannot change this data.",403);
     }
-    let row=shape({...existing,...body,id});
+    /* Remarks are only ever added to, here - never taken from the request as a whole. */
+    let row=shape({...existing,...body,id,remarks:existing.remarks});
+    if(action==="remark"){
+      const text=str(body.remark).trim();
+      if(!text)return bad("Write the remark first.",422);
+      if(text.length>2000)return bad("Keep a remark under 2,000 characters.",422);
+      const list=[...remarksOf(existing.remarks),{by:actor?.name||actor?.email||"",at:now(),text}];
+      await writeWithAudit([db.update(wfAuditTasks).set({remarks:JSON.stringify(list)}).where(eq(wfAuditTasks.id,id))],
+        actorOf(req,body),"audit-task",id,"Remark added",`${existing.ref} · ${text.slice(0,200)}`);
+      return Response.json({task:{...shape(existing),remarks:JSON.stringify(list)}});
+    }
     if(action==="accept"){
       if(existing.status!=="Available")
         return bad(`Already taken by ${existing.assignedTo||"somebody else"}`,409);

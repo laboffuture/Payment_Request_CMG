@@ -20,7 +20,7 @@ export type Company={extra?:string;id:string;name:string;code:string;currency:st
 export type AuditRow={frequency?:string;recurDay?:string;recurUntil?:string;seriesId?:string;id:string;ref:string;title:string;kind:string;companyId:string;department:string;
   status:string;attendees?:string;assignedTo:string;due:string;plannedStart:string;plannedEnd:string;notes:string;
   dataProvider:string;createdAt:string;acceptedAt:string;completedAt:string;
-  category?:string;entity?:string;dueRule?:string;catalogueId?:string};
+  category?:string;entity?:string;dueRule?:string;catalogueId?:string;remarks?:string};
 /* A task in the task catalogue - the pre-audit form's dropdowns. */
 export type CatalogueTask={id:string;title:string;description:string;category:string;entity:string;assigneeName:string;
   assigneeEmail:string;frequency:string;dueRule:string;nextDue:string;nextDueDate:string;status:string};
