@@ -314,6 +314,10 @@ export async function PATCH(req:Request){
       const utr=str(sent.utrNumber).trim().slice(0,60);
       if(utr!==(old.utrNumber||"")){edits.utrNumber=utr;changed.push(["utrNumber" as FieldKey,old.utrNumber||"",utr])}
     }
+    /* A payment is released with its UTR number: without the bank's reference there is
+       nothing to reconcile the payment against. */
+    if(status==="Payment Released"&&old.status!=="Payment Released"&&!String(edits.utrNumber??old.utrNumber??"").trim())
+      return bad("Enter the UTR number to release the payment.",422);
     if(sent&&!tdsOnly&&!releaseOnly){
       if(!ownResubmit)
         return bad("Only the person who raised a returned request can correct it.",403);

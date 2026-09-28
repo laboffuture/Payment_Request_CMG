@@ -128,6 +128,7 @@ export default function PaymentDetail({payment:p,busy=false,role,onClose,onActio
     released request with no proof and nobody told. */
  const release=async()=>{
    setReleaseErr("");
+   if(!utr.trim()){setReleaseErr("Enter the UTR number to release the payment.");return}
    if(releaseFile){
      try{const r=await fetch("/api/attachments",{method:"POST",headers:{"content-type":"application/json"},
        body:JSON.stringify({entityType:"payment",entityId:String(p.id),kind:"Bank/payment proof",
@@ -135,7 +136,7 @@ export default function PaymentDetail({payment:p,busy=false,role,onClose,onActio
        if(!r.ok){const b=await r.json().catch(()=>({})) as {error?:string};throw new Error(b.error||"upload refused")}}
      catch(e){setReleaseErr(`The proof did not upload (${e instanceof Error?e.message:"error"}). Try again, or release without it.`);return}
    }
-   onAction("Payment Released",withNote(),utr.trim()?{utrNumber:utr.trim()}:undefined)};
+   onAction("Payment Released",withNote(),{utrNumber:utr.trim()})};
 
  /* TDS is an accounts determination, not something a requestor asserts, which is why it
     left the request form and arrives here instead. Whatever the requestor answered before
@@ -193,14 +194,14 @@ export default function PaymentDetail({payment:p,busy=false,role,onClose,onActio
     payment proof - it used to be read for its name alone, to enable the button, and never
     saved. The UTR is the bank's reference for the payment; remarks go into the trail. */
  if(approved&&(can("Accountant")||can("Finance")))action=<><div className="wf-success"><FileCheck2/><div><b>Approved by Auditor</b>
-   <p>Record the payment: the UTR number, the bank proof if you have it, and any remarks.</p></div></div>
-   <label className="wf-note">UTR number<input className="wf-utr" value={utr} onChange={e=>setUtr(e.target.value)} placeholder="Bank reference for this payment (optional)"/></label>
+   <p>Record the payment: the UTR number (required), the bank proof if you have it, and any remarks.</p></div></div>
+   <label className="wf-note">UTR number <i className="wf-req" aria-hidden="true">*</i><input className="wf-utr" required value={utr} onChange={e=>setUtr(e.target.value)} placeholder="Bank reference for this payment"/></label>
    <label className="wf-proof"><Paperclip/>{releaseFile?"Release proof":"Upload release proof (optional)"}
      <input type="file" accept="image/*,application/pdf" onChange={e=>setReleaseFile(e.target.files?.[0]||null)}/>
      {releaseFile&&<b>{releaseFile.name}</b>}</label>
    {noteBox("Remarks","Anything worth recording with the release (optional)")}
    {releaseErr&&<p className="wf-release-error">{releaseErr}</p>}
-   <button className="wf-primary" onClick={release}>Mark as Released</button></>;
+   <button className="wf-primary" disabled={!utr.trim()} title={utr.trim()?"":"Enter the UTR number first"} onClick={release}>Mark as Released</button></>;
  if(p.status==="Rejected")action=<><div className="wf-observation"><X/><div>
    <small>REQUEST REJECTED</small>
    <b>{p.rejectionNote||"No reason was recorded."}</b>
