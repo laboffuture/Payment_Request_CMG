@@ -33,7 +33,9 @@ export type Observation={id:string;ref:string;title:string;detail:string;deptId:
   risk:Priority;status:"Open"|"Acknowledged"|"Resolved"|"Closed";raisedBy:string;raisedAt:string;
   target:string;resolvedAt:string;resolution:string;replyCount:number;lastReplyAt:string;
   area:string;impact:string;stakeholder:string;rootCause:string;transactionValue:string;
-  responsibility:string;actionPlan:string;tags:ObsTag[]};
+  responsibility:string;actionPlan:string;tags:ObsTag[];
+  /* From the Audit Observation template, raised on a pre-audit task. */
+  entity?:string;dateIdentified?:string;recommendation?:string};
 export type ImportRow={line:number;name:string;employee:string;frequency:string;due:string;
   ends?:string;jd?:string;priority?:string;status?:string;qty?:number;done?:number;
   progress?:number;expectedOutput?:string;remarks?:string};

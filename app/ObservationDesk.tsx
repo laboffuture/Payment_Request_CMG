@@ -24,9 +24,12 @@ export default function ObservationDesk({openProfile,flash,canManage=true}:{open
   const [compose,setCompose]=useState(false);
   useEffect(()=>{const t=setTimeout(()=>{setQ(raw);setOffset(0)},300);return()=>clearTimeout(t)},[raw]);
 
+  /* The whole register, whatever department is chosen on the organisation screens: that
+     choice was applied here unseen, and an observation raised on a pre-audit task - which
+     belongs to the group, not a department - vanished from the register once one was. */
   const{data,loading,error}=useAsync(()=>wf.api.observations({q,status:status||undefined,
-    deptId:wf.dept||undefined,taggedTo:mine||undefined,limit:LIMIT,offset}),
-    [q,status,mine,wf.dept,offset,wf.version]);
+    taggedTo:mine||undefined,limit:LIMIT,offset}),
+    [q,status,mine,offset,wf.version]);
   const rows=data?.observations||[];
   const total=data?.total||0;
 
@@ -34,12 +37,12 @@ export default function ObservationDesk({openProfile,flash,canManage=true}:{open
     <div className="intro"><div><small>OBSERVATIONS</small><h2>Raised and answered</h2>
       <p>Tag the people who need to answer. Everyone tagged sees the thread and can reply.</p></div>
       <div className="wf-head-tools">
-        <button className="wf-small" onClick={()=>csv([["Ref","Area","Header","Summary","Potential risk or impact","Stakeholder",
-          "Root cause","Value of transaction","Risk rating","Stakeholder response and action plan",
-          "Responsibility","Target date","Status","Tagged","Raised by","Raised","Replies","Resolution"],
-          ...rows.map(o=>[o.ref,o.area,o.title,o.detail,o.impact,o.stakeholder,o.rootCause,
+        <button className="wf-small" onClick={()=>csv([["Ref","Vertical / entity","Area","Header","Summary","Potential risk or impact","Stakeholder",
+          "Root cause","Recommendation","Value of transaction","Risk rating","Stakeholder response and action plan",
+          "Responsibility","Target date","Status","Tagged","Auditor / raised by","Date identified","Raised","Pre-audit task","Replies","Resolution"],
+          ...rows.map(o=>[o.ref,o.entity||"",o.area,o.title,o.detail,o.impact,o.stakeholder,o.rootCause,o.recommendation||"",
             o.transactionValue,o.risk,o.actionPlan,o.responsibility,o.target,o.status,
-            o.tags.map(t=>t.name).join("; "),o.raisedBy,stamp(o.raisedAt),o.replyCount,o.resolution])],
+            o.tags.map(t=>t.name).join("; "),o.raisedBy,o.dateIdentified||"",stamp(o.raisedAt),o.taskId||"",o.replyCount,o.resolution])],
           "observations.csv")}>
           Export page</button>
         {canManage&&<button className="primary" onClick={()=>setCompose(true)}><MessageSquareWarning/>Raise observation</button>}
@@ -63,7 +66,9 @@ export default function ObservationDesk({openProfile,flash,canManage=true}:{open
         <th>REPLIES</th><th>STATUS</th><th>ACTION</th></tr></thead>
         <tbody>{rows.map(o=><tr key={o.id} onClick={()=>setOpen(o.id)}>
           <td><b>{o.ref}</b></td>
-          <td>{o.title}{o.detail&&<small>{o.detail}</small>}</td>
+          <td>{o.title}{o.detail&&o.detail!==o.title&&<small>{o.detail}</small>}
+            {(o.entity||o.area||o.taskId)&&<small className="wf-obs-meta">{[o.entity,o.area,o.raisedBy?`by ${o.raisedBy}`:"",
+              o.taskId?`pre-audit task ${o.taskId}`:""].filter(Boolean).join(" · ")}</small>}</td>
           <td><div className="wf-tags">{o.tags.map(t=>
             <button key={t.id} className="wf-tag" onClick={e=>{e.stopPropagation();openProfile(t.id)}}>
               {t.name}</button>)}</div></td>
@@ -215,16 +220,19 @@ function ObservationThread({id,close,flash,openProfile,canManage=true}:{canManag
         <span className={`badge ${obsTone(o.status)}`}>{o.status}</span>{" "}
         <span className={`badge ${o.risk.toLowerCase()}`}>{o.risk}</span>
         <h3 className="wf-obs-title">{o.title}</h3>
-        {o.detail&&<p className="wf-jd">{o.detail}</p>}
+        {o.detail&&o.detail!==o.title&&<p className="wf-jd">{o.detail}</p>}
         <div className="facts">
-          {[["Area",o.area||"—"],["Value of transaction",o.transactionValue||"—"],
+          {[...(o.entity?[["Vertical / entity",o.entity]]:[]),["Area",o.area||"—"],
+            ...(o.taskId?[["Pre-audit task",o.taskId]]:[]),["Value of transaction",o.transactionValue||"—"],
             ["Responsibility",o.responsibility||"—"],["Stakeholder",o.stakeholder||"—"],
-            ["Raised by",o.raisedBy||"—"],["Raised",stamp(o.raisedAt)],
+            [o.taskId?"Auditor":"Raised by",o.raisedBy||"—"],
+            ...(o.dateIdentified?[["Date identified",o.dateIdentified]]:[]),["Raised",stamp(o.raisedAt)],
             ["Target date",o.target||"—"],["Replies",String(o.replyCount)]]
             .map(f=><label key={f[0]}>{f[0]}<b>{f[1]}</b></label>)}
         </div>
         {!!o.impact&&<section><h4>Potential risk or impact</h4><p className="wf-jd">{o.impact}</p></section>}
         {!!o.rootCause&&<section><h4>Root cause</h4><p className="wf-jd">{o.rootCause}</p></section>}
+        {!!o.recommendation&&<section><h4>Recommendation</h4><p className="wf-jd">{o.recommendation}</p></section>}
         {!!o.actionPlan&&<section><h4>Stakeholder response and action plan</h4>
           <p className="wf-jd">{o.actionPlan}</p></section>}
         <section><h4>Tagged employees</h4>
