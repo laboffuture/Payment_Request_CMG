@@ -27,7 +27,7 @@ const shape=(t:Row)=>({id:str(t.id),ref:str(t.ref),title:str(t.title),kind:str(t
 /* The pre-audit form's required fields, from the Daily Task Import template. Checked for
    pre-audit tasks only - the other kinds share this route and have forms of their own. */
 function preAuditMissing(t:Row){
-  return([["title","Task title"],["category","Category (area)"],["entity","Project / entity (vertical)"],
+  return([["title","Task title"],["category","Category (area)"],["department","Department"],["entity","Project / entity (vertical)"],
     ["assignedTo","Audit by"],["dueRule","Due date rule"],["due","Next due date"]] as const)
     .filter(([k])=>!str(t[k]).trim()).map(([,l])=>l)}
 

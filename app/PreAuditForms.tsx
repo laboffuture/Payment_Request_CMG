@@ -34,13 +34,13 @@ const OBS_STATUS=["Open","Resolved"];
 type NewTask={title:string;department:string;companyId:string;due:string;notes:string;kind?:string;frequency?:string;
   extra?:string;category:string;entity:string;dueRule:string;catalogueId:string;assignedTo:string;status:string};
 
-export function PreAuditTaskForm({close,create}:{close:()=>void;create:(t:NewTask)=>Promise<void>|void}){
+export function PreAuditTaskForm({close,create,departments=[]}:{close:()=>void;create:(t:NewTask)=>Promise<void>|void;departments?:string[]}){
   const catalogue=useAsync(()=>catalogueApi.load(),[]);
   /* Audit by: the people with an auditing role only. */
   const people=useAsync(()=>catalogueApi.auditors(),[]);
   const xFields=useExtraFields("audittask");
   const[xVals,setXVals]=useState<Record<string,string>>({});
-  const[f,setF]=useState({entity:"",category:"",title:"",description:"",assignedTo:"",frequency:"Monthly",
+  const[f,setF]=useState({entity:"",category:"",department:"",title:"",description:"",assignedTo:"",frequency:"Monthly",
     dueRule:"",due:"",status:"Not started",catalogueId:""});
   const[busy,setBusy]=useState(false),[err,setErr]=useState("");
   const set=(k:keyof typeof f,v:string)=>setF(x=>({...x,[k]:v}));
@@ -65,7 +65,7 @@ export function PreAuditTaskForm({close,create}:{close:()=>void;create:(t:NewTas
 
   const submit=async(e:React.FormEvent)=>{
     e.preventDefault();setBusy(true);setErr("");
-    try{await create({title:f.title.trim(),department:f.category,companyId:"",due:f.due,notes:f.description.trim(),
+    try{await create({title:f.title.trim(),department:f.department,companyId:"",due:f.due,notes:f.description.trim(),
       kind:"Pre-Audit",frequency:f.frequency,extra:packExtra(xFields,xVals),category:f.category,entity:f.entity,
       dueRule:f.dueRule.trim(),catalogueId:f.catalogueId,assignedTo:f.assignedTo,status:TASK_STATUS[f.status]||"Available"});
       close()}
@@ -85,6 +85,11 @@ export function PreAuditTaskForm({close,create}:{close:()=>void;create:(t:NewTas
           <select required value={f.category} onChange={e=>setF(x=>({...x,category:e.target.value,title:"",catalogueId:""}))}>
             <option value="">Select category</option>
             {uniq([...categories,f.category]).map(x=><option key={x}>{x}</option>)}</select></label>
+        {/* The departments of the organisation register, as on the payment request form. */}
+        <label className="wide">Department {req}
+          <select required value={f.department} onChange={e=>set("department",e.target.value)}>
+            <option value="">{departments.length?"Select department":"Loading departments…"}</option>
+            {uniq([...departments,f.department]).map(x=><option key={x}>{x}</option>)}</select></label>
         <label className="wide">Task title {req}
           <input required list="pre-audit-titles" value={f.title} onChange={e=>pickTitle(e.target.value)}
             placeholder={titles.length?"Choose a task, or type a new one":"Type the task"}/>
