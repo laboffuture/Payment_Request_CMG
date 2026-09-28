@@ -74,7 +74,7 @@ export default function AccountsReceived(props:Props){
     {shownMod==="job"?<JobNotification {...props}/>
       :shownMod==="planning"?<PlanningProcurement role={props.role} userEmail={props.userEmail} flash={props.flash}/>
       :shownMod==="billing"?<CompletionBilling role={props.role} userEmail={props.userEmail} flash={props.flash}/>
-      :<DebtCollection role={props.role} flash={props.flash}/>}
+      :<DebtCollection role={props.role} userEmail={props.userEmail} flash={props.flash}/>}
   </div>}
 
 function JobNotification({role,companies=[],flash}:Props){

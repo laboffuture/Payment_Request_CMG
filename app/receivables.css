@@ -372,3 +372,8 @@
 .pp-quote .pp-none{color:var(--muted,#98a2b3)}
 .recv-desc .cb-statuses{display:block;font-size:11px;color:var(--muted,#667085);margin-top:.15rem}
 .recv-form input.cb-neg{color:#b42318}
+.recv-desc .dc-next{display:block;font-style:normal;font-size:11px;color:var(--muted,#667085);margin-top:.15rem}
+.dc-terms .ghost{height:36px;padding:0 14px;border:1px solid var(--line,#d0d5dd);border-radius:8px;background:var(--card,#fff);
+  font:inherit;font-size:12px;font-weight:600;color:var(--ink,#344054);cursor:pointer;box-sizing:border-box}
+.dc-terms .ghost:disabled{opacity:.5;cursor:not-allowed}
+.dc-terms input{height:36px;box-sizing:border-box}

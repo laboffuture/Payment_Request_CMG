@@ -42,3 +42,14 @@ export const mayVerify=(stage:string,roles:string[]=[])=>
 export const isCollected=(received:number,amount:number)=>amount>0&&received>=amount-0.01;
 
 export const DEFAULT_CREDIT_DAYS=30;
+
+/* The Debt Collection form. Each submission is one update logged against the case. */
+export const FOLLOW_UP_METHODS=["Call","Email","Visit","WhatsApp","Letter"] as const;
+/* A case's collection status. "Paid in full" is set when the payments cover the invoice,
+   and "Collected" when audit verifies it; neither can be chosen. */
+export const COLLECTION_STATUSES=["Not contacted","Contacted","Promised to pay","Partly paid","Disputed","No response"] as const;
+
+/** The credit days a payment terms text names, e.g. "30 days" or "Net 45"; the default
+    when it names none. */
+export const creditDaysOf=(terms:string)=>{const m=/(\d{1,3})\s*(days?|d\b)/i.exec(terms||"")||/net\s*(\d{1,3})/i.exec(terms||"");
+  const n=m?Number(m[1]):NaN;return Number.isFinite(n)&&n>=0&&n<=365?n:DEFAULT_CREDIT_DAYS};

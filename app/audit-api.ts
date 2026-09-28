@@ -96,13 +96,21 @@ export type Collection={id:string;ref:string;stage:string;completionId:string;bi
   customer:string;pmName:string;invoiceNo:string;invoiceDate:string;invoiceAmount:number;currency:string;
   creditDays:number;dueDate:string;status:string;promisedDate:string;amountReceived:number;followUps:number;
   lastFollowUpAt:string;collectorName:string;collectorEmail:string;submittedAt:string;verifiedBy:string;
-  verifiedAt:string;remarks:string;returnNote:string;returnedAt:string;source:string;createdAt:string;updatedAt:string};
+  verifiedAt:string;remarks:string;returnNote:string;returnedAt:string;source:string;createdAt:string;updatedAt:string;
+  jobCode:string;projectName:string;paymentTerms:string;responsibleName:string;responsibleEmail:string;lastFollowUpDate:string;
+  followUpMethod:string;nextFollowUpDate:string;customerResponse:string;collectionRemarks:string};
 export type CollectionEvent={id:string;caseId:string;kind:string;at:string;byName:string;byEmail:string;
-  contact:string;notes:string;status:string;amount:number;promisedDate:string};
+  contact:string;notes:string;status:string;amount:number;promisedDate:string;method:string;followUpDate:string;
+  nextFollowUpDate:string;remarks:string};
+/* An invoice raised in Completion and Billing with no collection case yet. */
+export type OpenInvoice={id:string;invoiceNo:string;invoiceDate:string;invoiceAmount:number;currency:string;customer:string;
+  jobCode:string;jobRef:string;projectName:string;paymentTerms:string;dueDate:string};
 export const collectionApi={
   load:async()=>(await asJson<{cases:Collection[]}>(await fetch("/api/collection"))).cases,
   events:async(id:string)=>(await asJson<{events:CollectionEvent[]}>(await fetch(`/api/collection?case=${encodeURIComponent(id)}`))).events,
   add:async(fields:Record<string,unknown>)=>(await send("/api/collection","POST",{action:"add",...fields})).case as Collection,
+  invoices:async()=>(await asJson<{invoices:OpenInvoice[]}>(await fetch("/api/collection?invoices=1"))).invoices,
+  update:async(id:string,fields:Record<string,unknown>)=>(await send("/api/collection","POST",{action:"update",id,...fields})).case as Collection,
   log:async(id:string,fields:Record<string,unknown>)=>(await send("/api/collection","POST",{action:"log",id,...fields})).case as Collection,
   terms:async(id:string,creditDays:number)=>(await send("/api/collection","POST",{action:"terms",id,creditDays})).case as Collection,
   move:async(id:string,action:"submit"|"verify"|"return",fields:Record<string,unknown>={})=>

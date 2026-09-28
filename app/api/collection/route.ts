@@ -1,10 +1,10 @@
 import{and,asc,desc,eq,sql}from"drizzle-orm";
 import{getBindings,getDb}from"../../../db";
-import{wfBillingJobs,wfCollectionEvents,wfCollections,wfCompletions}from"../../../db/schema";
+import{wfBillingJobs,wfCollectionEvents,wfCollections,wfCompletions,wfReceivables,wfUsers}from"../../../db/schema";
 import{companyLock,inCompany,requireAuth}from"../../../lib/auth";
 import type{CompanyLock}from"../../../lib/auth";
 import{emailsForRoles,notify}from"../../../lib/notify";
-import{ACCOUNTS_ROLES,DEFAULT_CREDIT_DAYS,FOLLOW_UPS,STATUSES,isCollected,mayLog,mayVerify}
+import{ACCOUNTS_ROLES,COLLECTION_STATUSES,DEFAULT_CREDIT_DAYS,FOLLOW_UPS,FOLLOW_UP_METHODS,STATUSES,creditDaysOf,isCollected,mayLog,mayVerify}
   from"../../../lib/collection-stages";
 import{bad,num,oops,str,writeWithAudit}from"../../../lib/workforce-api";
 import type{Row}from"../../../lib/workforce-api";
@@ -27,9 +27,30 @@ async function allowedJobs(db:Db,lock:CompanyLock|null){
     .filter(j=>inCompany(lock,{id:j.companyId})).map(j=>j.id))}
 const now=()=>new Date().toISOString();
 const today=()=>now().slice(0,10);
+const lower=(v:unknown)=>str(v).trim().toLowerCase();
 const dayPlus=(date:string,days:number)=>new Date(new Date(`${date}T00:00:00Z`).getTime()+days*86400000).toISOString().slice(0,10);
 const stamp=()=>Date.now().toString(36)+Math.random().toString(36).slice(2,4);
 const RECEIVABLE_ROLES=["Accountant","Administrator","Auditor","Audit Head"];
+
+/* What a case takes from its job: the job code, project and the payment terms agreed in
+   the CRM job, which also set the credit days and so the due date. */
+async function jobFacts(db:Db,billingJobId:string){
+  const[j]=await db.select({jobCode:wfBillingJobs.jobCode,projectName:wfBillingJobs.projectName,jobId:wfBillingJobs.jobId})
+    .from(wfBillingJobs).where(eq(wfBillingJobs.id,billingJobId));
+  const[r]=j?await db.select({terms:wfReceivables.paymentTerms}).from(wfReceivables).where(eq(wfReceivables.id,j.jobId)):[];
+  const paymentTerms=r?.terms||"";
+  return{jobCode:j?.jobCode||"",projectName:j?.projectName||"",paymentTerms,creditDays:creditDaysOf(paymentTerms)}}
+
+/* A case for an invoice raised in Completion and Billing. */
+async function caseFor(db:Db,c:typeof wfCompletions.$inferSelect){
+  const facts=await jobFacts(db,c.billingJobId);
+  const invoiceDate=c.invoiceDate||c.invoicedAt.slice(0,10)||today();
+  const s=stamp();
+  return{id:`DC-${s}`,ref:`DC-${s.toUpperCase()}`,completionId:c.id,billingJobId:c.billingJobId,jobRef:c.jobRef,
+    customer:c.customer,pmName:c.pmName,invoiceNo:c.invoiceNo,invoiceDate,invoiceAmount:c.invoiceAmount,
+    currency:c.currency,creditDays:facts.creditDays,dueDate:dayPlus(invoiceDate,facts.creditDays),
+    jobCode:facts.jobCode||c.jobCode,projectName:facts.projectName||c.projectName,paymentTerms:facts.paymentTerms,
+    createdAt:now(),updatedAt:now()}}
 
 /* Every verified invoice past its due date becomes a case, once. Run by the daily timer
    and whenever the module is opened. Accounts hear about each new one. */
@@ -39,13 +60,9 @@ async function findMissed(db:Db){
     .where(and(eq(wfCompletions.stage,"Verified"),sql`${wfCompletions.invoiceNo} <> ''`))).filter(c=>!known.has(c.id));
   const created=[];
   for(const c of invoices){
-    const invoiceDate=c.invoiceDate||c.invoicedAt.slice(0,10)||today();
-    const due=dayPlus(invoiceDate,DEFAULT_CREDIT_DAYS);
+    const row=await caseFor(db,c);
+    const due=row.dueDate;
     if(due>=today())continue;
-    const s=stamp();
-    const row={id:`DC-${s}`,ref:`DC-${s.toUpperCase()}`,completionId:c.id,billingJobId:c.billingJobId,jobRef:c.jobRef,
-      customer:c.customer,pmName:c.pmName,invoiceNo:c.invoiceNo,invoiceDate,invoiceAmount:c.invoiceAmount,
-      currency:c.currency,creditDays:DEFAULT_CREDIT_DAYS,dueDate:due,createdAt:now(),updatedAt:now()};
     await writeWithAudit([db.insert(wfCollections).values(row)],"schedule","collection",row.id,"Invoice missed",
       `${row.ref} · ${c.invoiceNo} · ${c.customer}`);
     await notify(await emailsForRoles(["Accountant"]),{title:`Invoice ${c.invoiceNo} is overdue: ${c.customer}`,
@@ -66,6 +83,21 @@ export async function GET(req:Request){
     const db=await getDb();
     const caseId=new URL(req.url).searchParams.get("case");
     const jobs=await allowedJobs(db,await companyLock(actor));
+    /* The invoices raised in Completion and Billing that have no case yet, for the
+       Invoice Number dropdown: approved by management, at audit or verified. */
+    if(new URL(req.url).searchParams.get("invoices")){
+      const known=new Set((await db.select({id:wfCollections.completionId}).from(wfCollections)).map(r=>r.id).filter(Boolean));
+      const invoices=(await db.select({id:wfCompletions.id,invoiceNo:wfCompletions.invoiceNo,invoiceDate:wfCompletions.invoiceDate,
+        invoiceAmount:wfCompletions.invoiceAmount,currency:wfCompletions.currency,customer:wfCompletions.customer,
+        jobCode:wfCompletions.jobCode,jobRef:wfCompletions.jobRef,projectName:wfCompletions.projectName,billingJobId:wfCompletions.billingJobId})
+        .from(wfCompletions).where(sql`${wfCompletions.invoiceNo} <> '' and ${wfCompletions.stage} in ('Audit Verification','Verified')`)
+        .orderBy(desc(wfCompletions.invoiceDate)))
+        .filter(c=>!known.has(c.id)&&(!jobs||jobs.has(c.billingJobId)));
+      const withTerms=[];
+      for(const i of invoices){const f=await jobFacts(db,i.billingJobId);
+        withTerms.push({...i,paymentTerms:f.paymentTerms,dueDate:dayPlus(i.invoiceDate||today(),f.creditDays)})}
+      return Response.json({invoices:withTerms});
+    }
     if(caseId){
       if(jobs){
         const[c]=await db.select({job:wfCollections.billingJobId}).from(wfCollections).where(eq(wfCollections.id,caseId));
@@ -109,6 +141,20 @@ export async function POST(req:Request){
     const action=str(body.action);
 
     const jobs=await allowedJobs(db,await companyLock(actor));
+    /* An invoice raised in Completion and Billing, chosen from the dropdown: a case at
+       once, whether or not it is overdue yet. */
+    if(action==="add"&&str(body.completionId)){
+      const[c]=await db.select().from(wfCompletions).where(eq(wfCompletions.id,str(body.completionId)));
+      if(!c||!c.invoiceNo||!["Audit Verification","Verified"].includes(c.stage)||(jobs&&!jobs.has(c.billingJobId)))
+        return bad("Choose an invoice approved in Completion and Billing.",422);
+      const[dupe]=await db.select({ref:wfCollections.ref}).from(wfCollections).where(eq(wfCollections.completionId,c.id));
+      if(dupe)return bad(`Invoice ${c.invoiceNo} is already case ${dupe.ref}.`,409);
+      const row=await caseFor(db,c);
+      await writeWithAudit([db.insert(wfCollections).values(row)],who,"collection",row.id,"Invoice added for collection",
+        `${row.ref} · ${row.invoiceNo} · ${row.customer}`);
+      const[saved]=await db.select().from(wfCollections).where(eq(wfCollections.id,row.id));
+      return Response.json({case:saved},{status:201});
+    }
     if(action==="add"){
       /* A hand-added invoice has no job, so no company: somebody limited to one company
          could add it but never see it again. */
@@ -144,6 +190,56 @@ export async function POST(req:Request){
       await writeWithAudit([db.update(wfCollections).set(patch).where(eq(wfCollections.id,row.id))],who,"collection",row.id,
         "Credit days changed",`${row.ref} · ${credit} days`);
       return Response.json({case:{...row,...patch}});
+    }
+
+    /* The Debt Collection form: one update - a follow-up, the customer's response, the
+       status, any amount collected, the next follow-up and who is responsible. */
+    if(action==="update"){
+      if(!mayLog(row.stage,actor?.roles))return bad(`Nothing more can be recorded on a case at ${row.stage}.`,422);
+      const date=/^\d{4}-\d{2}-\d{2}$/;
+      const method=str(body.followUpMethod),status=str(body.status);
+      const followUpDate=str(body.lastFollowUpDate),next=str(body.nextFollowUpDate),expected=str(body.expectedCollectionDate);
+      if(method&&!(FOLLOW_UP_METHODS as readonly string[]).includes(method))return bad(`Follow-up method must be one of ${FOLLOW_UP_METHODS.join(", ")}.`,422);
+      if(!(COLLECTION_STATUSES as readonly string[]).includes(status))return bad(`Collection status must be one of ${COLLECTION_STATUSES.join(", ")}.`,422);
+      for(const[v,l]of[[followUpDate,"Last follow-up date"],[next,"Next follow-up date"],[expected,"Expected collection date"]] as const)
+        if(v&&!date.test(v))return bad(`Enter the ${l.toLowerCase()} as a date.`,422);
+      if(next&&followUpDate&&next<followUpDate)return bad("The next follow-up cannot be before the last one.",422);
+      if(status==="Promised to pay"&&!expected)return bad("Enter the expected collection date the customer promised.",422);
+      const amount=str(body.amount).trim()===""?0:Number(body.amount);
+      if(!Number.isFinite(amount)||amount<0)return bad("Amount collected must be a number, 0 or more.",422);
+      const received=Math.round((row.amountReceived+amount)*100)/100;
+      if(received>row.invoiceAmount+0.01)
+        return bad(`That would take the total collected to ${row.currency} ${received.toLocaleString("en-GB")}, more than the invoice. Check the amount.`,422);
+      const email=lower(body.responsibleEmail);
+      if(!email)return bad("Choose the responsible person.",422);
+      const[u]=await db.select({name:wfUsers.name,email:wfUsers.email,active:wfUsers.active}).from(wfUsers).where(sql`lower(${wfUsers.email}) = ${email}`);
+      if(!u||!u.active)return bad("Responsible person: choose someone from the list of people with a login.",422);
+      const response=str(body.customerResponse).trim(),remarks=str(body.remarks).trim();
+      const paid=isCollected(received,row.invoiceAmount);
+      /* The status chosen stands, except that an invoice collected in full is Paid in full. */
+      const finalStatus=paid?"Paid in full":status;
+      const event={id:`CE-${stamp()}`,caseId:row.id,kind:"Update",at:now(),byName:who,byEmail:actor?.email||"",contact:"",
+        notes:response,status:finalStatus,amount,promisedDate:expected,method,followUpDate:method?followUpDate||today():followUpDate,
+        nextFollowUpDate:next,remarks};
+      const patch:Row={updatedAt:now(),status:finalStatus,amountReceived:received,responsibleName:u.name||u.email,responsibleEmail:u.email,
+        nextFollowUpDate:next,promisedDate:expected,customerResponse:response||row.customerResponse,collectionRemarks:remarks||row.collectionRemarks,
+        collectorName:u.name||u.email,collectorEmail:u.email};
+      if(method)Object.assign(patch,{followUps:(row.followUps||0)+1,lastFollowUpAt:now(),followUpMethod:method,lastFollowUpDate:event.followUpDate});
+      else if(followUpDate)patch.lastFollowUpDate=followUpDate;
+      /* Where the case now sits in the flow: followed up, or with the customer's position or a payment recorded. */
+      patch.stage=amount>0||!["Not contacted","Contacted"].includes(finalStatus)?"Status Update"
+        :method&&row.stage==="Invoice Missed"?"Follow Up":row.stage;
+      await writeWithAudit([db.insert(wfCollectionEvents).values(event),db.update(wfCollections).set(patch).where(eq(wfCollections.id,row.id))],
+        who,"collection",row.id,"Collection update",
+        `${row.ref} · ${[method,finalStatus,amount?`${row.currency} ${amount} collected`:"",next?`next ${next}`:""].filter(Boolean).join(" · ")}`);
+      /* A newly responsible person is told the case is theirs. */
+      if(lower(u.email)!==lower(row.responsibleEmail)&&lower(u.email)!==lower(actor?.email))
+        await notify([u.email],{title:`${row.ref}: you are responsible for collecting ${row.invoiceNo}`,body:`${row.customer} · assigned by ${who}`,
+          reference:row.ref,detail:[{label:"Customer",value:row.customer},{label:"Invoice",value:row.invoiceNo},
+            {label:"Balance",value:`${row.currency} ${(row.invoiceAmount-received).toLocaleString("en-GB")}`},{label:"Next follow-up",value:next||"—"}],
+          action:"Open the case in Accounts Receivable → Debt Collection.",module:"accountsreceived",recordId:row.id},actor?.email);
+      const[saved]=await db.select().from(wfCollections).where(eq(wfCollections.id,row.id));
+      return Response.json({case:saved,event});
     }
 
     if(action==="log"){
