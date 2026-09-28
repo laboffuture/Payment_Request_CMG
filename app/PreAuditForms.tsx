@@ -12,7 +12,7 @@
 
 import{useMemo,useState}from"react";
 import{Plus,X}from"lucide-react";
-import{catalogueApi,planningApi}from"./audit-api";
+import{catalogueApi}from"./audit-api";
 import type{CatalogueTask}from"./audit-api";
 import{ExtraFields,packExtra,useExtraFields}from"./ExtraFields";
 import{useAsync,useWorkforce}from"./workforce-store";
@@ -36,7 +36,8 @@ type NewTask={title:string;department:string;companyId:string;due:string;notes:s
 
 export function PreAuditTaskForm({close,create}:{close:()=>void;create:(t:NewTask)=>Promise<void>|void}){
   const catalogue=useAsync(()=>catalogueApi.load(),[]);
-  const people=useAsync(()=>planningApi.people(),[]);
+  /* Audit by: the people with an auditing role only. */
+  const people=useAsync(()=>catalogueApi.auditors(),[]);
   const xFields=useExtraFields("audittask");
   const[xVals,setXVals]=useState<Record<string,string>>({});
   const[f,setF]=useState({entity:"",category:"",title:"",description:"",assignedTo:"",frequency:"Monthly",
@@ -48,8 +49,9 @@ export function PreAuditTaskForm({close,create}:{close:()=>void;create:(t:NewTas
   const categories=uniq(rows.filter(r=>!f.entity||r.entity===f.entity).map(r=>r.category));
   const titles=uniq(rows.filter(r=>(!f.entity||r.entity===f.entity)&&(!f.category||r.category===f.category)).map(r=>r.title));
   const rules=uniq(rows.map(r=>r.dueRule));
-  /* The assignee as the portal knows them: the login the catalogue matched, by name. */
-  const personFor=(r:CatalogueTask)=>(people.data||[]).find(p=>p.email.toLowerCase()===r.assigneeEmail.toLowerCase())?.name||r.assigneeName;
+  /* The auditor as the portal knows them: the login the catalogue matched, by name - or
+     no one, if that person is not an auditor, so the choice is made rather than refused. */
+  const personFor=(r:CatalogueTask)=>(people.data||[]).find(p=>p.email.toLowerCase()===r.assigneeEmail.toLowerCase())?.name||"";
   const assignees=uniq([...(people.data||[]).map(p=>p.name||p.email),f.assignedTo]);
   const frequencies=uniq([...FREQUENCIES,f.frequency]);
 
@@ -90,9 +92,9 @@ export function PreAuditTaskForm({close,create}:{close:()=>void;create:(t:NewTas
         <label className="wide">Description / instructions {opt}
           <textarea value={f.description} onChange={e=>set("description",e.target.value)}
             placeholder="What needs checking, and against what evidence"/></label>
-        <label>Assigned to {req}
+        <label>Audit by {req}
           <select required value={f.assignedTo} onChange={e=>set("assignedTo",e.target.value)}>
-            <option value="">{people.loading?"Loading people…":"Select a person"}</option>
+            <option value="">{people.loading?"Loading auditors…":"Select an auditor"}</option>
             {assignees.map(x=><option key={x}>{x}</option>)}</select></label>
         <label>Frequency {opt}
           <select value={f.frequency} onChange={e=>set("frequency",e.target.value)}>
@@ -115,7 +117,7 @@ export function PreAuditTaskForm({close,create}:{close:()=>void;create:(t:NewTas
 
 export function ObservationForm({task,userName,close,done}:{task:AuditTask;userName:string;close:()=>void;done:(msg:string)=>void}){
   const catalogue=useAsync(()=>catalogueApi.load(),[]);
-  const people=useAsync(()=>planningApi.people(),[]);
+  const people=useAsync(()=>catalogueApi.auditors(),[]);
   const wf=useWorkforce();
   const[term,setTerm]=useState(""),[who,setWho]=useState<{id:string;name:string}|null>(null);
   const{data:found}=useAsync(()=>wf.api.employees({q:term,limit:25,active:"1"}),[term],term.length>1);

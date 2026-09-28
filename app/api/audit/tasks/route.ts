@@ -6,6 +6,7 @@ import{emailsForEmployees,emailsForRoles,moduleForKind,notify}from"../../../../l
 import{actorOf,bad,oops,page,search,str,writeWithAudit}from"../../../../lib/workforce-api";
 import type{Row}from"../../../../lib/workforce-api";
 import{pendingDues,recurs,todayIso}from"../../../../lib/recurrence";
+import{auditors}from"../../../../lib/auditors";
 
 /* Tasks, tokens and training were screens of their own. They are raised from the
    meeting form now, which is why the kind says which of them it is. */
@@ -27,7 +28,7 @@ const shape=(t:Row)=>({id:str(t.id),ref:str(t.ref),title:str(t.title),kind:str(t
    pre-audit tasks only - the other kinds share this route and have forms of their own. */
 function preAuditMissing(t:Row){
   return([["title","Task title"],["category","Category (area)"],["entity","Project / entity (vertical)"],
-    ["assignedTo","Assigned to"],["dueRule","Due date rule"],["due","Next due date"]] as const)
+    ["assignedTo","Audit by"],["dueRule","Due date rule"],["due","Next due date"]] as const)
     .filter(([k])=>!str(t[k]).trim()).map(([,l])=>l)}
 
 /* Creates the occurrences a recurring series is missing.
@@ -118,6 +119,10 @@ export async function POST(req:Request){
       const missing=preAuditMissing(body);
       if(missing.length)return bad(`${missing.join(", ")} must be filled in.`,422);
       if(!/^\d{4}-\d{2}-\d{2}$/.test(str(body.due)))return bad("Enter the next due date as a date.",422);
+      /* Audited by an auditor: the name must be one of the people with an auditing role. */
+      const auditor=(await auditors()).find(a=>a.name.trim().toLowerCase()===str(body.assignedTo).trim().toLowerCase());
+      if(!auditor)return bad("Audit by: choose one of the auditors.",422);
+      body.assignedTo=auditor.name;
       /* A pre-audit task may start already under way or done, as the template's status
          says; anything else starts in the queue. */
       if(!["Available","In Progress","Completed"].includes(str(body.status,"Available")))body.status="Available";

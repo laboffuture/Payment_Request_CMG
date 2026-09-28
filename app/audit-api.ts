@@ -25,7 +25,9 @@ export type AuditRow={frequency?:string;recurDay?:string;recurUntil?:string;seri
 export type CatalogueTask={id:string;title:string;description:string;category:string;entity:string;assigneeName:string;
   assigneeEmail:string;frequency:string;dueRule:string;nextDue:string;nextDueDate:string;status:string};
 export const catalogueApi={
-  load:async()=>(await asJson<{tasks:CatalogueTask[]}>(await fetch("/api/task-catalogue"))).tasks};
+  load:async()=>(await asJson<{tasks:CatalogueTask[]}>(await fetch("/api/task-catalogue"))).tasks,
+  /* The people with an auditing role - "Audit by" and an observation's auditor. */
+  auditors:async()=>(await asJson<{auditors:{name:string;email:string}[]}>(await fetch("/api/task-catalogue"))).auditors};
 export type Batch={extra?:string;id:string;vendor:string;requested:number;approved:number|null;currency:string;
   companyId:string;statement:string;reconciliation:string;gl:string;status:string;reason:string;
   proof:string;raisedBy:string;createdAt:string;releasedAt:string};
