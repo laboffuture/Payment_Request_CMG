@@ -2,7 +2,7 @@
 import{ExtraFields,packExtra,unpackExtra,useExtraFields}from"./ExtraFields";
 import{useOptions}from"./options-store";
 import{useEffect,useMemo,useRef,useState}from"react";
-import{Camera,Loader2,Trash2,X,Upload}from"lucide-react";
+import{Camera,Check,ChevronDown,Loader2,Trash2,X,Upload}from"lucide-react";
 import Attachments,{asDataUrl} from"./Attachments";
 import{companiesApi}from"./audit-api";
 import{frequencies,initials,normalise,periodOf,photoUrl,priorities,queryStatuses,readable,resizeImage,
@@ -180,6 +180,18 @@ export function EmployeeEditor({employee,close,flash}:{employee:Partial<Employee
     if(selectedCompanies.includes(id))removeCompany(id);
     else addCompany(id);
   };
+  const companyPickerRef=useRef<HTMLDivElement>(null);
+  const [companyFilter,setCompanyFilter]=useState("");
+  useEffect(()=>{
+    if(!showCompanyList)return;
+    const onDown=(ev:MouseEvent)=>{
+      if(companyPickerRef.current&&!companyPickerRef.current.contains(ev.target as Node)){
+        setShowCompanyList(false);
+      }
+    };
+    document.addEventListener("mousedown",onDown);
+    return()=>document.removeEventListener("mousedown",onDown);
+  },[showCompanyList]);
   const submit=async(ev:React.FormEvent)=>{ev.preventDefault();setBusy(true);
     try{const saved=await wf.api.saveEmployee({...e,extra:packExtra(xFields,xVals),id:isNew?undefined:e.id} as typeof e,isNew);
       flash(`${saved.name} saved`);close()}
@@ -205,81 +217,104 @@ export function EmployeeEditor({employee,close,flash}:{employee:Partial<Employee
         <option value="">— select a designation —</option>
         {wf.allRoles.filter(r=>r.deptId===(e.deptId||wf.dept)).map(r=><option key={r.id} value={r.id}>{r.name}</option>)}</select></label>
       <label>Team / vertical<input value={e.department||""} onChange={x=>set("department",x.target.value)}/></label>
-      <div className="wide">
-        <label style={{display:"block",marginBottom:"4px",fontSize:"11px",fontWeight:600}}>
-          Company
-        </label>
-        <div className="wf-tags" style={{marginBottom:"6px",minHeight:"24px"}}>
-          {selectedCompanies.length ? (
-            selectedCompanies.map(id => {
-              const c = companies.find(x => x.id === id);
-              return (
-                <span key={id} className="wf-tag on">
-                  {c ? c.name : id}
-                  <button type="button" onClick={() => removeCompany(id)} title="Remove company">×</button>
-                </span>
-              );
-            })
-          ) : (
-            <span className="wf-tag" style={{background:"#f1f5f9",borderColor:"#cbd5e1",color:"#475569"}}>
-              All companies (not restricted)
-            </span>
-          )}
-        </div>
-        <div style={{display:"flex",gap:"8px",alignItems:"center"}}>
-          <select
-            style={{flex:1}}
-            value=""
-            onChange={x => {
-              const val = x.target.value;
-              if (val === "__ALL__" || val === "") set("portalCompanyId", "");
-              else addCompany(val);
-            }}
-          >
-            <option value="">
-              {selectedCompanies.length ? "+ Add another company…" : "All companies (not restricted) — or select to add"}
-            </option>
-            {selectedCompanies.length > 0 && (
-              <option value="__ALL__">All companies (not restricted)</option>
-            )}
-            {companies
-              .filter(c => (c.active || selectedCompanies.includes(c.id)) && !selectedCompanies.includes(c.id))
-              .map(c => (
-                <option key={c.id} value={c.id}>{c.name}</option>
-              ))}
-          </select>
+      <div ref={companyPickerRef} style={{position:"relative"}}>
+        <label style={{display:"block",margin:0}}>Company
           <button
             type="button"
-            className="wf-small"
-            style={{padding:"8px 12px",whiteSpace:"nowrap",height:"38px"}}
-            onClick={() => setShowCompanyList(v => !v)}
+            style={{
+              display:"flex",alignItems:"center",justifyContent:"space-between",
+              width:"100%",border:"1px solid var(--line)",borderRadius:"7px",
+              padding:"10px",marginTop:"5px",background:"#fff",
+              font:"inherit",fontSize:"11px",color:"var(--ink)",
+              cursor:"pointer",textAlign:"left",boxSizing:"border-box"
+            }}
+            onClick={()=>setShowCompanyList(v=>!v)}
           >
-            {showCompanyList ? "Hide checklist" : "Checklist"}
+            <span style={{overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>
+              {selectedCompanies.length===0
+                ?"All companies (not restricted)"
+                :selectedCompanies.length===1
+                ?(companies.find(c=>c.id===selectedCompanies[0])?.name||selectedCompanies[0])
+                :`${selectedCompanies.length} companies selected`}
+            </span>
+            <ChevronDown style={{width:14,height:14,color:"var(--muted)",flexShrink:0,marginLeft:6}}/>
           </button>
-        </div>
-        {showCompanyList && (
-          <div className="wf-picker" style={{marginTop:"8px",maxHeight:"190px",overflowY:"auto",padding:"8px 12px",border:"1px solid var(--line)"}}>
-            <label style={{display:"flex",alignItems:"center",gap:"8px",padding:"4px 0",cursor:"pointer",fontWeight:600,borderBottom:"1px solid #f0f4f2"}}>
-              <input
-                type="checkbox"
-                checked={selectedCompanies.length === 0}
-                onChange={() => set("portalCompanyId", "")}
-              />
-              All companies (not restricted)
-            </label>
-            {companies.filter(c => c.active || selectedCompanies.includes(c.id)).map(c => {
-              const checked = selectedCompanies.includes(c.id);
-              return (
-                <label key={c.id} style={{display:"flex",alignItems:"center",gap:"8px",padding:"4px 0",cursor:"pointer"}}>
-                  <input
-                    type="checkbox"
-                    checked={checked}
-                    onChange={() => toggleCompany(c.id)}
-                  />
-                  <span style={{fontSize:"11.5px"}}>{c.name}</span>
-                </label>
+        </label>
+        {selectedCompanies.length>0&&(
+          <div className="wf-tags" style={{marginTop:"6px",gap:"4px"}}>
+            {selectedCompanies.map(id=>{
+              const c=companies.find(x=>x.id===id);
+              return(
+                <span key={id} className="wf-tag on" style={{fontSize:"9px",padding:"2px 7px"}}>
+                  {c?c.name:id}
+                  <button type="button" onClick={x=>{x.stopPropagation();removeCompany(id);}} title="Remove">×</button>
+                </span>
               );
             })}
+          </div>
+        )}
+        {showCompanyList&&(
+          <div
+            style={{
+              position:"absolute",top:"100%",left:0,right:0,zIndex:50,
+              marginTop:"4px",background:"#fff",border:"1px solid var(--line)",
+              borderRadius:"8px",boxShadow:"0 12px 30px rgba(13,40,35,0.18)",
+              maxHeight:"220px",overflowY:"auto",padding:"6px 0"
+            }}
+          >
+            <div style={{padding:"4px 8px 6px",borderBottom:"1px solid #f0f4f2"}}>
+              <input
+                type="text"
+                placeholder="Filter companies…"
+                value={companyFilter}
+                onChange={x=>setCompanyFilter(x.target.value)}
+                style={{
+                  width:"100%",padding:"6px 8px",fontSize:"11px",
+                  border:"1px solid var(--line)",borderRadius:"5px",marginTop:0
+                }}
+                onClick={x=>x.stopPropagation()}
+              />
+            </div>
+            <div
+              onClick={()=>{set("portalCompanyId","");}}
+              style={{
+                display:"flex",alignItems:"center",justifyContent:"space-between",
+                padding:"8px 12px",cursor:"pointer",
+                background:selectedCompanies.length===0?"#eff8f4":"transparent",
+                fontSize:"11px",fontWeight:selectedCompanies.length===0?700:400,
+                color:selectedCompanies.length===0?"var(--green)":"var(--ink)",
+                borderBottom:"1px solid #f4f7f5"
+              }}
+            >
+              <span>All companies (not restricted)</span>
+              {selectedCompanies.length===0&&<Check style={{width:14,height:14,color:"var(--green)"}}/>}
+            </div>
+            {companies
+              .filter(c=>!companyFilter.trim()||c.name.toLowerCase().includes(companyFilter.trim().toLowerCase()))
+              .map(c=>{
+                const checked=selectedCompanies.includes(c.id);
+                return(
+                  <div
+                    key={c.id}
+                    onClick={()=>toggleCompany(c.id)}
+                    style={{
+                      display:"flex",alignItems:"center",justifyContent:"space-between",
+                      padding:"7px 12px",cursor:"pointer",
+                      background:checked?"#eff8f4":"transparent",
+                      fontSize:"11px",fontWeight:checked?600:400,
+                      color:checked?"var(--green)":"var(--ink)"
+                    }}
+                  >
+                    <span style={{overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{c.name}</span>
+                    {checked&&<Check style={{width:14,height:14,color:"var(--green)",flexShrink:0}}/>}
+                  </div>
+                );
+              })}
+            {companies.filter(c=>!companyFilter.trim()||c.name.toLowerCase().includes(companyFilter.trim().toLowerCase())).length===0&&(
+              <div style={{padding:"10px 12px",fontSize:"11px",color:"var(--muted)",textAlign:"center"}}>
+                No companies match
+              </div>
+            )}
           </div>
         )}
       </div>
