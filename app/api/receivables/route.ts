@@ -1,4 +1,4 @@
-import{and,count,desc,eq,like,or,sql}from"drizzle-orm";
+import{and,count,desc,eq,inArray,like,or,sql}from"drizzle-orm";
 import{getDb}from"../../../db";
 import{wfAttachments,wfCompanies,wfPlanning,wfReceivables,wfUsers}from"../../../db/schema";
 import{deleteFile}from"../../../lib/storage";
@@ -71,8 +71,8 @@ export async function GET(req:Request){
     const filters=[
       stage?eq(wfReceivables.stage,stage):undefined,
       companyId?eq(wfReceivables.companyId,companyId):undefined,
-      // limited to one company: that company's entries only
-      lock?eq(wfReceivables.companyId,lock.id):undefined,
+      // limited to one or more companies: those entries only
+      lock?inArray(wfReceivables.companyId,lock.ids.length?lock.ids:[lock.id]):undefined,
       q?or(like(wfReceivables.ref,q),like(wfReceivables.customer,q),like(wfReceivables.jobName,q),
         like(wfReceivables.jobCode,q),like(wfReceivables.crmJobNo,q),like(wfReceivables.soNo,q)):undefined].filter(Boolean);
     const where=filters.length?and(...filters):undefined;

@@ -1,7 +1,7 @@
 "use client";
 import{ExtraFields,packExtra,unpackExtra,useExtraFields}from"./ExtraFields";
 import{useOptions}from"./options-store";
-import{useEffect,useRef,useState}from"react";
+import{useEffect,useMemo,useRef,useState}from"react";
 import{Camera,Loader2,Trash2,X,Upload}from"lucide-react";
 import Attachments,{asDataUrl} from"./Attachments";
 import{companiesApi}from"./audit-api";
@@ -163,6 +163,23 @@ export function EmployeeEditor({employee,close,flash}:{employee:Partial<Employee
   useEffect(()=>{companiesApi.load().then(c=>setCompanies(c.map(x=>({id:x.id,name:x.name,active:!!x.active})))).catch(()=>{})},[]);
   const isNew=!employee.code||!!employee.id?.startsWith("new-");
   const set=<K extends keyof Employee>(k:K,v:Employee[K])=>setE(p=>({...p,[k]:v}));
+  const [showCompanyList,setShowCompanyList]=useState(false);
+  const selectedCompanies=useMemo(()=>{
+    return (e.portalCompanyId||"").split(",").map(x=>x.trim()).filter(Boolean);
+  },[e.portalCompanyId]);
+  const addCompany=(id:string)=>{
+    if(!id)return;
+    if(id==="__ALL__"||id===""){set("portalCompanyId","");return;}
+    if(selectedCompanies.includes(id))return;
+    set("portalCompanyId",[...selectedCompanies,id].join(","));
+  };
+  const removeCompany=(id:string)=>{
+    set("portalCompanyId",selectedCompanies.filter(x=>x!==id).join(","));
+  };
+  const toggleCompany=(id:string)=>{
+    if(selectedCompanies.includes(id))removeCompany(id);
+    else addCompany(id);
+  };
   const submit=async(ev:React.FormEvent)=>{ev.preventDefault();setBusy(true);
     try{const saved=await wf.api.saveEmployee({...e,extra:packExtra(xFields,xVals),id:isNew?undefined:e.id} as typeof e,isNew);
       flash(`${saved.name} saved`);close()}
@@ -188,9 +205,84 @@ export function EmployeeEditor({employee,close,flash}:{employee:Partial<Employee
         <option value="">— select a designation —</option>
         {wf.allRoles.filter(r=>r.deptId===(e.deptId||wf.dept)).map(r=><option key={r.id} value={r.id}>{r.name}</option>)}</select></label>
       <label>Team / vertical<input value={e.department||""} onChange={x=>set("department",x.target.value)}/></label>
-      <label>Company<select value={e.portalCompanyId||""} onChange={x=>set("portalCompanyId",x.target.value)}>
-        <option value="">All companies (not restricted)</option>
-        {companies.filter(c=>c.active||c.id===e.portalCompanyId).map(c=><option key={c.id} value={c.id}>{c.name}</option>)}</select></label>
+      <div className="wide">
+        <label style={{display:"block",marginBottom:"4px",fontSize:"11px",fontWeight:600}}>
+          Company
+        </label>
+        <div className="wf-tags" style={{marginBottom:"6px",minHeight:"24px"}}>
+          {selectedCompanies.length ? (
+            selectedCompanies.map(id => {
+              const c = companies.find(x => x.id === id);
+              return (
+                <span key={id} className="wf-tag on">
+                  {c ? c.name : id}
+                  <button type="button" onClick={() => removeCompany(id)} title="Remove company">×</button>
+                </span>
+              );
+            })
+          ) : (
+            <span className="wf-tag" style={{background:"#f1f5f9",borderColor:"#cbd5e1",color:"#475569"}}>
+              All companies (not restricted)
+            </span>
+          )}
+        </div>
+        <div style={{display:"flex",gap:"8px",alignItems:"center"}}>
+          <select
+            style={{flex:1}}
+            value=""
+            onChange={x => {
+              const val = x.target.value;
+              if (val === "__ALL__" || val === "") set("portalCompanyId", "");
+              else addCompany(val);
+            }}
+          >
+            <option value="">
+              {selectedCompanies.length ? "+ Add another company…" : "All companies (not restricted) — or select to add"}
+            </option>
+            {selectedCompanies.length > 0 && (
+              <option value="__ALL__">All companies (not restricted)</option>
+            )}
+            {companies
+              .filter(c => (c.active || selectedCompanies.includes(c.id)) && !selectedCompanies.includes(c.id))
+              .map(c => (
+                <option key={c.id} value={c.id}>{c.name}</option>
+              ))}
+          </select>
+          <button
+            type="button"
+            className="wf-small"
+            style={{padding:"8px 12px",whiteSpace:"nowrap",height:"38px"}}
+            onClick={() => setShowCompanyList(v => !v)}
+          >
+            {showCompanyList ? "Hide checklist" : "Checklist"}
+          </button>
+        </div>
+        {showCompanyList && (
+          <div className="wf-picker" style={{marginTop:"8px",maxHeight:"190px",overflowY:"auto",padding:"8px 12px",border:"1px solid var(--line)"}}>
+            <label style={{display:"flex",alignItems:"center",gap:"8px",padding:"4px 0",cursor:"pointer",fontWeight:600,borderBottom:"1px solid #f0f4f2"}}>
+              <input
+                type="checkbox"
+                checked={selectedCompanies.length === 0}
+                onChange={() => set("portalCompanyId", "")}
+              />
+              All companies (not restricted)
+            </label>
+            {companies.filter(c => c.active || selectedCompanies.includes(c.id)).map(c => {
+              const checked = selectedCompanies.includes(c.id);
+              return (
+                <label key={c.id} style={{display:"flex",alignItems:"center",gap:"8px",padding:"4px 0",cursor:"pointer"}}>
+                  <input
+                    type="checkbox"
+                    checked={checked}
+                    onChange={() => toggleCompany(c.id)}
+                  />
+                  <span style={{fontSize:"11.5px"}}>{c.name}</span>
+                </label>
+              );
+            })}
+          </div>
+        )}
+      </div>
       <label className="wide">Reports to
         <input placeholder="Type a name to search" defaultValue="" onChange={x=>findManagers(x.target.value)}/>
         <select value={e.reportsTo||""} onChange={x=>set("reportsTo",x.target.value||null)}>

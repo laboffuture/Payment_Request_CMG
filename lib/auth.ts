@@ -1,4 +1,4 @@
-import{and,eq,gt}from"drizzle-orm";
+import{and,eq,gt,inArray}from"drizzle-orm";
 import{getDb}from"../db";
 import{wfCompanies,wfEmployees,wfSessions,wfUsers}from"../db/schema";
 import{COOKIE_DAYS,SESSION_COOKIE,SESSION_HOURS,randomHex,readBearer,readCookie}from"./credentials";
@@ -131,22 +131,40 @@ export async function departmentPeers(actor:Actor|null):Promise<string[]|null>{
 
    A company that has since been deleted narrows to nothing rather than widening to all:
    the lock names a company that cannot be matched, so nothing is shown. */
-export type CompanyLock={id:string;name:string};
+export type CompanyLock={id:string;name:string;ids:string[];names:string[]};
 export async function companyLock(actor:Actor|null):Promise<CompanyLock|null>{
   if(!actor||actor.roles.includes("Administrator")||!actor.employeeId)return null;
   const db=await getDb();
   const[e]=await db.select({companyId:wfEmployees.portalCompanyId}).from(wfEmployees)
     .where(eq(wfEmployees.id,actor.employeeId)).limit(1);
   if(!e?.companyId)return null;
-  const[c]=await db.select({id:wfCompanies.id,name:wfCompanies.name}).from(wfCompanies)
-    .where(eq(wfCompanies.id,e.companyId)).limit(1);
-  return c||{id:e.companyId,name:"\u0000no such company"}}
+  const ids=e.companyId.split(",").map(x=>x.trim()).filter(Boolean);
+  if(!ids.length)return null;
+  const rows=await db.select({id:wfCompanies.id,name:wfCompanies.name}).from(wfCompanies)
+    .where(inArray(wfCompanies.id,ids));
+  const names=rows.map(r=>r.name);
+  return {
+    id:ids[0]||"",
+    name:names.join(", ")||"\u0000no such company",
+    ids,
+    names:names.length?names:["\u0000no such company"]
+  };
+}
 
 /* Whether a company, by name or id, is inside a lock. No lock means yes. Names are
    compared without regard to case or spacing, since payment requests store the name. */
 const squashName=(v:string)=>String(v||"").toLowerCase().replace(/\s+/g," ").trim();
-export const inCompany=(lock:CompanyLock|null,company:{id?:string;name?:string})=>
-  !lock||(!!company.id&&company.id===lock.id)||(!!company.name&&squashName(company.name)===squashName(lock.name));
+export const inCompany=(lock:CompanyLock|null,company:{id?:string;name?:string})=>{
+  if(!lock)return true;
+  const ids=lock.ids&&lock.ids.length?lock.ids:[lock.id].filter(Boolean);
+  if(company.id&&ids.includes(company.id))return true;
+  if(company.name){
+    const target=squashName(company.name);
+    const names=lock.names&&lock.names.length?lock.names:[lock.name].filter(Boolean);
+    if(names.some(n=>squashName(n)===target))return true;
+  }
+  return false;
+};
 
 const deny=(message:string,status:number)=>
   Response.json({error:message},{status});
