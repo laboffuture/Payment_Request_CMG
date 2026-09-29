@@ -180,7 +180,10 @@ export const planningApi={
   advance:async(id:string,fields:Partial<Plan>={})=>
     (await send("/api/planning","PATCH",{id,action:"advance",...fields})).plan as Plan,
   sendBack:async(id:string,stage:string,note:string)=>
-    (await send("/api/planning","PATCH",{id,action:"return",stage,note})).plan as Plan};
+    (await send("/api/planning","PATCH",{id,action:"return",stage,note})).plan as Plan,
+  /* An administrator's alone: the plan and everything under it. */
+  remove:async(id:string)=>asJson<{deleted:boolean;ref:string;documents:number}>(
+    await fetch(`/api/planning?id=${encodeURIComponent(id)}`,{method:"DELETE"}))};
 
 /* The project schedule of a plan: its activities. */
 export type PlanActivity={id:string;planId:string;jobCode:string;activity:string;startDate:string;plannedEnd:string;

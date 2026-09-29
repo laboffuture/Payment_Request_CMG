@@ -1,6 +1,7 @@
-import{and,desc,eq,sql}from"drizzle-orm";
+import{and,desc,eq,inArray,sql}from"drizzle-orm";
 import{getDb}from"../../../db";
-import{wfPlanActivities,wfPlanBom,wfPlanProcurement,wfPlanning,wfReceivables,wfUsers}from"../../../db/schema";
+import{wfAttachments,wfBillingJobs,wfPlanActivities,wfPlanBom,wfPlanProcurement,wfPlanning,wfReceivables,wfUsers}from"../../../db/schema";
+import{deleteFile}from"../../../lib/storage";
 import{companyLock,inCompany,requireAuth}from"../../../lib/auth";
 import{emailsForRoles,notify}from"../../../lib/notify";
 import{ACCOUNTS_ROLES,AUDIT_ROLES,FIELD_LABEL,FIRST_OPEN,PLAN_PEOPLE,PLAN_READ_ROLES,PLANNING_STATUSES,REQUIRED_TO_LEAVE,
@@ -212,4 +213,37 @@ export async function PATCH(req:Request){
 
     const[saved]=await db.select().from(wfPlanning).where(eq(wfPlanning.id,id));
     return Response.json({plan:saved});
+  }catch(e){return oops(e)}}
+
+/* Deleting a plan: an administrator's alone. Its schedule, BOM and procurement go with it,
+   with the documents attached to the plan and its quotations; the job it was started from
+   is then waiting to be planned again. Refused once the plan has reached Completion and
+   Billing, whose jobs and cycles hang off it. */
+export async function DELETE(req:Request){
+  try{
+    const{actor,response}=await requireAuth(req,"admin");
+    if(response)return response;
+    if(!(actor?.roles||[]).includes("Administrator"))return bad("Only an administrator can delete a plan.",403);
+    const id=str(new URL(req.url).searchParams.get("id"));
+    if(!id)return bad("id is required");
+    const db=await getDb();
+    const[row]=await db.select().from(wfPlanning).where(eq(wfPlanning.id,id));
+    if(!row||!inCompany(await companyLock(actor),{id:row.companyId}))return bad("That entry no longer exists",404);
+    const[billing]=await db.select({ref:wfBillingJobs.ref}).from(wfBillingJobs).where(eq(wfBillingJobs.planId,id));
+    if(billing)return bad(`${row.ref} is on the Completion and Billing register as ${billing.ref}, so it cannot be deleted.`,409);
+    const files=await db.select().from(wfAttachments)
+      .where(and(inArray(wfAttachments.entityType,["planning","procurement"]),eq(wfAttachments.entityId,id)));
+    for(const f of files){try{await deleteFile(f.storageKey)}catch{/* already gone from storage */}}
+    const[a]=await db.select({n:sql<number>`count(*)`}).from(wfPlanActivities).where(eq(wfPlanActivities.planId,id));
+    const[b]=await db.select({n:sql<number>`count(*)`}).from(wfPlanBom).where(eq(wfPlanBom.planId,id));
+    const[p]=await db.select({n:sql<number>`count(*)`}).from(wfPlanProcurement).where(eq(wfPlanProcurement.planId,id));
+    await writeWithAudit([
+      db.delete(wfAttachments).where(and(inArray(wfAttachments.entityType,["planning","procurement"]),eq(wfAttachments.entityId,id))),
+      db.delete(wfPlanActivities).where(eq(wfPlanActivities.planId,id)),
+      db.delete(wfPlanBom).where(eq(wfPlanBom.planId,id)),
+      db.delete(wfPlanProcurement).where(eq(wfPlanProcurement.planId,id)),
+      db.delete(wfPlanning).where(eq(wfPlanning.id,id))],
+      actor?.name||actor?.email||"","planning",id,"Plan deleted",
+      `${row.ref} · ${row.jobCode||row.jobRef} · ${row.customer} · ${Number(a?.n||0)} activities, ${Number(b?.n||0)} BOM lines, ${Number(p?.n||0)} purchases, ${files.length} document(s)`);
+    return Response.json({deleted:true,ref:row.ref,documents:files.length});
   }catch(e){return oops(e)}}

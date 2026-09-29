@@ -44,6 +44,17 @@ export default function PlanningProcurement({role,userEmail="",flash}:Props){
     rows.forEach(r=>c[r.stage]=(c[r.stage]||0)+1);
     c["Job Notification"]=waiting.data?.length||0;return c},[rows,waiting.data]);
   const managerOnly=!PLAN_READ_ROLES.includes(role);
+  /* Deleting is an administrator's alone, and the server checks it again. */
+  const admin=role==="Administrator";
+  const[deleting,setDeleting]=useState("");
+  const remove=async(r:Plan)=>{
+    if(!confirm(`Delete ${r.ref} (${r.jobCode||r.jobRef} · ${r.projectName||r.customer})?\n\nIts schedule, BOM, procurement and every document attached to it are removed for everybody, and the job goes back to waiting to be planned. This cannot be undone.`))return;
+    setDeleting(r.id);
+    try{const b=await planningApi.remove(r.id);
+      if(open?.id===r.id)setOpen(null);
+      reload();flash?.(`${b.ref} deleted${b.documents?` with ${b.documents} document${b.documents===1?"":"s"}`:""}`)}
+    catch(e){flash?.(e instanceof Error?e.message:"It could not be deleted")}
+    finally{setDeleting("")}};
 
   return <div className="recv-module">
     <div className="recv-subhead"><p>{managerOnly
@@ -73,9 +84,12 @@ export default function PlanningProcurement({role,userEmail="",flash}:Props){
         :canStart?"No plans yet. Start one from a job verified in Job Notification.":"No plans yet."}/>
       :!shown.length?<Empty label="No plan matches that."/>
       :<div className="recv-rows">
-        <div className="recv-cols" aria-hidden="true"><span>Reference</span><span>Job</span>
-          <span>Project manager</span><span className="num">Est. procurement</span><span className="num">Status</span></div>
-        {shown.map(r=><button key={r.id} className="recv-row" onClick={()=>setOpen(r)}>
+        <div className={admin?"recv-cols with-del":"recv-cols"} aria-hidden="true"><span>Reference</span><span>Job</span>
+          <span>Project manager</span><span className="num">Est. procurement</span><span className="num">Status</span>{admin&&<span/>}</div>
+        {/* A row is not a <button>, so a delete button can sit inside it; it still opens on
+            click, Enter or Space. */}
+        {shown.map(r=><div key={r.id} role="button" tabIndex={0} className={admin?"recv-row with-del":"recv-row"} onClick={()=>setOpen(r)}
+          onKeyDown={e=>{if(e.target===e.currentTarget&&(e.key==="Enter"||e.key===" ")){e.preventDefault();setOpen(r)}}}>
           <div className="recv-ref"><b>{r.ref}</b><small>{r.customer}</small></div>
           <div className="recv-desc">{r.jobCode||r.jobRef} · {r.projectName||r.description||"—"}
             {r.returnNote&&<i className="recv-back"><RotateCcw/>Sent back: {r.returnNote}</i>}
@@ -85,7 +99,9 @@ export default function PlanningProcurement({role,userEmail="",flash}:Props){
             {r.planningStatus&&<span>{r.planningStatus}</span>}</div>
           <div className="recv-amt">{money(r.bomCost,r.currency)}</div>
           <div className={`recv-tag p${stageIndex(r.stage)}`}>{isVerified(r.stage)&&<CheckCircle2/>}{r.stage}</div>
-        </button>)}</div>}
+          {admin&&<button type="button" className="recv-del" title={`Delete ${r.ref}`} aria-label={`Delete ${r.ref}`}
+            disabled={deleting===r.id} onClick={e=>{e.stopPropagation();remove(r)}}><Trash2/></button>}
+        </div>)}</div>}
     </section>
 
     {open&&<Detail row={open} role={role} userEmail={userEmail} close={()=>setOpen(null)} reload={reload}
