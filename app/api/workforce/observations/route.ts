@@ -1,6 +1,6 @@
 import{and,count,desc,eq,inArray,like,or}from"drizzle-orm";
 import{getDb}from"../../../../db";
-import{wfEmployees,wfObsReplies,wfObsTags,wfObservations}from"../../../../db/schema";
+import{wfAuditTasks,wfEmployees,wfObsReplies,wfObsTags,wfObservations}from"../../../../db/schema";
 import{actorOf,bad,num,oops,page,search,str,writeWithAudit}from"../../../../lib/workforce-api";
 import type{Row}from"../../../../lib/workforce-api";
 import{canSeeObservations,requireAuth}from"../../../../lib/auth";
@@ -20,7 +20,7 @@ const shape=(o:Row)=>({id:str(o.id),ref:str(o.ref),title:str(o.title),detail:str
 /* Tag rows are read for the page of observations being returned, never for the whole
    table, so the cost of listing does not grow with history. */
 async function decorate(rows:{id:string}[]){
-  if(!rows.length)return{tags:new Map<string,{id:string;name:string}[]>()};
+  if(!rows.length)return{tags:new Map<string,{id:string;name:string}[]>(),refs:new Map<string,string>()};
   const db=await getDb();
   const ids=rows.map(r=>r.id);
   const tags=await db.select({observationId:wfObsTags.observationId,employeeId:wfObsTags.employeeId,
@@ -32,7 +32,12 @@ async function decorate(rows:{id:string}[]){
     const list=map.get(t.observationId)||[];
     list.push({id:t.employeeId,name:t.name||t.employeeId});
     map.set(t.observationId,list)}
-  return{tags:map}}
+  /* The number of the task each was raised on (Pre-Aud-Task-001), which is what people read. */
+  const taskIds=[...new Set(rows.map(r=>str((r as Row).taskId)).filter(Boolean))];
+  const refs=new Map<string,string>();
+  if(taskIds.length)for(const t of await db.select({id:wfAuditTasks.id,ref:wfAuditTasks.ref}).from(wfAuditTasks)
+    .where(inArray(wfAuditTasks.id,taskIds)))refs.set(t.id,t.ref);
+  return{tags:map,refs}}
 
 export async function GET(req:Request){
   try{
@@ -46,10 +51,10 @@ export async function GET(req:Request){
     if(id){
       const [row]=await db.select().from(wfObservations).where(eq(wfObservations.id,id)).limit(1);
       if(!row)return bad("Not found",404);
-      const{tags}=await decorate([row]);
+      const{tags,refs}=await decorate([row]);
       const replies=await db.select().from(wfObsReplies)
         .where(eq(wfObsReplies.observationId,id)).orderBy(wfObsReplies.at);
-      return Response.json({observation:{...row,tags:tags.get(id)||[]},replies});
+      return Response.json({observation:{...row,tags:tags.get(id)||[],taskRef:refs.get(row.taskId)||""},replies});
     }
     const{limit,offset}=page(url);
     const taggedTo=url.searchParams.get("taggedTo");
@@ -75,8 +80,8 @@ export async function GET(req:Request){
       db.select().from(wfObservations).where(where)
         .orderBy(desc(wfObservations.raisedAt)).limit(limit).offset(offset),
       db.select({n:count()}).from(wfObservations).where(where)]);
-    const{tags}=await decorate(rows);
-    return Response.json({observations:rows.map(r=>({...r,tags:tags.get(r.id)||[]})),
+    const{tags,refs}=await decorate(rows);
+    return Response.json({observations:rows.map(r=>({...r,tags:tags.get(r.id)||[],taskRef:refs.get(r.taskId)||""})),
       total:total?.n??0,limit,offset});
   }catch(e){return oops(e)}}
 

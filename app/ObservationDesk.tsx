@@ -42,7 +42,7 @@ export default function ObservationDesk({openProfile,flash,canManage=true}:{open
           "Responsibility","Target date","Status","Tagged","Auditor / raised by","Date identified","Raised","Pre-audit task","Replies","Resolution"],
           ...rows.map(o=>[o.ref,o.entity||"",o.area,o.title,o.detail,o.impact,o.stakeholder,o.rootCause,o.recommendation||"",
             o.transactionValue,o.risk,o.actionPlan,o.responsibility,o.target,o.status,
-            o.tags.map(t=>t.name).join("; "),o.raisedBy,o.dateIdentified||"",stamp(o.raisedAt),o.taskId||"",o.replyCount,o.resolution])],
+            o.tags.map(t=>t.name).join("; "),o.raisedBy,o.dateIdentified||"",stamp(o.raisedAt),o.taskRef||o.taskId||"",o.replyCount,o.resolution])],
           "observations.csv")}>
           Export page</button>
         {canManage&&<button className="primary" onClick={()=>setCompose(true)}><MessageSquareWarning/>Raise observation</button>}
@@ -68,7 +68,7 @@ export default function ObservationDesk({openProfile,flash,canManage=true}:{open
           <td><b>{o.ref}</b></td>
           <td>{o.title}{o.detail&&o.detail!==o.title&&<small>{o.detail}</small>}
             {(o.entity||o.area||o.taskId)&&<small className="wf-obs-meta">{[o.entity,o.area,o.raisedBy?`by ${o.raisedBy}`:"",
-              o.taskId?`pre-audit task ${o.taskId}`:""].filter(Boolean).join(" · ")}</small>}</td>
+              o.taskId?o.taskRef||`pre-audit task ${o.taskId}`:""].filter(Boolean).join(" · ")}</small>}</td>
           <td><div className="wf-tags">{o.tags.map(t=>
             <button key={t.id} className="wf-tag" onClick={e=>{e.stopPropagation();openProfile(t.id)}}>
               {t.name}</button>)}</div></td>
@@ -223,7 +223,7 @@ function ObservationThread({id,close,flash,openProfile,canManage=true}:{canManag
         {o.detail&&o.detail!==o.title&&<p className="wf-jd">{o.detail}</p>}
         <div className="facts">
           {[...(o.entity?[["Vertical / entity",o.entity]]:[]),["Area",o.area||"—"],
-            ...(o.taskId?[["Pre-audit task",o.taskId]]:[]),["Value of transaction",o.transactionValue||"—"],
+            ...(o.taskId?[["Pre-audit task",o.taskRef||o.taskId]]:[]),["Value of transaction",o.transactionValue||"—"],
             ["Responsibility",o.responsibility||"—"],["Stakeholder",o.stakeholder||"—"],
             [o.taskId?"Auditor":"Raised by",o.raisedBy||"—"],
             ...(o.dateIdentified?[["Date identified",o.dateIdentified]]:[]),["Raised",stamp(o.raisedAt)],

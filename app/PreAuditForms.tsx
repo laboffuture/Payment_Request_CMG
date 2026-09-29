@@ -126,11 +126,11 @@ export function AssignForm({task,close,saved}:{task:AuditTask;close:()=>void;sav
   const[who,setWho]=useState(task.assignedTo||""),[busy,setBusy]=useState(false),[err,setErr]=useState("");
   const submit=async(e:React.FormEvent)=>{
     e.preventDefault();setBusy(true);setErr("");
-    try{await auditTasksApi.update({id:task.id,action:"assign",assignedTo:who} as never);saved(`${task.id} assigned to ${who}`)}
+    try{await auditTasksApi.update({id:task.id,action:"assign",assignedTo:who} as never);saved(`${task.ref||task.id} assigned to ${who}`)}
     catch(x){setErr(x instanceof Error?x.message:"Could not assign the auditor");setBusy(false)}};
   return <><button className="overlay" onClick={close}/>
     <form className="modal" onSubmit={submit}>
-      <header><div><small>ASSIGN AUDITOR · {task.id}</small><h2>{task.title}</h2></div>
+      <header><div><small>ASSIGN AUDITOR · {task.ref||task.id}</small><h2>{task.title}</h2></div>
         <button type="button" onClick={close}><X/></button></header>
       <div className="form">
         <label className="wide">Audit by {req}
@@ -157,10 +157,10 @@ export async function preAuditReport(tasks:AuditTask[]){
     if(offset+200>=(d.total||0))break}
   const remarks=(t:AuditTask)=>{try{const r=JSON.parse(t.remarks||"[]");return Array.isArray(r)?r as {by:string;at:string;text:string}[]:[]}catch{return[]}};
   const status=(s:string)=>s==="Available"?"Not started":s;
-  return[["Task ID","Task title","Vertical / entity","Category (area)","Department","Audit by","Frequency","Due date rule",
+  return[["Task no.","Task title","Vertical / entity","Category (area)","Department","Audit by","Frequency","Due date rule",
     "Next due date","Status","Description / instructions","Remarks","Latest remark","Observations","High risk","Open observations","Observation details"],
     ...tasks.map(t=>{const mine=obs.filter(o=>o.taskId===t.id),r=remarks(t),last=r[r.length-1];
-      return[t.id,t.title,t.entity||t.company,t.category||"",t.department,t.assignedTo||"",t.frequency||"",t.dueRule||"",
+      return[t.ref||t.id,t.title,t.entity||t.company,t.category||"",t.department,t.assignedTo||"",t.frequency||"",t.dueRule||"",
         t.due||"",status(t.status),t.notes||"",r.length,last?`${last.text} (${last.by})`:"",mine.length,
         mine.filter(o=>o.risk==="High").length,mine.filter(o=>!["Resolved","Closed"].includes(o.status)).length,
         mine.map(o=>`${o.ref} [${o.risk}, ${o.status}] ${o.title} - ${o.responsibility||"—"} by ${o.target||"—"}`).join(" | ")]})]}
@@ -172,11 +172,11 @@ export function RemarksForm({task,close,saved}:{task:AuditTask;close:()=>void;sa
   const list:{by:string;at:string;text:string}[]=useMemo(()=>{try{const r=JSON.parse(task.remarks||"[]");return Array.isArray(r)?r:[]}catch{return[]}},[task.remarks]);
   const submit=async(e:React.FormEvent)=>{
     e.preventDefault();if(!text.trim())return;setBusy(true);setErr("");
-    try{await auditTasksApi.update({id:task.id,action:"remark",remark:text.trim()} as never);saved(`Remark added to ${task.id}`)}
+    try{await auditTasksApi.update({id:task.id,action:"remark",remark:text.trim()} as never);saved(`Remark added to ${task.ref||task.id}`)}
     catch(x){setErr(x instanceof Error?x.message:"Could not save the remark");setBusy(false)}};
   return <><button className="overlay" onClick={close}/>
     <form className="modal" onSubmit={submit}>
-      <header><div><small>REMARKS · {task.id}</small><h2>{task.title}</h2></div>
+      <header><div><small>REMARKS · {task.ref||task.id}</small><h2>{task.title}</h2></div>
         <button type="button" onClick={close}><X/></button></header>
       <div className="form">
         <div className="wide pa-remarks">{list.length?list.map((r,i)=><p key={i}><b>{r.text}</b>
@@ -219,12 +219,12 @@ export function ObservationForm({task,userName,close,done}:{task:AuditTask;userN
           target:f.target,status:f.status,tags:[who.id]})});
       const b=await res.json().catch(()=>({})) as {error?:string;observation?:{ref:string}};
       if(!res.ok)throw new Error(b.error||"Could not save the observation");
-      done(`${b.observation?.ref||"Observation"} raised on ${task.id}`)}
+      done(`${b.observation?.ref||"Observation"} raised on ${task.ref||task.id}`)}
     catch(x){setErr(x instanceof Error?x.message:"Could not save the observation");setBusy(false)}};
 
   return <><button className="overlay" onClick={close}/>
     <form className="modal" onSubmit={submit}>
-      <header><div><small>AUDIT OBSERVATION · {task.id}</small><h2>Raise observation</h2></div>
+      <header><div><small>AUDIT OBSERVATION · {task.ref||task.id}</small><h2>Raise observation</h2></div>
         <button type="button" onClick={close}><X/></button></header>
       <div className="form">
         <label>Observation ID {opt}<input readOnly value="Issued on save"/></label>
