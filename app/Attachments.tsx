@@ -23,10 +23,11 @@ export const asDataUrl=(file:File)=>new Promise<string>((resolve,reject)=>{
 const readJson=async(res:Response)=>{
   try{return await res.json() as{error?:string}}catch{return{} as{error?:string}}};
 
-/* canRemove hides the delete button from somebody the server would refuse, so a requestor
-   is not offered a button that can only fail. It defaults to on for every other host. */
+/* canRemove controls deletion: write roles can remove any document, while a requestor
+   can remove only documents they uploaded themselves. It accepts either a boolean or a
+   predicate (a: Attachment) => boolean. */
 export default function Attachments({entityType,entityId,flash:hostFlash,readOnly,canRemove=true}:{
-  entityType:string;entityId:string;flash:(m:string)=>void;readOnly?:boolean;canRemove?:boolean}){
+  entityType:string;entityId:string;flash:(m:string)=>void;readOnly?:boolean;canRemove?:boolean|((a:Attachment)=>boolean)}){
   /* The outcome is also shown inside the panel. Some hosts pass a no-op flash, and an
      upload that fails without a word looks exactly like the button doing nothing. */
   const [notice,setNotice]=useState<{text:string;error:boolean}|null>(null);
@@ -125,7 +126,8 @@ export default function Attachments({entityType,entityId,flash:hostFlash,readOnl
         <td><div className="wf-actions">
           <a className="wf-small" href={`/api/attachments?id=${encodeURIComponent(a.id)}`}
             download={a.fileName}><Download/></a>
-          {!readOnly&&canRemove&&<button className="wf-danger-icon" onClick={()=>remove(a)}><Trash2/></button>}
+          {!readOnly&&(typeof canRemove==="function"?canRemove(a):!!canRemove)&&
+            <button type="button" className="wf-danger-icon" title={`Remove ${a.fileName}`} aria-label={`Remove ${a.fileName}`} onClick={()=>remove(a)}><Trash2/></button>}
         </div></td></tr>)}</tbody></table></div>}
   </section>}
 

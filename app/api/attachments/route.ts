@@ -129,10 +129,8 @@ export async function POST(req:Request){
 
 /* Removing the row and the stored bytes together, so nothing is orphaned in storage.
 
-   A write role may remove any document. A requestor may remove only what they uploaded
-   themselves, only on their own payment request, and only while it is back with them on a
-   query - the one moment a wrong invoice or proforma has to be replaced. Once it is with
-   accounts again the documents are evidence and stay put. */
+   A write role may remove any document. A requestor may remove documents they uploaded
+   themselves on an active payment request (prevented only once the request is closed/paid). */
 export async function DELETE(req:Request){
   try{
     const{actor,response}=await requireAuth(req,"read");
@@ -147,12 +145,14 @@ export async function DELETE(req:Request){
         ?(await db.select({raisedBy:paymentRequests.raisedBy,status:paymentRequests.status})
             .from(paymentRequests).where(eq(paymentRequests.id,Number(row.entityId))).limit(1))[0]
         :undefined;
-      const own=!!payment&&!!actor?.email
-        &&(payment.raisedBy||"").toLowerCase()===actor.email.toLowerCase();
-      if(!own||payment?.status!=="Query Raised")
-        return bad("Documents can be removed by the requestor only while their request is back with them on a query.",403);
-      if(!actor?.name||row.uploadedBy!==actor.name)
+      const by=(row.uploadedBy||"").trim().toLowerCase();
+      const meName=(actor?.name||"").trim().toLowerCase();
+      const meEmail=(actor?.email||"").trim().toLowerCase();
+      const isUploader=(!!meName&&by===meName)||(!!meEmail&&by===meEmail);
+      if(!isUploader)
         return bad("You can remove only the documents you uploaded. Ask accounts to remove this one.",403);
+      if(payment&&["Payment Released","Audit Closed","Reconciliation","Rejected"].includes(payment.status))
+        return bad("This payment request is closed. Contact accounts if a document needs adjusting.",403);
     }
     await deleteFile(row.storageKey);
     await db.delete(wfAttachments).where(eq(wfAttachments.id,id));

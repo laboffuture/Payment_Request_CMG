@@ -4,7 +4,7 @@ import{FIELD_ORDER,labelFor,ruleFor}from"../lib/payment-fields";
 import type{FieldKey}from"../lib/payment-fields";
 import{useEffect,useMemo,useState}from"react";
 import{AlertTriangle,Check,Clock3,FileCheck2,HelpCircle,Paperclip,ShieldCheck,X}from"lucide-react";
-import Attachments,{asDataUrl}from"./Attachments";
+import Attachments,{asDataUrl,type Attachment}from"./Attachments";
 import{stamp as stampAt}from"../lib/stamp";
 import{distinct,jobFor}from"../lib/jobs";
 import type{Job}from"../lib/jobs";
@@ -38,7 +38,16 @@ const tdsLine=(p:{tds?:string;tdsPercent?:string;tdsValue?:string;currency:strin
     .filter(Boolean).join(" · ")};
 const stamp=(v:string)=>v?new Date(v).toLocaleDateString("en-GB",{day:"2-digit",month:"short",year:"numeric"}):"";
 
-export default function PaymentDetail({payment:p,busy=false,role,onClose,onAction,onDelete,userEmail="",companies=[],departments=[],natures=[],currencies=[],tdsChoices=[],termsChoices=[],modeChoices=[],jobs=[]}:{payment:Payment;busy?:boolean;role:string;onClose:()=>void;onAction:(s:string,note?:string,fields?:Record<string,string>)=>void;onDelete?:()=>void;userEmail?:string;companies?:{id:string;name:string}[];departments?:string[];natures?:string[];currencies?:string[];tdsChoices?:string[];termsChoices?:string[];modeChoices?:string[];jobs?:Job[]}){
+export default function PaymentDetail({payment:p,busy=false,role,onClose,onAction,onDelete,userEmail="",userName="",companies=[],departments=[],natures=[],currencies=[],tdsChoices=[],termsChoices=[],modeChoices=[],jobs=[]}:{payment:Payment;busy?:boolean;role:string;onClose:()=>void;onAction:(s:string,note?:string,fields?:Record<string,string>)=>void;onDelete?:()=>void;userEmail?:string;userName?:string;companies?:{id:string;name:string}[];departments?:string[];natures?:string[];currencies?:string[];tdsChoices?:string[];termsChoices?:string[];modeChoices?:string[];jobs?:Job[]}){
+ const isPrivileged=["Administrator","Audit Head","Management","Accountant","Auditor","Finance"].includes(role);
+ const mayRemoveAttachment=(a:Attachment)=>{
+   if(isPrivileged)return true;
+   if(["Payment Released","Audit Closed","Reconciliation","Rejected"].includes(p.status))return false;
+   const by=(a.uploadedBy||"").trim().toLowerCase();
+   const meName=(userName||"").trim().toLowerCase();
+   const meEmail=(userEmail||"").trim().toLowerCase();
+   return(!!meName&&by===meName)||(!!meEmail&&by===meEmail);
+ };
  const accountQueue=["Submitted","Requested"].includes(p.status),accountWork=["Accountant Accepted","Accountant Review"].includes(p.status),auditQueue=p.status==="Pre-Audit Queue",auditWork=p.status==="Audit Accepted",correction=p.status==="Observation - Audit Action",recheck=p.status==="Audit Reconfirmation",auditQuery=p.status==="Audit Query",approved=p.status==="Approved by Auditor – Ready to Release",released=p.status==="Payment Released";
  const[sendBack,setSendBack]=useState<""|"accounts"|"query"|"reject">(""),[remark,setRemark]=useState(""),[fixing,setFixing]=useState(false),[fixNote,setFixNote]=useState(""),[stageNote,setStageNote]=useState(""),[checks,setChecks]=useState<Record<string,boolean>>({}),[observation,setObservation]=useState("Supporting documents do not reconcile with the ledger balance."),[proof,setProof]=useState("");
  const active=useMemo(()=>stageIndex(p.status),[p.status]);
@@ -300,8 +309,7 @@ export default function PaymentDetail({payment:p,busy=false,role,onClose,onActio
        click cannot send it again. */}
    <fieldset className="wf-action-set" disabled={busy}>{action}</fieldset>
    {busy&&<p className="wf-saving">Saving…</p>}</section><Attachments entityType="payment" entityId={String(p.id)} flash={()=>{}}
-   canRemove={["Administrator","Audit Head","Management","Accountant","Auditor","Finance"].includes(role)
-     ||(mayCorrect&&p.status==="Query Raised")}/><section className="wf-history"><h4>Controlled audit trail</h4>
+   canRemove={mayRemoveAttachment}/><section className="wf-history"><h4>Controlled audit trail</h4>
    {!history.length&&<p><i/><span><b>No history recorded for this request yet.</b></span></p>}
    {history.map(readEntry).map(e=><p key={e.id}><i/><span>
      <b>{e.field?`${e.action}: ${e.previousValue} → ${e.newValue}`
