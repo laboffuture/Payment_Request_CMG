@@ -40,13 +40,14 @@ const stamp=(v:string)=>v?new Date(v).toLocaleDateString("en-GB",{day:"2-digit",
 
 export default function PaymentDetail({payment:p,busy=false,role,onClose,onAction,onDelete,userEmail="",userName="",companies=[],departments=[],natures=[],currencies=[],tdsChoices=[],termsChoices=[],modeChoices=[],jobs=[]}:{payment:Payment;busy?:boolean;role:string;onClose:()=>void;onAction:(s:string,note?:string,fields?:Record<string,string>)=>void;onDelete?:()=>void;userEmail?:string;userName?:string;companies?:{id:string;name:string}[];departments?:string[];natures?:string[];currencies?:string[];tdsChoices?:string[];termsChoices?:string[];modeChoices?:string[];jobs?:Job[]}){
  const isPrivileged=["Administrator","Audit Head","Management","Accountant","Auditor","Finance"].includes(role);
+ const isOwnRequest=!p.raisedBy||!userEmail||p.raisedBy.trim().toLowerCase()===userEmail.trim().toLowerCase();
  const mayRemoveAttachment=(a:Attachment)=>{
    if(isPrivileged)return true;
-   if(["Payment Released","Audit Closed","Reconciliation","Rejected"].includes(p.status))return false;
    const by=(a.uploadedBy||"").trim().toLowerCase();
    const meName=(userName||"").trim().toLowerCase();
    const meEmail=(userEmail||"").trim().toLowerCase();
-   return(!!meName&&by===meName)||(!!meEmail&&by===meEmail);
+   const isUploader=(!!meName&&by===meName)||(!!meEmail&&by===meEmail);
+   return isOwnRequest||isUploader||role==="Requestor";
  };
  const accountQueue=["Submitted","Requested"].includes(p.status),accountWork=["Accountant Accepted","Accountant Review"].includes(p.status),auditQueue=p.status==="Pre-Audit Queue",auditWork=p.status==="Audit Accepted",correction=p.status==="Observation - Audit Action",recheck=p.status==="Audit Reconfirmation",auditQuery=p.status==="Audit Query",approved=p.status==="Approved by Auditor – Ready to Release",released=p.status==="Payment Released";
  const[sendBack,setSendBack]=useState<""|"accounts"|"query"|"reject">(""),[remark,setRemark]=useState(""),[fixing,setFixing]=useState(false),[fixNote,setFixNote]=useState(""),[stageNote,setStageNote]=useState(""),[checks,setChecks]=useState<Record<string,boolean>>({}),[observation,setObservation]=useState("Supporting documents do not reconcile with the ledger balance."),[proof,setProof]=useState("");

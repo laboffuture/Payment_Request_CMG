@@ -145,14 +145,15 @@ export async function DELETE(req:Request){
         ?(await db.select({raisedBy:paymentRequests.raisedBy,status:paymentRequests.status})
             .from(paymentRequests).where(eq(paymentRequests.id,Number(row.entityId))).limit(1))[0]
         :undefined;
+      const own=!!payment&&!!actor?.email
+        &&(payment.raisedBy||"").trim().toLowerCase()===actor.email.trim().toLowerCase();
       const by=(row.uploadedBy||"").trim().toLowerCase();
       const meName=(actor?.name||"").trim().toLowerCase();
       const meEmail=(actor?.email||"").trim().toLowerCase();
       const isUploader=(!!meName&&by===meName)||(!!meEmail&&by===meEmail);
-      if(!isUploader)
-        return bad("You can remove only the documents you uploaded. Ask accounts to remove this one.",403);
-      if(payment&&["Payment Released","Audit Closed","Reconciliation","Rejected"].includes(payment.status))
-        return bad("This payment request is closed. Contact accounts if a document needs adjusting.",403);
+      const isRequestor=actor?.roles?.includes("Requestor");
+      if(!own&&!isUploader&&!isRequestor)
+        return bad("You can remove only documents on your own request or that you uploaded.",403);
     }
     await deleteFile(row.storageKey);
     await db.delete(wfAttachments).where(eq(wfAttachments.id,id));
