@@ -85,6 +85,19 @@ export async function GET(req:Request){
       total:total?.n??0,limit,offset});
   }catch(e){return oops(e)}}
 
+/* Observations are numbered OBS-AUD-001, -002, ... as their ref, the number people
+   read; the id behind it stays a key nothing shows. Each observation takes the next number. */
+const OBS_PREFIX="OBS-AUD-";
+const obsNumber=(n:number)=>`${OBS_PREFIX}${String(n).padStart(3,"0")}`;
+const highestObsNumber=(refs:string[])=>refs.reduce((top,ref)=>{
+  if(!ref.startsWith(OBS_PREFIX))return top;
+  const n=Number(ref.slice(OBS_PREFIX.length));
+  return Number.isFinite(n)&&n>top?n:top},0);
+async function nextObservationRef(db:Awaited<ReturnType<typeof getDb>>){
+  const rows=await db.select({ref:wfObservations.ref}).from(wfObservations);
+  return obsNumber(highestObsNumber(rows.map(r=>str(r.ref)))+1);
+}
+
 export async function POST(req:Request){
   try{
     const{actor,response}=await requireAuth(req,"write");
@@ -95,11 +108,11 @@ export async function POST(req:Request){
     if(!str(body.title))return bad("title is required");
     const tagged=Array.isArray(body.tags)?(body.tags as string[]).slice(0,50):[];
     if(!tagged.length)return bad("Tag at least one employee so somebody can respond",422);
-    const id=str(body.id)||`OB-${Date.now().toString(36)}`;
-    const row=shape({...body,id,
-      ref:str(body.ref)||`OBS-${Date.now().toString(36).toUpperCase()}`,raisedAt:now(),
-      raisedByEmail:actor?.email||""});
     const db=await getDb();
+    const id=str(body.id)||`OB-${Date.now().toString(36)}`;
+    const ref=str(body.ref)||(await nextObservationRef(db));
+    const row=shape({...body,id,ref,raisedAt:now(),
+      raisedByEmail:actor?.email||""});
     await writeWithAudit([
       db.insert(wfObservations).values(row),
       db.insert(wfObsTags).values(tagged.map(e=>({id:`OT-${Math.random().toString(36).slice(2,10)}`,
