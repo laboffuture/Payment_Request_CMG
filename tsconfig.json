@@ -22,7 +22,7 @@
     "paths": {
       "@/*": ["./*"],
       "@mm/*": ["./modules/material/*"],
-      "@cm/shared": ["../material/packages/shared/src/index.ts"]
+      "@cm/shared": ["./material/packages/shared/src/index.ts"]
     }
   },
   "include": [
@@ -33,5 +33,5 @@
     ".next/dev/types/**/*.ts",
     "**/*.mts"
   ],
-  "exclude": ["node_modules"]
+  "exclude": ["node_modules", "material"]
 }

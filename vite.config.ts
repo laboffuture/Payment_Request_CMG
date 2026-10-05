@@ -49,7 +49,7 @@ export default defineConfig(async () => {
       alias: {
         // Material Management screens, and the rules they share with the Material API.
         "@mm": fileURLToPath(new URL("./modules/material", import.meta.url)),
-        "@cm/shared": fileURLToPath(new URL("../material/packages/shared/src/index.ts", import.meta.url)),
+        "@cm/shared": fileURLToPath(new URL("./material/packages/shared/src/index.ts", import.meta.url)),
       },
       // The shared rules live outside this folder; they use this app's zod and React.
       dedupe: ["zod", "react", "react-dom"],

@@ -1,0 +1,16 @@
+# Used by docker/payment.Dockerfile (context: the repository root, which is the app).
+# Material is built from ./material with its own .dockerignore; here only its shared
+# rules are needed, because the app's material screens import them.
+.git/
+.local/
+**/node_modules/
+**/.wrangler/
+**/.sites-runtime/
+**/dist/
+**/.dev.vars*
+**/.env*
+env/
+material/*
+!material/packages/
+material/packages/*
+!material/packages/shared/
