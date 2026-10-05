@@ -64,3 +64,26 @@
 /* When the request was raised, under its number - for reference, so kept quiet. */
 td small.req-when{display:block;margin-top:2px;font-size:9.5px;font-weight:500;color:#98a2b3;
   white-space:nowrap;font-variant-numeric:tabular-nums}
+/* A filter with several choices at once (MultiSelect): button + a tick-box list. */
+.ms{position:relative}
+.ms-btn{display:flex;align-items:center;justify-content:space-between;gap:6px;min-width:150px;max-width:230px;height:100%;border:1px solid #d0d5dd;
+  background:#fff;border-radius:6px;padding:7px 9px;font:inherit;font-size:9px;color:#101828;cursor:pointer;text-align:left}
+.ms-btn.on{border-color:#0b725d;color:#0b725d;font-weight:600}
+.ms-btn span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.ms-btn svg{width:11px;height:11px;flex:none;color:#98a2b3}
+.ms-pop{position:absolute;top:calc(100% + 4px);left:0;z-index:60;min-width:250px;max-height:320px;overflow-y:auto;background:#fff;
+  border:1px solid #e4e7ec;border-radius:8px;box-shadow:0 12px 30px rgba(16,24,40,.16);padding:4px}
+.ms-opt{display:flex;align-items:center;gap:8px;width:100%;border:0;background:none;padding:7px 8px;border-radius:6px;font:inherit;
+  font-size:10px;color:#101828;text-align:left;cursor:pointer}
+.ms-opt:hover{background:#f2f4f7}
+.ms-all{font-weight:600;border-bottom:1px solid #f2f4f7;border-radius:6px 6px 0 0;margin-bottom:2px}
+.ms-box{display:grid;place-items:center;width:14px;height:14px;border:1px solid #d0d5dd;border-radius:4px;flex:none;background:#fff}
+.ms-opt[aria-selected="true"] .ms-box{background:#0b725d;border-color:#0b725d;color:#fff}
+.ms-box svg{width:10px;height:10px}
+/* The company picker in the top bar: the same tick-box list, sized like its neighbours. */
+.head-co{display:flex;align-items:center;gap:6px;height:38px;border:1px solid var(--line,#e2e9e6);border-radius:8px;padding:0 4px 0 10px;background:#fff}
+.head-co>svg{width:14px;height:14px;color:var(--muted,#71817d);flex:none}
+.head-co .ms-btn{border:0;min-width:130px;font-size:11px;padding:6px 6px}
+.head-co .ms-btn.on{color:var(--green,#0b725d)}
+.head-co .ms-pop{left:auto;right:0}
+@media(max-width:760px){.head-co{display:none}}

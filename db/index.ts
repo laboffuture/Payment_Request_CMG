@@ -2,8 +2,10 @@ import { drizzle } from "drizzle-orm/d1";
 import * as schema from "./schema";
 
 let cached: Partial<Env> | null = null;
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-let cachedDb: any = null;
+/* One Drizzle client, made on first use and reused after; typed from the schema so every
+   query stays checked. */
+const makeDb = (d1: D1Database) => drizzle(d1, { schema });
+let cachedDb: ReturnType<typeof makeDb> | null = null;
 
 /**
  * Resolves the Worker bindings without importing `cloudflare:workers` at module
@@ -30,6 +32,6 @@ export async function getDb() {
     );
   }
 
-  cachedDb = drizzle(env.DB, { schema });
+  cachedDb = makeDb(env.DB);
   return cachedDb;
 }
