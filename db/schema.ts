@@ -293,6 +293,8 @@ export const wfUsers=sqliteTable("wf_users",{
   /* Login addresses this account may read requests from, as a JSON array. Only a
      department head uses it; empty means their own requests alone. */
   visibleRaisers:text("visible_raisers").notNull().default("[]"),
+  /* Material Management scope, JSON {projectIds,vendorId}; see lib/roles.ts. */
+  material:text("material").notNull().default("{}"),
   salt:text("salt").notNull(),
   hash:text("hash").notNull(),
   iterations:integer("iterations").notNull().default(120000),

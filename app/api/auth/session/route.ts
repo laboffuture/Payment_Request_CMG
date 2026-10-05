@@ -1,6 +1,7 @@
 import{eq}from"drizzle-orm";
 import{getDb}from"../../../../db";
 import{wfUsers}from"../../../../db/schema";
+import{parseMaterialScope}from"../../../../lib/roles";
 import{clearCookie,createSession,currentActor,destroySession,hashPassword,readBearer,
   readCookie,safeEqual,SESSION_COOKIE,sessionCookie}from"../../../../lib/auth";
 
@@ -38,10 +39,11 @@ export async function POST(req:Request){
        means a webview that does keep cookies carries on working. */
     const wantsToken=String(body.client||"").toLowerCase()==="app";
     return Response.json({actor:{userId:user.id,email:user.email,name:user.name,
-      employeeId:user.employeeId,roles:JSON.parse(user.roles||"[]")},
+      employeeId:user.employeeId,roles:JSON.parse(user.roles||"[]"),
+      material:parseMaterialScope(user.material)},
       mustChange:!!user.mustChange,
       ...(wantsToken?{token,expiresInSeconds:maxAge}:{})},
-      {headers:{"set-cookie":sessionCookie(token,maxAge)}});
+      {headers:{"set-cookie":sessionCookie(token,maxAge,req)}});
   }catch(e){
     return Response.json({error:e instanceof Error?e.message:"Sign in failed."},{status:500});
   }}
@@ -51,5 +53,5 @@ export async function DELETE(req:Request){
   /* Either transport can end the session. The cookie name was written out by hand here,
      which would have drifted the day the constant changed. */
   await destroySession(readCookie(req,SESSION_COOKIE)||readBearer(req));
-  return Response.json({signedOut:true},{headers:{"set-cookie":clearCookie()}});
+  return Response.json({signedOut:true},{headers:{"set-cookie":clearCookie(req)}});
 }

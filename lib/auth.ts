@@ -3,9 +3,10 @@ import{getDb}from"../db";
 import{wfCompanies,wfEmployees,wfSessions,wfUsers}from"../db/schema";
 import{COOKIE_DAYS,SESSION_COOKIE,SESSION_HOURS,randomHex,readBearer,readCookie}from"./credentials";
 export*from"./credentials";
+import{hasPaymentAccess,parseMaterialScope,type MaterialScope}from"./roles";
 
 /* ---------- sessions ---------- */
-export type Actor={userId:string;email:string;name:string;roles:string[];employeeId:string};
+export type Actor={userId:string;email:string;name:string;roles:string[];employeeId:string;material:MaterialScope};
 
 export async function createSession(user:{id:string;email:string;roles:string}){
   const db=await getDb();
@@ -55,7 +56,7 @@ export async function currentActor(req:Request):Promise<Actor|null>{
       .where(eq(wfSessions.token,token));
   }
   return{userId:user.id,email:user.email,name:user.name,employeeId:user.employeeId,
-    roles:JSON.parse(user.roles||"[]") as string[]}}
+    roles:JSON.parse(user.roles||"[]") as string[],material:parseMaterialScope(user.material)}}
 
 /* ---------- route guards ---------- */
 const WRITE_ROLES=["Administrator","Audit Head","Management","Accountant","Auditor","Finance"];
@@ -174,6 +175,11 @@ const deny=(message:string,status:number)=>
 export async function requireAuth(req:Request,level:"read"|"write"|"org"|"token"|"admin"="read"){
   const actor=await currentActor(req);
   if(!actor)return{actor:null,response:deny("Sign in to continue.",401)};
+  /* A login that holds only Material roles - a vendor, a site engineer - is a real
+     account but not a payment user. "Any signed-in account" must not include them, or a
+     supplier could read the staff register. */
+  if(!hasPaymentAccess(actor.roles))
+    return{actor,response:deny("Your account does not include payment access.",403)};
   if(level==="token"&&!actor.roles.some(r=>TOKEN_ROLES.includes(r)))
     return{actor,response:deny("Your role cannot change tokens.",403)};
   if(level==="org"&&!actor.roles.some(r=>ORG_ROLES.includes(r)))

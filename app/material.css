@@ -1,0 +1,205 @@
+/* Material Management inside the one application.
+
+   The material screens keep their layout utilities (flex, grid, gap …) but every
+   colour, radius, type size and component below is the payment app's own: the navy
+   and gold of reference-theme.css, Georgia headings, the same panels, tables, badges,
+   buttons and modals. Material's colour names are pointed at the payment palette so
+   a class like text-mut or bg-acs lands on the same colours as everything around it.
+   Everything is scoped to .mm, the wrapper MaterialApp renders. */
+
+@theme inline {
+  --color-bg: var(--mm-bg);
+  --color-card: var(--mm-card);
+  --color-ink: var(--mm-ink);
+  --color-mut: var(--mm-mut);
+  --color-sub: var(--mm-sub);
+  --color-line: var(--mm-line);
+  --color-line2: var(--mm-line2);
+  --color-ac: var(--mm-ac);
+  --color-acs: var(--mm-acs);
+  --color-amb: var(--mm-amb);
+  --color-ambs: var(--mm-ambs);
+  --color-red: var(--mm-red);
+  --color-reds: var(--mm-reds);
+  --color-grn: var(--mm-grn);
+  --color-grns: var(--mm-grns);
+  --color-blu: var(--mm-blu);
+  --color-blus: var(--mm-blus);
+  --color-pur: var(--mm-pur);
+  --color-purs: var(--mm-purs);
+  --color-gry: var(--mm-gry);
+  --color-grys: var(--mm-grys);
+  --color-dark: var(--mm-dark);
+  --radius-card: 10px;
+  --radius-btn: 7px;
+  --breakpoint-desk: 861px;
+}
+
+.mm {
+  /* the payment palette under material's names (reference-theme.css) */
+  --mm-bg: #f3f5f8;
+  --mm-card: #fff;
+  --mm-ink: #101828;
+  --mm-mut: #667085;
+  --mm-sub: #344054;
+  --mm-line: #e4e7ec;
+  --mm-line2: #eef0f4;
+  --mm-ac: #0b1d3a;
+  --mm-acs: #e7eefb;
+  --mm-amb: #9b6809;
+  --mm-ambs: #fcf1dc;
+  --mm-red: #b3372a;
+  --mm-reds: #fbeae8;
+  --mm-grn: #1e7a52;
+  --mm-grns: #e6f4ec;
+  --mm-blu: #1b3a66;
+  --mm-blus: #e7eefb;
+  --mm-pur: #6941c6;
+  --mm-purs: #f0ebfa;
+  --mm-gry: #475467;
+  --mm-grys: #eef0f4;
+  --mm-dark: #0b1d3a;
+  /* the tone variables Chip and Tag read */
+  --ac: var(--mm-ac); --acs: var(--mm-acs); --amb: var(--mm-amb); --ambs: var(--mm-ambs);
+  --reds: var(--mm-reds); --grn: var(--mm-grn); --grns: var(--mm-grns);
+  --blu: var(--mm-blu); --blus: var(--mm-blus); --pur: var(--mm-pur); --purs: var(--mm-purs);
+  --gry: var(--mm-gry); --grys: var(--mm-grys);
+  /* payment-sized type: the material screens were set for 15 px phones */
+  --text-xs: 10px;
+  --text-xs--line-height: 1.4;
+  --text-sm: 11.5px;
+  --text-sm--line-height: 1.45;
+  --text-base: 12.5px;
+  --text-base--line-height: 1.5;
+  --text-lg: 15px;
+  --text-xl: 17px;
+  --text-2xl: 22px;
+  color: var(--mm-ink);
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+/* ---------------------------------------------------------------- base elements */
+.mm h1 { font: 600 25px Georgia, serif; margin: 4px 0; }
+.mm h2 { font: 600 17px Georgia, serif; margin: 22px 0 10px; }
+.mm h3 { font-size: 13px; font-weight: 700; margin: 12px 0 6px; }
+.mm input:not([type=checkbox]):not([type=radio]):not([type=file]),
+.mm select,
+.mm textarea {
+  border: 1px solid var(--mm-line);
+  border-radius: 6px;
+  background: #fff;
+  color: var(--mm-ink);
+  padding: 0 10px;
+  height: 36px;
+  font: inherit;
+  font-size: 12px;
+  max-width: 100%;
+}
+.mm textarea { height: auto; padding: 8px 10px; width: 100%; }
+.mm input:focus, .mm select:focus, .mm textarea:focus {
+  outline: 0; border-color: #1b3a66; box-shadow: 0 0 0 3px rgba(27,58,102,.12);
+}
+.mm input[type=checkbox], .mm input[type=radio] { width: 16px; height: 16px; accent-color: #0b1d3a; }
+.mm a { color: #1b3a66; }
+
+/* ---------------------------------------------------------------- components */
+.mm .intro .mm-sub { font-size: 11px; color: #667085; margin: 0; }
+.mm .card { background: #fff; border: 1px solid var(--mm-line); border-radius: 10px; padding: 16px 17px; }
+.mm .field { display: flex; flex-direction: column; gap: 5px; font-size: 10px; font-weight: 600; color: var(--mm-mut); }
+.mm .field input, .mm .field select { width: 100%; font-weight: 400; }
+
+.mm .chip, .mm .tag {
+  display: inline-block; border-radius: 20px; padding: 4px 9px;
+  font-size: 9px; font-weight: 800; font-style: normal; white-space: nowrap; letter-spacing: .02em;
+}
+.mm .tag { border-radius: 5px; padding: 3px 7px; }
+
+.mm .warn { background: #fcf1dc; color: #9b6809; border-radius: 8px; padding: 10px 12px; font-size: 11.5px; }
+.mm .errb { background: #fbeae8; color: #b3372a; border-radius: 8px; padding: 10px 12px; font-size: 11.5px; }
+.mm .okb  { background: #e6f4ec; color: #1e7a52; border-radius: 8px; padding: 10px 12px; font-size: 11.5px; }
+
+/* buttons: the payment app's plain, primary and link buttons */
+.mm .mm-btn {
+  display: inline-flex; align-items: center; justify-content: center; gap: 7px;
+  border: 1px solid var(--mm-line); background: #fff; color: var(--mm-ink);
+  border-radius: 7px; padding: 0 13px; min-height: 36px; font-size: 11px; font-weight: 700;
+  cursor: pointer; transition: background .15s, border-color .15s;
+}
+.mm .mm-btn:hover { border-color: #c9a227; background: #fbf4de; }
+.mm .mm-btn.small { min-height: 30px; padding: 0 10px; font-size: 10.5px; }
+.mm .mm-btn.primary { background: #0b1d3a !important; color: #fff !important; border: 0 !important; }
+.mm .mm-btn.primary:hover { background: #1b3a66 !important; }
+.mm .mm-btn.danger { color: #b3372a; border-color: #f0c7c1; }
+.mm .mm-btn.danger:hover { background: #fbeae8; border-color: #b3372a; }
+.mm .mm-btn.dark { background: #1b3a66; border-color: #1b3a66; color: #fff; }
+.mm .mm-btn.link { border: 0; background: none; min-height: 0; padding: 0 2px; color: #1b3a66; text-decoration: underline; }
+.mm .mm-btn:disabled { opacity: .45; cursor: not-allowed; }
+
+/* dashboard tiles: the payment metric card */
+.mm .mm-tile {
+  background: #fff; border: 1px solid var(--mm-line); border-left: 3px solid #26497f;
+  border-radius: 9px; padding: 13px 15px; text-align: left; display: flex; flex-direction: column; gap: 3px;
+}
+.mm button.mm-tile { cursor: pointer; }
+.mm button.mm-tile:hover { border-left-color: #c9a227; background: #fffdf6; }
+.mm .mm-tile span { font-size: 10px; color: var(--mm-mut); }
+.mm .mm-tile b { font: 26px Georgia, serif; color: var(--mm-ink); }
+
+/* tables: the payment register table */
+.mm .mm-table { padding: 0; overflow: hidden; }
+.mm .mm-table .table-wrap { overflow: auto; }
+.mm .t { width: 100%; min-width: 0; border-collapse: collapse; background: #fff; }
+.mm .t th {
+  background: #f7f9fb; color: #667085; text-align: left; font-size: 9.5px; font-weight: 700;
+  letter-spacing: .07em; text-transform: uppercase; padding: 10px 16px; white-space: nowrap;
+  border-bottom: 1px solid var(--mm-line);
+}
+.mm .t td { border-top: 1px solid #edf1ef; padding: 11px 16px; font-size: 12px; vertical-align: middle; }
+.mm .t tbody tr { cursor: default; }
+.mm .t tr.click { cursor: pointer; }
+.mm .t tr.click:hover td { background: #fafbfd; }
+.mm .t td.grp { background: #f3f5f8; font-weight: 700; font-size: 10.5px; letter-spacing: .03em; }
+.mm .t td.l1 { background: #e6f4ec; }
+
+/* tabs: the payment settings tabs */
+.mm .mm-tabs { display: flex; gap: 6px; margin-bottom: 14px; overflow-x: auto; }
+.mm .mm-tabs button {
+  border: 1px solid var(--mm-line); background: #fff; border-radius: 8px; padding: 7px 12px;
+  font-size: 11px; white-space: nowrap; cursor: pointer; color: var(--mm-sub);
+}
+.mm .mm-tabs button[aria-selected=true] { background: #0b1d3a; border-color: #0b1d3a; color: #fff; font-weight: 600; }
+
+.mm .queue-empty { padding: 26px 18px; text-align: center; color: var(--mm-mut); font-size: 11.5px; margin: 0; }
+
+/* the modal: payment .overlay + .modal, a little wider for the PO wizard */
+.modal.mm-modal { display: flex; flex-direction: column; }
+.modal.mm-modal.wide { width: min(980px, 94vw); }
+.modal.mm-modal .mm-modal-body { padding: 18px 22px; display: flex; flex-direction: column; gap: 12px; }
+
+@media (max-width: 860px) {
+  .mm .t, .mm .t tbody, .mm .t tr, .mm .t td { display: block; width: 100%; }
+  .mm .t thead { display: none; }
+  .mm .t tr { border-bottom: 1px solid var(--mm-line); padding: 6px 0; }
+  .mm .t td { border: 0; padding: 5px 14px; display: flex; justify-content: space-between; gap: 12px; text-align: right; }
+  .mm .t td::before { content: attr(data-label); color: var(--mm-mut); font-size: 10px; font-weight: 700; text-align: left; }
+  .mm .t td.grp { display: block; text-align: left; }
+  .mm .t td.grp::before { content: none; }
+}
+
+/* ---------------------------------------------------------------- printing
+   A material document (MR form, PO) prints on its own, without the shell. */
+@media print {
+  .shell > .side, .shell > main > header, .toast, .scrim { display: none !important; }
+  .shell > main { margin: 0 !important; width: 100% !important; }
+  .mm .noprint { display: none !important; }
+  .mm .page { padding: 0; }
+  .mm .mr-doc { page-break-after: always; margin: 0; border: 0; padding: 0; }
+  .mm .mr-doc:last-child { page-break-after: auto; }
+}
+
+/* the heading over the material entries in the sidebar, as "WORKSPACE" above the rest */
+.side nav .nav-section {
+  display: block; font-size: 9px; letter-spacing: .11em; font-weight: 700;
+  color: #63728f; padding: 16px 10px 6px;
+}

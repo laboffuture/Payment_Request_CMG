@@ -79,6 +79,18 @@ test("the session cookie is locked down", () => {
   assert.ok(cleared.includes("Max-Age=0"), "sign-out expires it immediately");
 });
 
+test("the cookie is Secure on HTTPS and still usable on plain HTTP", () => {
+  const req = (url, headers = {}) => new Request(url, { headers });
+  // production: TLS at the gateway, or HTTPS end to end
+  assert.ok(auth.sessionCookie("t", 60, req("http://payment:8787/", { "x-forwarded-proto": "https" })).includes("Secure"));
+  assert.ok(auth.sessionCookie("t", 60, req("https://paymentrequest.cmis.ac.in/")).includes("Secure"));
+  // another device on the office network over plain HTTP: a Secure cookie would be dropped
+  const lan = auth.sessionCookie("t", 60, req("http://192.168.1.20:8000/", { "x-forwarded-proto": "http" }));
+  assert.ok(!lan.includes("Secure"), "kept by the browser");
+  assert.ok(lan.includes("HttpOnly") && lan.includes("SameSite=Lax"), "still locked down otherwise");
+  assert.ok(!auth.clearCookie(req("http://192.168.1.20:8000/")).includes("Secure"), "sign-out clears it there too");
+});
+
 test("cookies are parsed without picking up a lookalike name", () => {
   const req = (v) => new Request("https://x.test", { headers: { cookie: v } });
   assert.equal(auth.readCookie(req("cot_session=abc"), "cot_session"), "abc");

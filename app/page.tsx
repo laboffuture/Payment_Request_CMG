@@ -29,9 +29,13 @@ import EmployeeDirectory from "./EmployeeDirectory";
 import {EmployeeProfile} from "./EmployeeProfile";
 import {WorkforceOverview,WorkforceReports} from "./WorkforceReports";
 import {auditTasksApi,companiesApi} from "./audit-api";
+import {MaterialProvider,MaterialScreen} from "../modules/material/MaterialApp";
+import {MaterialLanding,MaterialSideNav,MaterialTitle} from "../modules/material/ShellParts";
+import {hasPaymentAccess,isPaymentRole,materialCodeFor} from "../lib/roles";
+import ResponsiveTables from "./ResponsiveTables";
 type Payment={createdAt?:string;tds?:string;nature?:string;poNumber?:string;resubmitNote?:string;resubmittedAt?:string;rejectionNote?:string;rejectedBy?:string;rejectedAt?:string;raisedBy?:string;id:number;requestNo:string;company:string;vendor:string;amount:number;currency:string;due:string;urgency:string;status:string;owner:string;department:string};
 export type AuditTask={ref?:string;remarks?:string;category?:string;entity?:string;dueRule?:string;frequency?:string;recurDay?:string;recurUntil?:string;seriesId?:string;attendees?:string;id:string;title:string;company:string;department:string;kind:"Pre-Audit"|"Post-Audit"|"Meeting"|"Special Audit"|"Task"|"Token"|"Training";status:"Available"|"Accepted"|"In Progress"|"Observation Submitted"|"Response Received"|"Completed";due?:string;assignedTo?:string;plannedStart?:string;plannedEnd?:string;notes?:string;dataProvider?:string};
-type Module="dashboard"|"requests"|"payments"|"scheduled"|"accountsreceived"|"preaudit"|"postaudit"|"specialaudit"|"observations"|"meetings"|"reports"|"companies"|"settings"|"users"|"imports"|"organisation"|"employees";
+type Module="material"|"dashboard"|"requests"|"payments"|"scheduled"|"accountsreceived"|"preaudit"|"postaudit"|"specialaudit"|"observations"|"meetings"|"reports"|"companies"|"settings"|"users"|"imports"|"organisation"|"employees";
 const seed:Payment[]=[];
 const auditSeed:AuditTask[]=[];
 const specialAuditSeed:AuditTask[]=[];
@@ -72,6 +76,11 @@ const access:Record<string,Module[]>={"Cost Control":["dashboard","accountsrecei
 type Note={id:string;title:string;body:string;module:string;recordId:string;createdAt:string;readAt:string};
 export default function Home(){
  const[active,setActive]=useState<Module>("dashboard"),[payments,setPayments]=useState(seed),[auditTasks,setAuditTasks]=useState([...auditSeed,...specialAuditSeed]),[companyPicks,setCompanyPicks]=useState<string[]>([]),[companies,setCompanies]=useState<{id:string;name:string}[]>([]),[departments,setDepartments]=useState<string[]>([]),[natures,setNatures]=useState<string[]>([]),[currencies,setCurrencies]=useState<string[]>([]),[tdsChoices,setTdsChoices]=useState<string[]>([]),[termsChoices,setTermsChoices]=useState<string[]>([]),[modeChoices,setModeChoices]=useState<string[]>([]),[jobs,setJobs]=useState<Job[]>([]),[masterVersion,setMasterVersion]=useState(0),[role,setRole]=useState("Audit Head"),[allowedRoles,setAllowedRoles]=useState<string[]>([]),[userName,setUserName]=useState(""),[userEmail,setUserEmail]=useState(""),[search,setSearch]=useState(""),[drawer,setDrawer]=useState<Payment|null>(null),[form,setForm]=useState(false),[passwordOpen,setPasswordOpen]=useState(false),[profileOpen,setProfileOpen]=useState(false),[mobile,setMobile]=useState(false),[profile,setProfile]=useState<string|null>(null),[toast,setToast]=useState(""),[todayLabel,setTodayLabel]=useState(""),[booting,setBooting]=useState(true),[expired,setExpired]=useState(false),[notes,setNotes]=useState<Note[]>([]),[unread,setUnread]=useState(0),[noteOpen,setNoteOpen]=useState(false);
+ /* One login may hold payment roles, material roles or both. The role chosen in the
+    header decides which menu shows; Administrator has both. */
+ const payUser=hasPaymentAccess(allowedRoles);
+ const matCode=materialCodeFor(role);
+ const materialOnly=!!matCode&&!isPaymentRole(role);
  /* Audit tasks store a companyId; the screens show a company name, so the names are
     resolved once here rather than looked up per row. */
  const loadAuditTasks=async()=>{try{
@@ -81,20 +90,20 @@ export default function Home(){
      department:t.department,kind:t.kind as AuditTask["kind"],status:t.status as AuditTask["status"],
      due:t.due,assignedTo:t.assignedTo,attendees:t.attendees,frequency:t.frequency,plannedStart:t.plannedStart,plannedEnd:t.plannedEnd,
      notes:t.notes,dataProvider:t.dataProvider,category:t.category,entity:t.entity,dueRule:t.dueRule,remarks:t.remarks})))}catch{}};
- useEffect(()=>{if(!userEmail)return;loadAuditTasks()},[userEmail]);
+ useEffect(()=>{if(!userEmail||!payUser)return;loadAuditTasks()},[userEmail,payUser]);
  // the company selector is driven by the companies actually in the database, not a fixed list
- useEffect(()=>{if(!userEmail)return;companiesApi.load().then(c=>setCompanies(c.filter(x=>x.active).map(x=>({id:x.id,name:x.name})))).catch(()=>{})},[userEmail]);
+ useEffect(()=>{if(!userEmail||!payUser)return;companiesApi.load().then(c=>setCompanies(c.filter(x=>x.active).map(x=>({id:x.id,name:x.name})))).catch(()=>{})},[userEmail]);
  /* The dropdown choices and the extra fields an administrator maintains under
     Settings. Re-read whenever they change something, so a new option is on the form
     without a reload. */
- useEffect(()=>{if(!userEmail)return;
+ useEffect(()=>{if(!userEmail||!payUser)return;
    fetch("/api/settings/options").then(r=>r.json()).then((d:any)=>{
      const on=(list:string)=>(d.options||[]).filter((o:any)=>o.listId===list&&o.active)
        .map((o:any)=>o.name);
      setNatures(on("payment.nature"));setCurrencies(on("payment.currency"));
      setTdsChoices(on("payment.tds"));setTermsChoices(on("payment.terms"));
     setModeChoices(on("payment.mode"));setJobs(parseJobs(on("payment.job")))}).catch(()=>{})},[userEmail,masterVersion]);
- useEffect(()=>{if(!userEmail)return;fetch("/api/workforce/departments").then(r=>r.json()).then((d:any)=>setDepartments((d.departments||[]).map((x:any)=>x.name))).catch(()=>{})},[userEmail]);
+ useEffect(()=>{if(!userEmail||!payUser)return;fetch("/api/workforce/departments").then(r=>r.json()).then((d:any)=>setDepartments((d.departments||[]).map((x:any)=>x.name))).catch(()=>{})},[userEmail]);
  /* The register was read once, at sign-in, and never again. Somebody who stayed signed in
     was told by the bell that their request had come back with a query, opened it, and
     found it as it had been hours earlier - no query, so no way to resubmit it until they
@@ -104,7 +113,7 @@ export default function Home(){
    .then(x=>{if(!x.payments?.length)return;const fresh=x.payments;
      setPayments([...fresh,...seed]);
      setDrawer(d=>d?(fresh.find(f=>f.id===d.id)||d):d)}).catch(()=>{}),[]);
- useEffect(()=>{if(!userEmail)return;loadPayments();
+ useEffect(()=>{if(!userEmail||!payUser)return;loadPayments();
    const t=setInterval(loadPayments,60000);window.addEventListener("focus",loadPayments);
    return()=>{clearInterval(t);window.removeEventListener("focus",loadPayments)}},[userEmail,loadPayments]);
  const openRequest=(p:Payment)=>{setDrawer(p);loadPayments()};
@@ -120,6 +129,13 @@ export default function Home(){
  /* Tasks, and the same work seen by day, week or month - one menu entry with the view
     chosen inside, rather than four entries onto the same register. */
  const flash=(x:string)=>{setToast(x);setTimeout(()=>setToast(""),2500)};
+ const openMaterial=useCallback(()=>setActive("material"),[]);
+ const leaveMaterial=useCallback(()=>{if(!materialOnly)setActive(landingFor(role))},[materialOnly,role]);
+ useEffect(()=>{if(active!=="material"&&window.location.hash.startsWith("#/m"))
+   window.history.pushState(null,"",window.location.pathname+window.location.search)},[active]);
+ useEffect(()=>{const open=(e:Event)=>{const m=(e as CustomEvent<string>).detail as Module;
+   if(nav.some(n=>n.id===m))setActive(m)};
+   window.addEventListener("cmg:open-module",open);return()=>window.removeEventListener("cmg:open-module",open)},[]);
  const acting=useRef(false);const[busy,setBusy]=useState(false);
  const act=async(p:Payment,status:string,note?:string,fields?:Record<string,string>)=>{
   /* A decision is saved once. Saving used to take seconds with nothing on screen to say so,
@@ -190,12 +206,12 @@ export default function Home(){
  /* A project manager on a plan reaches Accounts Receivable through that plan even when
     their role would not show it - the module then shows them their plans alone. */
  const[managesPlans,setManagesPlans]=useState(false);
- useEffect(()=>{if(!userEmail){setManagesPlans(false);return}
+ useEffect(()=>{if(!userEmail||!payUser){setManagesPlans(false);return}
    const count=(u:string)=>fetch(u).then(r=>(r.ok?r.json():{count:0}) as Promise<{count?:number}>).then(b=>b.count||0).catch(()=>0);
    Promise.all([count("/api/planning?assigned=me"),count("/api/completion?assigned=me")])
      .then(([plans,jobs])=>setManagesPlans(plans+jobs>0))},[userEmail]);
  const visible=nav.filter(n=>(access[role]||[]).includes(n.id)||(n.id==="accountsreceived"&&managesPlans));
- const login=(u:Actor)=>{setExpired(false);setUserName(u.name);setUserEmail(u.email);setAllowedRoles(u.roles);setRole(u.roles[0]);setActive(u.roles[0]==="Requestor"?"requests":"dashboard")};
+ const login=(u:Actor)=>{setExpired(false);setUserName(u.name);setUserEmail(u.email);setAllowedRoles(u.roles);setRole(u.roles[0]);setActive(landingFor(u.roles[0]))};
  /* Ask the server who this is. The session cookie is HttpOnly, so the browser cannot
     read it; only this call can say whether it is still valid, which is what makes a
     revoked or expired session take effect on a refresh. */
@@ -213,7 +229,7 @@ export default function Home(){
  const loadNotes=async()=>{try{const r=await fetch("/api/notifications");if(!r.ok)return;
    const d=await r.json() as{notifications?:Note[];unread?:number};
    setNotes(d.notifications||[]);setUnread(d.unread||0)}catch{}};
- useEffect(()=>{if(!userName){setNotes([]);setUnread(0);setNoteOpen(false);return}
+ useEffect(()=>{if(!userName||!payUser){setNotes([]);setUnread(0);setNoteOpen(false);return}
    loadNotes();const t=setInterval(loadNotes,30000);
    const onFocus=()=>loadNotes();window.addEventListener("focus",onFocus);
    return()=>{clearInterval(t);window.removeEventListener("focus",onFocus)}},[userName]);
@@ -238,7 +254,7 @@ export default function Home(){
      /* Only a person who was signed in can have had a session end. Before sign-in a
         401 is simply expected, and treating it as expiry put "Your session has ended"
         on a first visit. */
-     if(res.status===401&&signedIn.current&&url.includes("/api/")&&!url.includes("/api/auth/")){
+     if(res.status===401&&signedIn.current&&url.includes("/api/")&&!url.includes("/api/auth/")&&!url.includes("/material/api/")){
        setUserName("");setUserEmail("");setAllowedRoles([]);
        setExpired(true);                 // say why, rather than a bare login box
      }
@@ -247,7 +263,9 @@ export default function Home(){
  },[]);
 
  const signOut=async()=>{setProfileOpen(false);await fetch("/api/auth/session",{method:"DELETE"}).catch(()=>{});setUserName("");setUserEmail("");setAllowedRoles([]);setPayments(seed);setRole("Audit Head");setActive("dashboard")};
- return <WorkforceProvider actor={userName}><div className="shell">{!userName&&!booting&&<LoginOverlay onLogin={login} note={expired?"Your session has ended. Please sign in again.":""}/>} {mobile&&<button className="scrim" onClick={()=>setMobile(false)}/>}<aside className={mobile?"side open":"side"}><div className="brand"><b>CMG</b><div><strong>PAYMENT</strong><span>REQUEST</span></div><button onClick={()=>setMobile(false)}><X/></button></div><nav>{visible.map(n=><button key={n.id} className={active===n.id?"active":""} onClick={()=>{setActive(n.id);setMobile(false)}}><n.icon/>{n.label}</button>)}</nav></aside><main><header><div className="heading"><button className="hamb" onClick={()=>setMobile(true)}><Menu/></button><div><small>{todayLabel||"\u00a0"}</small><h1>{nav.find(n=>n.id===active)?.label}</h1></div></div><div className="head-actions"><div className="head-co"><Building2/><MultiSelect options={companies.map(c=>c.name)} value={companyPicks} onChange={setCompanyPicks} allLabel="All companies" noun="companies"/></div><select value={role} onChange={e=>{const next=e.target.value;setRole(next);setActive(next==="Requestor"?"requests":"dashboard")}}>{allowedRoles.map(x=><option key={x}>{x}</option>)}</select><div className="note-menu"><button className="bell" aria-label={unread?`Notifications, ${unread} unread`:"Notifications"} onClick={()=>{setNoteOpen(v=>!v);setProfileOpen(false)}}><Bell/>{unread>0&&<i>{unread>99?"99+":unread}</i>}</button>{noteOpen&&<><button className="profile-scrim" aria-label="Close notifications" onClick={()=>setNoteOpen(false)}/><div className="note-panel" role="menu"><header><b>Notifications</b>{unread>0&&<button onClick={readAll}>Mark all read</button>}</header>{notes.length?notes.map(n=><button key={n.id} className={n.readAt?"":"unread"} onClick={()=>openNote(n)}><b>{n.title}</b>{n.body&&<small>{n.body}</small>}<time>{new Date(n.createdAt).toLocaleString("en-GB",{day:"numeric",month:"short",hour:"2-digit",minute:"2-digit"})}</time></button>):<p className="note-empty">Nothing yet. Requests and updates meant for you will appear here.</p>}</div></>}</div><div className="profile-menu"><button className="avatar" title={userName||"Profile"} aria-haspopup="menu" aria-expanded={profileOpen} onClick={()=>setProfileOpen(v=>!v)}>{userName?userName.split(" ").map(x=>x[0]).join("").slice(0,2):"CM"}</button>{profileOpen&&<><button className="profile-scrim" aria-label="Close profile menu" onClick={()=>setProfileOpen(false)}/><div className="profile-dropdown" role="menu"><div className="profile-who"><b>{userName||"Signed in"}</b><small>{userEmail}</small>{!!role&&<i>{role}</i>}</div><button role="menuitem" onClick={()=>{setProfileOpen(false);setPasswordOpen(true)}}><Settings/>Change password</button>{userName&&<button role="menuitem" className="profile-signout" onClick={()=>{setProfileOpen(false);signOut()}}><LogOut/>Sign out</button>}</div></>}</div></div></header>{userName&&<>
+ return <WorkforceProvider actor={payUser?userName:""}><MaterialProvider role={userName?matCode:null} person={userEmail}><ResponsiveTables/><div className="shell">{!userName&&!booting&&<LoginOverlay onLogin={login} note={expired?"Your session has ended. Please sign in again.":""}/>} {mobile&&<button className="scrim" onClick={()=>setMobile(false)}/>}<aside className={mobile?"side open":"side"}><div className="brand"><b>CMG</b><div><strong>PAYMENT</strong><span>REQUEST</span></div><button onClick={()=>setMobile(false)}><X/></button></div>{userName&&allowedRoles.length>1&&<div className="mobile-controls"><label>ROLE<select value={role} onChange={e=>{const next=e.target.value;setRole(next);setActive(landingFor(next));setMobile(false)}}>{allowedRoles.map(x=><option key={x}>{x}</option>)}</select></label></div>}<nav>{visible.map(n=><button key={n.id} className={active===n.id?"active":""} onClick={()=>{setActive(n.id);setMobile(false)}}><n.icon/>{n.label}</button>)}{userName&&<MaterialSideNav active={active==="material"} heading={!materialOnly} onOpen={()=>{setActive("material");setMobile(false)}}/>}</nav></aside><main><header><div className="heading"><button className="hamb" onClick={()=>setMobile(true)}><Menu/></button><div><small>{todayLabel||"\u00a0"}</small><h1>{active==="material"?<MaterialTitle/>:nav.find(n=>n.id===active)?.label}</h1></div></div><div className="head-actions">{active!=="material"&&<div className="head-co"><Building2/><MultiSelect options={companies.map(c=>c.name)} value={companyPicks} onChange={setCompanyPicks} allLabel="All companies" noun="companies"/></div>}<select value={role} onChange={e=>{const next=e.target.value;setRole(next);setActive(landingFor(next))}}>{allowedRoles.map(x=><option key={x}>{x}</option>)}</select>{payUser&&<div className="note-menu"><button className="bell" aria-label={unread?`Notifications, ${unread} unread`:"Notifications"} onClick={()=>{setNoteOpen(v=>!v);setProfileOpen(false)}}><Bell/>{unread>0&&<i>{unread>99?"99+":unread}</i>}</button>{noteOpen&&<><button className="profile-scrim" aria-label="Close notifications" onClick={()=>setNoteOpen(false)}/><div className="note-panel" role="menu"><header><b>Notifications</b>{unread>0&&<button onClick={readAll}>Mark all read</button>}</header>{notes.length?notes.map(n=><button key={n.id} className={n.readAt?"":"unread"} onClick={()=>openNote(n)}><b>{n.title}</b>{n.body&&<small>{n.body}</small>}<time>{new Date(n.createdAt).toLocaleString("en-GB",{day:"numeric",month:"short",hour:"2-digit",minute:"2-digit"})}</time></button>):<p className="note-empty">Nothing yet. Requests and updates meant for you will appear here.</p>}</div></>}</div>}<div className="profile-menu"><button className="avatar" title={userName||"Profile"} aria-haspopup="menu" aria-expanded={profileOpen} onClick={()=>setProfileOpen(v=>!v)}>{userName?userName.split(" ").map(x=>x[0]).join("").slice(0,2):"CM"}</button>{profileOpen&&<><button className="profile-scrim" aria-label="Close profile menu" onClick={()=>setProfileOpen(false)}/><div className="profile-dropdown" role="menu"><div className="profile-who"><b>{userName||"Signed in"}</b><small>{userEmail}</small>{!!role&&<i>{role}</i>}</div><button role="menuitem" onClick={()=>{setProfileOpen(false);setPasswordOpen(true)}}><Settings/>Change password</button>{userName&&<button role="menuitem" className="profile-signout" onClick={()=>{setProfileOpen(false);signOut()}}><LogOut/>Sign out</button>}</div></>}</div></div></header>{userName&&<>
+ <MaterialLanding code={matCode} active={active==="material"} onOpen={openMaterial} onLeave={leaveMaterial}/>
+ {active==="material"&&<MaterialScreen/>}
  
  {active==="dashboard"&&(role==="Requestor"?<RequestorDashboard rows={mine} open={openRequest} create={()=>setForm(true)} go={setActive}/>:role==="Accountant"||role==="Auditor"?<RoleDashboard role={role} payments={filtered} auditTasks={auditTasks} open={openRequest} go={setActive}/>:<Dashboard payments={filtered} go={setActive}/>)}
  {active==="dashboard"&&visible.some(n=>n.id==="organisation")&&<div className="page wf-dash-wrap"><WorkforceOverview openProfile={setProfile} go={()=>setActive("organisation")}/></div>}
@@ -275,8 +293,10 @@ export default function Home(){
      status:assigned?"Accepted":"Available",assignedTo:assigned||"",dataProvider:dataProvider||"",
      notes:"Created from the import centre"});await loadAuditTasks();flash("Audit task created")}
    catch(e){flash(e instanceof Error?e.message:"Could not create the task")}}}/>}
- </>}</main>{profile&&<EmployeeProfile id={profile} close={()=>setProfile(null)} flash={flash} openProfile={setProfile}/>}{/* Keyed by status, so each stage opens with empty boxes - the panel stays open as a request moves on, and a remark typed at one decision was being saved again with the next. */}{drawer&&<PaymentDetail key={`${drawer.id}:${drawer.status}`} busy={busy} payment={drawer} role={role} onDelete={()=>removeRequest(drawer)} onClose={()=>setDrawer(null)} onAction={(s:string,note?:string,fields?:Record<string,string>)=>act(drawer,s,note,fields)} userName={userName} userEmail={userEmail} companies={companies} departments={departments} natures={natures} currencies={currencies} tdsChoices={tdsChoices} termsChoices={termsChoices} modeChoices={modeChoices} jobs={jobs}/>} {form&&<PaymentForm companies={companies} departments={departments} natures={natures} currencies={currencies} tdsChoices={tdsChoices} termsChoices={termsChoices} modeChoices={modeChoices} jobs={jobs} close={()=>setForm(false)} added={(p:Payment)=>{setPayments(v=>[p,...v]);setForm(false);flash(`${p.requestNo} submitted successfully`)}}/>}{passwordOpen&&<PasswordReset name={userName} email={userEmail} close={()=>setPasswordOpen(false)} done={()=>{setPasswordOpen(false);flash("Password updated. Please sign in again.");signOut()}}/>}{toast&&<div className="toast"><CheckCircle2/>{toast}</div>}</div></WorkforceProvider>
+ </>}</main>{profile&&<EmployeeProfile id={profile} close={()=>setProfile(null)} flash={flash} openProfile={setProfile}/>}{/* Keyed by status, so each stage opens with empty boxes - the panel stays open as a request moves on, and a remark typed at one decision was being saved again with the next. */}{drawer&&<PaymentDetail key={`${drawer.id}:${drawer.status}`} busy={busy} payment={drawer} role={role} onDelete={()=>removeRequest(drawer)} onClose={()=>setDrawer(null)} onAction={(s:string,note?:string,fields?:Record<string,string>)=>act(drawer,s,note,fields)} userName={userName} userEmail={userEmail} companies={companies} departments={departments} natures={natures} currencies={currencies} tdsChoices={tdsChoices} termsChoices={termsChoices} modeChoices={modeChoices} jobs={jobs}/>} {form&&<PaymentForm companies={companies} departments={departments} natures={natures} currencies={currencies} tdsChoices={tdsChoices} termsChoices={termsChoices} modeChoices={modeChoices} jobs={jobs} close={()=>setForm(false)} added={(p:Payment)=>{setPayments(v=>[p,...v]);setForm(false);flash(`${p.requestNo} submitted successfully`)}}/>}{passwordOpen&&<PasswordReset name={userName} email={userEmail} close={()=>setPasswordOpen(false)} done={()=>{setPasswordOpen(false);flash("Password updated. Please sign in again.");signOut()}}/>}{toast&&<div className="toast"><CheckCircle2/>{toast}</div>}</div></MaterialProvider></WorkforceProvider>
 }
+/* Where a role starts: its material home for a material role, else the payment one. */
+const landingFor=(role:string):Module=>materialCodeFor(role)&&!isPaymentRole(role)?"material":role==="Requestor"?"requests":"dashboard";
 function PasswordReset({name,email,close,done}:{name:string;email:string;close:()=>void;done:()=>void}){const[current,setCurrent]=useState(""),[next,setNext]=useState(""),[confirm,setConfirm]=useState(""),[error,setError]=useState(""),[saving,setSaving]=useState(false);const valid=current.length>=1&&next.length>=10&&/[A-Za-z]/.test(next)&&/[0-9]/.test(next)&&next===confirm;const submit=async(e:React.FormEvent)=>{e.preventDefault();if(!valid)return;setSaving(true);setError("");try{const r=await fetch("/api/auth/change-password",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({current,next})});const data=(await r.json()) as {error?:string};if(!r.ok)throw new Error(data.error||"Unable to update password.");done()}catch(err){setError(err instanceof Error?err.message:"Unable to update password.")}finally{setSaving(false)}};return <><button className="overlay" onClick={close}/><form className="modal password-reset" onSubmit={submit}><header><div><small>ACCOUNT SECURITY</small><h2>Change my password</h2></div><button type="button" onClick={close}><X/></button></header><div className="form"><p className="wide">Signed in as <b>{name}</b></p><label className="wide">Current password<input required autoComplete="current-password" type="password" value={current} onChange={e=>setCurrent(e.target.value)}/></label><label>New password<input required minLength={10} autoComplete="new-password" type="password" value={next} onChange={e=>setNext(e.target.value)}/></label><label>Confirm new password<input required minLength={10} autoComplete="new-password" type="password" value={confirm} onChange={e=>setConfirm(e.target.value)}/></label>{confirm&&next!==confirm&&<p className="wide login-error">Passwords do not match.</p>}{error&&<p className="wide login-error">{error}</p>}</div><footer><button type="button" onClick={close}>Cancel</button><button className="primary" disabled={!valid||saving}>{saving?"Updating…":"Update administrator password"}</button></footer></form></>}
 function RequestorDashboard({rows,open,create,go}:{rows:Payment[];open:(p:Payment)=>void;create:()=>void;go:(m:Module)=>void}){
  const total=rows.length,released=rows.filter(r=>r.status==="Payment Released").length;

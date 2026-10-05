@@ -35,6 +35,8 @@ export type Message={id:string;authorId:string;authorName:string;authorEmail:str
   toEmployee:string;body:string;at:string};
 export type Account={id:string;email:string;name:string;employeeId:string;roles:string[];
   visibleRaisers?:string[];
+  /* Material Management scope: a site engineer's projects, a vendor's supplier. */
+  material?:{projectIds:string[];vendorId:string};
   /* How many payment requests this person has raised. Read-only, from the users
      endpoint, so the assignment picker can show who actually raises work. */
   requestCount?:number;
@@ -78,7 +80,8 @@ export const accountsApi={
     const q=u.toString();
     return asJson<{users:Account[];total:number}>(
       await fetch(`/api/auth/users${q?`?${q}`:""}`))},
-  create:async(u:{name:string;email:string;employeeId:string;roles:string[]})=>
+  create:async(u:{name:string;email:string;employeeId:string;roles:string[];
+    material?:{projectIds:string[];vendorId:string}})=>
     await send("/api/auth/users","POST",u) as {created:boolean;email:string;temporaryPassword:string},
   update:async(body:Record<string,unknown>)=>await send("/api/auth/users","PATCH",body),
   remove:async(id:string)=>await asJson(await fetch(`/api/auth/users?id=${encodeURIComponent(id)}`,

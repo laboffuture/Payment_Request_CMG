@@ -3,6 +3,7 @@ import{getDb}from"../../../../db";
 import{paymentRequests,wfEmployees,wfSessions,wfUsers}from"../../../../db/schema";
 import{newPasswordFields,randomHex,requireAuth}from"../../../../lib/auth";
 import{bad,oops,page,search,str}from"../../../../lib/workforce-api";
+import{parseMaterialScope}from"../../../../lib/roles";
 
 const shape=(u:Record<string,unknown>)=>({id:str(u.id),email:str(u.email).toLowerCase(),
   name:str(u.name),employeeId:str(u.employeeId),roles:Array.isArray(u.roles)?u.roles as string[]:["Requestor"]});
@@ -18,7 +19,7 @@ export async function GET(req:Request){
     const where=q?or(like(wfUsers.name,q),like(wfUsers.email,q)):undefined;
     const [rows,[total]]=await Promise.all([
       db.select({id:wfUsers.id,email:wfUsers.email,name:wfUsers.name,roles:wfUsers.roles,
-        visibleRaisers:wfUsers.visibleRaisers,
+        visibleRaisers:wfUsers.visibleRaisers,material:wfUsers.material,
         employeeId:wfUsers.employeeId,active:wfUsers.active,mustChange:wfUsers.mustChange,
         lastLoginAt:wfUsers.lastLoginAt}).from(wfUsers).where(where)
         .orderBy(asc(wfUsers.name)).limit(limit).offset(offset),
@@ -35,6 +36,7 @@ export async function GET(req:Request){
       n:count()}).from(paymentRequests).groupBy(sql`lower(${paymentRequests.raisedBy})`);
     const byEmail=new Map(raised.map(r=>[String(r.who||""),Number(r.n)||0]));
     return Response.json({users:rows.map(r=>({...r,roles:JSON.parse(r.roles||"[]"),
+      material:parseMaterialScope(r.material),
       requestCount:byEmail.get(String(r.email||"").toLowerCase())??0,
       /* Parsed, like roles beside it. Sent as the raw column it became the string "[]"
          on the screen, and the picker spread that string into its characters - so a
@@ -45,8 +47,9 @@ export async function GET(req:Request){
       active:!!r.active,mustChange:!!r.mustChange})),total:total?.n??0});
   }catch(e){return oops(e)}}
 
-/* A login can only exist for somebody already on an organisation chart, and each
-   person gets at most one. */
+/* Each person on an organisation chart gets at most one login. Vendors and site staff
+   who use only Material Management are not on the chart, so for them the person is
+   optional and the name typed in is used instead. */
 export async function POST(req:Request){
   try{
     const{response}=await requireAuth(req,"admin");
@@ -54,22 +57,25 @@ export async function POST(req:Request){
     const body=await req.json() as Record<string,unknown>;
     const row=shape(body);
     if(!row.email||!row.name)return bad("name and email are required");
-    if(!row.employeeId)return bad("Pick the person on the organisation chart",422);
+    if(!row.roles.length)return bad("Give the login at least one role",422);
     const db=await getDb();
-    const [person]=await db.select().from(wfEmployees)
-      .where(eq(wfEmployees.id,row.employeeId)).limit(1);
-    if(!person)return bad("That employee is not on any organisation chart",422);
+    if(row.employeeId){
+      const [person]=await db.select().from(wfEmployees)
+        .where(eq(wfEmployees.id,row.employeeId)).limit(1);
+      if(!person)return bad("That employee is not on any organisation chart",422);
+      const [clashPerson]=await db.select().from(wfUsers)
+        .where(eq(wfUsers.employeeId,row.employeeId)).limit(1);
+      if(clashPerson)return bad(`${person.name} already signs in as ${clashPerson.email}`,409);
+    }
     const [clashEmail]=await db.select().from(wfUsers).where(eq(wfUsers.email,row.email)).limit(1);
     if(clashEmail)return bad("That email already has an account",409);
-    const [clashPerson]=await db.select().from(wfUsers)
-      .where(eq(wfUsers.employeeId,row.employeeId)).limit(1);
-    if(clashPerson)return bad(`${person.name} already signs in as ${clashPerson.email}`,409);
 
     const temporary=`Cot-${randomHex(3)}-${Math.floor(1000+Math.random()*9000)}`;
     const fields=await newPasswordFields(temporary);
     const now=new Date().toISOString();
     await db.insert(wfUsers).values({id:`u-${Date.now().toString(36)}`,email:row.email,
       name:row.name,employeeId:row.employeeId,roles:JSON.stringify(row.roles),
+      material:JSON.stringify(parseMaterialScope(body.material)),
       ...fields,mustChange:1,active:1,createdAt:now,passwordSetAt:now,lastLoginAt:""});
     // the temporary password is returned once, to be handed over out of band
     return Response.json({created:true,email:row.email,temporaryPassword:temporary},{status:201});
@@ -120,9 +126,14 @@ export async function PATCH(req:Request){
       if(!active)await db.delete(wfSessions).where(eq(wfSessions.userId,id));
       return Response.json({active:!!active});
     }
-    if(Array.isArray(body.roles)){
-      await db.update(wfUsers).set({roles:JSON.stringify(body.roles)}).where(eq(wfUsers.id,id));
-      return Response.json({roles:body.roles});
+    /* Roles and material scope may arrive together from the edit dialog. */
+    if(Array.isArray(body.roles)||(body.material&&typeof body.material==="object")){
+      const set:Record<string,string>={};
+      if(Array.isArray(body.roles))set.roles=JSON.stringify(body.roles);
+      if(body.material&&typeof body.material==="object")
+        set.material=JSON.stringify(parseMaterialScope(body.material));
+      await db.update(wfUsers).set(set).where(eq(wfUsers.id,id));
+      return Response.json({roles:body.roles,material:body.material?parseMaterialScope(body.material):undefined});
     }
     /* Which requestors this login may read. Checked against the register rather than
        trusted: an address that is not an active login would sit in the list looking like
