@@ -13,6 +13,8 @@ export const STAGES=["Requested","Accounts","Audit","Correction","Recheck","Rele
 const AT:Record<string,number>={
   // with the requestor: sent back to them with a query, to correct and resubmit
   "Query Raised":0,
+  // waiting for management, before accounts (Top Rock Global's requests)
+  "Management Approval":0,
   // closed by accounts or audit - the requestor raises a new request instead
   "Rejected":0,
   // accounts
@@ -32,6 +34,17 @@ const AT:Record<string,number>={
 /* 0 to 5. An unknown status sits at the start rather than pretending to progress. */
 export const stageIndex=(status:string)=>AT[status]??0;
 export const stageLabel=(status:string)=>STAGES[stageIndex(status)];
+
+/* Management approval before accounts. A request raised for one of these companies goes
+   first to management, and reaches the accounts queue only once management approves it;
+   from there its flow is the same as any other. Matched on the name with case, spaces
+   and punctuation ignored, so "TOP ROCK GLOBAL" and "TopRock Global" are one company. */
+export const MANAGEMENT_FIRST_COMPANIES=["TOP ROCK GLOBAL"];
+export const MANAGEMENT_APPROVAL="Management Approval";
+export const MANAGEMENT_ROLES=["Management","Administrator"];
+const squash=(s:string)=>String(s||"").toLowerCase().replace(/[^a-z0-9]/g,"");
+export const needsManagementApproval=(company:string)=>
+  MANAGEMENT_FIRST_COMPANIES.some(c=>squash(c)===squash(company));
 
 /* Finished, as the requestor counts it: nothing further is expected of anyone. A rejected
    request is finished too - it is closed, and what follows it is a new request. */

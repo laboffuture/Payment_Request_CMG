@@ -5,6 +5,7 @@ import{deleteFile}from"../../../lib/storage";
 import{companyLock,departmentPeers,hasWriteRole,inCompany,requireAuth}from"../../../lib/auth";
 import{emailsForRoles,notify,rolesActingOn}from"../../../lib/notify";
 import{FIELD_ORDER,REQUIRED_ON_SAVE,labelFor,ruleFor}from"../../../lib/payment-fields";
+import{MANAGEMENT_APPROVAL,MANAGEMENT_ROLES,needsManagementApproval}from"../../../lib/payment-stages";
 import{rememberVendor}from"../../../lib/vendors";
 import type{FieldKey}from"../../../lib/payment-fields";
 import{bad,oops,str}from"../../../lib/workforce-api";
@@ -57,6 +58,12 @@ const STATUSES=["Submitted","Requested",REJECTED,QUERY,"Accountant Review","Acco
   "Observation - Audit Action","Management Approval","Management Approval: Yes",
   "Management Approval: No","Approved by Auditor – Ready to Release","Finance Queue",
   "Payment Released","Reconciliation","Audit Cleared"];
+
+/* Who approves for management. Nobody may hold the Management role yet, so the
+   administrators are asked instead, rather than a request waiting on an empty inbox. */
+async function approvers(){
+  const named=await emailsForRoles(["Management"]);
+  return named.length?{to:named,roles:["Management"]}:{to:await emailsForRoles(["Administrator"]),roles:["Administrator"]}}
 
 export async function GET(req:Request){
   try{
@@ -165,11 +172,16 @@ export async function POST(req:Request){
       const m=/^PAY-\d{4}-(\d+)$/.exec(r.no||"");
       return m?Math.max(top,Number(m[1])):top},1049)+1;
 
+    /* Top Rock Global's requests wait for management before accounts; every other
+       company's go straight to the accounts queue, whatever the browser sent. */
+    const managementFirst=needsManagementApproval(String(p.company));
+    const start=managementFirst?{status:MANAGEMENT_APPROVAL,owner:"Management"}
+      :{status:p.status&&p.status!==MANAGEMENT_APPROVAL?p.status:"Submitted",owner:p.owner||"Accountant queue"};
     let payment;
     for(let attempt=0;attempt<6&&!payment;attempt++){
       try{
         [payment]=await db.insert(paymentRequests)
-          .values({...p,amount,requestNo:`PAY-${year}-${next}`,raisedBy:actor?.email||""})
+          .values({...p,...start,amount,requestNo:`PAY-${year}-${next}`,raisedBy:actor?.email||""})
           .returning();
       }catch(e){
         const taken=String(e).toLowerCase().includes("unique");
@@ -180,8 +192,16 @@ export async function POST(req:Request){
     if(!payment)return bad("Could not issue a request number. Please try again.",503);
     await db.insert(auditLogs).values({recordId:payment.id,action:"Payment submitted",
       actor:actor?.name||actor?.email||"system",newValue:payment.status});
-    /* A new request waits on accounts. */
-    await notify(await emailsForRoles(["Accountant"]),{
+    /* A new request waits on accounts - or, for Top Rock Global, on management first. */
+    if(managementFirst){
+      const t=await approvers();
+      await notify(t.to,{
+        title:`${payment.requestNo} needs management approval`,
+        body:`${payment.company} · ${payment.vendor} · ${payment.currency} ${Number(payment.amount).toLocaleString()} · raised by ${actor?.name||actor?.email||"a requestor"}`,
+        reference:payment.requestNo,detail:paymentDetail(payment),
+        action:"Approve it to send it to the accounts queue, or query or reject it with a reason.",
+        module:"payments",recordId:String(payment.id)},actor?.email,t.roles);
+    }else await notify(await emailsForRoles(["Accountant"]),{
       title:`New payment request ${payment.requestNo}`,
       body:`${payment.vendor} · ${payment.currency} ${Number(payment.amount).toLocaleString()} · raised by ${actor?.name||actor?.email||"a requestor"}`,
       reference:payment.requestNo,detail:paymentDetail(payment),
@@ -224,6 +244,21 @@ export async function PATCH(req:Request){
         :`${old.requestNo} is not waiting on you - it is at "${old.status}". Reload the page to see where it is now.`,409);
     if(!hasWriteRole(actor?.roles)&&!ownResubmit)
       return bad("Your role cannot change this data.",403);
+    /* Management approval. While a request waits there, only management (or an
+       administrator) may move it, only to approve it into the accounts queue, query the
+       requestor or reject it - and never the person who raised it. Nobody puts a request
+       into management approval by hand: it starts there, or returns there on a
+       resubmission. */
+    if(old.status===MANAGEMENT_APPROVAL&&!(ownResubmit)){
+      if(!(actor?.roles||[]).some(r=>MANAGEMENT_ROLES.includes(r)))
+        return bad(`${old.requestNo} is waiting for management approval.`,403);
+      if(![ "Submitted",QUERY,REJECTED].includes(String(status)))
+        return bad("From management approval a request is approved, queried or rejected.",422);
+      if((old.raisedBy||"").toLowerCase()===(actor?.email||"").toLowerCase())
+        return bad("You raised this request, so someone else in management must approve it.",403);
+    }
+    if(status===MANAGEMENT_APPROVAL&&old.status!==MANAGEMENT_APPROVAL)
+      return bad("A request reaches management approval when it is raised, not by hand.",422);
     /* A rejection is final. Only an administrator can move a rejected request again - to
        undo a rejection made in error - and nobody can resubmit one. */
     if(old.status===REJECTED&&!(actor?.roles||[]).includes("Administrator"))
@@ -247,6 +282,8 @@ export async function PATCH(req:Request){
         .where(and(eq(auditLogs.recordId,Number(id)),eq(auditLogs.action,"Query raised to requestor")))
         .orderBy(desc(auditLogs.id)).limit(1);
       if(asking&&AUDIT_STAGES.includes(asking.previousValue)){status="Pre-Audit Queue";owner="Audit queue"}
+      /* Queried by management: the answer goes back to management, not past it. */
+      else if(asking&&asking.previousValue===MANAGEMENT_APPROVAL){status=MANAGEMENT_APPROVAL;owner="Management"}
     }
     if(isResubmit&&remark.length<5)
       return bad("Say what you corrected, so accounts can see what changed.",422);
@@ -373,10 +410,12 @@ export async function PATCH(req:Request){
         previousValue:before||"(empty)",newValue:after||"(empty)"});
     /* Tell whoever the request now waits on, and keep the person who raised it informed
        of every move - a rejection most of all, with the reason. */
-    const waitingOn=rolesActingOn(status);
-    if(waitingOn.length)await notify(await emailsForRoles(waitingOn),{
+    /* Management may have nobody in it yet; the administrators are asked instead. */
+    const mgmt=status===MANAGEMENT_APPROVAL?await approvers():null;
+    const waitingOn=mgmt?mgmt.roles:rolesActingOn(status);
+    if(waitingOn.length)await notify(mgmt?mgmt.to:await emailsForRoles(waitingOn),{
       title:status===AUDIT_QUERY?`${payment.requestNo}: audit has a query for accounts`
-        :`${payment.requestNo} is waiting for ${waitingOn[0]==="Finance"?"release":waitingOn[0]==="Auditor"?"audit":waitingOn[0]==="Management"?"management approval":"accounts"}`,
+        :`${payment.requestNo} is waiting for ${waitingOn[0]==="Finance"?"release":waitingOn[0]==="Auditor"?"audit":status===MANAGEMENT_APPROVAL?"management approval":"accounts"}`,
       body:`${payment.vendor} · ${payment.currency} ${Number(payment.amount).toLocaleString()} · ${status}`,
       /* The roles decide where the email goes, not whether one is sent: audit has a group
          address, everybody else is written to individually. */
@@ -384,11 +423,13 @@ export async function PATCH(req:Request){
       action:status===AUDIT_QUERY?"Audit has a query about this request. Answer it and send the request back to audit."
         :waitingOn[0]==="Finance"?"Release the approved amount and attach the payment proof."
         :waitingOn[0]==="Auditor"?"Accept it from the audit queue and verify the documents."
-        :waitingOn[0]==="Management"?"Approve or decline this request."
+        :status===MANAGEMENT_APPROVAL?"The requestor has answered your query. Approve it to send it to accounts, or query or reject it."
         :"Pick it up from the accounts queue.",
       module:"payments",recordId:String(payment.id)},actor?.email,waitingOn);
+    const approvedByManagement=old.status===MANAGEMENT_APPROVAL&&status==="Submitted";
     await notify([old.raisedBy||""],{
-      title:status===QUERY?`${payment.requestNo}: query raised - please correct and resubmit`
+      title:approvedByManagement?`${payment.requestNo} approved by management - now with accounts`
+        :status===QUERY?`${payment.requestNo}: query raised - please correct and resubmit`
         :status===REJECTED?`${payment.requestNo} was rejected`
         :`Your request ${payment.requestNo}: ${status}`,
       body:remark||`${payment.vendor} · ${payment.currency} ${Number(payment.amount).toLocaleString()}`,
@@ -402,7 +443,7 @@ export async function PATCH(req:Request){
         ?"This request is closed and cannot be resubmitted. If the payment is still needed, raise a new request."
         :status==="Payment Released"?"Nothing further is needed from you."
         :"No action is needed from you yet; this is where the request has reached.",
-      email:REQUESTOR_EMAIL.includes(status),
+      email:REQUESTOR_EMAIL.includes(status)||approvedByManagement,
       module:"payments",recordId:String(payment.id)},actor?.email);
     return Response.json({payment});
   }catch(e){return oops(e)}}
