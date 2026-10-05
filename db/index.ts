@@ -2,6 +2,8 @@ import { drizzle } from "drizzle-orm/d1";
 import * as schema from "./schema";
 
 let cached: Partial<Env> | null = null;
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+let cachedDb: any = null;
 
 /**
  * Resolves the Worker bindings without importing `cloudflare:workers` at module
@@ -20,6 +22,7 @@ export async function getBindings(): Promise<Partial<Env>> {
 }
 
 export async function getDb() {
+  if (cachedDb) return cachedDb;
   const env = await getBindings();
   if (!env.DB) {
     throw new Error(
@@ -27,5 +30,6 @@ export async function getDb() {
     );
   }
 
-  return drizzle(env.DB, { schema });
+  cachedDb = drizzle(env.DB, { schema });
+  return cachedDb;
 }
