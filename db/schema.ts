@@ -51,6 +51,15 @@ export const settingOptions=sqliteTable("setting_options",{
   active:integer("active").notNull().default(1)},
   t=>[index("set_opt_list_idx").on(t.listId,t.position)]);
 
+/* Settings an administrator switches without a code change: one row per key, its value
+   as JSON. payment.managementApproval = {enabled, companies}: whether a payment request
+   for one of those companies goes to management before accounts. */
+export const appSettings=sqliteTable("app_settings",{
+  key:text("key").primaryKey(),
+  value:text("value").notNull().default(""),
+  updatedBy:text("updated_by").notNull().default(""),
+  updatedAt:text("updated_at").notNull().default("")});
+
 export const settingFields=sqliteTable("setting_fields",{
   id:text("id").primaryKey(),
   form:text("form").notNull(),

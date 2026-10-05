@@ -22,7 +22,7 @@ const call=async(url:string,method:string,body?:unknown)=>{
   return d};
 
 export default function SettingsDesk({changed}:{changed?:()=>void}){
-  const[tab,setTab]=useState<"lists"|"fields">("lists");
+  const[tab,setTab]=useState<"lists"|"fields"|"approvals">("lists");
   return <div className="page settings-page">
     <div className="intro"><div><small>ADMINISTRATION</small><h2>Settings</h2>
       <p>Maintain the choices behind the dropdowns, and add extra fields to a form,
@@ -30,8 +30,9 @@ export default function SettingsDesk({changed}:{changed?:()=>void}){
     <div className="settings-tabs">
       <button className={tab==="lists"?"active":""} onClick={()=>setTab("lists")}>Dropdown lists</button>
       <button className={tab==="fields"?"active":""} onClick={()=>setTab("fields")}>Extra form fields</button>
+      <button className={tab==="approvals"?"active":""} onClick={()=>setTab("approvals")}>Payment approvals</button>
     </div>
-    {tab==="lists"?<Lists changed={changed}/>:<Fields changed={changed}/>}
+    {tab==="lists"?<Lists changed={changed}/>:tab==="fields"?<Fields changed={changed}/>:<Approvals/>}
   </div>}
 
 function Lists({changed}:{changed?:()=>void}){
@@ -177,3 +178,49 @@ function Fields({changed}:{changed?:()=>void}){
       </>}
     </section>
   </div>}
+
+/* Whether a payment request needs management approval before it reaches accounts, and for
+   which companies. Switched off, every company's requests go straight to accounts; the
+   requests already waiting for management stay there until management decides them. */
+function Approvals(){
+  type State={managementApproval:{enabled:boolean;companies:string[]};companies:string[];waiting:number};
+  const[saved,setSaved]=useState<State|null>(null);
+  const[enabled,setEnabled]=useState(false),[picked,setPicked]=useState<string[]>([]);
+  const[busy,setBusy]=useState(false),[note,setNote]=useState(""),[error,setError]=useState("");
+  const take=(d:State)=>{setSaved(d);setEnabled(d.managementApproval.enabled);setPicked(d.managementApproval.companies)};
+  useEffect(()=>{call("/api/settings/workflow","GET").then(r=>{const d=r as State;
+    setSaved(d);setEnabled(d.managementApproval.enabled);setPicked(d.managementApproval.companies)}).catch(e=>setError(e.message))},[]);
+  if(error&&!saved)return <p className="settings-error">{error}</p>;
+  if(!saved)return <p className="settings-empty">Loading…</p>;
+  const dirty=enabled!==saved.managementApproval.enabled||
+    [...picked].sort().join("|")!==[...saved.managementApproval.companies].sort().join("|");
+  const toggle=(c:string)=>setPicked(v=>v.includes(c)?v.filter(x=>x!==c):[...v,c]);
+  const save=async()=>{setBusy(true);setNote("");setError("");
+    try{take(await call("/api/settings/workflow","PATCH",{enabled,companies:picked}) as State);
+      setNote(enabled?`Saved. New requests for ${picked.join(", ")} go to management first.`:"Saved. Every new request goes straight to accounts.")}
+    catch(e){setError(e instanceof Error?e.message:"Could not save")}
+    finally{setBusy(false)}};
+  return <section className="panel settings-approvals">
+    <div className="sa-row">
+      <div><b>Management approval before Accounts</b>
+        <p>A new payment request for a chosen company waits for management to approve it before it reaches the
+          accounts queue. Management can approve, query or reject it; nobody approves their own request.</p></div>
+      <button type="button" role="switch" aria-checked={enabled} className={enabled?"sa-switch on":"sa-switch"}
+        onClick={()=>setEnabled(v=>!v)}><i/>{enabled?"On":"Off"}</button>
+    </div>
+    <div className={enabled?"sa-companies":"sa-companies off"}>
+      <small>APPLIES TO</small>
+      <div className="sa-grid">{saved.companies.map(c=><button type="button" key={c} role="checkbox" aria-checked={picked.includes(c)}
+        disabled={!enabled} className={picked.includes(c)?"sa-co on":"sa-co"} onClick={()=>toggle(c)}>
+        <span className="sa-box">{picked.includes(c)?"\u2713":""}</span>{c}</button>)}</div>
+    </div>
+    {saved.waiting>0&&<p className="sa-note">{saved.waiting} request{saved.waiting===1?" is":"s are"} waiting for management approval now.
+      {" "}They stay with management until approved, queried or rejected, whatever is chosen here.</p>}
+    {error&&<p className="settings-error">{error}</p>}
+    {note&&<p className="settings-note">{note}</p>}
+    <div className="sa-actions">
+      <button type="button" disabled={busy||!dirty} onClick={()=>take(saved)}>Cancel</button>
+      <button type="button" className="primary" disabled={busy||!dirty||(enabled&&!picked.length)}
+        title={enabled&&!picked.length?"Choose at least one company":""} onClick={save}>{busy?"Saving…":"Save"}</button>
+    </div>
+  </section>}

@@ -39,12 +39,16 @@ export const stageLabel=(status:string)=>STAGES[stageIndex(status)];
    first to management, and reaches the accounts queue only once management approves it;
    from there its flow is the same as any other. Matched on the name with case, spaces
    and punctuation ignored, so "TOP ROCK GLOBAL" and "TopRock Global" are one company. */
+/* The companies are an administrator's setting (Settings -> Payment approvals, stored as
+   payment.managementApproval); this is what applies before anyone has changed it. */
 export const MANAGEMENT_FIRST_COMPANIES=["TOP ROCK GLOBAL"];
 export const MANAGEMENT_APPROVAL="Management Approval";
 export const MANAGEMENT_ROLES=["Management","Administrator"];
+export const MANAGEMENT_SETTING="payment.managementApproval";
+export type ManagementSetting={enabled:boolean;companies:string[]};
 const squash=(s:string)=>String(s||"").toLowerCase().replace(/[^a-z0-9]/g,"");
-export const needsManagementApproval=(company:string)=>
-  MANAGEMENT_FIRST_COMPANIES.some(c=>squash(c)===squash(company));
+export const needsManagementApproval=(company:string,setting:ManagementSetting={enabled:true,companies:MANAGEMENT_FIRST_COMPANIES})=>
+  setting.enabled&&setting.companies.some(c=>squash(c)===squash(company));
 
 /* Finished, as the requestor counts it: nothing further is expected of anyone. A rejected
    request is finished too - it is closed, and what follows it is a new request. */

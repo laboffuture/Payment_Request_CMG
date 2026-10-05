@@ -6,6 +6,7 @@ import{companyLock,departmentPeers,hasWriteRole,inCompany,requireAuth}from"../..
 import{emailsForRoles,notify,rolesActingOn}from"../../../lib/notify";
 import{FIELD_ORDER,REQUIRED_ON_SAVE,labelFor,ruleFor}from"../../../lib/payment-fields";
 import{MANAGEMENT_APPROVAL,MANAGEMENT_ROLES,needsManagementApproval}from"../../../lib/payment-stages";
+import{managementSetting}from"../../../lib/app-settings";
 import{rememberVendor}from"../../../lib/vendors";
 import type{FieldKey}from"../../../lib/payment-fields";
 import{bad,oops,str}from"../../../lib/workforce-api";
@@ -172,9 +173,10 @@ export async function POST(req:Request){
       const m=/^PAY-\d{4}-(\d+)$/.exec(r.no||"");
       return m?Math.max(top,Number(m[1])):top},1049)+1;
 
-    /* Top Rock Global's requests wait for management before accounts; every other
-       company's go straight to the accounts queue, whatever the browser sent. */
-    const managementFirst=needsManagementApproval(String(p.company));
+    /* A company an administrator has listed under Settings -> Payment approvals (Top Rock
+       Global) waits for management before accounts, while that setting is on; every other
+       request goes straight to the accounts queue, whatever the browser sent. */
+    const managementFirst=needsManagementApproval(String(p.company),await managementSetting());
     const start=managementFirst?{status:MANAGEMENT_APPROVAL,owner:"Management"}
       :{status:p.status&&p.status!==MANAGEMENT_APPROVAL?p.status:"Submitted",owner:p.owner||"Accountant queue"};
     let payment;
