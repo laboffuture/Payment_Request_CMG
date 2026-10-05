@@ -8,7 +8,7 @@ import Attachments,{asDataUrl,type Attachment}from"./Attachments";
 import{stamp as stampAt}from"../lib/stamp";
 import{distinct,jobFor}from"../lib/jobs";
 import type{Job}from"../lib/jobs";
-type Payment={projectCode?:string;invoiceNumber?:string;invoiceDate?:string;paymentTerms?:string;period?:string;extra?:string;tds?:string;nature?:string;poNumber?:string;resubmitNote?:string;resubmittedAt?:string;rejectionNote?:string;rejectedBy?:string;rejectedAt?:string;raisedBy?:string;tdsPercent?:string;tdsValue?:string;
+type Payment={canApprove?:boolean;projectCode?:string;invoiceNumber?:string;invoiceDate?:string;paymentTerms?:string;period?:string;extra?:string;tds?:string;nature?:string;poNumber?:string;resubmitNote?:string;resubmittedAt?:string;rejectionNote?:string;rejectedBy?:string;rejectedAt?:string;raisedBy?:string;tdsPercent?:string;tdsValue?:string;
   /* The note left by whoever moved the request last. This panel declares its own Payment
      type rather than sharing page.tsx's, so a field added there does not arrive here. */
   lastActionNote?:string;lastActionBy?:string;utrNumber?:string;id:number;requestNo:string;company:string;vendor:string;amount:number;currency:string;due:string;urgency:string;status:string;owner:string;department:string};
@@ -185,7 +185,11 @@ export default function PaymentDetail({payment:p,busy=false,role,onClose,onActio
  /* Management approval, before accounts - Top Rock Global's requests. Management (or an
     administrator) approves it into the accounts queue, or queries or rejects it; the person
     who raised it cannot approve it. The server holds the same rules. */
- if(mgmtQueue&&["Management","Administrator"].includes(role))action=<>
+ /* Who may decide it comes from the server: the managers named for the company in Settings,
+    or anyone in Management when nobody is named. */
+ if(mgmtQueue&&["Management","Administrator"].includes(role)&&!p.canApprove)action=<div className="wf-callout"><Clock3/>
+   {p.company} requests are approved by the managers named for it in Settings. This one is waiting for them.</div>;
+ if(mgmtQueue&&["Management","Administrator"].includes(role)&&p.canApprove)action=<>
    <div className="wf-callout"><ShieldCheck/>{p.company} requests need management approval before they reach accounts.</div>
    {p.resubmitNote&&<div className="wf-success wf-reply"><Check/><div><small>CORRECTED AND RESUBMITTED</small><b>{p.resubmitNote}</b><span>{p.rejectionNote?`Returned for: ${p.rejectionNote}`:""}{p.resubmittedAt?` · ${stamp(p.resubmittedAt)}`:""}</span></div></div>}
    {isOwnRequest&&!!p.raisedBy?<div className="wf-callout"><Clock3/>You raised this request, so someone else in management must approve it.</div>

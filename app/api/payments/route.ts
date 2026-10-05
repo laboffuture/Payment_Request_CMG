@@ -5,8 +5,9 @@ import{deleteFile}from"../../../lib/storage";
 import{companyLock,departmentPeers,hasWriteRole,inCompany,requireAuth}from"../../../lib/auth";
 import{emailsForRoles,notify,rolesActingOn}from"../../../lib/notify";
 import{FIELD_ORDER,REQUIRED_ON_SAVE,labelFor,ruleFor}from"../../../lib/payment-fields";
-import{MANAGEMENT_APPROVAL,MANAGEMENT_ROLES,needsManagementApproval}from"../../../lib/payment-stages";
-import{managementSetting}from"../../../lib/app-settings";
+import{MANAGEMENT_APPROVAL,MANAGEMENT_ROLES,approversOf,needsManagementApproval}from"../../../lib/payment-stages";
+import type{ManagementSetting}from"../../../lib/payment-stages";
+import{managementSetting,managementUsers}from"../../../lib/app-settings";
 import{rememberVendor}from"../../../lib/vendors";
 import type{FieldKey}from"../../../lib/payment-fields";
 import{bad,oops,str}from"../../../lib/workforce-api";
@@ -60,11 +61,24 @@ const STATUSES=["Submitted","Requested",REJECTED,QUERY,"Accountant Review","Acco
   "Management Approval: No","Approved by Auditor – Ready to Release","Finance Queue",
   "Payment Released","Reconciliation","Audit Cleared"];
 
-/* Who approves for management. Nobody may hold the Management role yet, so the
-   administrators are asked instead, rather than a request waiting on an empty inbox. */
-async function approvers(){
-  const named=await emailsForRoles(["Management"]);
-  return named.length?{to:named,roles:["Management"]}:{to:await emailsForRoles(["Administrator"]),roles:["Administrator"]}}
+/* Who approves a company's requests for management: the managers an administrator named for
+   it (Settings -> Payment approvals), else everyone holding the Management role, else - while
+   nobody holds it - the administrators, rather than a request waiting on an empty inbox. */
+async function approvers(company:string,setting?:ManagementSetting){
+  const named=approversOf(setting||await managementSetting(),company);
+  if(named.length){
+    const active=(await managementUsers()).map(m=>m.email).filter(e=>named.includes(e.toLowerCase()));
+    if(active.length)return{to:active,roles:undefined as string[]|undefined}}
+  const managers=await emailsForRoles(["Management"]);
+  return managers.length?{to:managers,roles:["Management"]}:{to:await emailsForRoles(["Administrator"]),roles:["Administrator"]}}
+
+/** Whether this reader may decide a request waiting for management: an administrator, a
+    manager named for its company, or - when nobody is named - anyone in Management. */
+const mayApprove=(setting:ManagementSetting,company:string,actor:{email?:string;roles?:string[]}|null|undefined)=>{
+  const roles=actor?.roles||[];
+  if(roles.includes("Administrator"))return true;
+  const named=approversOf(setting,company);
+  return named.length?named.includes((actor?.email||"").toLowerCase()):roles.includes("Management")};
 
 export async function GET(req:Request){
   try{
@@ -120,7 +134,11 @@ export async function GET(req:Request){
         if(remark)latest.set(l.recordId,{remark,by:l.actor});
       }
     }
+    /* Whether this reader may decide each request waiting for management, so the screen offers
+       Approve only to the managers named for its company. The PATCH checks it again. */
+    const setting=mine.some(r=>r.status===MANAGEMENT_APPROVAL)?await managementSetting():null;
     return Response.json({payments:mine.map(r=>({...r,
+      canApprove:!!setting&&r.status===MANAGEMENT_APPROVAL&&mayApprove(setting,r.company,actor),
       latestRemark:latest.get(r.id)?.remark||"",latestRemarkBy:latest.get(r.id)?.by||""}))});
   }catch{return Response.json({payments:[]})}}
 
@@ -176,7 +194,8 @@ export async function POST(req:Request){
     /* A company an administrator has listed under Settings -> Payment approvals (Top Rock
        Global) waits for management before accounts, while that setting is on; every other
        request goes straight to the accounts queue, whatever the browser sent. */
-    const managementFirst=needsManagementApproval(String(p.company),await managementSetting());
+    const setting=await managementSetting();
+    const managementFirst=needsManagementApproval(String(p.company),setting);
     const start=managementFirst?{status:MANAGEMENT_APPROVAL,owner:"Management"}
       :{status:p.status&&p.status!==MANAGEMENT_APPROVAL?p.status:"Submitted",owner:p.owner||"Accountant queue"};
     let payment;
@@ -196,7 +215,7 @@ export async function POST(req:Request){
       actor:actor?.name||actor?.email||"system",newValue:payment.status});
     /* A new request waits on accounts - or, for Top Rock Global, on management first. */
     if(managementFirst){
-      const t=await approvers();
+      const t=await approvers(String(payment.company),setting);
       await notify(t.to,{
         title:`${payment.requestNo} needs management approval`,
         body:`${payment.company} · ${payment.vendor} · ${payment.currency} ${Number(payment.amount).toLocaleString()} · raised by ${actor?.name||actor?.email||"a requestor"}`,
@@ -252,8 +271,11 @@ export async function PATCH(req:Request){
        into management approval by hand: it starts there, or returns there on a
        resubmission. */
     if(old.status===MANAGEMENT_APPROVAL&&!(ownResubmit)){
-      if(!(actor?.roles||[]).some(r=>MANAGEMENT_ROLES.includes(r)))
-        return bad(`${old.requestNo} is waiting for management approval.`,403);
+      const setting=await managementSetting();
+      if(!(actor?.roles||[]).some(r=>MANAGEMENT_ROLES.includes(r))||!mayApprove(setting,old.company,actor))
+        return bad(approversOf(setting,old.company).length
+          ?`${old.requestNo} is approved by the managers named for ${old.company}.`
+          :`${old.requestNo} is waiting for management approval.`,403);
       if(![ "Submitted",QUERY,REJECTED].includes(String(status)))
         return bad("From management approval a request is approved, queried or rejected.",422);
       if((old.raisedBy||"").toLowerCase()===(actor?.email||"").toLowerCase())
@@ -413,8 +435,8 @@ export async function PATCH(req:Request){
     /* Tell whoever the request now waits on, and keep the person who raised it informed
        of every move - a rejection most of all, with the reason. */
     /* Management may have nobody in it yet; the administrators are asked instead. */
-    const mgmt=status===MANAGEMENT_APPROVAL?await approvers():null;
-    const waitingOn=mgmt?mgmt.roles:rolesActingOn(status);
+    const mgmt=status===MANAGEMENT_APPROVAL?await approvers(payment.company):null;
+    const waitingOn=mgmt?mgmt.roles||["Management"]:rolesActingOn(status);
     if(waitingOn.length)await notify(mgmt?mgmt.to:await emailsForRoles(waitingOn),{
       title:status===AUDIT_QUERY?`${payment.requestNo}: audit has a query for accounts`
         :`${payment.requestNo} is waiting for ${waitingOn[0]==="Finance"?"release":waitingOn[0]==="Auditor"?"audit":status===MANAGEMENT_APPROVAL?"management approval":"accounts"}`,

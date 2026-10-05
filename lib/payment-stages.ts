@@ -45,8 +45,14 @@ export const MANAGEMENT_FIRST_COMPANIES=["TOP ROCK GLOBAL"];
 export const MANAGEMENT_APPROVAL="Management Approval";
 export const MANAGEMENT_ROLES=["Management","Administrator"];
 export const MANAGEMENT_SETTING="payment.managementApproval";
-export type ManagementSetting={enabled:boolean;companies:string[]};
+/* approvers: for a company, the logins (emails) of the managers who approve its requests.
+   A company with nobody named is approved by anyone holding the Management role. */
+export type ManagementSetting={enabled:boolean;companies:string[];approvers?:Record<string,string[]>};
 const squash=(s:string)=>String(s||"").toLowerCase().replace(/[^a-z0-9]/g,"");
+/** The managers named for a company's requests (emails, lower case); empty = anyone in Management. */
+export const approversOf=(setting:ManagementSetting,company:string)=>{
+  const key=Object.keys(setting.approvers||{}).find(c=>squash(c)===squash(company));
+  return key?(setting.approvers?.[key]||[]).map(e=>e.toLowerCase()):[]};
 export const needsManagementApproval=(company:string,setting:ManagementSetting={enabled:true,companies:MANAGEMENT_FIRST_COMPANIES})=>
   setting.enabled&&setting.companies.some(c=>squash(c)===squash(company));
 

@@ -1,5 +1,6 @@
 "use client";
 import{Plus,Trash2}from"lucide-react";
+import MultiSelect from"./MultiSelect";
 import{useCallback,useEffect,useState}from"react";
 
 /* Master data, for an Administrator.
@@ -183,20 +184,28 @@ function Fields({changed}:{changed?:()=>void}){
    which companies. Switched off, every company's requests go straight to accounts; the
    requests already waiting for management stay there until management decides them. */
 function Approvals(){
-  type State={managementApproval:{enabled:boolean;companies:string[]};companies:string[];waiting:number};
+  type State={managementApproval:{enabled:boolean;companies:string[];approvers?:Record<string,string[]>};companies:string[];waiting:number;
+    managers:{name:string;email:string}[]};
   const[saved,setSaved]=useState<State|null>(null);
-  const[enabled,setEnabled]=useState(false),[picked,setPicked]=useState<string[]>([]);
+  const[enabled,setEnabled]=useState(false),[picked,setPicked]=useState<string[]>([]),[who,setWho]=useState<Record<string,string[]>>({});
   const[busy,setBusy]=useState(false),[note,setNote]=useState(""),[error,setError]=useState("");
-  const take=(d:State)=>{setSaved(d);setEnabled(d.managementApproval.enabled);setPicked(d.managementApproval.companies)};
+  const take=(d:State)=>{setSaved(d);setEnabled(d.managementApproval.enabled);setPicked(d.managementApproval.companies);setWho(d.managementApproval.approvers||{})};
   useEffect(()=>{call("/api/settings/workflow","GET").then(r=>{const d=r as State;
-    setSaved(d);setEnabled(d.managementApproval.enabled);setPicked(d.managementApproval.companies)}).catch(e=>setError(e.message))},[]);
+    setSaved(d);setEnabled(d.managementApproval.enabled);setPicked(d.managementApproval.companies);setWho(d.managementApproval.approvers||{})}).catch(e=>setError(e.message))},[]);
   if(error&&!saved)return <p className="settings-error">{error}</p>;
   if(!saved)return <p className="settings-empty">Loading…</p>;
+  /* Approvers are kept by email; the picker shows names (with the email when two share one). */
+  const label=(m:{name:string;email:string})=>saved.managers.filter(x=>x.name===m.name).length>1?`${m.name} (${m.email})`:m.name;
+  const byLabel=new Map(saved.managers.map(m=>[label(m),m.email.toLowerCase()]));
+  const nameOf=(e:string)=>{const m=saved.managers.find(x=>x.email.toLowerCase()===e);return m?label(m):e};
+  const approverKey=(r:Record<string,string[]>)=>picked.map(c=>`${c}=${[...(r[c]||[])].sort().join(",")}`).join("|");
   const dirty=enabled!==saved.managementApproval.enabled||
-    [...picked].sort().join("|")!==[...saved.managementApproval.companies].sort().join("|");
+    [...picked].sort().join("|")!==[...saved.managementApproval.companies].sort().join("|")||
+    approverKey(who)!==approverKey(saved.managementApproval.approvers||{});
   const toggle=(c:string)=>setPicked(v=>v.includes(c)?v.filter(x=>x!==c):[...v,c]);
   const save=async()=>{setBusy(true);setNote("");setError("");
-    try{take(await call("/api/settings/workflow","PATCH",{enabled,companies:picked}) as State);
+    try{take(await call("/api/settings/workflow","PATCH",{enabled,companies:picked,
+      approvers:Object.fromEntries(picked.map(c=>[c,who[c]||[]]))}) as State);
       setNote(enabled?`Saved. New requests for ${picked.join(", ")} go to management first.`:"Saved. Every new request goes straight to accounts.")}
     catch(e){setError(e instanceof Error?e.message:"Could not save")}
     finally{setBusy(false)}};
@@ -214,6 +223,18 @@ function Approvals(){
         disabled={!enabled} className={picked.includes(c)?"sa-co on":"sa-co"} onClick={()=>toggle(c)}>
         <span className="sa-box">{picked.includes(c)?"\u2713":""}</span>{c}</button>)}</div>
     </div>
+    {enabled&&!!picked.length&&<div className="sa-approvers">
+      <small>APPROVED BY</small>
+      {!saved.managers.length
+        ?<p className="sa-hint">Nobody has the Management role yet. Give it to your managers under Users &amp; access, then choose who
+          approves each company here. Until then, administrators approve.</p>
+        :<>{picked.map(c=><div className="sa-approver" key={c}><b>{c}</b>
+            <MultiSelect options={saved.managers.map(label)} value={(who[c]||[]).map(nameOf)}
+              onChange={v=>setWho(x=>({...x,[c]:v.map(n=>byLabel.get(n)||n)}))}
+              allLabel="Any manager" noun="managers"/></div>)}
+          <p className="sa-hint">Only the managers chosen for a company can approve, query or reject its requests, and they are the
+            ones emailed. &ldquo;Any manager&rdquo; means everyone with the Management role.</p></>}
+    </div>}
     {saved.waiting>0&&<p className="sa-note">{saved.waiting} request{saved.waiting===1?" is":"s are"} waiting for management approval now.
       {" "}They stay with management until approved, queried or rejected, whatever is chosen here.</p>}
     {error&&<p className="settings-error">{error}</p>}

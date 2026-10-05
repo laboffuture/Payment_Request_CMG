@@ -141,7 +141,7 @@
 .rq-table .panel-head .wf-small:hover:not(:disabled){background:#e3f3ee;border-color:#9ecabd}
 .rq-table .panel-head .wf-small:disabled{opacity:.45;cursor:not-allowed}
 /* Payment approvals: the management-approval switch and its companies. */
-.settings-approvals{padding:20px;display:flex;flex-direction:column;gap:16px;max-width:860px}
+.settings-approvals{overflow:visible !important;padding:20px;display:flex;flex-direction:column;gap:16px;max-width:860px}
 .sa-row{display:flex;align-items:flex-start;justify-content:space-between;gap:20px}
 .sa-row b{font-size:14px}
 .sa-row p{margin:4px 0 0;font-size:12px;color:var(--muted);max-width:560px;line-height:1.5}
@@ -167,3 +167,11 @@
 .sa-actions button.primary{background:var(--green);border-color:var(--green);color:#fff}
 .sa-actions button:disabled{opacity:.5;cursor:not-allowed}
 @media(max-width:640px){.sa-row{flex-direction:column}}
+.sa-approvers small{font-size:10px;font-weight:700;letter-spacing:.08em;color:var(--muted)}
+.sa-approver{display:flex;align-items:center;justify-content:space-between;gap:16px;padding:10px 12px;margin-top:8px;border:1px solid var(--line);border-radius:8px;background:#fff}
+.sa-approver b{font-size:12px}
+.sa-approver .ms-btn{height:34px;min-width:220px;max-width:320px;font-size:12px}
+.sa-approver .ms-pop{left:auto;right:0}
+.sa-approver .ms-opt{font-size:12px}
+.sa-hint{margin:8px 0 0;font-size:12px;color:var(--muted);line-height:1.5}
+@media(max-width:640px){.sa-approver{flex-direction:column;align-items:stretch}.sa-approver .ms-btn{max-width:none;width:100%}}
