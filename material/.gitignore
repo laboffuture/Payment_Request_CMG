@@ -1,0 +1,25 @@
+node_modules/
+dist/
+.next/
+out/
+coverage/
+.turbo/
+*.tsbuildinfo
+
+.env
+.env.local
+.env.*.local
+!.env.example
+
+npm-debug.log*
+pnpm-debug.log*
+yarn-error.log*
+
+.DS_Store
+Thumbs.db
+
+docker/data/
+mongo-keyfile
+
+# local no-Docker run (scripts/dev-local.sh)
+.local/

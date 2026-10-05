@@ -15,6 +15,7 @@ async function loadEveryEmployee(){
   }
   return{employees:out}}
 import{accountsApi,type Account}from"./audit-api";
+import{MATERIAL_ROLE_NAMES,PAYMENT_ROLES,type MaterialScope}from"../lib/roles";
 import{csv}from"./workforce-store";
 import{Pager}from"./WorkforceShared";
 
@@ -25,10 +26,16 @@ import{Pager}from"./WorkforceShared";
    most dangerous kind of screen to leave in a menu.
 
    Two rules come from the server and are surfaced here rather than hidden:
-   a login can only be created for somebody already on an organisation chart, and the
-   first password is generated, shown once, and must be changed at first sign-in. */
+   a person on an organisation chart has at most one login, and the first password is
+   generated, shown once, and must be changed at first sign-in.
 
-const allRoles=["Requestor","Department Head","Accountant","Auditor","Finance","Management","Cost Control","Audit Head","Administrator"];
+   One login per person for the whole application: payment roles and Material Management
+   roles are ticked on the same account, and someone with both switches between them in
+   the header. Vendors and site staff who are not on the chart get a login too. */
+
+const allRoles=[...PAYMENT_ROLES];
+const materialRoles=[...MATERIAL_ROLE_NAMES];
+const NO_SCOPE:MaterialScope={projectIds:[],vendorId:""};
 
 type Person={id:string;name:string;code:string;department:string;email:string};
 
@@ -108,7 +115,7 @@ export default function AccessSetup(){
    catch(e){setError(e instanceof Error?e.message:"That login could not be deleted")}
    finally{setBusy(false)}};
 
- const create=async(row:{name:string;email:string;employeeId:string;roles:string[]})=>{
+ const create=async(row:{name:string;email:string;employeeId:string;roles:string[];material:MaterialScope})=>{
    setBusy(true);setError("");
    try{
      const r=await accountsApi.create(row);
@@ -123,7 +130,7 @@ export default function AccessSetup(){
 
  return <div className="page access-page">
   <div className="access-head"><div><small>ACCESS CONTROL</small><h2>Users and role configuration</h2>
-    <p>Create a login for somebody on an organisation chart and assign their roles. The first
+    <p>One login per person for payments and Material Management. Assign their roles; the first
      password is generated and must be changed at first sign-in.</p></div>
    <div className="access-head-actions">
     <button className="wf-small" onClick={download} disabled={!roster.length}
@@ -161,7 +168,7 @@ export default function AccessSetup(){
       return <tr key={u.id}>
        <td><div className="user-cell"><i><UserRound/></i><span><b>{u.name}</b><small>{u.email}</small></span></div></td>
        <td>{u.roles.join(", ")||"—"}</td>
-       <td>{person?`${person.name}${person.department?` · ${person.department}`:""}`:u.employeeId||"—"}</td>
+       <td>{person?`${person.name}${person.department?` · ${person.department}`:""}`:u.employeeId||"Not on the chart"}</td>
        <td>{u.lastLoginAt?new Date(u.lastLoginAt).toLocaleDateString("en-GB",{day:"2-digit",month:"short",year:"numeric"}):"Never"}</td>
        <td><span className={u.active?"badge green":"badge red"}>{u.active?"Active":"Disabled"}</span>
         {u.mustChange&&<small> must change password</small>}</td>
@@ -192,23 +199,25 @@ export default function AccessSetup(){
   {show&&<Editor taken={withLogin} busy={busy} close={()=>setShow(false)} saveUser={create}/>}
  {editing&&<RoleEditor account={editing} everyone={roster} busy={busy}
    close={()=>setEditing(null)}
-   save={async(roles,visibleRaisers)=>{
+   save={async(roles,visibleRaisers,material)=>{
      /* Two writes because the API takes one change at a time. Roles first, and the list
         only if that succeeded - assigning requestors to somebody whose Department Head
         role was just refused would store a list that grants nothing.
 
         The drawer stays open if either is refused, so the error is read beside the work
         rather than after it has vanished. */
-     if(!await act({id:editing.id,roles}))return;
+     if(!await act({id:editing.id,roles,material}))return;
      if(visibleRaisers&&!await act({id:editing.id,visibleRaisers}))return;
      setEditing(null)}}/>}
  </div>}
 
-/* Creating a login. The person is chosen from the register rather than typed, because
-   the server refuses an account that is not attached to an employee record. */
+/* Creating a login. Staff are chosen from the register, so the login and the person are
+   tied together; a vendor or site staff member who is not on the chart is named instead. */
 function Editor({taken,busy,close,saveUser}:{taken:Set<string>;busy:boolean;close:()=>void;
-  saveUser:(u:{name:string;email:string;employeeId:string;roles:string[]})=>void}){
+  saveUser:(u:{name:string;email:string;employeeId:string;roles:string[];material:MaterialScope})=>void}){
  const[employeeId,setEmployeeId]=useState(""),[email,setEmail]=useState(""),[roles,setRoles]=useState<string[]>([]);
+ const[offChart,setOffChart]=useState(false),[plainName,setPlainName]=useState("");
+ const[scope,setScope]=useState<MaterialScope>(NO_SCOPE);
  /* There are more people on the chart than one dropdown can hold, and the register
     caps a page at 200, so the whole list can no longer be handed to this screen. The
     search runs on the server - name, employee code or department - so it reaches
@@ -231,12 +240,18 @@ function Editor({taken,busy,close,saveUser}:{taken:Set<string>;busy:boolean;clos
  const toggle=(v:string)=>setRoles(r=>r.includes(v)?r.filter(x=>x!==v):[...r,v]);
  const pick=(p:Person)=>{setEmployeeId(p.id);setPerson(p);setTerm("");setFound([]);
    if(p.email&&!email)setEmail(p.email)};     // prefill from the employee record
- const ready=!!employeeId&&/.+@.+\..+/.test(email)&&roles.length>0;
+ const ready=(offChart?plainName.trim().length>1:!!employeeId)&&/.+@.+\..+/.test(email)&&roles.length>0
+   &&(!roles.includes("Vendor")||!!scope.vendorId);
  return <><button className="overlay" onClick={close}/>
   <aside className="access-editor">
-   <header><div><small>USER ACCESS</small><h2>{person?.name||"Add new user"}</h2></div>
+   <header><div><small>USER ACCESS</small><h2>{(offChart?plainName:person?.name)||"Add new user"}</h2></div>
     <button onClick={close}><X/></button></header>
    <div>
+       <label className="access-offchart"><input type="checkbox" checked={offChart}
+         onChange={e=>{setOffChart(e.target.checked);setPerson(null);setEmployeeId("")}}/>
+         Not on the organisation chart (a vendor, or site staff)</label>
+       {offChart?<label>Full name<input value={plainName} onChange={e=>setPlainName(e.target.value)}
+         placeholder="Name as it should appear"/></label>:<>
        <label>Person on the organisation chart
         {person
           ?<span className="access-picked"><b>{person.name}</b>
@@ -252,16 +267,19 @@ function Editor({taken,busy,close,saveUser}:{taken:Set<string>;busy:boolean;clos
          <p className="queue-empty">Nobody without a login matches that. They may already have one, or
            need adding under Employees first.</p>}
        {!person&&term.trim().length<2&&
-         <p className="queue-empty">Type two letters or more to search everybody on the chart.</p>}
+         <p className="queue-empty">Type two letters or more to search everybody on the chart.</p>}</>}
     <label>Work email<input type="email" value={email} onChange={e=>setEmail(e.target.value)}
       placeholder="name@company.com"/></label>
     <p className="queue-empty">A temporary password is generated when you save, shown once, and
      must be changed at first sign-in.</p>
-    <Group title="Assign roles" values={allRoles} selected={roles} toggle={toggle}/>
+    <Group title="Payment roles" values={allRoles} selected={roles} toggle={toggle}/>
+    <Group title="Material Management roles" values={materialRoles} selected={roles} toggle={toggle}/>
+    <MaterialScopeFields roles={roles} scope={scope} setScope={setScope}/>
    </div>
    <footer><button onClick={close}>Cancel</button>
     <button className="primary" disabled={!ready||busy}
-      onClick={()=>saveUser({name:person?.name||"",email:email.trim().toLowerCase(),employeeId,roles})}>
+      onClick={()=>saveUser({name:offChart?plainName.trim():person?.name||"",email:email.trim().toLowerCase(),
+        employeeId:offChart?"":employeeId,roles,material:scope})}>
       {busy?"Creating…":"Create login"}</button></footer></aside></>}
 
 /* Changing an existing login: its roles, and for a department head the requestors he may
@@ -271,8 +289,9 @@ function Editor({taken,busy,close,saveUser}:{taken:Set<string>;busy:boolean;clos
    Only shown when Department Head is among the roles, because it means nothing otherwise,
    and it appears the moment that role is ticked rather than after saving. */
 function RoleEditor({account,everyone,busy,close,save}:{account:Account;everyone:Account[];
-  busy:boolean;close:()=>void;save:(roles:string[],visibleRaisers?:string[])=>void}){
+  busy:boolean;close:()=>void;save:(roles:string[],visibleRaisers:string[]|undefined,material:MaterialScope)=>void}){
   const[roles,setRoles]=useState<string[]>(account.roles||[]);
+  const[scope,setScope]=useState<MaterialScope>(account.material||NO_SCOPE);
   /* Guarded rather than trusted. The type says string[], but this arrives as JSON from
      the API and TypeScript cannot check across that boundary - when it came back as the
      string "[]" the spread below turned it into its own characters. Anything that is not
@@ -294,7 +313,9 @@ function RoleEditor({account,everyone,busy,close,save}:{account:Account;everyone
      <button onClick={close}><X/></button></header>
     <div>
      <p className="queue-empty">{account.email}</p>
-     <Group title="Assign roles" values={allRoles} selected={roles} toggle={toggleRole}/>
+     <Group title="Payment roles" values={allRoles} selected={roles} toggle={toggleRole}/>
+     <Group title="Material Management roles" values={materialRoles} selected={roles} toggle={toggleRole}/>
+     <MaterialScopeFields roles={roles} scope={scope} setScope={setScope}/>
      {head&&<fieldset><legend>Requests this head may see</legend>
        <p className="queue-empty">Pick the requestors. With nobody picked he sees only the
          requests he raised himself.</p>
@@ -320,9 +341,40 @@ function RoleEditor({account,everyone,busy,close,save}:{account:Account;everyone
          :"Nobody selected yet"}</p></fieldset>}
     </div>
     <footer><button onClick={close}>Cancel</button>
-     <button className="primary" disabled={busy||!roles.length}
-       onClick={()=>save(roles,head?picked:[])}>{busy?"Saving…":"Save changes"}</button></footer>
+     <button className="primary" disabled={busy||!roles.length||(roles.includes("Vendor")&&!scope.vendorId)}
+       onClick={()=>save(roles,head?picked:[],scope)}>{busy?"Saving…":"Save changes"}</button></footer>
    </aside></>}
 
+/* Material scope on the login. A Site Engineer works on chosen projects (none chosen means
+   every project); a Vendor login belongs to exactly one supplier, and sees only that
+   supplier's enquiries and orders. The lists come from Material Management. */
+function MaterialScopeFields({roles,scope,setScope}:{roles:string[];scope:MaterialScope;
+  setScope:(s:MaterialScope)=>void}){
+  const site=roles.includes("Site Engineer"),vendor=roles.includes("Vendor");
+  const[lists,setLists]=useState<{projects:{id:string;code:string;name:string}[];vendors:{id:string;name:string}[]}|null>(null);
+  const[failed,setFailed]=useState(false);
+  useEffect(()=>{if(!(site||vendor)||lists)return;
+    fetch("/material/api/reference",{headers:{"x-cm-role":"ADMIN"}})
+      .then(r=>r.ok?r.json():Promise.reject())
+      .then((d:any)=>setLists({projects:d.projects||[],vendors:d.vendors||[]}))
+      .catch(()=>setFailed(true))},[site,vendor,lists]);
+  if(!site&&!vendor)return null;
+  if(failed)return <p className="queue-empty">Projects and suppliers could not be loaded from Material Management.</p>;
+  if(!lists)return <p className="queue-empty">Loading projects and suppliers…</p>;
+  const toggle=(id:string)=>setScope({...scope,projectIds:scope.projectIds.includes(id)
+    ?scope.projectIds.filter(x=>x!==id):[...scope.projectIds,id]});
+  return <>
+   {site&&<fieldset><legend>Site Engineer — projects</legend>
+     <p className="queue-empty">{scope.projectIds.length?`${scope.projectIds.length} selected`:"None selected: every project"}</p>
+     <div>{lists.projects.map(p=><button type="button" key={p.id}
+       className={scope.projectIds.includes(p.id)?"selected":""} onClick={()=>toggle(p.id)}>
+       {scope.projectIds.includes(p.id)&&<Check/>}{p.code} · {p.name}</button>)}
+     {!lists.projects.length&&<p className="queue-empty">No projects yet. Add them under Material → Projects.</p>}</div></fieldset>}
+   {vendor&&<label>Vendor — supplier this login belongs to
+     <select value={scope.vendorId} onChange={e=>setScope({...scope,vendorId:e.target.value})}>
+       <option value="">— choose the supplier —</option>
+       {lists.vendors.map(v=><option key={v.id} value={v.id}>{v.name}</option>)}</select></label>}
+  </>}
+
 function Group({title,values,selected,toggle}:{title:string;values:string[];selected:string[];toggle:(v:string)=>void}){return <fieldset><legend>{title}</legend><div>{values.map(v=><button type="button" className={selected.includes(v)?"selected":""} onClick={()=>toggle(v)} key={v}>{selected.includes(v)&&<Check/>}{v}</button>)}</div></fieldset>}
-function RoleMatrix(){const rows=[["Payment Requestor","Create own requests","Own requests only","No"],["Department Head","Create own requests; no workflow actions","Every request raised by his own department, and his own","Read only"],["Accountant","Accept, verify, reconcile, send to Audit","All payments; work mapped departments","Yes"],["Management","Approve and view exceptions","All companies mapped","Yes"],["Finance","Release approved payments — the final step","All approved payments","Yes"],["Audit Head","Configure programs, users and reports","All audit data","Yes"],["Administrator","Act at any workflow stage; manage logins, roles and passwords","Everything, all companies","Yes"]];return <section className="panel user-table matrix"><table><thead><tr><th>ROLE</th><th>CAN ACT</th><th>VISIBILITY</th><th>DEPARTMENT CONTROL</th></tr></thead><tbody>{rows.map(r=><tr key={r[0]}><td><b>{r[0]}</b></td><td>{r[1]}</td><td>{r[2]}</td><td>{r[3]}</td></tr>)}</tbody></table></section>}
+function RoleMatrix(){const rows=[["Payment Requestor","Create own requests","Own requests only","No"],["Department Head","Create own requests; no workflow actions","Every request raised by his own department, and his own","Read only"],["Accountant","Accept, verify, reconcile, send to Audit","All payments; work mapped departments","Yes"],["Management","Approve and view exceptions","All companies mapped","Yes"],["Finance","Release approved payments — the final step","All approved payments","Yes"],["Audit Head","Configure programs, users and reports","All audit data","Yes"],["Administrator","Act at any workflow stage; manage logins, roles and passwords; run Material Management","Everything, all companies","Yes"],["Site Engineer","Raise material requests; receive at site","Own projects","—"],["Project Manager","Approve material requests","All projects","—"],["QS","Check requests, split store and PO, validate POs","All projects","—"],["Procurement","Consolidate, enquire, raise POs, verify invoices","All projects","—"],["Procurement Manager","Approve POs, and all procurement work","All projects","—"],["Store","Receive POs (GRN), issue to site","All projects","—"],["Management (Material)","Approve POs above the limit; view everything","All projects","Read only"],["Material Admin","Material masters: vendors, projects, items, settings","Material Management","—"],["Vendor","Quote enquiries, acknowledge POs, upload invoices","Own supplier only","—"]];return <section className="panel user-table matrix"><table><thead><tr><th>ROLE</th><th>CAN ACT</th><th>VISIBILITY</th><th>DEPARTMENT CONTROL</th></tr></thead><tbody>{rows.map(r=><tr key={r[0]}><td><b>{r[0]}</b></td><td>{r[1]}</td><td>{r[2]}</td><td>{r[3]}</td></tr>)}</tbody></table></section>}

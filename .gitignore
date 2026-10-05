@@ -58,3 +58,15 @@ tsconfig.tsbuildinfo
 # .env* above does not match this name, and this repository is public.
 .dev.vars
 .dev.vars.*
+
+# Material Management (material/) and the local stack (scripts/dev.mjs)
+node_modules/
+material/**/dist/
+material/**/.turbo/
+material/.local/
+material/.env
+.local/
+env/*.env
+backups/
+gateway/certs/
+gateway/acme/

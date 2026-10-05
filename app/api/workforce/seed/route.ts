@@ -1,4 +1,4 @@
-import{count}from"drizzle-orm";
+import{count,getTableColumns,type Table}from"drizzle-orm";
 import{getDb}from"../../../../db";
 import{wfDepartments,wfEmployees,wfLogs,wfQueries,wfRoles,wfTasks,wfTokens,wfUsers}from"../../../../db/schema";
 import{actorOf,oops,str}from"../../../../lib/workforce-api";
@@ -7,7 +7,8 @@ import{requireAuth}from"../../../../lib/auth";
 
 /* D1 allows 100 bound parameters per statement, so multi-row inserts are chunked by
    column count rather than sent as one large VALUES list. */
-const chunk=<T,>(rows:T[],columns:number)=>{
+const chunk=<T,>(rows:T[],table:Table)=>{
+  const columns=Object.keys(getTableColumns(table)).length;
   const size=Math.max(Math.floor(100/Math.max(columns,1)),1);
   const out:T[][]=[];
   for(let i=0;i<rows.length;i+=size)out.push(rows.slice(i,i+size));
@@ -189,12 +190,12 @@ export async function POST(req:Request){
       await db.delete(wfEmployees);await db.delete(wfRoles);await db.delete(wfDepartments);
     }
     const tasks=buildTasks();
-    for(const c of chunk(departments,5))await db.insert(wfDepartments).values(c);
-    for(const c of chunk(roles,7))await db.insert(wfRoles).values(c);
-    for(const c of chunk(employees,14))await db.insert(wfEmployees).values(c);
-    for(const c of chunk(tasks,22))await db.insert(wfTasks).values(c);
-    for(const c of chunk(queries,16))await db.insert(wfQueries).values(c);
-    for(const c of chunk(tokens,14))await db.insert(wfTokens).values(c);
+    for(const c of chunk(departments,wfDepartments))await db.insert(wfDepartments).values(c);
+    for(const c of chunk(roles,wfRoles))await db.insert(wfRoles).values(c);
+    for(const c of chunk(employees,wfEmployees))await db.insert(wfEmployees).values(c);
+    for(const c of chunk(tasks,wfTasks))await db.insert(wfTasks).values(c);
+    for(const c of chunk(queries,wfQueries))await db.insert(wfQueries).values(c);
+    for(const c of chunk(tokens,wfTokens))await db.insert(wfTokens).values(c);
     // first administrator, with a password that is printed once and must be changed
     let bootstrap:{email:string;password:string}|null=null;
     const [{n:userCount}]=await db.select({n:count()}).from(wfUsers);

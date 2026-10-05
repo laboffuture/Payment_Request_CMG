@@ -13,6 +13,8 @@ declare namespace Cloudflare {
     };
     ADMIN_EMAIL?: string;
     ADMIN_PASSWORD?: string;
+    /** Shared with Material Management; guards /api/integration/users. */
+    INTEGRATION_TOKEN?: string;
   }
 }
 

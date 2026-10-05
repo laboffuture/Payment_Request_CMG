@@ -1,0 +1,69 @@
+# Production overlay for the VPS:
+#   docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d --build
+#
+#   - HTTPS on 443 (80 redirects); certificates in ./gateway/certs
+#   - Material seeding refused
+#   - nightly backups of both databases into ./backups, kept 14 days
+
+services:
+  material-api:
+    environment:
+      NODE_ENV: production
+      SEED_ALLOWED: "false"
+
+  material-worker:
+    environment:
+      NODE_ENV: production
+
+  gateway:
+    ports: !override
+      - "80:80"
+      - "443:443"
+    volumes: !override
+      - ./gateway/nginx.tls.conf:/etc/nginx/nginx.conf:ro
+      - ./gateway/routes.conf:/etc/nginx/gateway/routes.conf:ro
+      - ./gateway/certs:/etc/nginx/certs:ro
+      - ./gateway/acme:/var/www/certbot:ro
+
+  # Material: mongodump, gzipped.
+  backup-mongo:
+    image: mongo:7
+    restart: unless-stopped
+    depends_on:
+      mongo: { condition: service_healthy }
+    volumes:
+      - ./backups:/backups
+    entrypoint:
+      - /bin/sh
+      - -c
+      - |
+        while true; do
+          STAMP=$$(date +%F-%H%M)
+          mongodump --uri "mongodb://mongo:27017/chandramari_material?replicaSet=rs0&directConnection=true" \
+                    --gzip --archive=/backups/material-$$STAMP.archive.gz || echo "material backup failed"
+          find /backups -name 'material-*.archive.gz' -mtime +14 -delete
+          sleep 86400
+        done
+
+  # Payment: SQLite .backup (consistent while the app writes) + attachments.
+  backup-payment:
+    image: alpine:3.20
+    restart: unless-stopped
+    volumes:
+      - payment-data:/data:ro
+      - ./backups:/backups
+    entrypoint:
+      - /bin/sh
+      - -c
+      - |
+        apk add --no-cache sqlite >/dev/null
+        while true; do
+          STAMP=$$(date +%F-%H%M)
+          DB=$$(find /data/v3/d1 -name '*.sqlite' -size +0 ! -name 'metadata.sqlite' | head -1)
+          if [ -n "$$DB" ]; then
+            sqlite3 "$$DB" ".backup '/backups/payment-$$STAMP.sqlite'" && gzip -f /backups/payment-$$STAMP.sqlite
+          else echo "payment backup: no database yet"; fi
+          tar czf /backups/payment-files-$$STAMP.tar.gz -C /data v3/r2 2>/dev/null || true
+          find /backups -name 'payment-*' -mtime +14 -delete
+          sleep 86400
+        done

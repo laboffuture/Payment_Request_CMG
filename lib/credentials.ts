@@ -75,8 +75,17 @@ export const readBearer=(req:Request)=>{
   const m=/^Bearer\s+([A-Fa-f0-9]{32,128})$/.exec(raw);
   return m?m[1]:""};
 
-export const sessionCookie=(token:string,maxAgeSeconds:number)=>
-  `${SESSION_COOKIE}=${encodeURIComponent(token)}; HttpOnly; Secure; SameSite=Lax; Path=/; `+
+/* Secure whenever the browser is on HTTPS - always, in production. On plain HTTP a Secure
+   cookie is dropped by the browser (localhost excepted), so signing in from another
+   device on the office network during development "worked" and then every request came
+   back unauthenticated as "Your session has ended". The protocol is the browser's: the
+   request URL, or X-Forwarded-Proto when a gateway terminates TLS in front of us. */
+export const isHttps=(req:Request)=>{
+  const forwarded=(req.headers.get("x-forwarded-proto")||"").split(",")[0]!.trim().toLowerCase();
+  return forwarded?forwarded==="https":new URL(req.url).protocol==="https:"};
+const secureFlag=(req?:Request)=>!req||isHttps(req)?"Secure; ":"";
+export const sessionCookie=(token:string,maxAgeSeconds:number,req?:Request)=>
+  `${SESSION_COOKIE}=${encodeURIComponent(token)}; HttpOnly; ${secureFlag(req)}SameSite=Lax; Path=/; `+
   `Max-Age=${maxAgeSeconds}`;
-export const clearCookie=()=>`${SESSION_COOKIE}=; HttpOnly; Secure; SameSite=Lax; Path=/; Max-Age=0`;
+export const clearCookie=(req?:Request)=>`${SESSION_COOKIE}=; HttpOnly; ${secureFlag(req)}SameSite=Lax; Path=/; Max-Age=0`;
 

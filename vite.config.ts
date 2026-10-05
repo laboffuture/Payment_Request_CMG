@@ -1,5 +1,6 @@
 import vinext from "vinext";
 import { defineConfig } from "vite";
+import { fileURLToPath } from "node:url";
 import hostingConfig from "./.openai/hosting.json";
 import { sites } from "./build/sites-vite-plugin";
 
@@ -44,6 +45,15 @@ export default defineConfig(async () => {
   const { cloudflare } = await import("@cloudflare/vite-plugin");
 
   return {
+    resolve: {
+      alias: {
+        // Material Management screens, and the rules they share with the Material API.
+        "@mm": fileURLToPath(new URL("./modules/material", import.meta.url)),
+        "@cm/shared": fileURLToPath(new URL("./material/packages/shared/src/index.ts", import.meta.url)),
+      },
+      // The shared rules live outside this folder; they use this app's zod and React.
+      dedupe: ["zod", "react", "react-dom"],
+    },
     server: {
       host: "0.0.0.0",
       allowedHosts: ["terminal.local"],
