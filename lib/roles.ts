@@ -30,10 +30,11 @@ export const MATERIAL_ROLE_NAMES=Object.keys(MATERIAL_ROLES) as MaterialRoleName
 export const isPaymentRole=(r:string)=>(PAYMENT_ROLES as readonly string[]).includes(r);
 export const isMaterialRole=(r:string):r is MaterialRoleName=>r in MATERIAL_ROLES;
 
-/* The Material roles switched on. Material Management is open to Procurement, Procurement
-   Manager and the Administrator only for now; the other roles stay defined (the Material
-   API knows them) but are offered to nobody and open nothing until they are added here. */
-export const ENABLED_MATERIAL_ROLES:MaterialRoleName[]=["Procurement","Procurement Manager"];
+/* The Material roles switched on: offered under Users & access, and opening their Material
+   menus. All of them, since 6 Oct 2026 (Procurement and Procurement Manager were first). A
+   role left out of this list is offered to nobody and opens nothing. */
+export const ENABLED_MATERIAL_ROLES:MaterialRoleName[]=["Site Engineer","Project Manager","QS","Procurement",
+  "Procurement Manager","Store","Management (Material)","Material Admin","Vendor"];
 export const isEnabledMaterialRole=(r:string)=>(ENABLED_MATERIAL_ROLES as string[]).includes(r);
 /* A role that cannot be given to a login yet: a Material role not switched on. */
 export const disabledRoles=(roles:string[]=[])=>roles.filter(r=>isMaterialRole(r)&&!isEnabledMaterialRole(r));

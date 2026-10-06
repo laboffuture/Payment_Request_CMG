@@ -58,7 +58,7 @@ export async function POST(req:Request){
     const row=shape(body);
     if(!row.email||!row.name)return bad("name and email are required");
     const off=disabledRoles(row.roles);
-    if(off.length)return bad(`${off.join(", ")} ${off.length===1?"is":"are"} not open yet. Material Management is for Procurement and Procurement Manager for now.`,422);
+    if(off.length)return bad(`${off.join(", ")} ${off.length===1?"is":"are"} not switched on in Material Management.`,422);
     if(!row.roles.length)return bad("Give the login at least one role",422);
     const db=await getDb();
     if(row.employeeId){
@@ -131,7 +131,7 @@ export async function PATCH(req:Request){
     /* Roles and material scope may arrive together from the edit dialog. */
     if(Array.isArray(body.roles)||(body.material&&typeof body.material==="object")){
       const off=Array.isArray(body.roles)?disabledRoles(body.roles.map(String)):[];
-      if(off.length)return bad(`${off.join(", ")} ${off.length===1?"is":"are"} not open yet. Material Management is for Procurement and Procurement Manager for now.`,422);
+      if(off.length)return bad(`${off.join(", ")} ${off.length===1?"is":"are"} not switched on in Material Management.`,422);
       const set:Record<string,string>={};
       if(Array.isArray(body.roles))set.roles=JSON.stringify(body.roles);
       if(body.material&&typeof body.material==="object")
