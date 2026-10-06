@@ -84,19 +84,28 @@ export async function enqueueEmails(outboxIds: string[]): Promise<void> {
     logger.warn({ count: outboxIds.length }, 'no queue — emails left in the outbox');
     return;
   }
-  await emailQueue().addBulk(
-    outboxIds.map((id) => ({
-      name: 'send',
-      data: { outboxId: id },
-      opts: { jobId: `email:${id}` },
-    })),
-  );
+  // Called after the transaction has committed, so the MR/PO/GRN is already
+  // saved. A queue failure must not turn that into an error response: the
+  // client would retry and save the document again. The rows stay QUEUED in
+  // the outbox, as above.
+  try {
+    await emailQueue().addBulk(
+      outboxIds.map((id) => ({
+        name: 'send',
+        data: { outboxId: id },
+        // BullMQ refuses ":" in custom job ids.
+        opts: { jobId: `email-${id}` },
+      })),
+    );
+  } catch (err) {
+    logger.error({ err, count: outboxIds.length }, 'could not queue emails — left in the outbox');
+  }
 }
 
 /** §6: a delayed job at the RFQ's due time tells procurement quotes are closed. */
 export async function scheduleRfqDue(rfqId: string, dueAt: Date): Promise<string> {
   const delay = Math.max(0, dueAt.getTime() - Date.now());
-  const jobId = `rfq-due:${rfqId}:${dueAt.getTime()}`;
+  const jobId = `rfq-due-${rfqId}-${dueAt.getTime()}`;
   await rfqDueQueue().add('due', { rfqId }, { delay, jobId });
   return jobId;
 }
