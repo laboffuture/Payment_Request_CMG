@@ -59,6 +59,7 @@ export default function LoginOverlay({onLogin,note=""}:{onLogin:(actor:Actor)=>v
       <p className="login-lead">Request, accounts verification, audit approval, observations
         and payment release connected in one controlled workspace.</p>
       <div className="login-flow"><b>Request</b><i/><b>Accounts</b><i/><b>Audit</b><i/><b>Release</b></div>
+      <footer className="login-credit"><span>Developed By</span><img src="/developed-by-lof.png" alt="LOF"/></footer>
     </section>
     <section className="login-card">
       {mustChange?<>

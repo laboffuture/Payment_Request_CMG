@@ -43,6 +43,15 @@
 .login-flow b:last-child{background:#0f2744;border-color:#0f2744;color:#fff}
 .login-flow i{height:1px;flex:1;min-width:12px;background:#c3cedb}
 
+/* "Developed By" credit, centred at the foot of the story panel. The two auto margins keep
+   the story centred in the space above it, so the credit never overlaps the copy. */
+.login-story{padding-bottom:clamp(18px,3vh,28px)}
+.login-mark{margin-top:auto}
+.login-credit{margin-top:auto;padding-top:28px;align-self:center;display:flex;flex-direction:column;
+  align-items:center;gap:6px;font-size:10px;font-weight:700;letter-spacing:.18em;
+  text-transform:uppercase;color:#6b7c93}
+.login-credit img{display:block;height:34px;width:auto}
+
 /* ------------------------------------------------------------------ card (dark) */
 .login-card{align-self:center;justify-self:center;width:min(460px,calc(100% - 48px));
   box-sizing:border-box;background:linear-gradient(180deg,#132743f2,#0e1f37f2);
@@ -105,6 +114,7 @@
   .login-story h1{font-size:32px}
   .login-lead{margin-bottom:6px;font-size:15px}
   .login-flow{display:none}
+  .login-credit{padding-top:22px}
   .login-card{margin:28px auto;padding:26px}
   .demo-users{grid-template-columns:1fr}
 }
