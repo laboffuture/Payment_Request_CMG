@@ -128,3 +128,34 @@
   max-width: 100%;
   height: auto;
 }
+
+/* ---- brand: the Chandramari Group logo ---------------------------------------------
+
+   The logo is navy on transparent, so on the navy sidebar it sits on a white tile.
+   The tile and the "PAYMENT REQUEST" words are centred on one line. */
+.shell > .side > .brand {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.shell > .side > .brand > .brand-logo {
+  flex: 0 0 auto;
+  margin: 0;
+  width: 104px;
+  height: 64px;
+  padding: 6px 9px;
+  box-sizing: border-box;
+  display: grid;
+  place-items: center;
+  background: #fff;
+  border-radius: 10px;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.28);
+}
+.shell > .side > .brand > .brand-logo img {
+  display: block;
+  max-width: 100%;
+  max-height: 100%;
+  width: auto;
+  height: auto;
+}
+.shell > .side > .brand > div { min-width: 0 }
