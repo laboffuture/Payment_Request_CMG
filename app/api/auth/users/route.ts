@@ -3,7 +3,7 @@ import{getDb}from"../../../../db";
 import{paymentRequests,wfEmployees,wfSessions,wfUsers}from"../../../../db/schema";
 import{newPasswordFields,randomHex,requireAuth}from"../../../../lib/auth";
 import{bad,oops,page,search,str}from"../../../../lib/workforce-api";
-import{parseMaterialScope}from"../../../../lib/roles";
+import{disabledRoles,parseMaterialScope}from"../../../../lib/roles";
 
 const shape=(u:Record<string,unknown>)=>({id:str(u.id),email:str(u.email).toLowerCase(),
   name:str(u.name),employeeId:str(u.employeeId),roles:Array.isArray(u.roles)?u.roles as string[]:["Requestor"]});
@@ -57,6 +57,8 @@ export async function POST(req:Request){
     const body=await req.json() as Record<string,unknown>;
     const row=shape(body);
     if(!row.email||!row.name)return bad("name and email are required");
+    const off=disabledRoles(row.roles);
+    if(off.length)return bad(`${off.join(", ")} ${off.length===1?"is":"are"} not open yet. Material Management is for Procurement and Procurement Manager for now.`,422);
     if(!row.roles.length)return bad("Give the login at least one role",422);
     const db=await getDb();
     if(row.employeeId){
@@ -128,6 +130,8 @@ export async function PATCH(req:Request){
     }
     /* Roles and material scope may arrive together from the edit dialog. */
     if(Array.isArray(body.roles)||(body.material&&typeof body.material==="object")){
+      const off=Array.isArray(body.roles)?disabledRoles(body.roles.map(String)):[];
+      if(off.length)return bad(`${off.join(", ")} ${off.length===1?"is":"are"} not open yet. Material Management is for Procurement and Procurement Manager for now.`,422);
       const set:Record<string,string>={};
       if(Array.isArray(body.roles))set.roles=JSON.stringify(body.roles);
       if(body.material&&typeof body.material==="object")

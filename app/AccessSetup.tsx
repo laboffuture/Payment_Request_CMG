@@ -15,7 +15,7 @@ async function loadEveryEmployee(){
   }
   return{employees:out}}
 import{accountsApi,type Account}from"./audit-api";
-import{MATERIAL_ROLE_NAMES,PAYMENT_ROLES,type MaterialScope}from"../lib/roles";
+import{MATERIAL_ROLE_NAMES,PAYMENT_ROLES,isEnabledMaterialRole,type MaterialScope}from"../lib/roles";
 import{csv}from"./workforce-store";
 import{Pager}from"./WorkforceShared";
 
@@ -34,7 +34,8 @@ import{Pager}from"./WorkforceShared";
    the header. Vendors and site staff who are not on the chart get a login too. */
 
 const allRoles=[...PAYMENT_ROLES];
-const materialRoles=[...MATERIAL_ROLE_NAMES];
+/* Only the Material roles switched on in lib/roles.ts are offered. */
+const materialRoles=MATERIAL_ROLE_NAMES.filter(isEnabledMaterialRole);
 const NO_SCOPE:MaterialScope={projectIds:[],vendorId:""};
 
 type Person={id:string;name:string;code:string;department:string;email:string};
