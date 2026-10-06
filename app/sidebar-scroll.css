@@ -21,7 +21,8 @@
 }
 
 .shell > .side > .brand,
-.shell > .side > .control {
+.shell > .side > .control,
+.shell > .side > .side-credit {
   flex: 0 0 auto;         /* pinned: never grow, never shrink */
 }
 
@@ -102,4 +103,28 @@
 @media (max-width: 760px) {
   .shell > .side { width: 272px }
   .shell > main { margin-left: 0; width: 100% }
+}
+
+/* ---- "Developed By" credit, pinned under the scrolling nav ---------------------- */
+.shell > .side > .side-credit {
+  margin-top: 10px;
+  padding: 12px 8px 2px;
+  border-top: 1px solid rgba(255, 255, 255, 0.1);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 7px;
+}
+.shell > .side > .side-credit small {
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: #8d9ab1;
+}
+.shell > .side > .side-credit img {   /* white-lettered logo, made for the dark sidebar */
+  display: block;
+  width: 150px;
+  max-width: 100%;
+  height: auto;
 }
