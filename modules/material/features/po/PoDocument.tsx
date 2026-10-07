@@ -12,6 +12,7 @@ import {
   type TaxMode,
   type VendorDto,
 } from '@cm/shared';
+import { Fragment } from 'react';
 import { fmtDate, money, qty } from '@mm/lib/format';
 
 /**
@@ -55,6 +56,25 @@ export interface PoDocumentData {
   totals: { subtotal: number; taxTotal: number; total: number };
 }
 
+/*
+ * The document's own layout rules. They are plain class names on purpose: the
+ * application's global stylesheet has a bare `.grid` rule (two uneven columns)
+ * that would otherwise override utility classes here.
+ */
+const DOC_CSS = `
+.po-doc-head{display:flex;justify-content:space-between;align-items:flex-start;gap:12px;flex-wrap:wrap;border-bottom:2px solid currentColor;padding-bottom:12px}
+.po-doc-co{display:flex;align-items:flex-start;gap:12px}
+.po-doc-stack{display:flex;flex-direction:column;gap:4px;font-size:13px}
+.po-doc-title{display:flex;flex-direction:column;gap:4px;align-items:flex-end;text-align:right;font-size:13px}
+.po-doc-info{display:grid;grid-template-columns:1fr 1fr;gap:12px 32px;align-items:start;margin:16px 0;font-size:13px}
+.po-doc-rows{display:grid;grid-template-columns:120px 12px 1fr;row-gap:4px;align-content:start}
+.po-doc-rows>span:nth-child(3n){white-space:pre-line;overflow-wrap:anywhere}
+.po-doc-sign{display:grid;grid-template-columns:repeat(4,1fr);gap:16px;margin-top:40px;font-size:13px}
+.po-doc-sign>div{display:flex;flex-direction:column;gap:4px;text-align:center}
+.po-doc-sign>div>span{border-top:1px solid currentColor;margin-top:24px;padding-top:4px;min-height:22px}
+@media (max-width:700px){.po-doc-info{grid-template-columns:1fr}.po-doc-sign{grid-template-columns:1fr 1fr}}
+`;
+
 const COLUMNS = ['Item Code', 'Description', 'MR No.', 'UOM', 'Qty', 'Rate', 'Amount'];
 const NUMERIC = new Set(['Qty', 'Rate', 'Amount']);
 
@@ -87,15 +107,16 @@ export function PoDocument({ preview }: { preview: PoDocumentData }) {
 
   return (
     <div className="bg-white border border-line rounded-card p-7 max-w-[900px] print:border-0 print:p-0">
-      <div className="flex justify-between items-start gap-3 border-b-2 border-ink pb-3 flex-wrap">
-        <div className="flex items-start gap-3">
+      <style>{DOC_CSS}</style>
+      <div className="po-doc-head">
+        <div className="po-doc-co">
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
             src={company?.logoUrl || BRAND_LOGO_URL}
             alt="Chandramari Group"
             className="max-h-16 max-w-[200px] object-contain"
           />
-          <div className="grid gap-1 text-[13px]">
+          <div className="po-doc-stack">
             <b className="text-lg">{company?.legalName || company?.name}</b>
             <span className="whitespace-pre-line">{company?.address}</span>
             {company?.taxNo ? (
@@ -109,14 +130,14 @@ export function PoDocument({ preview }: { preview: PoDocumentData }) {
           </div>
         </div>
 
-        <div className="grid gap-1 text-right text-[13px]">
+        <div className="po-doc-title">
           <b className="text-xl">PURCHASE ORDER</b>
           <span>Status: {chipFor(PO_ST, preview.status).label}</span>
         </div>
       </div>
 
       {/* Vendor on the left, the order on the right — label : value, colons aligned. */}
-      <div className="grid gap-x-8 gap-y-3 desk:grid-cols-2 my-4 text-[13px]">
+      <div className="po-doc-info">
         <InfoRows
           rows={[
             ['Vendor No', vendor?.code],
@@ -217,7 +238,7 @@ export function PoDocument({ preview }: { preview: PoDocumentData }) {
         </tbody>
       </table>
 
-      <div className="grid gap-1 mt-3 text-[13px]">
+      <div className="mt-3 text-[13px]">
         <span>
           <b>Payment terms:</b> {preview.terms || '—'} · <b>Tax:</b> {TAX_MODE_LABELS[taxMode]}
           {preview.rfqNo ? (
@@ -244,7 +265,7 @@ export function PoDocument({ preview }: { preview: PoDocumentData }) {
       ) : null}
 
       {/* Sign-off: who prepared, checked, verified and approved this PO, by name. */}
-      <div className="grid grid-cols-2 desk:grid-cols-4 gap-4 mt-10 text-[13px]">
+      <div className="po-doc-sign">
         {(
           [
             ['Prepared by', preview.createdByName],
@@ -253,9 +274,9 @@ export function PoDocument({ preview }: { preview: PoDocumentData }) {
             ['Approved by', approved],
           ] as const
         ).map(([label, name]) => (
-          <div key={label} className="grid gap-1 text-center">
+          <div key={label}>
             <b>{label}</b>
-            <span className="border-t border-ink pt-1 mt-6 min-h-[22px]">{name || '\u00a0'}</span>
+            <span>{name || '\u00a0'}</span>
           </div>
         ))}
       </div>
@@ -266,13 +287,13 @@ export function PoDocument({ preview }: { preview: PoDocumentData }) {
 /** Label : value rows; the fixed label column keeps every colon in one line. */
 function InfoRows({ rows }: { rows: [string, React.ReactNode][] }) {
   return (
-    <div className="grid grid-cols-[120px_12px_1fr] gap-y-1 content-start">
+    <div className="po-doc-rows">
       {rows.map(([label, value]) => (
-        <div key={label} className="contents">
+        <Fragment key={label}>
           <b>{label}</b>
           <span>:</span>
-          <span className="whitespace-pre-line break-words">{value || '—'}</span>
-        </div>
+          <span>{value || '—'}</span>
+        </Fragment>
       ))}
     </div>
   );
