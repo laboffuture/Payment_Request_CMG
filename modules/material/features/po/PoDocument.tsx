@@ -69,6 +69,7 @@ const DOC_CSS = `
 .po-doc-info{display:grid;grid-template-columns:1fr 1fr;gap:12px 32px;align-items:start;margin:16px 0;font-size:13px}
 .po-doc-rows{display:grid;grid-template-columns:120px 12px 1fr;row-gap:4px;align-content:start}
 .po-doc-rows>span:nth-child(3n){white-space:pre-line;overflow-wrap:anywhere}
+.po-doc-table{width:100%;min-width:0!important}
 .po-doc-sign{display:grid;grid-template-columns:repeat(4,1fr);gap:16px;margin-top:40px;font-size:13px}
 .po-doc-sign>div{display:flex;flex-direction:column;gap:4px;text-align:center}
 .po-doc-sign>div>span{border-top:1px solid currentColor;margin-top:24px;padding-top:4px;min-height:22px}
@@ -159,7 +160,7 @@ export function PoDocument({ preview }: { preview: PoDocumentData }) {
         />
       </div>
 
-      <table className="w-full border-collapse text-xs">
+      <table className="po-doc-table w-full border-collapse text-xs">
         <thead>
           <tr>
             {COLUMNS.map((h) => (
