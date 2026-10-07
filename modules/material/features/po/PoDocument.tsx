@@ -72,7 +72,7 @@ const DOC_CSS = `
 .po-doc-sign{display:grid;grid-template-columns:repeat(4,1fr);gap:16px;margin-top:40px;font-size:13px}
 .po-doc-sign>div{display:flex;flex-direction:column;gap:4px;text-align:center}
 .po-doc-sign>div>span{border-top:1px solid currentColor;margin-top:24px;padding-top:4px;min-height:22px}
-@media (max-width:700px){.po-doc-info{grid-template-columns:1fr}.po-doc-sign{grid-template-columns:1fr 1fr}}
+@media screen and (max-width:700px){.po-doc-info{grid-template-columns:1fr}.po-doc-sign{grid-template-columns:1fr 1fr}}
 `;
 
 const COLUMNS = ['Item Code', 'Description', 'MR No.', 'UOM', 'Qty', 'Rate', 'Amount'];

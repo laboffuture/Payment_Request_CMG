@@ -3,14 +3,17 @@
 
    Up to 1024 px (tablets and phones) the menu slides in from the left and registers
    are cards. Up to 760 px (phones) forms open as bottom sheets and type and controls
-   grow for fingers. */
+   grow for fingers.
+
+   All of it is for screens only: a portrait A4 page is ~720 px wide, and printing a PO or
+   an MR must not turn its tables into phone cards. */
 
 /* The role and company pickers sit in the header on a wide screen and in the menu
    below 1024 px, where the header has no room for them. Hidden until then. */
 .side .mobile-controls { display: none; }
 
 /* ======================================================================= tablets + phones */
-@media (max-width: 1024px) {
+@media screen and (max-width: 1024px) {
   /* ------------------------------------------------------------ the frame: a slide-in menu
      (the payment theme does this from 760 px; tablets get it too) */
   .side { transform: translateX(-100%); transition: transform .2s; box-shadow: none !important; }
@@ -110,14 +113,14 @@
 }
 
 /* tablets: the cards two to a row */
-@media (min-width: 600px) and (max-width: 1024px) {
+@media screen and (min-width: 600px) and (max-width: 1024px) {
   .shell table:not(.t) tbody { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
   .shell table:not(.t) tr { margin: 0; }
   .shell table:not(.t) tr:has(td[data-span]) { grid-column: 1 / -1; }
 }
 
 /* ======================================================================= phones */
-@media (max-width: 760px) {
+@media screen and (max-width: 760px) {
   .heading h1 { font-size: 17px !important; }
   .page { padding: 14px 12px 40px !important; }
   .intro { flex-direction: column; align-items: stretch !important; }
@@ -143,7 +146,7 @@
 }
 
 /* very narrow phones */
-@media (max-width: 380px) {
+@media screen and (max-width: 380px) {
   .shell table:not(.t) td::before { flex-basis: 40%; }
   .metrics { grid-template-columns: 1fr 1fr !important; }
 }
