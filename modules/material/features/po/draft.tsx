@@ -12,6 +12,7 @@ import { create } from 'zustand';
 export interface PoDraftRow {
   mrLineId: string;
   itemId: string;
+  itemCode?: string;
   itemName: string;
   unit: string;
   projectCode: string;
@@ -61,22 +62,25 @@ export const usePoDraft = create<PoDraftState>((set) => ({
 
 /** Rows grouped into the one-line-per-item shape the PO is stored in. */
 export function groupRows(rows: PoDraftRow[]) {
-  const groups = new Map<string, { itemId: string; itemName: string; unit: string; qty: number; rate: number; gstPct: number; projects: string[] }>();
+  const groups = new Map<string, { itemId: string; itemCode: string; itemName: string; unit: string; qty: number; rate: number; gstPct: number; projects: string[]; mrNos: string[] }>();
 
   for (const row of rows) {
     const entry = groups.get(row.itemId) ?? {
       itemId: row.itemId,
+      itemCode: row.itemCode ?? '',
       itemName: row.itemName,
       unit: row.unit,
       qty: 0,
       rate: row.rate,
       gstPct: row.gstPct,
       projects: [] as string[],
+      mrNos: [] as string[],
     };
     entry.qty = Math.round((entry.qty + row.qty) * 1000) / 1000;
     entry.rate = row.rate;
     entry.gstPct = row.gstPct;
     if (!entry.projects.includes(row.projectCode)) entry.projects.push(row.projectCode);
+    if (row.mrNo && !entry.mrNos.includes(row.mrNo)) entry.mrNos.push(row.mrNo);
     groups.set(row.itemId, entry);
   }
 

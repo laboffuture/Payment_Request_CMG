@@ -33,6 +33,8 @@ export interface IPo extends Timestamped {
   deliverTo: DeliverTo;
   /** YYYY-MM-DD */
   deliveryDate: string;
+  deliveryAddress: string;
+  billingAddress: string;
   terms: string;
   notes: string;
   taxMode: TaxMode;
@@ -77,6 +79,8 @@ const poSchema = new Schema<IPo>(
     companyId: refTo('Company'),
     deliverTo: { type: String, enum: DELIVER_TO, default: 'STORE', index: true },
     deliveryDate: { type: String, default: '' },
+    deliveryAddress: { type: String, default: '' },
+    billingAddress: { type: String, default: '' },
     terms: { type: String, default: '' },
     notes: { type: String, default: '' },
     taxMode: { type: String, enum: TAX_MODES, default: 'VAT' },

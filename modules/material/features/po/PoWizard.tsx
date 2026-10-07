@@ -45,6 +45,8 @@ interface PoFormState {
   companyId: string;
   deliverTo: 'STORE' | 'SITE';
   deliveryDate: string;
+  deliveryAddress: string;
+  billingAddress: string;
   terms: string;
   notes: string;
   taxMode: TaxMode;
@@ -74,6 +76,8 @@ export function PoWizard({
     companyId: existing?.companyId ?? defaultCompany?.id ?? '',
     deliverTo: existing?.deliverTo ?? ('STORE' as 'STORE' | 'SITE'),
     deliveryDate: existing?.deliveryDate || addDays(7),
+    deliveryAddress: existing?.deliveryAddress ?? '',
+    billingAddress: existing?.billingAddress ?? '',
     terms: existing?.terms || DEFAULT_PAYMENT_TERMS,
     notes: existing?.notes ?? '',
     taxMode: (existing?.taxMode ?? defaultCompany?.taxMode ?? 'VAT') as TaxMode,
@@ -112,6 +116,8 @@ export function PoWizard({
     companyId: form.companyId,
     deliverTo: form.deliverTo,
     deliveryDate: form.deliveryDate,
+    deliveryAddress: form.deliveryAddress,
+    billingAddress: form.billingAddress,
     terms: form.terms,
     notes: form.notes,
     taxMode: form.taxMode,
@@ -314,6 +320,7 @@ function StepPickItems({
   const toDraft = (r: PoolRowDto): PoDraftRow => ({
     mrLineId: r.mrLineId,
     itemId: r.itemId,
+    itemCode: r.itemCode,
     itemName: r.itemName,
     unit: r.unit,
     projectCode: r.projectCode,
@@ -603,6 +610,29 @@ function StepVendorPrices({
             </label>
 
             <label className="field">
+              Delivery address
+              <textarea
+                rows={2}
+                placeholder={form.deliverTo === 'SITE' ? 'Site address' : 'Main store'}
+                value={form.deliveryAddress}
+                onChange={(e) => setForm((f) => ({ ...f, deliveryAddress: e.target.value }))}
+              />
+            </label>
+
+            <label className="field">
+              Billing address
+              <textarea
+                rows={2}
+                placeholder={
+                  reference.companies.find((c) => c.id === form.companyId)?.address ||
+                  "The billing company's address"
+                }
+                value={form.billingAddress}
+                onChange={(e) => setForm((f) => ({ ...f, billingAddress: e.target.value }))}
+              />
+            </label>
+
+            <label className="field">
               Payment terms
               <input
                 value={form.terms}
@@ -877,6 +907,8 @@ function StepReview({
           vendor,
           deliverTo: form.deliverTo,
           deliveryDate: form.deliveryDate,
+          deliveryAddress: form.deliveryAddress,
+          billingAddress: form.billingAddress,
           terms: form.terms,
           notes: form.notes,
           taxMode: form.taxMode,
@@ -884,12 +916,15 @@ function StepReview({
           projectCodes: [...new Set(rows.map((r) => r.projectCode))],
           rfqNo: existing?.rfqNo ?? null,
           createdByName: existing?.createdByName ?? '',
+          checkedByName: null,
+          verifiedByName: null,
           approvedByName: null,
           lines: groupRows(rows).map((g) => ({
             id: g.itemId,
             itemId: g.itemId,
-            itemCode: '',
+            itemCode: g.itemCode,
             itemName: g.itemName,
+            mrNos: g.mrNos,
             unit: g.unit,
             qty: g.qty,
             rate: g.rate,

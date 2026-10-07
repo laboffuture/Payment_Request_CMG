@@ -28,7 +28,9 @@ export default function VendorsPage() {
   });
 
   const columns: Column<VendorDto>[] = [
+    { key: 'code', header: 'Vendor No', render: (v) => <span className="font-mono">{v.code || '—'}</span> },
     { key: 'name', header: 'Vendor', render: (v) => <b>{v.name}</b> },
+    { key: 'country', header: 'Country', render: (v) => v.country || '—' },
     { key: 'email', header: 'Email', render: (v) => v.email || '—' },
     { key: 'phone', header: 'Phone', render: (v) => v.phone || '—' },
     { key: 'taxNo', header: 'Tax no.', render: (v) => v.taxNo || '—' },
@@ -108,7 +110,9 @@ function VendorModal({
   const toast = useToast();
   const queryClient = useQueryClient();
   const [form, setForm] = useState({
+    code: vendor?.code ?? '',
     name: vendor?.name ?? '',
+    country: vendor?.country ?? '',
     email: vendor?.email ?? '',
     phone: vendor?.phone ?? '',
     taxNo: vendor?.taxNo ?? '',
@@ -145,10 +149,24 @@ function VendorModal({
         </>
       }
     >
-      <label className="field">
-        Vendor name *
-        <input value={form.name} onChange={set('name')} />
-      </label>
+      <div className="grid gap-3 desk:grid-cols-[1fr_2fr_1fr]">
+        <label className="field">
+          Vendor No
+          <input
+            placeholder="Next number if left empty"
+            value={form.code}
+            onChange={set('code')}
+          />
+        </label>
+        <label className="field">
+          Vendor name *
+          <input value={form.name} onChange={set('name')} />
+        </label>
+        <label className="field">
+          Country
+          <input value={form.country} onChange={set('country')} />
+        </label>
+      </div>
       <div className="grid gap-3 desk:grid-cols-3">
         <label className="field">
           Email

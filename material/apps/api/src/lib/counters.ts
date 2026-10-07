@@ -60,6 +60,12 @@ export async function nextIssueNo(
   return formatNo(key, await nextValue(key, session));
 }
 
+/** `V-0001` — the vendor number printed on POs; one global sequence. */
+export async function nextVendorCode(session?: ClientSession): Promise<string> {
+  const n = await nextValue('vendor', session as ClientSession);
+  return `V-${String(n).padStart(4, '0')}`;
+}
+
 /** `ITM-00001` — one global sequence, plan decision (d)(6). */
 export async function nextItemCode(session: ClientSession): Promise<string> {
   return formatItemCode(await nextValue(ITEM_COUNTER_KEY, session));

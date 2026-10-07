@@ -128,6 +128,8 @@ export default function PoDetailPage() {
           vendor: data.vendor,
           deliverTo: data.deliverTo,
           deliveryDate: data.deliveryDate,
+          deliveryAddress: data.deliveryAddress,
+          billingAddress: data.billingAddress,
           terms: data.terms,
           notes: data.notes,
           taxMode: data.taxMode,
@@ -135,9 +137,16 @@ export default function PoDetailPage() {
           projectCodes: data.projectCodes,
           rfqNo: data.rfqNo,
           createdByName: data.createdByName,
+          checkedByName: data.procMgrByName,
+          verifiedByName: data.qsByName,
           approvedByName: data.approvedByName,
           date: data.approvedAt ?? data.createdAt,
-          lines: data.lines,
+          lines: data.lines.map((line) => ({
+            ...line,
+            mrNos: [
+              ...new Set(data.allocs.filter((a) => a.poLineId === line.id).map((a) => a.mrNo)),
+            ],
+          })),
           totals: {
             subtotal: data.subtotal,
             taxTotal: data.taxTotal,

@@ -89,6 +89,8 @@ async function toPoDto(
     companyId: String(po.companyId),
     deliverTo: po.deliverTo,
     deliveryDate: po.deliveryDate ?? '',
+    deliveryAddress: po.deliveryAddress ?? '',
+    billingAddress: po.billingAddress ?? '',
     terms: po.terms ?? '',
     notes: po.notes ?? '',
     taxMode: po.taxMode,
@@ -614,6 +616,8 @@ export async function createPo(
           companyId: input.companyId,
           deliverTo: input.deliverTo,
           deliveryDate: input.deliveryDate || addDays(DEFAULT_PO_DELIVERY_DAYS),
+          deliveryAddress: input.deliveryAddress,
+          billingAddress: input.billingAddress,
           terms: input.terms,
           notes: input.notes,
           taxMode: input.taxMode,
@@ -695,6 +699,8 @@ export async function updatePo(
       companyId: oid(input.companyId),
       deliverTo: input.deliverTo,
       deliveryDate: input.deliveryDate,
+      deliveryAddress: input.deliveryAddress,
+      billingAddress: input.billingAddress,
       terms: input.terms,
       notes: input.notes,
       taxMode: input.taxMode,
@@ -777,6 +783,8 @@ export async function revisePo(
       companyId: oid(input.companyId),
       deliverTo: input.deliverTo,
       deliveryDate: input.deliveryDate,
+      deliveryAddress: input.deliveryAddress,
+      billingAddress: input.billingAddress,
       terms: input.terms,
       notes: input.notes,
       taxMode: input.taxMode,
@@ -1313,6 +1321,7 @@ export async function poFormRows(id: string): Promise<
   {
     mrLineId: string;
     itemId: string;
+    itemCode: string;
     itemName: string;
     unit: string;
     projectCode: string;
@@ -1346,6 +1355,7 @@ export async function poFormRows(id: string): Promise<
     return {
       mrLineId: String(alloc.mrLineId),
       itemId: item?.id ?? '',
+      itemCode: item?.code ?? '',
       itemName: item?.name ?? '',
       unit: item?.unit ?? '',
       projectCode: lookups.projectCode(alloc.projectId),

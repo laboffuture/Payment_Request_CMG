@@ -48,7 +48,10 @@ export interface UserDto extends Doc {
 }
 
 export interface VendorDto extends Doc {
+  /** vendor number printed on the PO, e.g. V-0001 */
+  code: string;
   name: string;
+  country: string;
   email: string;
   phone: string;
   taxNo: string;
@@ -320,6 +323,8 @@ export interface PoDto extends Doc {
   companyId: string;
   deliverTo: DeliverTo;
   deliveryDate: string;
+  deliveryAddress: string;
+  billingAddress: string;
   terms: string;
   notes: string;
   taxMode: TaxMode;

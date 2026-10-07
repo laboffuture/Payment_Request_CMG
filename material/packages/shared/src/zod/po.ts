@@ -27,6 +27,9 @@ export const upsertPoInput = z.object({
   companyId: objectId,
   deliverTo: z.enum(DELIVER_TO).default('STORE'),
   deliveryDate: isoDate.or(z.literal('')).optional().default(''),
+  /** printed on the PO; empty = main store / the site, and the company's address */
+  deliveryAddress: z.string().trim().max(500).optional().default(''),
+  billingAddress: z.string().trim().max(500).optional().default(''),
   terms: z.string().trim().max(200).optional().default(''),
   notes: z.string().trim().max(4000).optional().default(''),
   taxMode: z.enum(TAX_MODES).default('VAT'),

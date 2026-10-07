@@ -1,5 +1,7 @@
 import {
   Company,
+  Mr,
+  MrLine,
   Po,
   PoAlloc,
   PoLine,
@@ -53,15 +55,40 @@ export async function renderPoHtml(poId: string): Promise<{ html: string; no: st
   const po = await Po.findById(poId).lean();
   if (!po) throw new Error(`PO ${poId} not found`);
 
-  const [company, vendor, lines, allocs, creator, approver, rfq] = await Promise.all([
-    Company.findById(po.companyId).lean(),
-    Vendor.findById(po.vendorId).lean(),
-    PoLine.find({ poId: po._id }).lean(),
-    PoAlloc.find({ poId: po._id }).lean(),
-    User.findById(po.createdBy).select('name').lean(),
-    po.approvedBy ? User.findById(po.approvedBy).select('name').lean() : null,
-    po.rfqId ? Rfq.findById(po.rfqId).select('no').lean() : null,
-  ]);
+  const nameOf = (id: unknown) =>
+    id ? User.findById(id).select('name').lean() : Promise.resolve(null);
+  const [company, vendor, lines, allocs, creator, checker, verifier, approver, rfq] =
+    await Promise.all([
+      Company.findById(po.companyId).lean(),
+      Vendor.findById(po.vendorId).lean(),
+      PoLine.find({ poId: po._id }).lean(),
+      PoAlloc.find({ poId: po._id }).lean(),
+      nameOf(po.createdBy),
+      nameOf(po.procMgrBy),
+      nameOf(po.qsBy),
+      nameOf(po.approvedBy),
+      po.rfqId ? Rfq.findById(po.rfqId).select('no').lean() : null,
+    ]);
+
+  // The MR number(s) each PO line was bought for: alloc -> MR line -> MR.
+  const mrLines = await MrLine.find({ _id: { $in: allocs.map((a) => a.mrLineId) } })
+    .select('mrId')
+    .lean();
+  const mrs = await Mr.find({ _id: { $in: mrLines.map((l) => l.mrId) } })
+    .select('no')
+    .lean();
+  const mrNosFor = (poLineId: unknown): string =>
+    [
+      ...new Set(
+        allocs
+          .filter((a) => String(a.poLineId) === String(poLineId))
+          .map((a) => {
+            const mrLine = mrLines.find((l) => String(l._id) === String(a.mrLineId));
+            return mrs.find((m) => String(m._id) === String(mrLine?.mrId))?.no ?? '';
+          })
+          .filter(Boolean),
+      ),
+    ].join(', ');
 
   const items = await Item.find({ _id: { $in: lines.map((l) => l.itemId) } }).lean();
   const projects = await Project.find({
@@ -78,7 +105,7 @@ export async function renderPoHtml(poId: string): Promise<{ html: string; no: st
   let subtotal = 0;
   let taxTotal = 0;
 
-  const rows = lines.map((line, index) => {
+  const rows = lines.map((line) => {
     const item = items.find((i) => String(i._id) === String(line.itemId));
     const amount = num(line.qty) * num(line.rate);
     const tax = po.taxMode === 'NONE' ? 0 : (amount * num(line.gstPct)) / 100;
@@ -89,15 +116,13 @@ export async function renderPoHtml(poId: string): Promise<{ html: string; no: st
     }
 
     return `<tr>
-      <td>${index + 1}</td>
-      <td>${esc(item?.name)} <span class="mono">${esc(item?.code)}</span></td>
-      <td class="r">${num(line.qty)}</td>
+      <td class="mono">${esc(item?.code)}</td>
+      <td>${esc(item?.name)}</td>
+      <td class="mono">${esc(mrNosFor(line._id))}</td>
       <td>${esc(item?.unit)}</td>
+      <td class="r">${num(line.qty)}</td>
       <td class="r">${money(num(line.rate))}</td>
       <td class="r">${money(r2(amount))}</td>
-      <td class="r">${num(line.gstPct)}</td>
-      <td class="r">${money(r2(tax))}</td>
-      <td class="r">${money(r2(amount + tax))}</td>
     </tr>`;
   });
 
@@ -106,11 +131,11 @@ export async function renderPoHtml(poId: string): Promise<{ html: string; no: st
     .flatMap(([rate, tax]) =>
       split
         ? [
-            `<tr><td colspan="8" class="r">CGST ${rate / 2}%</td><td class="r">${money(r2(tax / 2))}</td></tr>`,
-            `<tr><td colspan="8" class="r">SGST ${rate / 2}%</td><td class="r">${money(r2(tax / 2))}</td></tr>`,
+            `<tr><td colspan="6" class="r">CGST ${rate / 2}%</td><td class="r">${money(r2(tax / 2))}</td></tr>`,
+            `<tr><td colspan="6" class="r">SGST ${rate / 2}%</td><td class="r">${money(r2(tax / 2))}</td></tr>`,
           ]
         : [
-            `<tr><td colspan="8" class="r">${
+            `<tr><td colspan="6" class="r">${
               po.taxMode === 'IGST' ? 'IGST' : po.taxMode === 'VAT' ? 'VAT' : 'Tax'
             } ${rate}%</td><td class="r">${money(tax)}</td></tr>`,
           ],
@@ -127,10 +152,17 @@ export async function renderPoHtml(poId: string): Promise<{ html: string; no: st
     .filter(Boolean)
     .join(', ');
 
-  const deliverTo =
-    po.deliverTo === 'SITE'
-      ? `Site — ${projectCodes}`
-      : 'Main store';
+  const deliveryAddress =
+    po.deliveryAddress || (po.deliverTo === 'SITE' ? `Site — ${projectCodes}` : 'Main store');
+  const billingAddress =
+    po.billingAddress ||
+    [company?.legalName || company?.name, company?.address].filter(Boolean).join('\n');
+  const info = (rows: [string, string][]) =>
+    `<table class="info">${rows
+      .map(([k, v]) => `<tr><th>${esc(k)}</th><td class="c">:</td><td>${esc(v || '—')}</td></tr>`)
+      .join('')}</table>`;
+  const sig = (label: string, name: string | null | undefined) =>
+    `<div class="sig"><b>${esc(label)}</b><span>${name ? esc(name) : '&nbsp;'}</span></div>`;
 
   const html = `<!doctype html>
 <html><head><meta charset="utf-8"><title>${esc(displayNo)}</title>
@@ -145,7 +177,15 @@ export async function renderPoHtml(poId: string): Promise<{ html: string; no: st
   th { background: #F5F3EE; }
   .r { text-align: right; }
   .mono { font-family: ui-monospace, Consolas, monospace; font-size: 11px; }
-  .sigs { display: flex; justify-content: space-between; margin-top: 36px; font-size: 12px; }
+  .cols { display: grid; grid-template-columns: 1fr 1fr; gap: 28px; margin: 16px 0; align-items: start; }
+  table.info { margin: 0; font-size: 13px; }
+  table.info th, table.info td { border: 0; padding: 2px 0; background: none; vertical-align: top; }
+  table.info th { width: 120px; }
+  table.info td.c { width: 12px; }
+  table.info td:last-child { white-space: pre-line; }
+  .sigs { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; margin-top: 40px; font-size: 12px; }
+  .sig { display: grid; gap: 4px; text-align: center; }
+  .sig span { border-top: 1px solid #16191D; margin-top: 24px; padding-top: 4px; min-height: 18px; }
   .terms { white-space: pre-line; font-size: 11px; margin-top: 14px; }
   .logo { max-height: 64px; max-width: 200px; object-fit: contain; margin-right: 12px; }
 </style></head>
@@ -166,57 +206,53 @@ export async function renderPoHtml(poId: string): Promise<{ html: string; no: st
     </div>
     <div class="pv" style="text-align:right">
       <b style="font-size:19px">PURCHASE ORDER</b>
-      <span class="mono">${esc(displayNo)}</span>
-      <span>Date: ${fmtDate(po.approvedAt ?? po.createdAt)}</span>
       <span>Status: ${esc(chipFor(PO_ST, po.status).label)}</span>
     </div>
   </div>
 
-  <div class="grid">
-    <div class="pv"><b>Vendor</b>
-      <span>${esc(vendor?.name)}</span>
-      ${vendor?.address ? `<span style="white-space:pre-line">${esc(vendor.address)}</span>` : ''}
-      ${vendor?.taxNo ? `<span>Tax no: ${esc(vendor.taxNo)}</span>` : ''}
-      ${
-        vendor?.phone || vendor?.email
-          ? `<span>${esc([vendor.phone, vendor.email].filter(Boolean).join(' · '))}</span>`
-          : ''
-      }
-    </div>
-    <div class="pv"><b>Deliver to</b>
-      <span>${esc(deliverTo)}</span>
-      <span>Delivery date: ${fmtDate(po.deliveryDate)}</span>
-      <span>Projects: ${esc(projectCodes)}</span>
-    </div>
-    <div class="pv"><b>Terms</b>
-      <span>Payment: ${esc(po.terms)}</span>
-      <span>Tax: ${esc(TAX_MODE_LABELS[po.taxMode])}</span>
-      ${rfq ? `<span>Enquiry: ${esc(rfq.no)}</span>` : ''}
-    </div>
+  <div class="cols">
+    ${info([
+      ['Vendor No', vendor?.code ?? ''],
+      ['Vendor Name', vendor?.name ?? ''],
+      ['Country', vendor?.country ?? ''],
+      ['Number', vendor?.phone ?? ''],
+      ['Email', vendor?.email ?? ''],
+      ['TRN No', vendor?.taxNo ?? ''],
+    ])}
+    ${info([
+      ['Order No', displayNo],
+      ['Order Date', fmtDate(po.approvedAt ?? po.createdAt)],
+      ['Delivery Address', deliveryAddress],
+      ['Billing Address', billingAddress],
+      ['Delivery Date', fmtDate(po.deliveryDate)],
+    ])}
   </div>
 
   <table>
     <thead><tr>
-      <th>#</th><th>Item</th><th class="r">Qty</th><th>Unit</th>
-      <th class="r">Rate</th><th class="r">Amount</th>
-      <th class="r">Tax %</th><th class="r">Tax</th><th class="r">Total</th>
+      <th>Item Code</th><th>Description</th><th>MR No.</th><th>UOM</th>
+      <th class="r">Qty</th><th class="r">Rate</th><th class="r">Amount</th>
     </tr></thead>
     <tbody>
       ${rows.join('')}
-      <tr><td colspan="8" class="r">Subtotal</td><td class="r">${money(r2(subtotal))}</td></tr>
+      <tr><td colspan="6" class="r">Subtotal</td><td class="r">${money(r2(subtotal))}</td></tr>
       ${taxRows.join('')}
-      <tr><td colspan="8" class="r"><b>Total ${esc(currency)}</b></td>
+      <tr><td colspan="6" class="r"><b>Total ${esc(currency)}</b></td>
           <td class="r"><b>${money(r2(subtotal + taxTotal))}</b></td></tr>
     </tbody>
   </table>
 
-  ${po.notes ? `<p><b>Notes:</b> ${esc(po.notes)}</p>` : ''}
+  <p><b>Payment terms:</b> ${esc(po.terms || '—')} · <b>Tax:</b> ${esc(TAX_MODE_LABELS[po.taxMode])}${
+    rfq ? ` · <b>Enquiry:</b> ${esc(rfq.no)}` : ''
+  }</p>
   ${company?.poTerms ? `<div class="terms"><b>Terms and conditions</b>\n${esc(company.poTerms)}</div>` : ''}
+  ${po.notes ? `<p style="white-space:pre-line"><b>Remarks:</b> ${esc(po.notes)}</p>` : ''}
 
   <div class="sigs">
-    <span>Prepared by: ${esc(creator?.name)}</span>
-    <span>Approved by: ${approver && po.status !== 'REJECTED' ? esc(approver.name) : '________________'}</span>
-    <span>Vendor acceptance: ________________</span>
+    ${sig('Prepared by', creator?.name)}
+    ${sig('Checked by', checker?.name)}
+    ${sig('Verified by', verifier?.name)}
+    ${sig('Approved by', po.status !== 'REJECTED' ? approver?.name : null)}
   </div>
 </body></html>`;
 

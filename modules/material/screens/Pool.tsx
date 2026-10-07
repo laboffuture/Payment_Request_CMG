@@ -170,6 +170,7 @@ export default function PoolPage() {
       selection.map((s) => ({
         mrLineId: s.row.mrLineId,
         itemId: s.row.itemId,
+        itemCode: s.row.itemCode,
         itemName: s.row.itemName,
         unit: s.row.unit,
         projectCode: s.row.projectCode,

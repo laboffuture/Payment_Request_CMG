@@ -22,6 +22,9 @@ import { fmtDate, money, qty } from '@mm/lib/format';
  * The worker renders an equivalent document for the vendor's email attachment
  * (apps/worker/src/pdf/poDocument.ts); both read the same stored figures.
  */
+/** A PO line as printed: the MR(s) it was bought for ride along with it. */
+export type PoDocumentLine = PoLineDto & { mrNos?: string[] };
+
 export interface PoDocumentData {
   displayNo: string;
   status: PoStatus;
@@ -29,31 +32,37 @@ export interface PoDocumentData {
   vendor: VendorDto | null;
   deliverTo: DeliverTo;
   deliveryDate: string;
+  /** empty = "Main store" / the site */
+  deliveryAddress?: string;
+  /** empty = the billing company's own address */
+  billingAddress?: string;
   terms: string;
   notes: string;
   taxMode: TaxMode;
   currency: string;
   projectCodes: string[];
   rfqNo: string | null;
+  /** Procurement */
   createdByName: string;
+  /** Procurement Manager */
+  checkedByName?: string | null;
+  /** QS */
+  verifiedByName?: string | null;
+  /** Management */
   approvedByName: string | null;
   date?: string;
-  lines: PoLineDto[];
+  lines: PoDocumentLine[];
   totals: { subtotal: number; taxTotal: number; total: number };
 }
 
+const COLUMNS = ['Item Code', 'Description', 'MR No.', 'UOM', 'Qty', 'Rate', 'Amount'];
+const NUMERIC = new Set(['Qty', 'Rate', 'Amount']);
+
 export function PoDocument({ preview }: { preview: PoDocumentData }) {
-  const {
-    company,
-    vendor,
-    lines,
-    totals,
-    taxMode,
-    currency,
-    projectCodes,
-  } = preview;
+  const { company, vendor, lines, totals, taxMode, currency, projectCodes } = preview;
 
   const split = taxMode === 'CGST_SGST';
+  const span = COLUMNS.length - 1;
 
   // One tax row per distinct rate, as the prototype prints it (§7).
   const byRate = new Map<number, number>();
@@ -66,6 +75,15 @@ export function PoDocument({ preview }: { preview: PoDocumentData }) {
         100,
     );
   }
+
+  const deliveryAddress =
+    preview.deliveryAddress ||
+    (preview.deliverTo === 'SITE' ? `Site — ${projectCodes.join(', ')}` : 'Main store');
+  const billingAddress =
+    preview.billingAddress ||
+    [company?.legalName || company?.name, company?.address].filter(Boolean).join('\n');
+  const approved =
+    preview.status === 'REJECTED' ? null : preview.approvedByName;
 
   return (
     <div className="bg-white border border-line rounded-card p-7 max-w-[900px] print:border-0 print:p-0">
@@ -93,87 +111,67 @@ export function PoDocument({ preview }: { preview: PoDocumentData }) {
 
         <div className="grid gap-1 text-right text-[13px]">
           <b className="text-xl">PURCHASE ORDER</b>
-          <span className="font-mono">{preview.displayNo}</span>
-          <span>Date: {fmtDate(preview.date ?? new Date().toISOString())}</span>
           <span>Status: {chipFor(PO_ST, preview.status).label}</span>
         </div>
       </div>
 
-      <div className="grid gap-4 desk:grid-cols-3 my-[14px] text-[13px]">
-        <div className="grid gap-1">
-          <b>Vendor</b>
-          <span>{vendor?.name}</span>
-          {vendor?.address ? (
-            <span className="whitespace-pre-line">{vendor.address}</span>
-          ) : null}
-          {vendor?.taxNo ? <span>Tax no: {vendor.taxNo}</span> : null}
-          {vendor?.phone || vendor?.email ? (
-            <span>{[vendor?.phone, vendor?.email].filter(Boolean).join(' · ')}</span>
-          ) : null}
-        </div>
-
-        <div className="grid gap-1">
-          <b>Deliver to</b>
-          <span>
-            {preview.deliverTo === 'SITE'
-              ? `Site — ${projectCodes[0] ?? ''}`
-              : 'Main store'}
-          </span>
-          <span>Delivery date: {fmtDate(preview.deliveryDate)}</span>
-          <span>Projects: {projectCodes.join(', ')}</span>
-        </div>
-
-        <div className="grid gap-1">
-          <b>Terms</b>
-          <span>Payment: {preview.terms}</span>
-          <span>Tax: {TAX_MODE_LABELS[taxMode]}</span>
-          {preview.rfqNo ? <span>Enquiry: {preview.rfqNo}</span> : null}
-        </div>
+      {/* Vendor on the left, the order on the right — label : value, colons aligned. */}
+      <div className="grid gap-x-8 gap-y-3 desk:grid-cols-2 my-4 text-[13px]">
+        <InfoRows
+          rows={[
+            ['Vendor No', vendor?.code],
+            ['Vendor Name', vendor?.name],
+            ['Country', vendor?.country],
+            ['Number', vendor?.phone],
+            ['Email', vendor?.email],
+            ['TRN No', vendor?.taxNo],
+          ]}
+        />
+        <InfoRows
+          rows={[
+            ['Order No', <span key="no" className="font-mono">{preview.displayNo}</span>],
+            ['Order Date', fmtDate(preview.date ?? new Date().toISOString())],
+            ['Delivery Address', deliveryAddress],
+            ['Billing Address', billingAddress],
+            ['Delivery Date', fmtDate(preview.deliveryDate)],
+          ]}
+        />
       </div>
 
       <table className="w-full border-collapse text-xs">
         <thead>
           <tr>
-            {['#', 'Item', 'Qty', 'Unit', 'Rate', 'Amount', 'Tax %', 'Tax', 'Total'].map(
-              (h, i) => (
-                <th
-                  key={h}
-                  className={`border border-[#D5D1C8] px-2 py-[6px] bg-bg ${
-                    i >= 2 && i !== 3 ? 'text-right' : 'text-left'
-                  }`}
-                >
-                  {h}
-                </th>
-              ),
-            )}
+            {COLUMNS.map((h) => (
+              <th
+                key={h}
+                className={`border border-[#D5D1C8] px-2 py-[6px] bg-bg ${
+                  NUMERIC.has(h) ? 'text-right' : 'text-left'
+                }`}
+              >
+                {h}
+              </th>
+            ))}
           </tr>
         </thead>
         <tbody>
-          {lines.map((line, index) => {
-            const amount = line.qty * line.rate;
-            const tax = taxMode === 'NONE' ? 0 : (amount * line.gstPct) / 100;
-            return (
-              <tr key={line.id}>
-                <Cell>{index + 1}</Cell>
-                <Cell>
-                  {line.itemName}{' '}
-                  {line.itemCode ? (
-                    <span className="font-mono text-[11px]">{line.itemCode}</span>
-                  ) : null}
-                </Cell>
-                <Cell right>{qty(line.qty)}</Cell>
-                <Cell>{line.unit}</Cell>
-                <Cell right>{money(line.rate)}</Cell>
-                <Cell right>{money(amount)}</Cell>
-                <Cell right>{qty(line.gstPct)}</Cell>
-                <Cell right>{money(tax)}</Cell>
-                <Cell right>{money(amount + tax)}</Cell>
-              </tr>
-            );
-          })}
+          {lines.map((line) => (
+            <tr key={line.id}>
+              <Cell>
+                <span className="font-mono">{line.itemCode}</span>
+              </Cell>
+              <Cell>{line.itemName}</Cell>
+              <Cell>
+                <span className="font-mono">{(line.mrNos ?? []).join(', ')}</span>
+              </Cell>
+              <Cell>{line.unit}</Cell>
+              <Cell right>{qty(line.qty)}</Cell>
+              <Cell right>{money(line.rate)}</Cell>
+              <Cell right>{money(line.qty * line.rate)}</Cell>
+            </tr>
+          ))}
 
           <tr>
-            <Cell colSpan={8} right>
+            <Cell colSpan={span} right>
               Subtotal
             </Cell>
             <Cell right>{money(totals.subtotal)}</Cell>
@@ -185,13 +183,13 @@ export function PoDocument({ preview }: { preview: PoDocumentData }) {
               split
                 ? [
                     <tr key={`c${rate}`}>
-                      <Cell colSpan={8} right>
+                      <Cell colSpan={span} right>
                         CGST {rate / 2}%
                       </Cell>
                       <Cell right>{money(tax / 2)}</Cell>
                     </tr>,
                     <tr key={`s${rate}`}>
-                      <Cell colSpan={8} right>
+                      <Cell colSpan={span} right>
                         SGST {rate / 2}%
                       </Cell>
                       <Cell right>{money(tax / 2)}</Cell>
@@ -199,7 +197,7 @@ export function PoDocument({ preview }: { preview: PoDocumentData }) {
                   ]
                 : [
                     <tr key={`t${rate}`}>
-                      <Cell colSpan={8} right>
+                      <Cell colSpan={span} right>
                         {taxMode === 'IGST' ? 'IGST' : taxMode === 'VAT' ? 'VAT' : 'Tax'}{' '}
                         {rate}%
                       </Cell>
@@ -209,7 +207,7 @@ export function PoDocument({ preview }: { preview: PoDocumentData }) {
             )}
 
           <tr>
-            <Cell colSpan={8} right>
+            <Cell colSpan={span} right>
               <b>Total {currency}</b>
             </Cell>
             <Cell right>
@@ -219,11 +217,17 @@ export function PoDocument({ preview }: { preview: PoDocumentData }) {
         </tbody>
       </table>
 
-      {preview.notes ? (
-        <p className="mt-3 text-[13px]">
-          <b>Notes:</b> {preview.notes}
-        </p>
-      ) : null}
+      <div className="grid gap-1 mt-3 text-[13px]">
+        <span>
+          <b>Payment terms:</b> {preview.terms || '—'} · <b>Tax:</b> {TAX_MODE_LABELS[taxMode]}
+          {preview.rfqNo ? (
+            <>
+              {' '}
+              · <b>Enquiry:</b> {preview.rfqNo}
+            </>
+          ) : null}
+        </span>
+      </div>
 
       {company?.poTerms ? (
         <p className="whitespace-pre-line text-xs mt-3">
@@ -233,16 +237,43 @@ export function PoDocument({ preview }: { preview: PoDocumentData }) {
         </p>
       ) : null}
 
-      <div className="flex justify-between flex-wrap gap-4 mt-9 text-[13px]">
-        <span>Prepared by: {preview.createdByName}</span>
-        <span>
-          Approved by:{' '}
-          {preview.approvedByName && preview.status !== 'REJECTED'
-            ? preview.approvedByName
-            : '________________'}
-        </span>
-        <span>Vendor acceptance: ________________</span>
+      {preview.notes ? (
+        <p className="whitespace-pre-line mt-3 text-[13px]">
+          <b>Remarks:</b> {preview.notes}
+        </p>
+      ) : null}
+
+      {/* Sign-off: who prepared, checked, verified and approved this PO, by name. */}
+      <div className="grid grid-cols-2 desk:grid-cols-4 gap-4 mt-10 text-[13px]">
+        {(
+          [
+            ['Prepared by', preview.createdByName],
+            ['Checked by', preview.checkedByName],
+            ['Verified by', preview.verifiedByName],
+            ['Approved by', approved],
+          ] as const
+        ).map(([label, name]) => (
+          <div key={label} className="grid gap-1 text-center">
+            <b>{label}</b>
+            <span className="border-t border-ink pt-1 mt-6 min-h-[22px]">{name || '\u00a0'}</span>
+          </div>
+        ))}
       </div>
+    </div>
+  );
+}
+
+/** Label : value rows; the fixed label column keeps every colon in one line. */
+function InfoRows({ rows }: { rows: [string, React.ReactNode][] }) {
+  return (
+    <div className="grid grid-cols-[120px_12px_1fr] gap-y-1 content-start">
+      {rows.map(([label, value]) => (
+        <div key={label} className="contents">
+          <b>{label}</b>
+          <span>:</span>
+          <span className="whitespace-pre-line break-words">{value || '—'}</span>
+        </div>
+      ))}
     </div>
   );
 }

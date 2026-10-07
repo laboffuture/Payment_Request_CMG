@@ -104,7 +104,9 @@ export const RefreshToken = defineModel<IRefreshToken>('RefreshToken', refreshTo
 // ---------------------------------------------------------------------------
 
 export interface IVendor extends Timestamped {
+  code: string;
   name: string;
+  country: string;
   email: string;
   phone: string;
   taxNo: string;
@@ -115,7 +117,9 @@ export interface IVendor extends Timestamped {
 
 const vendorSchema = new Schema<IVendor>(
   {
+    code: { type: String, default: '', trim: true },
     name: { type: String, required: true, trim: true },
+    country: { type: String, default: '', trim: true },
     email: { type: String, default: '', trim: true, lowercase: true },
     phone: { type: String, default: '', trim: true },
     taxNo: { type: String, default: '', trim: true },
