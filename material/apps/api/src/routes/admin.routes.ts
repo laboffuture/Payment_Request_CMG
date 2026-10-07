@@ -44,6 +44,7 @@ import {
   upsertCompany,
 } from '../services/masters.service.js';
 import { createItem, listItems, pendingNewItemCount } from '../services/item.service.js';
+import { adminDeleteMr } from '../services/mr.service.js';
 import { runImport } from '../services/importRun.service.js';
 import {
   dropPreview,
@@ -216,6 +217,17 @@ adminRouter.delete(
   '/companies/:id/logo',
   wrap(async (req, res) => {
     res.json(await removeCompanyLogo(req.params.id!));
+  }),
+);
+
+// ---------------------------------------------------------------------------
+// Material requests — only the administrator may delete one outright
+// ---------------------------------------------------------------------------
+
+adminRouter.delete(
+  '/mrs/:id',
+  wrap(async (req, res) => {
+    res.json(await adminDeleteMr(actorOf(req), req.params.id!));
   }),
 );
 

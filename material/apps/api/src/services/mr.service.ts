@@ -29,7 +29,8 @@ import { enqueueEmails } from '../jobs/queues.js';
 import { deleteFile, signedUrlFor, uploadBoq } from '../lib/files.js';
 import { Item, Project } from '../models/masters.js';
 import { Mr, MrLine } from '../models/mr.js';
-import { Issue } from '../models/stock.js';
+import { Issue, IssueLine, StockLedger } from '../models/stock.js';
+import { EmailOutbox, Notification } from '../models/system.js';
 import { Po, PoAlloc } from '../models/po.js';
 import { Rfq, RfqLine } from '../models/rfq.js';
 import { canSeeProject, projectScopeOf, type Actor } from '../middleware/auth.js';
@@ -660,6 +661,69 @@ export async function deleteMr(actor: Actor, id: string): Promise<void> {
     await Mr.deleteOne({ _id: mr._id }, { session });
     await bumpSyncStamp(session);
   });
+}
+
+/**
+ * The administrator removes an MR in any status — a duplicate, a mistake, a test.
+ *
+ * Refused while anything downstream still points at its lines (a PO, an
+ * enquiry, an issue or a stock movement): deleting it then would leave those
+ * documents referring to nothing. The message names them, so they can be dealt
+ * with first. The MR's own notifications and unsent emails go with it; its
+ * trail stays, with the deletion added, so there is a record of who removed it.
+ */
+export async function adminDeleteMr(actor: Actor, id: string): Promise<{ no: string }> {
+  const { no, files } = await inTransaction(async (session) => {
+    const mr = await Mr.findById(id).session(session);
+    if (!mr) throw notFound();
+
+    const lineIds = (
+      await MrLine.find({ mrId: mr._id }).select('_id').session(session).lean()
+    ).map((l) => l._id);
+
+    const [allocs, rfqLines, issues, issueLines, ledger] = await Promise.all([
+      PoAlloc.find({ mrLineId: { $in: lineIds } }).select('poId').session(session).lean(),
+      RfqLine.find({ 'allocs.mrLineId': { $in: lineIds } }).select('rfqId').session(session).lean(),
+      Issue.find({ mrId: mr._id }).select('no').session(session).lean(),
+      IssueLine.countDocuments({ mrLineId: { $in: lineIds } }).session(session),
+      StockLedger.countDocuments({ mrLineId: { $in: lineIds } }).session(session),
+    ]);
+
+    const blockers: string[] = [];
+    if (allocs.length) {
+      const pos = await Po.find({ _id: { $in: allocs.map((a) => a.poId) } }).select('no').session(session).lean();
+      blockers.push(`PO ${pos.map((p) => p.no).join(', ')}`);
+    }
+    if (rfqLines.length) {
+      const rfqs = await Rfq.find({ _id: { $in: rfqLines.map((l) => l.rfqId) } }).select('no').session(session).lean();
+      blockers.push(`enquiry ${rfqs.map((r) => r.no).join(', ')}`);
+    }
+    if (issues.length) blockers.push(`issue ${issues.map((i) => i.no).join(', ')}`);
+    else if (issueLines || ledger) blockers.push('stock already issued against it');
+    if (blockers.length) {
+      throw conflict(
+        `${mr.no || 'This MR'} cannot be deleted: it is used on ${blockers.join('; ')}. ` +
+          'Cancel or revise those first.',
+      );
+    }
+
+    const link = `mr:${String(mr._id)}`;
+    await MrLine.deleteMany({ mrId: mr._id }, { session });
+    await Notification.deleteMany({ link }, { session });
+    await EmailOutbox.deleteMany(
+      { status: { $ne: 'SENT' }, body: { $regex: String(mr._id) } },
+      { session },
+    );
+    await writeAudit(session, 'MR', mr._id, AUDIT.MR_DELETED, actor.id, mr.no);
+    const stored = boqFilesOf(mr.toObject()).map((f) => String(f.publicId ?? ''));
+    await Mr.deleteOne({ _id: mr._id }, { session });
+    await bumpSyncStamp(session);
+    return { no: mr.no, files: stored.filter(Boolean) };
+  });
+
+  // The attachments go once the MR no longer exists to point at them.
+  for (const file of files) await deleteFile(file).catch(() => undefined);
+  return { no };
 }
 
 // ---------------------------------------------------------------------------
