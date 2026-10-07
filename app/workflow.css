@@ -202,6 +202,36 @@
   background:none;color:#98a2b3;cursor:pointer}
 .file-picker-list li button:hover{background:#fef3f2;color:#b42318}
 .file-picker-list li button svg{width:14px;height:14px}
+.file-picker-list li button.file-picker-view:hover{background:#eef4ff;color:#1b3a66}
+/* Preview of a picked file, before it is uploaded (FilePreview.tsx). */
+.file-preview{position:fixed;inset:0;z-index:1200;display:grid;place-items:center;padding:24px}
+.file-preview-scrim{position:absolute;inset:0;border:0;background:rgba(11,29,58,.55);cursor:default}
+.file-preview>section{position:relative;display:flex;flex-direction:column;width:min(1100px,100%);height:min(86vh,900px);
+  background:#fff;border-radius:12px;box-shadow:0 24px 70px rgba(11,29,58,.35);overflow:hidden}
+.file-preview header{display:flex;align-items:center;gap:8px;padding:12px 14px 12px 18px;border-bottom:1px solid var(--line,#e4e7ec)}
+.file-preview header b{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:14px;color:#101828}
+.file-preview header a,.file-preview header button{display:grid;place-items:center;width:32px;height:32px;border:1px solid var(--line,#e4e7ec);
+  border-radius:8px;background:#fff;color:#344054;cursor:pointer}
+.file-preview header a:hover,.file-preview header button:hover{background:#f2f4f7}
+.file-preview header svg{width:16px;height:16px}
+.file-preview-body{flex:1;min-height:0;overflow:auto;display:flex;flex-direction:column;background:#f8f9fb}
+.file-preview-body>img{max-width:100%;max-height:100%;margin:auto;object-fit:contain}
+.file-preview-body>iframe{flex:1;width:100%;border:0;background:#fff}
+.file-preview-body>pre{margin:0;padding:18px;white-space:pre-wrap;font-size:12.5px;background:#fff;flex:1}
+.file-preview-body>article{padding:24px 32px;background:#fff;font-size:13.5px;line-height:1.6;color:#1d2939;flex:1}
+.file-preview-body>article p{margin:0 0 8px}
+.file-preview-body>nav{display:flex;gap:4px;padding:8px 10px 0;flex-wrap:wrap}
+.file-preview-body>nav button{border:1px solid var(--line,#e4e7ec);border-bottom:0;border-radius:7px 7px 0 0;background:#eef0f4;
+  padding:6px 12px;font-size:12px;cursor:pointer;color:#475467}
+.file-preview-body>nav button.active{background:#fff;color:#101828;font-weight:700}
+.file-preview-table{flex:1;overflow:auto;background:#fff}
+.file-preview-table table{border-collapse:collapse;min-width:100%;width:auto;font-size:12px}
+.file-preview-table td,.file-preview-table th{border:1px solid #e4e7ec;padding:5px 9px;white-space:nowrap;max-width:320px;
+  overflow:hidden;text-overflow:ellipsis;text-align:left;cursor:default}
+.file-preview-table th{background:#f2f4f7;color:#667085;font-weight:600;position:sticky;left:0;min-width:38px;text-align:right}
+.file-preview-table tr:first-child td{background:#f9fafb;font-weight:700}
+.file-preview-note{margin:auto;padding:24px;color:#667085;font-size:13px;text-align:center}
+@media(max-width:700px){.file-preview{padding:8px}.file-preview>section{height:92vh}}
 /* The release step's UTR field and the message when a proof fails to upload. */
 .wf-note input.wf-utr{display:block;width:100%;height:36px;margin-top:5px;padding:0 10px;border:1px solid #d0d5dd;border-radius:6px;font:inherit;font-size:12px;box-sizing:border-box}
 .wf-release-error{margin:4px 0 8px!important;padding:0!important;background:none!important;color:#b42318;font-size:11.5px!important}

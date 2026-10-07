@@ -12,7 +12,8 @@
    would refuse to submit without saying why. It is only required while the list is empty. */
 
 import{useRef,useState}from"react";
-import{FileText,Upload,X}from"lucide-react";
+import{Eye,FileText,Upload,X}from"lucide-react";
+import FilePreview from"./FilePreview";
 
 const size=(n:number)=>n>=1048576?`${(n/1048576).toFixed(1)} MB`:`${Math.max(1,Math.round(n/1024))} KB`;
 const key=(f:File)=>`${f.name}|${f.size}|${f.lastModified}`;
@@ -22,6 +23,7 @@ export default function FilePicker({files,onChange,label,required=false,
   files:File[];onChange:(files:File[])=>void;label:string;required?:boolean;accept?:string;className?:string}){
   const input=useRef<HTMLInputElement>(null);
   const[over,setOver]=useState(false);
+  const[viewing,setViewing]=useState<File|null>(null);
   const add=(picked:FileList|null)=>{
     if(!picked?.length)return;
     const have=new Set(files.map(key));
@@ -40,6 +42,8 @@ export default function FilePicker({files,onChange,label,required=false,
     </label>
     {!!files.length&&<ul className="file-picker-list">
       {files.map((f,i)=><li key={key(f)}><FileText/><span title={f.name}>{f.name}</span><small>{size(f.size)}</small>
+        <button type="button" className="file-picker-view" title={`Preview ${f.name}`} aria-label={`Preview ${f.name}`} onClick={()=>setViewing(f)}><Eye/></button>
         <button type="button" aria-label={`Remove ${f.name}`} onClick={()=>onChange(files.filter((_,j)=>j!==i))}><X/></button></li>)}
     </ul>}
+    {viewing&&<FilePreview file={viewing} onClose={()=>setViewing(null)}/>}
   </div>}
