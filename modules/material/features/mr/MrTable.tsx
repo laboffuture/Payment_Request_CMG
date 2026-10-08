@@ -18,9 +18,19 @@ export function MrTable({ rows }: { rows: MrDto[] }) {
     {
       key: 'no',
       header: 'MR no.',
-      render: (m) => <span className="font-mono">{m.no || 'Draft'}</span>,
+      // Kept on one line so the number never breaks beside a long project name.
+      render: (m) => (
+        <span className="font-mono" style={{ whiteSpace: 'nowrap' }}>
+          {m.no || 'Draft'}
+        </span>
+      ),
     },
-    { key: 'project', header: 'Project', render: (m) => m.projectCode },
+    {
+      key: 'project',
+      header: 'Project',
+      render: (m) => <span style={{ whiteSpace: 'nowrap' }}>{m.projectCode}</span>,
+    },
+    { key: 'projectName', header: 'Project name', render: (m) => m.projectName || '—' },
     {
       key: 'required',
       header: 'Required',
