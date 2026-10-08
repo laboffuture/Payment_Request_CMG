@@ -80,6 +80,35 @@ const csvUpload = multer({
   limits: { fileSize: 5 * 1024 * 1024 },
 });
 
+const itemMaster = [requireAuth, authorize('ADMIN', 'QS')] as const;
+
+// ---------------------------------------------------------------------------
+// Item master - the administrator's, and QS's too: QS approves the new items that
+// land in it. Registered ahead of the admin-only guard below for that reason.
+// ---------------------------------------------------------------------------
+
+adminRouter.get(
+  '/items',
+  ...itemMaster,
+  wrap(async (req, res) => {
+    const category = typeof req.query.category === 'string' ? req.query.category : '';
+    res.json({
+      items: await listItems({ category: category || undefined }),
+      pendingNewItems: await pendingNewItemCount(),
+    });
+  }),
+);
+
+adminRouter.post(
+  '/items',
+  ...itemMaster,
+  idempotency,
+  validateBody(createItemInput),
+  wrap(async (req, res) => {
+    res.status(201).json(await createItem(req.body, actorOf(req).id));
+  }),
+);
+
 adminRouter.use(requireAuth, authorize('ADMIN'));
 
 // ---------------------------------------------------------------------------
@@ -252,30 +281,6 @@ adminRouter.post(
   '/categories/:id/toggle',
   wrap(async (req, res) => {
     res.json(await toggleCategory(req.params.id!));
-  }),
-);
-
-// ---------------------------------------------------------------------------
-// Item master
-// ---------------------------------------------------------------------------
-
-adminRouter.get(
-  '/items',
-  wrap(async (req, res) => {
-    const category = typeof req.query.category === 'string' ? req.query.category : '';
-    res.json({
-      items: await listItems({ category: category || undefined }),
-      pendingNewItems: await pendingNewItemCount(),
-    });
-  }),
-);
-
-adminRouter.post(
-  '/items',
-  idempotency,
-  validateBody(createItemInput),
-  wrap(async (req, res) => {
-    res.status(201).json(await createItem(req.body, actorOf(req).id));
   }),
 );
 

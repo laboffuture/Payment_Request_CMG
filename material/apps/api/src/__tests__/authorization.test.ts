@@ -65,6 +65,15 @@ describe('admin routes are admin only', () => {
   });
 });
 
+describe('the item master is shared with QS', () => {
+  it('lets QS read it, and nothing else of the admin area', async () => {
+    const qs = await signIn(app, 'qs', 'demo123');
+    expect((await qs.get('/api/admin/items')).status).toBe(200);
+    expect((await qs.get('/api/admin/users')).status).toBe(403);
+    expect((await qs.get('/api/admin/categories')).status).toBe(403);
+  });
+});
+
 describe('inventory is closed to site engineers and vendors', () => {
   it('lets QS, store, management and admin in', async () => {
     for (const login of ['qs', 'store', 'mgmt', 'admin']) {

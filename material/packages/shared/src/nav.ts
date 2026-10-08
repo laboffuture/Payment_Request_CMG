@@ -60,6 +60,7 @@ export const NAV: Record<Role, readonly NavItem[]> = {
     { href: '/pos/validate', label: 'PO validation', count: 'poValidations' },
     { href: '/mrs', label: 'All MRs' },
     { href: '/pos', label: 'Purchase orders' },
+    { href: '/admin/items', label: 'Item master' },
     { href: '/inventory', label: 'Inventory' },
     { href: '/reports', label: 'Reports' },
     { href: '/notifications', label: 'Notifications', count: 'notifications' },
