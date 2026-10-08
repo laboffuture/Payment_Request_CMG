@@ -57,8 +57,11 @@ export function MrTable({ rows }: { rows: MrDto[] }) {
     {
       key: 'lines',
       header: 'Lines',
-      render: (m) =>
-        `${m.lineCount}${m.newItemCount ? ` · ${m.newItemCount} new` : ''}`,
+      render: (m) => (
+        <span style={{ whiteSpace: 'nowrap' }}>
+          {`${m.lineCount}${m.newItemCount ? ` · ${m.newItemCount} new` : ''}`}
+        </span>
+      ),
     },
     { key: 'by', header: 'Raised by', render: (m) => m.createdByName },
     {
