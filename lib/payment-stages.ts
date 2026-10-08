@@ -49,6 +49,15 @@ export const MANAGEMENT_SETTING="payment.managementApproval";
    A company with nobody named is approved by anyone holding the Management role. */
 export type ManagementSetting={enabled:boolean;companies:string[];approvers?:Record<string,string[]>};
 const squash=(s:string)=>String(s||"").toLowerCase().replace(/[^a-z0-9]/g,"");
+/* The currency a company's payment requests start in. TOP ROCK GLOBAL pays in rupees; a
+   company not listed starts on the first currency of the list, as before. The requester
+   can still pick another currency for a particular payment. Matched like the companies
+   above, so "TopRock Global" is the same company. */
+export const COMPANY_CURRENCY:Record<string,string>={"TOP ROCK GLOBAL":"INR"};
+export const defaultCurrencyFor=(company:string,currencies:string[])=>{
+  const key=Object.keys(COMPANY_CURRENCY).find(c=>squash(c)===squash(company));
+  const want=key?COMPANY_CURRENCY[key]:"";
+  return want&&currencies.includes(want)?want:""};
 /** The managers named for a company's requests (emails, lower case); empty = anyone in Management. */
 export const approversOf=(setting:ManagementSetting,company:string)=>{
   const key=Object.keys(setting.approvers||{}).find(c=>squash(c)===squash(company));
