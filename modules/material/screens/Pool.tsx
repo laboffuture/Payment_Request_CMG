@@ -114,6 +114,11 @@ export default function PoolPage() {
     },
     { key: 'project', header: 'Project', render: (r) => r.projectCode },
     {
+      key: 'asked',
+      header: 'Site engineer asked for',
+      render: (r) => r.mrDescription || '—',
+    },
+    {
       key: 'open',
       header: 'Open qty',
       align: 'right',

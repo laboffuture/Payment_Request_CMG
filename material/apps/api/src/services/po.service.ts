@@ -1345,7 +1345,7 @@ export async function poFormRows(id: string): Promise<
   ]);
 
   const mrLines = await MrLine.find({ _id: { $in: allocs.map((a) => a.mrLineId) } })
-    .select('mrId itemId description')
+    .select('mrId itemId description measurement')
     .lean();
   const mrs = await Mr.find({ _id: { $in: mrLines.map((l) => l.mrId) } })
     .select('no')
@@ -1363,7 +1363,10 @@ export async function poFormRows(id: string): Promise<
       itemCode: item?.code ?? '',
       itemName: item?.name ?? '',
       description: line?.description ?? '',
-      mrDescription: mrLine?.description ?? '',
+      mrDescription: [mrLine?.description, mrLine?.measurement]
+        .map((v) => (v ?? '').trim())
+        .filter(Boolean)
+        .join(' — '),
       unit: item?.unit ?? '',
       projectCode: lookups.projectCode(alloc.projectId),
       mrNo: mr?.no ?? '',

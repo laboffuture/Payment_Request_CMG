@@ -748,11 +748,11 @@ function ItemPicker({
 
           <div className="flex flex-col border border-line rounded-xl overflow-hidden max-h-[340px] overflow-y-auto">
             {(items.data ?? []).map((item) => {
-              const used = usedItemIds.includes(item.id);
+              // An item can be added again — the same glass in another size is another line.
+              const used = usedItemIds.filter((id) => id === item.id).length;
               return (
                 <button
                   key={item.id}
-                  disabled={used}
                   onClick={() =>
                     onPick(
                       blankLine({
@@ -773,7 +773,9 @@ function ItemPicker({
                       {item.code} · {item.unit}
                       {item.brand ? ` · ${item.brand}` : ''}
                       {item.packing ? ` · ${item.packing}` : ''}
-                      {used ? ' · already added' : ''}
+                      {used
+                        ? ` · on this MR ${used === 1 ? 'once' : `${used} times`} — pick again for another measurement`
+                        : ''}
                     </span>
                   </span>
                   <span className="text-mut">

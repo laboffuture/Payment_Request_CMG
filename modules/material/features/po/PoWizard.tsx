@@ -360,6 +360,9 @@ function StepPickItems({
                     <tr key={row.mrLineId}>
                       <td data-label="Item">
                         <b>{row.itemName}</b>
+                        {row.mrDescription ? (
+                          <div className="text-mut text-xs">{row.mrDescription}</div>
+                        ) : null}
                       </td>
                       <td data-label="Project · MR">
                         {row.projectCode} ·{' '}
@@ -479,6 +482,9 @@ function StepPickItems({
                   <div>
                     <b>{row.itemName}</b>{' '}
                     <span className="text-mut">{row.category}</span>
+                    {row.mrDescription ? (
+                      <div className="text-[13px]">{row.mrDescription}</div>
+                    ) : null}
                     <div className="text-mut text-[13px]">
                       Open {qty(row.openQty)} {row.unit}
                       {row.lastRate ? ` · last rate ${money(row.lastRate)}` : ''}

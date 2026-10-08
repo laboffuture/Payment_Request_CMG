@@ -25,9 +25,16 @@ export async function listPool(query: PoolQuery): Promise<PoolRowDto[]> {
   const now = today();
   const rows = poolRows(world);
   const described = await MrLine.find({ _id: { $in: rows.map((r) => r.line.id) } })
-    .select('description')
+    .select('description measurement')
     .lean();
-  const mrDescription = new Map(described.map((l) => [String(l._id), l.description ?? '']));
+  // Description and measurement together: the same item can be on an MR twice,
+  // and the measurement is what tells the two lines apart.
+  const mrDescription = new Map(
+    described.map((l) => [
+      String(l._id),
+      [l.description, l.measurement].map((v) => (v ?? '').trim()).filter(Boolean).join(' — '),
+    ]),
+  );
 
   return rows
     .filter((row) => {

@@ -456,11 +456,8 @@ async function validateMrInput(
     throw badRequest(MSG.mrDescriptionRequired);
   }
 
-  // The picker disables items already on the MR; enforce it server-side too.
-  const picked = active.map((l) => l.itemId).filter(Boolean).map(String);
-  if (new Set(picked).size !== picked.length) {
-    throw badRequest(MSG.mrItemAlreadyAdded);
-  }
+  // The same item may be on an MR more than once — the same glass in two sizes
+  // is two lines, each with its own measurement, quantity and description.
 }
 
 export async function createMr(actor: Actor, input: UpsertMrInput): Promise<MrDto> {
@@ -796,17 +793,8 @@ export async function mapNewItem(
     const target = await Item.findById(input.itemId).select('code name').session(session).lean();
     if (!target) throw badRequest(MSG.qsChooseMapTarget);
 
-    // The same item must not appear twice on one MR.
-    const duplicate = await MrLine.findOne({
-      mrId: line.mrId,
-      _id: { $ne: line._id },
-      itemId: target._id,
-      lineStatus: { $ne: 'REJECTED' },
-    })
-      .select('_id')
-      .session(session)
-      .lean();
-    if (duplicate) throw conflict(MSG.mrItemAlreadyAdded);
+    // Mapping onto an item that is already on the MR is fine: an item may be
+    // requested on several lines (different measurements).
 
     line.itemId = target._id as never;
     line.newStatus = 'MAPPED';
