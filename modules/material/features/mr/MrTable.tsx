@@ -6,6 +6,13 @@ import { DataTable, type Column } from '@mm/components/DataTable';
 import { Btn, Chip, Tag } from '@mm/components/ui';
 import { fmtDate } from '@mm/lib/format';
 
+const nameOnly = (name: string, code: string): string => {
+  const text = (name ?? '').trim();
+  return code && text.toLowerCase().startsWith(code.toLowerCase())
+    ? text.slice(code.length).replace(/^[\s·\-—:|]+/, '')
+    : text;
+};
+
 /**
  * The MR register.
  * Prototype origin: mrTable(list) — used by the home page, My MRs / All MRs
@@ -30,7 +37,13 @@ export function MrTable({ rows }: { rows: MrDto[] }) {
       header: 'Project',
       render: (m) => <span style={{ whiteSpace: 'nowrap' }}>{m.projectCode}</span>,
     },
-    { key: 'projectName', header: 'Project name', render: (m) => m.projectName || '—' },
+    {
+      key: 'projectName',
+      header: 'Project name',
+      // The API's name leads with the code ("TRG-J02-006 · KADARA …"); the code has
+      // its own column, so only the name is shown here.
+      render: (m) => nameOnly(m.projectName, m.projectCode) || '—',
+    },
     {
       key: 'required',
       header: 'Required',
