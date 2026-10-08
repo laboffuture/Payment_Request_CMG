@@ -181,7 +181,9 @@ export function PoDocument({ preview }: { preview: PoDocumentData }) {
               <Cell>
                 <span className="font-mono">{line.itemCode}</span>
               </Cell>
-              <Cell>{line.itemName}</Cell>
+              <Cell>
+                <span className="whitespace-pre-line">{line.description || line.itemName}</span>
+              </Cell>
               <Cell>
                 <span className="font-mono">{(line.mrNos ?? []).join(', ')}</span>
               </Cell>

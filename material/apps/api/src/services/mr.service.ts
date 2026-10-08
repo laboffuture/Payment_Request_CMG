@@ -2,6 +2,7 @@ import { Types, type ClientSession } from 'mongoose';
 import { lineCalc, num, shouldCloseMr, stock } from '@cm/calc';
 import {
   MAX_BOQ_FILES,
+  earliestRequiredDate,
   MSG,
   type MapNewItemInput,
   type MrCommentInput,
@@ -444,7 +445,8 @@ async function validateMrInput(
 
   // Everything below only applies when the MR is actually being submitted.
   if (!input.requiredDate) throw badRequest(MSG.mrNoDate);
-  if (input.requiredDate < today()) throw badRequest(MSG.mrDatePast);
+  const earliest = earliestRequiredDate();
+  if (input.requiredDate < earliest) throw badRequest(MSG.mrDateTooSoon(earliest));
 
   const active = input.lines;
   if (!active.length) throw badRequest(MSG.mrNoLines);

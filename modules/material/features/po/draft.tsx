@@ -14,6 +14,10 @@ export interface PoDraftRow {
   itemId: string;
   itemCode?: string;
   itemName: string;
+  /** procurement's description for the vendor, the same on every row of the item */
+  description?: string;
+  /** what the site engineer wrote on the MR line — reference only */
+  mrDescription?: string;
   unit: string;
   projectCode: string;
   mrNo: string;
@@ -62,13 +66,15 @@ export const usePoDraft = create<PoDraftState>((set) => ({
 
 /** Rows grouped into the one-line-per-item shape the PO is stored in. */
 export function groupRows(rows: PoDraftRow[]) {
-  const groups = new Map<string, { itemId: string; itemCode: string; itemName: string; unit: string; qty: number; rate: number; gstPct: number; projects: string[]; mrNos: string[] }>();
+  const groups = new Map<string, { itemId: string; itemCode: string; itemName: string; description: string; mrDescriptions: string[]; unit: string; qty: number; rate: number; gstPct: number; projects: string[]; mrNos: string[] }>();
 
   for (const row of rows) {
     const entry = groups.get(row.itemId) ?? {
       itemId: row.itemId,
       itemCode: row.itemCode ?? '',
       itemName: row.itemName,
+      description: '',
+      mrDescriptions: [] as string[],
       unit: row.unit,
       qty: 0,
       rate: row.rate,
@@ -81,6 +87,9 @@ export function groupRows(rows: PoDraftRow[]) {
     entry.gstPct = row.gstPct;
     if (!entry.projects.includes(row.projectCode)) entry.projects.push(row.projectCode);
     if (row.mrNo && !entry.mrNos.includes(row.mrNo)) entry.mrNos.push(row.mrNo);
+    if (!entry.description && row.description) entry.description = row.description;
+    const said = (row.mrDescription ?? '').trim();
+    if (said && !entry.mrDescriptions.includes(said)) entry.mrDescriptions.push(said);
     groups.set(row.itemId, entry);
   }
 

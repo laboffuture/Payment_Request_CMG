@@ -10,6 +10,7 @@ import { MSG } from '@cm/shared';
 import { badRequest } from '../lib/errors.js';
 import { buildLookups, today } from '../lib/lookups.js';
 import { loadWorld } from '../lib/world.js';
+import { MrLine } from '../models/mr.js';
 
 /**
  * Consolidation.
@@ -22,8 +23,13 @@ import { loadWorld } from '../lib/world.js';
 export async function listPool(query: PoolQuery): Promise<PoolRowDto[]> {
   const [world, lookups] = await Promise.all([loadWorld(), buildLookups()]);
   const now = today();
+  const rows = poolRows(world);
+  const described = await MrLine.find({ _id: { $in: rows.map((r) => r.line.id) } })
+    .select('description')
+    .lean();
+  const mrDescription = new Map(described.map((l) => [String(l._id), l.description ?? '']));
 
-  return poolRows(world)
+  return rows
     .filter((row) => {
       if (query.projectId && String(row.mr.projectId) !== query.projectId) return false;
       if (query.category) {
@@ -45,6 +51,7 @@ export async function listPool(query: PoolQuery): Promise<PoolRowDto[]> {
         itemId: item.id,
         itemCode: item.code,
         itemName: item.name,
+        mrDescription: mrDescription.get(row.line.id) ?? '',
         unit: item.unit,
         category: item.category,
         openQty: row.calc.poolOpen,

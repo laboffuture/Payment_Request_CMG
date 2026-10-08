@@ -19,6 +19,8 @@ export const poRowInput = z.object({
   qty: qty,
   rate: money,
   gstPct: percent.default(0),
+  /** what procurement writes for the vendor — printed on the PO in place of the item name */
+  description: z.string().trim().max(400).optional().default(''),
 });
 export type PoRowInput = z.infer<typeof poRowInput>;
 

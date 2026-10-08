@@ -261,6 +261,8 @@ export interface PoLineDto {
   itemId: string;
   itemCode: string;
   itemName: string;
+  /** procurement's description for the vendor; empty = the item name */
+  description: string;
   unit: string;
   qty: number;
   rate: number;
@@ -515,6 +517,8 @@ export interface PoolRowDto {
   itemId: string;
   itemCode: string;
   itemName: string;
+  /** what the site engineer wrote on the MR line — a reference for procurement */
+  mrDescription: string;
   unit: string;
   category: string;
   openQty: number;

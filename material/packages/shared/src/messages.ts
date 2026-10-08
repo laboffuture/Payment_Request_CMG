@@ -22,6 +22,8 @@ export const MSG = {
   mrNoProject: 'Select a project — every MR needs one',
   mrNoDate: 'Set the required date',
   mrDatePast: 'Required date cannot be in the past',
+  mrDateTooSoon: (earliest: string) =>
+    `The required date must be ${earliest} or later — the next 5 days cannot be chosen`,
   mrNoLines: 'Add at least one MR item',
   mrQtyRequired: 'Every item needs a quantity above 0',
   mrDescriptionRequired: 'Every item needs a description — say what you need',

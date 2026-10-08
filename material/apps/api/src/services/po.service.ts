@@ -249,6 +249,7 @@ export async function getPo(actor: Actor, id: string): Promise<PoDetailDto> {
       itemId: item.id,
       itemCode: item.code,
       itemName: item.name,
+      description: line.description ?? '',
       unit: item.unit,
       qty: num(line.qty),
       rate: num(line.rate),
@@ -488,7 +489,8 @@ async function assertRowsAvailable(
  */
 async function writePoLines(
   poId: Types.ObjectId,
-  rows: UpsertPoInput['rows'],
+  // Rows from an awarded enquiry carry no description; the PO then prints the item name.
+  rows: (Omit<UpsertPoInput['rows'][number], 'description'> & { description?: string })[],
   taxMode: string,
   session: ClientSession,
 ): Promise<WriteLinesResult> {
@@ -528,9 +530,10 @@ async function writePoLines(
     const gst = taxMode === 'NONE' ? 0 : num(first.gstPct);
     const rate = num(first.rate);
     const qty = num(group.reduce((s, r) => s + num(r.qty), 0));
+    const description = group.find((r) => r.description)?.description ?? '';
 
     const [poLine] = await PoLine.create(
-      [{ poId, itemId, qty, rate, gstPct: gst }],
+      [{ poId, itemId, qty, rate, gstPct: gst, description }],
       { session, ordered: true },
     );
 
@@ -1323,6 +1326,8 @@ export async function poFormRows(id: string): Promise<
     itemId: string;
     itemCode: string;
     itemName: string;
+    description: string;
+    mrDescription: string;
     unit: string;
     projectCode: string;
     mrNo: string;
@@ -1340,7 +1345,7 @@ export async function poFormRows(id: string): Promise<
   ]);
 
   const mrLines = await MrLine.find({ _id: { $in: allocs.map((a) => a.mrLineId) } })
-    .select('mrId itemId')
+    .select('mrId itemId description')
     .lean();
   const mrs = await Mr.find({ _id: { $in: mrLines.map((l) => l.mrId) } })
     .select('no')
@@ -1357,6 +1362,8 @@ export async function poFormRows(id: string): Promise<
       itemId: item?.id ?? '',
       itemCode: item?.code ?? '',
       itemName: item?.name ?? '',
+      description: line?.description ?? '',
+      mrDescription: mrLine?.description ?? '',
       unit: item?.unit ?? '',
       projectCode: lookups.projectCode(alloc.projectId),
       mrNo: mr?.no ?? '',

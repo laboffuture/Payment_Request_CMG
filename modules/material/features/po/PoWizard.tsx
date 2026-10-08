@@ -130,6 +130,7 @@ export function PoWizard({
       qty: r.qty,
       rate: r.rate,
       gstPct: form.taxMode === 'NONE' ? 0 : r.gstPct,
+      description: r.description ?? '',
     })),
   });
 
@@ -322,6 +323,7 @@ function StepPickItems({
     itemId: r.itemId,
     itemCode: r.itemCode,
     itemName: r.itemName,
+    mrDescription: r.mrDescription,
     unit: r.unit,
     projectCode: r.projectCode,
     mrNo: r.mrNo,
@@ -743,9 +745,24 @@ function StepVendorPrices({
               const tax = form.taxMode === 'NONE' ? 0 : (amount * group.gstPct) / 100;
               return (
                 <tr key={group.itemId}>
-                  <td data-label="Item">
+                  <td data-label="Item" className="min-w-[280px]">
                     <b>{group.itemName}</b>
                     <div className="text-mut text-xs">{group.projects.join(', ')}</div>
+                    {group.mrDescriptions.length ? (
+                      <div className="text-xs mt-1">
+                        <span className="text-mut">Site engineer wrote: </span>
+                        {group.mrDescriptions.join(' · ')}
+                      </div>
+                    ) : null}
+                    <textarea
+                      rows={2}
+                      maxLength={400}
+                      className="w-full mt-2 text-sm"
+                      aria-label={`Description on the PO for ${group.itemName}`}
+                      placeholder="Description on the PO (make, size, specification…) — the item name prints if left empty"
+                      value={group.description}
+                      onChange={(e) => onPatchItem(group.itemId, { description: e.target.value })}
+                    />
                   </td>
                   <td data-label="Total qty" className="desk:text-right">
                     {qty(group.qty)} {group.unit}
@@ -924,6 +941,7 @@ function StepReview({
             itemId: g.itemId,
             itemCode: g.itemCode,
             itemName: g.itemName,
+            description: g.description,
             mrNos: g.mrNos,
             unit: g.unit,
             qty: g.qty,

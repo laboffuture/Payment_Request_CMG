@@ -123,6 +123,7 @@ export interface IPoLine extends Timestamped {
   qty: number;
   rate: number;
   gstPct: number;
+  description: string;
 }
 
 const poLineSchema = new Schema<IPoLine>(
@@ -132,6 +133,7 @@ const poLineSchema = new Schema<IPoLine>(
     qty: qtyField(),
     rate: moneyField(true),
     gstPct: { type: Number, default: 0, min: 0 },
+    description: { type: String, default: '', maxlength: 400 },
   },
   baseOptions(),
 );

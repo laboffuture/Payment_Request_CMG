@@ -172,6 +172,7 @@ export default function PoolPage() {
         itemId: s.row.itemId,
         itemCode: s.row.itemCode,
         itemName: s.row.itemName,
+        mrDescription: s.row.mrDescription,
         unit: s.row.unit,
         projectCode: s.row.projectCode,
         mrNo: s.row.mrNo,

@@ -4,6 +4,7 @@ import { useRef, useState } from 'react';
 import { useRouter } from '@mm/lib/nav';
 import { useQuery } from '@tanstack/react-query';
 import {
+  earliestRequiredDate,
   BOQ_ACCEPT,
   MAX_BOQ_BYTES,
   MAX_BOQ_FILES,
@@ -21,7 +22,7 @@ import { Modal } from '@mm/components/Modal';
 import { useToast } from '@mm/components/Toast';
 import { useAction } from '@mm/lib/hooks';
 import { useReference } from '@mm/lib/reference';
-import { today } from '@mm/lib/format';
+import { fmtDate } from '@mm/lib/format';
 
 /**
  * The material request form — mobile first, because site engineers fill it in
@@ -212,7 +213,9 @@ export function MrForm({ existing }: { existing?: MrDetailDto }) {
     if (!projectId) return toast(MSG.mrNoProject);
     if (isSubmit) {
       if (!requiredDate) return toast(MSG.mrNoDate);
-      if (requiredDate < today()) return toast(MSG.mrDatePast);
+      if (requiredDate < earliestRequiredDate()) {
+        return toast(MSG.mrDateTooSoon(earliestRequiredDate()));
+      }
       const active = lines.filter((l) => !l.rejected);
       if (!active.length) return toast(MSG.mrNoLines);
       if (active.some((l) => !(Number(l.qty) > 0))) return toast(MSG.mrQtyRequired);
@@ -292,10 +295,10 @@ export function MrForm({ existing }: { existing?: MrDetailDto }) {
           ) : null}
 
           <label className="field">
-            Required date * — applies to every item
+            Required date * — applies to every item, from {fmtDate(earliestRequiredDate())}
             <input
               type="date"
-              min={today()}
+              min={earliestRequiredDate()}
               value={requiredDate}
               onChange={(e) => setRequiredDate(e.target.value)}
             />

@@ -117,7 +117,7 @@ export async function renderPoHtml(poId: string): Promise<{ html: string; no: st
 
     return `<tr>
       <td class="mono">${esc(item?.code)}</td>
-      <td>${esc(item?.name)}</td>
+      <td style="white-space:pre-line">${esc(line.description || item?.name)}</td>
       <td class="mono">${esc(mrNosFor(line._id))}</td>
       <td>${esc(item?.unit)}</td>
       <td class="r">${num(line.qty)}</td>
