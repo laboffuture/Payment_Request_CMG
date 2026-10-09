@@ -39,6 +39,13 @@ export async function listPool(query: PoolQuery): Promise<PoolRowDto[]> {
     .select('description measurement procRemark qsReply qsReplyBy')
     .lean();
   const answered = new Map(described.map((l) => [String(l._id), l]));
+  // Drawings and BOQ sheets on the MR, so the buyer can open them from the pool.
+  const withFiles = await Mr.find({ _id: { $in: [...new Set(rows.map((r) => r.mr.id))] } })
+    .select('boqFiles boq')
+    .lean();
+  const attachments = new Map(
+    withFiles.map((m) => [String(m._id), (m.boqFiles ?? []).length || (m.boq ? 1 : 0)]),
+  );
   // Description and measurement together: the same item can be on an MR twice,
   // and the measurement is what tells the two lines apart.
   const mrDescription = new Map(
@@ -83,6 +90,7 @@ export async function listPool(query: PoolQuery): Promise<PoolRowDto[]> {
         qsReplyBy: answered.get(row.line.id)?.qsReplyBy
           ? lookups.userName(answered.get(row.line.id)!.qsReplyBy)
           : '',
+        attachments: attachments.get(row.mr.id) ?? 0,
       };
     })
     // Group by item, then by MR — the order the prototype's table shows.

@@ -38,6 +38,7 @@ import { useToast } from '@mm/components/Toast';
 import { useAction } from '@mm/lib/hooks';
 import { fmtDate, fmtDateTime, money, qty } from '@mm/lib/format';
 import { useSession } from '@mm/lib/session';
+import { AttachmentLinks } from '@mm/features/mr/MrAttachments';
 
 /**
  * Prototype: VIEWS.mrview — lines, progress bars, the approval panels, the
@@ -237,17 +238,7 @@ function BoqBanner({ mr }: { mr: MrDetailDto }) {
         <Tag label="BOQ" tone="ac" />
         <div className="min-w-0">
           <div className="flex flex-col gap-1">
-            {mr.boqFiles.map((file) => (
-              <a
-                key={file.id}
-                href={file.url}
-                target="_blank"
-                rel="noreferrer"
-                className="font-semibold break-all"
-              >
-                {file.name}
-              </a>
-            ))}
+            <AttachmentLinks mrId={mr.id} files={mr.boqFiles} />
           </div>
           <span className="text-mut text-sm">
             {mr.boqFiles.length} file(s) attached by the site engineer

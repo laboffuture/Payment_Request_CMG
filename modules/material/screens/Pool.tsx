@@ -20,6 +20,7 @@ import { useReference } from '@mm/lib/reference';
 import { dateTimeLocal, fmtDate, money, qty } from '@mm/lib/format';
 import { usePoDraft } from '@mm/features/po/draft';
 import { ProcHolds } from '@mm/features/pool/ProcHolds';
+import { AttachmentButton } from '@mm/features/mr/MrAttachments';
 
 /**
  * Consolidate MRs.
@@ -35,6 +36,7 @@ export default function PoolPage() {
 
   const [projectId, setProjectId] = useState('');
   const [category, setCategory] = useState('');
+  const [search, setSearch] = useState('');
   const [picked, setPicked] = useState<Record<string, string>>({});
   const [rfqOpen, setRfqOpen] = useState(false);
   const [analysisOpen, setAnalysisOpen] = useState(false);
@@ -50,6 +52,18 @@ export default function PoolPage() {
   });
 
   const rows = pool.data ?? [];
+
+  // Every word typed must appear somewhere on the line: "cpvc 0003" finds CPVC items on MR ...0003.
+  const shown = useMemo(() => {
+    const words = search.toLowerCase().split(/\s+/).filter(Boolean);
+    if (!words.length) return rows;
+    return rows.filter((r) => {
+      const text = [r.mrNo, r.projectCode, r.itemName, r.itemCode, r.category, r.mrDescription]
+        .join(' ')
+        .toLowerCase();
+      return words.every((w) => text.includes(w));
+    });
+  }, [rows, search]);
 
   const selection = useMemo(
     () =>
@@ -109,9 +123,12 @@ export default function PoolPage() {
       key: 'mr',
       header: 'MR no.',
       render: (r) => (
-        <button className="text-ac underline font-semibold font-mono" onClick={() => router.push(`/mrs/${r.mrId}`)}>
-          {r.mrNo}
-        </button>
+        <span className="inline-flex flex-col items-start gap-1">
+          <button className="text-ac underline font-semibold font-mono" onClick={() => router.push(`/mrs/${r.mrId}`)}>
+            {r.mrNo}
+          </button>
+          <AttachmentButton mrId={r.mrId} count={r.attachments} />
+        </span>
       ),
     },
     { key: 'project', header: 'Project', render: (r) => r.projectCode },
@@ -210,6 +227,14 @@ export default function PoolPage() {
         subtitle="QS-approved PO quantities from every project. Tick lines from any MR — full or part qty — then send one enquiry or raise one PO."
         actions={
           <>
+            <input
+              type="search"
+              aria-label="Search materials"
+              placeholder="Search material, MR no. or project"
+              className="min-w-[230px]"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+            />
             <select
               aria-label="Project"
               value={projectId}
@@ -234,7 +259,10 @@ export default function PoolPage() {
             </select>
             <Btn
               onClick={() =>
-                setPicked(Object.fromEntries(rows.map((r) => [r.mrLineId, String(r.openQty)])))
+                setPicked((current) => ({
+                  ...current,
+                  ...Object.fromEntries(shown.map((r) => [r.mrLineId, String(r.openQty)])),
+                }))
               }
             >
               Select shown
@@ -249,10 +277,12 @@ export default function PoolPage() {
 
       {pool.isLoading ? (
         <div className="text-mut">Loading…</div>
+      ) : rows.length && !shown.length ? (
+        <EmptyState text="No material matches that search." />
       ) : rows.length ? (
         <DataTable
           columns={columns}
-          rows={rows}
+          rows={shown}
           rowKey={(r) => r.mrLineId}
           groupBy={groupFor}
           rowClassName={(r) => (picked[r.mrLineId] !== undefined ? 'bg-[#EEF5F4]' : '')}
