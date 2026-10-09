@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { UNITS, UNIT_NAMES, type ItemDto, type Unit } from '@cm/shared';
 import { get, post } from '@mm/lib/api';
@@ -24,6 +24,7 @@ export default function ItemsPage() {
   const queryClient = useQueryClient();
   const reference = useReference();
   const [category, setCategory] = useState('');
+  const [search, setSearch] = useState('');
 
   const firstCategory = reference.categories[0]?.name ?? '';
   const [form, setForm] = useState({
@@ -59,6 +60,19 @@ export default function ItemsPage() {
     },
     onError: (err) => toast(err instanceof Error ? err.message : 'Could not add'),
   });
+
+  // Every word typed must appear somewhere in the item: "cement 53" finds "OPC 53 Grade Cement".
+  const shown = useMemo(() => {
+    const words = search.toLowerCase().split(/\s+/).filter(Boolean);
+    const items = data.data?.items ?? [];
+    if (!words.length) return items;
+    return items.filter((i) => {
+      const text = [i.code, i.name, i.brand, i.packing, i.category, i.subCategory, i.hsn]
+        .join(' ')
+        .toLowerCase();
+      return words.every((w) => text.includes(w));
+    });
+  }, [data.data, search]);
 
   const columns: Column<ItemDto>[] = [
     { key: 'code', header: 'Code', render: (i) => <span className="font-mono">{i.code}</span> },
@@ -99,16 +113,26 @@ export default function ItemsPage() {
         title="Item master"
         subtitle="New items approved by QS land here. Bulk load with Import inventory."
         actions={
-          <select
-            aria-label="Category"
-            value={category}
-            onChange={(e) => setCategory(e.target.value)}
-          >
-            <option value="">All categories</option>
-            {reference.categories.map((c) => (
-              <option key={c.id}>{c.name}</option>
-            ))}
-          </select>
+          <>
+            <input
+              type="search"
+              aria-label="Search items"
+              placeholder="Search item name or code"
+              className="min-w-[220px]"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+            />
+            <select
+              aria-label="Category"
+              value={category}
+              onChange={(e) => setCategory(e.target.value)}
+            >
+              <option value="">All categories</option>
+              {reference.categories.map((c) => (
+                <option key={c.id}>{c.name}</option>
+              ))}
+            </select>
+          </>
         }
       />
 
@@ -178,12 +202,23 @@ export default function ItemsPage() {
       {data.isLoading ? (
         <div className="text-mut">Loading…</div>
       ) : (
-        <DataTable
-          columns={columns}
-          rows={data.data?.items ?? []}
-          rowKey={(i) => i.id}
-          emptyText="No items yet — add one above or use Import inventory."
-        />
+        <>
+          {search.trim() ? (
+            <div className="text-mut text-xs mb-2">
+              {shown.length} of {data.data?.items.length ?? 0} items match
+            </div>
+          ) : null}
+          <DataTable
+            columns={columns}
+            rows={shown}
+            rowKey={(i) => i.id}
+            emptyText={
+              search.trim()
+                ? 'No item matches that search.'
+                : 'No items yet — add one above or use Import inventory.'
+            }
+          />
+        </>
       )}
     </>
   );
