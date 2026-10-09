@@ -996,12 +996,23 @@ function VendorPicker({
     const words = text.toLowerCase().split(/\s+/).filter(Boolean);
     // With a vendor chosen the box holds its full name; show the whole list then.
     const all = !words.length || (!!vendorId && text === chosenName);
-    return all
-      ? vendors
-      : vendors.filter((v) => {
-          const hay = `${v.name} ${v.code}`.toLowerCase();
-          return words.every((w) => hay.includes(w));
-        });
+    if (all) return vendors;
+    // Names that begin with what was typed come first, then a word that begins
+    // with it, then a match anywhere.
+    const typed = words.join(' ');
+    const rank = (v: VendorDto) => {
+      const name = v.name.toLowerCase();
+      if (name.startsWith(typed)) return 0;
+      return name.split(/\s+/).some((part) => part.startsWith(words[0]!)) ? 1 : 2;
+    };
+    return vendors
+      .filter((v) => {
+        const hay = `${v.name} ${v.code}`.toLowerCase();
+        return words.every((w) => hay.includes(w));
+      })
+      .map((v) => ({ v, r: rank(v) }))
+      .sort((a, b) => a.r - b.r || a.v.name.localeCompare(b.v.name))
+      .map((x) => x.v);
   }, [vendors, text, vendorId, chosenName]);
   const shown = matches.slice(0, VENDOR_SUGGESTION_LIMIT);
 
@@ -1081,6 +1092,7 @@ function VendorPicker({
               key={v.id}
               role="option"
               aria-selected={i === active}
+              ref={i === active ? (el) => el?.scrollIntoView({ block: 'nearest' }) : undefined}
               // mousedown, not click: the box must not lose focus before the pick lands.
               onMouseDown={(e) => {
                 e.preventDefault();
