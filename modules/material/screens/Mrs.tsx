@@ -1,6 +1,6 @@
 'use client';
 
-import { Suspense, useState } from 'react';
+import { Suspense, useMemo, useState } from 'react';
 import { useRouter } from '@mm/lib/nav';
 import { useQuery } from '@tanstack/react-query';
 import type { MrDto } from '@cm/shared';
@@ -39,6 +39,7 @@ function Mrs() {
   const reference = useReference();
   const [status, setStatus] = useState<string>('');
   const [projectId, setProjectId] = useState('');
+  const [search, setSearch] = useState('');
 
   // Only a site engineer has drafts of their own.
   const tabs = TABS.filter((t) => t.value !== 'DRAFT' || me.role === 'SITE');
@@ -52,16 +53,38 @@ function Mrs() {
     queryFn: () => get<{ rows: MrDto[]; total: number }>(`/mrs?${params}`),
   });
 
-  const rows = list.data?.rows ?? [];
+  const all = list.data?.rows;
+  // Every word typed has to appear somewhere in the MR: its number, project,
+  // who raised it, its remarks, or a material it asks for.
+  const rows = useMemo(() => {
+    const words = search.toLowerCase().split(/\s+/).filter(Boolean);
+    if (!all || !words.length) return all ?? [];
+    return all.filter((m) => {
+      const text = [m.no, m.projectCode, m.projectName, m.createdByName, m.remarks, m.materialText]
+        .join(' ')
+        .toLowerCase();
+      return words.every((w) => text.includes(w));
+    });
+  }, [all, search]);
   const ids = rows.map((r) => r.id).join(',');
 
   return (
     <>
       <PageHeader
         title={me.role === 'SITE' ? 'My material requests' : 'All material requests'}
-        subtitle={`${rows.length} shown`}
+        subtitle={
+          search.trim() && all ? `${rows.length} of ${all.length} match` : `${rows.length} shown`
+        }
         actions={
           <>
+            <input
+              type="search"
+              aria-label="Search material requests"
+              placeholder="Search MR no., project, material or person"
+              className="min-w-[230px]"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+            />
             <select
               aria-label="Project"
               value={projectId}

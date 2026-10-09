@@ -199,6 +199,8 @@ export interface MrDto extends Doc {
   lineCount: number;
   newItemCount: number;
   overdue: boolean;
+  /** item names, codes and descriptions of the lines — only on the list, for searching */
+  materialText?: string;
 }
 
 export interface TrailRowDto {

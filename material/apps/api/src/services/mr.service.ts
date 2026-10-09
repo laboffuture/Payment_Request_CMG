@@ -244,12 +244,18 @@ export async function listMrs(
 
   const ids = rows.map((m) => m._id);
   const lines = await MrLine.find({ mrId: { $in: ids } })
-    .select('mrId newStatus')
+    .select('mrId newStatus itemId newItemName description')
     .lean();
 
   const counts = new Map<string, { lines: number; newItems: number }>();
+  // What each MR asks for, so the list can be searched by material.
+  const materials = new Map<string, string[]>();
   for (const line of lines) {
     const key = String(line.mrId);
+    const item = line.itemId ? lookups.item(line.itemId) : null;
+    const words = materials.get(key) ?? [];
+    words.push(item?.name ?? line.newItemName ?? '', item?.code ?? '', line.description ?? '');
+    materials.set(key, words);
     const entry = counts.get(key) ?? { lines: 0, newItems: 0 };
     entry.lines += 1;
     if (line.newStatus === 'PENDING') entry.newItems += 1;
@@ -257,9 +263,10 @@ export async function listMrs(
   }
 
   return {
-    rows: rows.map((m) =>
-      toMrDto(m, lookups, counts.get(String(m._id)) ?? { lines: 0, newItems: 0 }),
-    ),
+    rows: rows.map((m) => ({
+      ...toMrDto(m, lookups, counts.get(String(m._id)) ?? { lines: 0, newItems: 0 }),
+      materialText: (materials.get(String(m._id)) ?? []).filter(Boolean).join(' '),
+    })),
     total,
   };
 }
