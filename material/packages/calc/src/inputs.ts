@@ -43,6 +43,8 @@ export interface MrLineIn {
   storeQty?: number | null;
   poQty?: number | null;
   lineStatus: MrLineStatus;
+  /** 'QUERY' or 'REJECT' while procurement has sent the line back to QS */
+  procHold?: string;
 }
 
 export interface PoIn {

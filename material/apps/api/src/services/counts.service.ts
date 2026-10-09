@@ -2,7 +2,7 @@ import { issueRows, poolRows } from '@cm/calc';
 import { isBuyer, type Counts } from '@cm/shared';
 import type { Actor } from '../middleware/auth.js';
 import { loadWorld } from '../lib/world.js';
-import { Issue, Mr, Po, RfqVendor, VendorDoc } from '../models/index.js';
+import { Issue, Mr, MrLine, Po, RfqVendor, VendorDoc } from '../models/index.js';
 import { unreadCount } from './notification.service.js';
 import { projectScopeOf } from '../middleware/auth.js';
 
@@ -22,7 +22,10 @@ export async function countsFor(actor: Actor): Promise<Counts> {
   }
 
   if (role === 'QS') {
-    counts.qsQueue = await Mr.countDocuments({ status: 'QS_PENDING' });
+    // MRs to split, plus the lines procurement sent back with a query or a rejection.
+    counts.qsQueue =
+      (await Mr.countDocuments({ status: 'QS_PENDING' })) +
+      (await MrLine.countDocuments({ procHold: { $in: ['QUERY', 'REJECT'] } }));
     // POs the Procurement Manager has passed on for QS to validate.
     counts.poValidations = await Po.countDocuments({ status: 'QS_VALIDATION' });
   }

@@ -3,9 +3,11 @@ import {
   MR_LINE_STATUSES,
   MR_STATUSES,
   NEW_ITEM_STATUSES,
+  PROC_HOLDS,
   type MrLineStatus,
   type MrStatus,
   type NewItemStatus,
+  type ProcHold,
 } from '@cm/shared';
 import {
   defineModel,
@@ -128,6 +130,15 @@ export interface IMrLine extends Timestamped {
   poQty: number | null;
   qsRemark: string;
   lineStatus: MrLineStatus;
+  /** procurement sent the line back to QS from Consolidate MRs; NONE = with procurement */
+  procHold: ProcHold;
+  procRemark: string;
+  procBy: Types.ObjectId | null;
+  procAt: Date | null;
+  /** QS's last answer to procurement, shown to procurement beside the line */
+  qsReply: string;
+  qsReplyBy: Types.ObjectId | null;
+  qsReplyAt: Date | null;
 }
 
 const mrLineSchema = new Schema<IMrLine>(
@@ -152,6 +163,13 @@ const mrLineSchema = new Schema<IMrLine>(
     storeQty: { type: Number, default: null, min: 0 },
     poQty: { type: Number, default: null, min: 0 },
     qsRemark: { type: String, default: '' },
+    procHold: { type: String, enum: PROC_HOLDS, default: 'NONE', index: true },
+    procRemark: { type: String, default: '' },
+    procBy: optionalRefTo('User'),
+    procAt: { type: Date, default: null },
+    qsReply: { type: String, default: '' },
+    qsReplyBy: optionalRefTo('User'),
+    qsReplyAt: { type: Date, default: null },
     lineStatus: {
       type: String,
       enum: MR_LINE_STATUSES,

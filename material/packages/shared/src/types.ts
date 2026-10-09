@@ -527,6 +527,28 @@ export interface PoolRowDto {
   lastVendorName: string | null;
   /** the item's GST % from the item master; null when not set */
   gstRate: number | null;
+  /** set when the line came back from QS: what procurement had asked, and QS's answer */
+  procRemark: string;
+  qsReply: string;
+  qsReplyBy: string;
+}
+
+/** A pool line procurement sent back to QS, waiting for QS's answer. */
+export interface ProcHoldDto {
+  mrLineId: string;
+  mrId: string;
+  mrNo: string;
+  projectCode: string;
+  requiredDate: string;
+  itemCode: string;
+  itemName: string;
+  mrDescription: string;
+  unit: string;
+  openQty: number;
+  action: 'QUERY' | 'REJECT';
+  remark: string;
+  byName: string;
+  at: string;
 }
 
 export interface PoolAnalysisDto {

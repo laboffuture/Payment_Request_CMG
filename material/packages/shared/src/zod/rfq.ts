@@ -21,6 +21,24 @@ export const poolPick = z.object({
 });
 export type PoolPick = z.infer<typeof poolPick>;
 
+/** Procurement sends ticked pool lines back to QS: a query, or a rejection. Remarks always. */
+export const poolHoldInput = z.object({
+  mrLineIds: z.array(objectId).min(1, MSG.poolSelectLine).max(200),
+  action: z.enum(['QUERY', 'REJECT']),
+  remark: z.string().trim().min(1, 'Write your remarks').max(500),
+});
+export type PoolHoldInput = z.infer<typeof poolHoldInput>;
+
+/**
+ * QS answers: RETURN puts the line back with procurement to buy; CANCEL takes the
+ * quantity still to be bought off the MR line.
+ */
+export const procHoldAnswerInput = z.object({
+  decision: z.enum(['RETURN', 'CANCEL']),
+  remark: z.string().trim().min(1, 'Write your remarks').max(500),
+});
+export type ProcHoldAnswerInput = z.infer<typeof procHoldAnswerInput>;
+
 /** Prototype: analysisHtml() — the site-wise matrix for the picked lines. */
 export const poolAnalysisInput = z.object({
   picks: z.array(poolPick).default([]),

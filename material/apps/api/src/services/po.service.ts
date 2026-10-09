@@ -1,5 +1,6 @@
 import { Types, type ClientSession } from 'mongoose';
 import {
+  isHeld,
   allocReceived,
   derivedPoStatus,
   displayPoNo,
@@ -469,6 +470,11 @@ async function assertRowsAvailable(
     const name = item?.name ?? 'Item';
 
     if (qty <= 0) throw badRequest(MSG.poQtyAboveZero(name));
+
+    // Only what is new on this PO is blocked: a line already on it may stay while QS answers.
+    if (isHeld(line) && qty > (ownByLine.get(mrLineId) ?? 0) + 1e-9) {
+      throw badRequest(`${name} has been sent back to QS and cannot be ordered until QS answers`);
+    }
 
     const available = num(lineCalc(world, line).poolOpen + (ownByLine.get(mrLineId) ?? 0));
     if (qty > available + 1e-9) {

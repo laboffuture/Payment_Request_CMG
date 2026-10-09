@@ -40,6 +40,10 @@ export const AUDIT = {
   MR_CLOSED: 'Closed',
   MR_DELETED: 'Deleted by the administrator',
   MR_ISSUED: 'Material issued',
+  MR_PROC_QUERY: 'Procurement raised a query to QS',
+  MR_PROC_REJECT: 'Procurement rejected a material - back to QS',
+  MR_PROC_RETURNED: 'QS answered - back with procurement',
+  MR_PROC_CANCELLED: 'QS cancelled the quantity still to be bought',
   MR_SITE_ACCEPTED: (issueNo: string) => `Site accepted ${issueNo}`,
 
   RFQ_SENT: 'Enquiry sent',

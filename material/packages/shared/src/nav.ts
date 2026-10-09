@@ -145,6 +145,9 @@ export const DEEP_LINK_ROUTES: Record<string, (id: string) => string> = {
   vrfq: (id) => `/vendor/rfqs/${id}`,
   iss: (id) => `/issues/${id}`,
   doc: (id) => `/docs?open=${id}`,
+  // lines procurement sent back to QS are answered on the QS queue
+  qs: () => '/qs',
+  pool: () => '/pool',
 };
 
 export const resolveDeepLink = (link: string): string | null => {

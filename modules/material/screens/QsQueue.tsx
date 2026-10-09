@@ -5,6 +5,7 @@ import type { MrDto } from '@cm/shared';
 import { get } from '@mm/lib/api';
 import { PageHeader } from '@mm/components/ui';
 import { MrTable } from '@mm/features/mr/MrTable';
+import { ProcHolds } from '@mm/features/pool/ProcHolds';
 
 /**
  * Prototype: VIEWS.approvals — the QS queue, sorted by required date so the
@@ -24,6 +25,7 @@ export default function QsQueuePage() {
         title="QS queue"
         subtitle="MRs come here straight from site. Clear any new items, then split each line into from-store and for-PO. Sorted by required date."
       />
+      <ProcHolds canAnswer />
       {list.isLoading ? <div className="text-mut">Loading…</div> : <MrTable rows={rows} />}
     </>
   );

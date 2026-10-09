@@ -272,6 +272,10 @@ export interface PoolRow {
   calc: LineCalc;
 }
 
+/** A line procurement has sent back to QS and QS has not answered yet. */
+export const isHeld = (line: MrLineIn): boolean =>
+  !!line.procHold && line.procHold !== 'NONE';
+
 /** Prototype: poolRows() — QS-approved PO qty not yet on an open RFQ or live PO. */
 export function poolRows(w: World): PoolRow[] {
   const rows: PoolRow[] = [];
@@ -279,6 +283,8 @@ export function poolRows(w: World): PoolRow[] {
     const mr = byId(w.mrs, line.mrId);
     if (!mr || mr.status !== 'APPROVED') continue;
     if (line.lineStatus === 'REJECTED' || !line.itemId) continue;
+    // Sent back to QS by procurement: not to be bought until QS answers.
+    if (isHeld(line)) continue;
     const calc = lineCalc(w, line);
     if (calc.poolOpen > 0) rows.push({ line, mr, calc });
   }

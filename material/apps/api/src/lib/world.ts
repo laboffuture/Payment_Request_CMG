@@ -104,6 +104,7 @@ export async function loadWorld(opts: WorldOptions = {}): Promise<World> {
     storeQty: l.storeQty,
     poQty: l.poQty,
     lineStatus: l.lineStatus,
+    procHold: l.procHold ?? 'NONE',
   }));
 
   w.pos = pos.map((p) => ({

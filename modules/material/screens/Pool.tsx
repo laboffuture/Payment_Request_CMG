@@ -19,6 +19,7 @@ import { useAction } from '@mm/lib/hooks';
 import { useReference } from '@mm/lib/reference';
 import { dateTimeLocal, fmtDate, money, qty } from '@mm/lib/format';
 import { usePoDraft } from '@mm/features/po/draft';
+import { ProcHolds } from '@mm/features/pool/ProcHolds';
 
 /**
  * Consolidate MRs.
@@ -37,6 +38,7 @@ export default function PoolPage() {
   const [picked, setPicked] = useState<Record<string, string>>({});
   const [rfqOpen, setRfqOpen] = useState(false);
   const [analysisOpen, setAnalysisOpen] = useState(false);
+  const [sendBack, setSendBack] = useState<'QUERY' | 'REJECT' | null>(null);
 
   const params = new URLSearchParams();
   if (projectId) params.set('projectId', projectId);
@@ -116,7 +118,17 @@ export default function PoolPage() {
     {
       key: 'asked',
       header: 'Site engineer asked for',
-      render: (r) => r.mrDescription || '—',
+      render: (r) => (
+        <>
+          {r.mrDescription || '—'}
+          {r.qsReply ? (
+            <div className="text-xs mt-1" style={{ color: 'var(--pur)' }}>
+              <b>QS{r.qsReplyBy ? ` (${r.qsReplyBy})` : ''}:</b> {r.qsReply}
+              {r.procRemark ? <span className="text-mut"> — you asked: {r.procRemark}</span> : null}
+            </div>
+          ) : null}
+        </>
+      ),
     },
     {
       key: 'open',
@@ -233,6 +245,8 @@ export default function PoolPage() {
         }
       />
 
+      <ProcHolds canAnswer={false} />
+
       {pool.isLoading ? (
         <div className="text-mut">Loading…</div>
       ) : rows.length ? (
@@ -255,6 +269,12 @@ export default function PoolPage() {
         </div>
         <div className="flex flex-wrap gap-[10px]">
           <Btn onClick={() => setAnalysisOpen(true)}>Analysis</Btn>
+          <Btn disabled={!summary.lines} onClick={() => setSendBack('QUERY')}>
+            Send query
+          </Btn>
+          <Btn disabled={!summary.lines} onClick={() => setSendBack('REJECT')}>
+            <span className={summary.lines ? 'text-[#b42318]' : ''}>Reject</span>
+          </Btn>
           <Btn disabled={!summary.lines} onClick={createPo}>
             Create PO
           </Btn>
@@ -268,6 +288,18 @@ export default function PoolPage() {
         <AnalysisModal
           picks={selection.map((s) => ({ mrLineId: s.row.mrLineId, qty: s.take }))}
           onClose={() => setAnalysisOpen(false)}
+        />
+      ) : null}
+
+      {sendBack ? (
+        <SendBackModal
+          action={sendBack}
+          rows={selection.map((s) => s.row)}
+          onClose={() => setSendBack(null)}
+          onSent={() => {
+            setPicked({});
+            setSendBack(null);
+          }}
         />
       ) : null}
 
@@ -286,6 +318,87 @@ export default function PoolPage() {
         />
       ) : null}
     </>
+  );
+}
+
+/**
+ * Procurement sends the ticked materials back to QS: a query, or a rejection. Remarks
+ * are required either way; the lines leave this list until QS answers.
+ */
+function SendBackModal({
+  action,
+  rows,
+  onClose,
+  onSent,
+}: {
+  action: 'QUERY' | 'REJECT';
+  rows: PoolRowDto[];
+  onClose: () => void;
+  onSent: () => void;
+}) {
+  const [remark, setRemark] = useState('');
+  const isQuery = action === 'QUERY';
+
+  const send = useAction(
+    () =>
+      post<{ lines: number }>('/pool/hold', {
+        mrLineIds: rows.map((r) => r.mrLineId),
+        action,
+        remark: remark.trim(),
+      }),
+    {
+      success: (r) =>
+        `${r.lines} material(s) ${isQuery ? 'sent to QS with your query' : 'rejected and sent back to QS'}`,
+      invalidate: [['pool'], ['pool-holds'], ['pool-analysis']],
+      onDone: onSent,
+    },
+  );
+
+  return (
+    <Modal
+      title={isQuery ? 'Send query to QS' : 'Reject and send back to QS'}
+      onClose={onClose}
+      footer={
+        <>
+          <Btn onClick={onClose}>Cancel</Btn>
+          <Btn
+            variant="primary"
+            disabled={send.isPending || !remark.trim()}
+            onClick={() => send.mutate(undefined)}
+          >
+            {send.isPending ? 'Sending…' : isQuery ? 'Send query' : 'Reject'}
+          </Btn>
+        </>
+      }
+    >
+      <div className="text-mut text-sm">
+        {rows.length} material(s) go back to QS and leave this list until QS answers.
+      </div>
+      <div className="flex flex-col border border-line rounded-xl overflow-hidden max-h-[220px] overflow-y-auto">
+        {rows.map((r) => (
+          <div key={r.mrLineId} className="px-[14px] py-2 border-b border-line2 bg-white">
+            <b>{r.itemName}</b>{' '}
+            <span className="text-mut text-xs">
+              {r.mrNo} · {r.projectCode} · {qty(r.openQty)} {r.unit}
+            </span>
+          </div>
+        ))}
+      </div>
+      <label className="field">
+        Remarks *
+        <textarea
+          rows={3}
+          maxLength={500}
+          placeholder={
+            isQuery
+              ? 'What do you need QS to clarify?'
+              : 'Why are you rejecting these materials?'
+          }
+          value={remark}
+          onChange={(e) => setRemark(e.target.value)}
+        />
+      </label>
+    </Modal>
   );
 }
 

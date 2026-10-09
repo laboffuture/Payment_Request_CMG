@@ -46,6 +46,13 @@ export const MR_ST: Record<MrStatus, ChipSpec> = {
 export const MR_LINE_STATUSES = ['ACTIVE', 'REJECTED'] as const;
 export type MrLineStatus = (typeof MR_LINE_STATUSES)[number];
 
+/**
+ * Procurement can send an approved line back to QS from Consolidate MRs - with a query,
+ * or rejecting it. While QS has it the line is out of the pool.
+ */
+export const PROC_HOLDS = ['NONE', 'QUERY', 'REJECT'] as const;
+export type ProcHold = (typeof PROC_HOLDS)[number];
+
 export const NEW_ITEM_STATUSES = [
   'NONE',
   'PENDING',

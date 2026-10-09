@@ -12,7 +12,9 @@ import {
   poValidateInput,
   poListQuery,
   poolAnalysisInput,
+  poolHoldInput,
   poolQuery,
+  procHoldAnswerInput,
   poRejectInput,
   rejectDocInput,
   revisePoInput,
@@ -26,7 +28,13 @@ import { actorOf, authorize, requireAuth } from '../middleware/auth.js';
 import { idempotency } from '../middleware/idempotency.js';
 import { uploadLimiter } from '../middleware/rateLimit.js';
 import { buildCsv, csvFilename } from '../lib/csv.js';
-import { listPool, poolAnalysis } from '../services/pool.service.js';
+import {
+  answerProcHold,
+  holdPoolLines,
+  listPool,
+  listProcHolds,
+  poolAnalysis,
+} from '../services/pool.service.js';
 import { recommendVendors } from '../services/recommend.service.js';
 import {
   acceptRfq,
@@ -94,6 +102,36 @@ procurementRouter.post(
   validateBody(poolAnalysisInput),
   wrap(async (req, res) => {
     res.json(await poolAnalysis(req.body));
+  }),
+);
+
+// Procurement sends ticked lines back to QS with remarks: a query, or a rejection.
+procurementRouter.post(
+  '/pool/hold',
+  requireAuth,
+  authorize('PROC'),
+  validateBody(poolHoldInput),
+  wrap(async (req, res) => {
+    res.json(await holdPoolLines(actorOf(req), req.body));
+  }),
+);
+
+// What is with QS: QS answers these, procurement sees them waiting.
+procurementRouter.get(
+  '/pool/holds',
+  requireAuth,
+  authorize('PROC', 'QS', 'ADMIN'),
+  wrap(async (_req, res) => res.json(await listProcHolds())),
+);
+
+procurementRouter.post(
+  '/pool/holds/:lineId/answer',
+  requireAuth,
+  authorize('QS'),
+  validateBody(procHoldAnswerInput),
+  wrap(async (req, res) => {
+    await answerProcHold(actorOf(req), req.params.lineId!, req.body);
+    res.json({ ok: true });
   }),
 );
 
