@@ -12,6 +12,7 @@ import {
   importPaymentUsersInput,
   importRunInput,
   testEmailInput,
+  updateItemInput,
   updateNotifyRuleInput,
   upsertCompanyInput,
   upsertUserInput,
@@ -43,7 +44,13 @@ import {
   updateVendor,
   upsertCompany,
 } from '../services/masters.service.js';
-import { createItem, listItems, pendingNewItemCount } from '../services/item.service.js';
+import {
+  createItem,
+  deleteItem,
+  listItems,
+  pendingNewItemCount,
+  updateItem,
+} from '../services/item.service.js';
 import { adminDeleteMr } from '../services/mr.service.js';
 import { runImport } from '../services/importRun.service.js';
 import {
@@ -106,6 +113,23 @@ adminRouter.post(
   validateBody(createItemInput),
   wrap(async (req, res) => {
     res.status(201).json(await createItem(req.body, actorOf(req).id));
+  }),
+);
+
+adminRouter.put(
+  '/items/:id',
+  ...itemMaster,
+  validateBody(updateItemInput),
+  wrap(async (req, res) => {
+    res.json(await updateItem(req.params.id!, req.body, actorOf(req).id));
+  }),
+);
+
+adminRouter.delete(
+  '/items/:id',
+  ...itemMaster,
+  wrap(async (req, res) => {
+    res.json(await deleteItem(req.params.id!, actorOf(req).id));
   }),
 );
 
