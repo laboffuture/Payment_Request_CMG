@@ -89,8 +89,15 @@ function EditItem({
         </>
       }
     >
-      <div className="grid gap-3 desk:grid-cols-2">
-        <label className="field desk:col-span-2">
+      {/* Its own grid: the application's global .grid rule makes uneven 2fr/1fr columns. */}
+      <div
+        style={{
+          display: 'grid',
+          gap: 12,
+          gridTemplateColumns: 'repeat(auto-fit, minmax(210px, 1fr))',
+        }}
+      >
+        <label className="field" style={{ gridColumn: '1 / -1' }}>
           Item name *
           <input value={form.name} onChange={(e) => set({ name: e.target.value })} />
         </label>
