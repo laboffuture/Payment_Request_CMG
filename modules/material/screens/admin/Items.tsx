@@ -1,14 +1,13 @@
 'use client';
 
 import { useMemo, useState } from 'react';
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useQuery } from '@tanstack/react-query';
 import { UNITS, UNIT_NAMES, type ItemDto, type Unit } from '@cm/shared';
-import { del, get, post, put } from '@mm/lib/api';
+import { del, get, newIdempotencyKey, post, put } from '@mm/lib/api';
 import { Modal } from '@mm/components/Modal';
 import { useAction } from '@mm/lib/hooks';
 import { DataTable, type Column } from '@mm/components/DataTable';
-import { Btn, Card, PageHeader } from '@mm/components/ui';
-import { useToast } from '@mm/components/Toast';
+import { Btn, PageHeader } from '@mm/components/ui';
 import { subCategoriesOf, useReference, type Reference } from '@mm/lib/reference';
 import { money } from '@mm/lib/format';
 
@@ -23,68 +22,86 @@ interface ItemsResponse {
 
 const ITEM_KEYS = [['admin', 'items'], ['inventory'], ['items']];
 
-/** Corrects an item. The code is shown but not changed: documents know the item by it. */
-function EditItem({
+/**
+ * The one form for an item: adds a new one, or corrects an existing one. On an existing
+ * item the code is shown but not changed: documents know the item by it.
+ */
+function ItemForm({
   item,
+  startCategory,
   reference,
   onClose,
 }: {
-  item: ItemDto;
+  item: ItemDto | null;
+  /** a new item starts in the category the list is filtered to */
+  startCategory: string;
   reference: Reference;
   onClose: () => void;
 }) {
   const [form, setForm] = useState({
-    name: item.name,
-    unit: item.unit,
-    category: item.category,
-    subCategory: item.subCategory,
-    brand: item.brand,
-    packing: item.packing,
-    hsn: item.hsn,
-    gstRate: item.gstRate == null ? '' : String(item.gstRate),
-    lastRate: item.lastRate ? String(item.lastRate) : '',
+    name: item?.name ?? '',
+    unit: item?.unit ?? ('Nos' as Unit),
+    category: item?.category ?? (startCategory || reference.categories[0]?.name || ''),
+    subCategory: item?.subCategory ?? '',
+    brand: item?.brand ?? '',
+    packing: item?.packing ?? '',
+    hsn: item?.hsn ?? '',
+    gstRate: item?.gstRate == null ? '' : String(item.gstRate),
+    lastRate: item?.lastRate ? String(item.lastRate) : '',
   });
+  // One key for the life of the form, so a double click cannot add the item twice.
+  const [idempotencyKey] = useState(newIdempotencyKey);
   const set = (patch: Partial<typeof form>) => setForm((f) => ({ ...f, ...patch }));
 
   // An item may carry a category or sub-category that is no longer in the list; keep it selectable.
-  const categories = [...new Set([item.category, ...reference.categories.map((c) => c.name)])];
+  const categories = [
+    ...new Set([...(item ? [item.category] : []), ...reference.categories.map((c) => c.name)]),
+  ];
   const subCategories = [
     ...new Set([
-      ...(form.category === item.category && item.subCategory ? [item.subCategory] : []),
+      ...(item && form.category === item.category && item.subCategory ? [item.subCategory] : []),
       ...subCategoriesOf(reference, form.category),
     ]),
   ];
 
   const save = useAction(
-    () =>
-      put<ItemDto>(`/admin/items/${item.id}`, {
+    () => {
+      const body = {
         name: form.name,
         unit: form.unit,
         category: form.category,
         subCategory: form.subCategory,
-        spec: item.spec,
+        spec: item?.spec ?? '',
         brand: form.brand,
         packing: form.packing,
         hsn: form.hsn,
         gstRate: form.gstRate === '' ? null : Number(form.gstRate),
         ...(form.lastRate === '' ? {} : { lastRate: Number(form.lastRate) }),
-      }),
-    { success: (i) => `${i.code} saved`, invalidate: ITEM_KEYS, onDone: onClose },
+      };
+      return item
+        ? put<ItemDto>(`/admin/items/${item.id}`, body)
+        : post<ItemDto>('/admin/items', body, idempotencyKey);
+    },
+    {
+      success: (i) => `${i.code} ${item ? 'saved' : 'added'}`,
+      invalidate: ITEM_KEYS,
+      onDone: onClose,
+    },
   );
 
   return (
     <Modal
-      title={`Edit ${item.code}`}
+      title={item ? `Edit ${item.code}` : 'Add item'}
       onClose={onClose}
       footer={
         <>
           <Btn onClick={onClose}>Cancel</Btn>
           <Btn
             variant="primary"
-            disabled={save.isPending || !form.name.trim()}
+            disabled={save.isPending || !form.name.trim() || !form.category}
             onClick={() => save.mutate(undefined)}
           >
-            {save.isPending ? 'Saving…' : 'Save'}
+            {save.isPending ? 'Saving…' : item ? 'Save' : 'Add item'}
           </Btn>
         </>
       }
@@ -203,47 +220,17 @@ function DeleteItem({ item, onClose }: { item: ItemDto; onClose: () => void }) {
 }
 
 export default function ItemsPage() {
-  const toast = useToast();
-  const queryClient = useQueryClient();
   const reference = useReference();
   const [category, setCategory] = useState('');
   const [search, setSearch] = useState('');
+  const [adding, setAdding] = useState(false);
   const [editing, setEditing] = useState<ItemDto | null>(null);
   const [deleting, setDeleting] = useState<ItemDto | null>(null);
-
-  const firstCategory = reference.categories[0]?.name ?? '';
-  const [form, setForm] = useState({
-    name: '',
-    unit: 'Nos' as Unit,
-    category: '',
-    subCategory: '',
-    lastRate: '',
-  });
-
-  const activeCategory = form.category || firstCategory;
 
   const data = useQuery({
     queryKey: ['admin', 'items', category],
     queryFn: () =>
       get<ItemsResponse>(`/admin/items${category ? `?category=${encodeURIComponent(category)}` : ''}`),
-  });
-
-  const add = useMutation({
-    mutationFn: () =>
-      post<ItemDto>('/admin/items', {
-        name: form.name,
-        unit: form.unit,
-        category: activeCategory,
-        subCategory: form.subCategory,
-        lastRate: form.lastRate ? Number(form.lastRate) : undefined,
-      }),
-    onSuccess: (item) => {
-      toast(`${item.code} added`);
-      setForm((f) => ({ ...f, name: '', lastRate: '' }));
-      void queryClient.invalidateQueries({ queryKey: ['admin', 'items'] });
-      void queryClient.invalidateQueries({ queryKey: ['inventory'] });
-    },
-    onError: (err) => toast(err instanceof Error ? err.message : 'Could not add'),
   });
 
   // Every word typed must appear somewhere in the item: "cement 53" finds "OPC 53 Grade Cement".
@@ -329,6 +316,9 @@ export default function ItemsPage() {
                 <option key={c.id}>{c.name}</option>
               ))}
             </select>
+            <Btn variant="primary" onClick={() => setAdding(true)}>
+              Add item
+            </Btn>
           </>
         }
       />
@@ -338,63 +328,6 @@ export default function ItemsPage() {
           {data.data.pendingNewItems} new item request(s) waiting for QS.
         </div>
       ) : null}
-
-      <Card className="mb-3">
-        <div className="flex flex-wrap items-end gap-[10px]">
-          <input
-            aria-label="Item name"
-            placeholder="Item name"
-            className="flex-[2] min-w-[180px]"
-            value={form.name}
-            onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))}
-          />
-          <select
-            aria-label="Unit"
-            value={form.unit}
-            onChange={(e) => setForm((f) => ({ ...f, unit: e.target.value as Unit }))}
-          >
-            {UNITS.map((u) => (
-              <option key={u} value={u}>
-                {UNIT_NAMES[u]}
-              </option>
-            ))}
-          </select>
-          <select
-            aria-label="Category"
-            value={activeCategory}
-            onChange={(e) =>
-              setForm((f) => ({ ...f, category: e.target.value, subCategory: '' }))
-            }
-          >
-            {reference.categories.map((c) => (
-              <option key={c.id}>{c.name}</option>
-            ))}
-          </select>
-          <select
-            aria-label="Sub-category"
-            value={form.subCategory}
-            onChange={(e) => setForm((f) => ({ ...f, subCategory: e.target.value }))}
-          >
-            <option value="">Sub-category</option>
-            {subCategoriesOf(reference, activeCategory).map((s) => (
-              <option key={s}>{s}</option>
-            ))}
-          </select>
-          <input
-            aria-label="Last rate"
-            type="number"
-            min={0}
-            step="any"
-            placeholder="Last rate"
-            className="w-[110px]"
-            value={form.lastRate}
-            onChange={(e) => setForm((f) => ({ ...f, lastRate: e.target.value }))}
-          />
-          <Btn variant="primary" disabled={add.isPending} onClick={() => add.mutate()}>
-            Add item
-          </Btn>
-        </div>
-      </Card>
 
       {data.isLoading ? (
         <div className="text-mut">Loading…</div>
@@ -412,14 +345,27 @@ export default function ItemsPage() {
             emptyText={
               search.trim()
                 ? 'No item matches that search.'
-                : 'No items yet — add one above or use Import inventory.'
+                : 'No items yet — use Add item or Import inventory.'
             }
           />
         </>
       )}
 
+      {adding ? (
+        <ItemForm
+          item={null}
+          startCategory={category}
+          reference={reference}
+          onClose={() => setAdding(false)}
+        />
+      ) : null}
       {editing ? (
-        <EditItem item={editing} reference={reference} onClose={() => setEditing(null)} />
+        <ItemForm
+          item={editing}
+          startCategory=""
+          reference={reference}
+          onClose={() => setEditing(null)}
+        />
       ) : null}
       {deleting ? <DeleteItem item={deleting} onClose={() => setDeleting(null)} /> : null}
     </>
