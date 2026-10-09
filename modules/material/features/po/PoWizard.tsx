@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useRouter } from '@mm/lib/nav';
 import { useQuery } from '@tanstack/react-query';
 import {
@@ -18,6 +18,7 @@ import {
   type PoRecommendationsDto,
   type PoolRowDto,
   type TaxMode,
+  type VendorDto,
   type VendorSuggestionDto,
 } from '@cm/shared';
 import { get, newIdempotencyKey, post, put } from '@mm/lib/api';
@@ -561,25 +562,12 @@ function StepVendorPrices({
       <Card>
         <Stack>
           <div className="grid gap-3 desk:grid-cols-3">
-            <label className="field">
-              Vendor * <span className="text-mut font-normal">— type to search</span>
-              <input
-                list="vendor-list"
-                disabled={locked}
-                placeholder="Search vendor name"
-                autoComplete="off"
-                value={reference.vendors.find((v) => v.id === form.vendorId)?.name ?? ''}
-                onChange={(e) => {
-                  const match = reference.vendors.find((v) => v.name === e.target.value);
-                  if (match) setForm((f) => ({ ...f, vendorId: match.id }));
-                }}
-              />
-              <datalist id="vendor-list">
-                {reference.vendors.map((v) => (
-                  <option key={v.id} value={v.name} />
-                ))}
-              </datalist>
-            </label>
+            <VendorPicker
+              vendors={reference.vendors}
+              vendorId={form.vendorId}
+              disabled={locked}
+              onChange={(vendorId) => setForm((f) => ({ ...f, vendorId }))}
+            />
 
             <label className="field">
               Company (billing entity) *
@@ -975,6 +963,164 @@ function StepReview({
   );
 }
 
+
+const VENDOR_SUGGESTION_LIMIT = 40;
+
+/**
+ * The vendor box: type any part of the name or vendor number and pick from the
+ * suggestions underneath. A purchase order needs a vendor from the master, so
+ * typing alone does not choose one — picking a suggestion does.
+ */
+function VendorPicker({
+  vendors,
+  vendorId,
+  disabled,
+  onChange,
+}: {
+  vendors: VendorDto[];
+  vendorId: string;
+  disabled: boolean;
+  onChange: (vendorId: string) => void;
+}) {
+  const chosenName = vendors.find((v) => v.id === vendorId)?.name ?? '';
+  const [text, setText] = useState(chosenName);
+  const [open, setOpen] = useState(false);
+  const [active, setActive] = useState(0);
+
+  // A vendor chosen elsewhere (a suggestion card, a reopened draft) shows here too.
+  useEffect(() => {
+    if (vendorId) setText(chosenName);
+  }, [vendorId, chosenName]);
+
+  const matches = useMemo(() => {
+    const words = text.toLowerCase().split(/\s+/).filter(Boolean);
+    // With a vendor chosen the box holds its full name; show the whole list then.
+    const all = !words.length || (!!vendorId && text === chosenName);
+    return all
+      ? vendors
+      : vendors.filter((v) => {
+          const hay = `${v.name} ${v.code}`.toLowerCase();
+          return words.every((w) => hay.includes(w));
+        });
+  }, [vendors, text, vendorId, chosenName]);
+  const shown = matches.slice(0, VENDOR_SUGGESTION_LIMIT);
+
+  const pick = (v: VendorDto) => {
+    onChange(v.id);
+    setText(v.name);
+    setOpen(false);
+  };
+
+  return (
+    <div className="field" style={{ position: 'relative' }}>
+      <label htmlFor="po-vendor">
+        Vendor * <span className="text-mut font-normal">— type to search</span>
+      </label>
+      <input
+        id="po-vendor"
+        role="combobox"
+        aria-expanded={open}
+        aria-controls="po-vendor-list"
+        aria-autocomplete="list"
+        disabled={disabled}
+        placeholder="Search vendor name"
+        autoComplete="off"
+        value={text}
+        onChange={(e) => {
+          setText(e.target.value);
+          setOpen(true);
+          setActive(0);
+          if (vendorId) onChange('');
+        }}
+        onFocus={(e) => {
+          setOpen(true);
+          e.target.select();
+        }}
+        onBlur={() => {
+          setOpen(false);
+          // Typing a full name exactly is as good as picking it.
+          const typed = text.trim().toLowerCase();
+          const exact = typed ? vendors.filter((v) => v.name.trim().toLowerCase() === typed) : [];
+          if (!vendorId && exact.length === 1) pick(exact[0]!);
+        }}
+        onKeyDown={(e) => {
+          if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+            e.preventDefault();
+            setOpen(true);
+            const step = e.key === 'ArrowDown' ? 1 : -1;
+            setActive((a) => Math.max(0, Math.min(shown.length - 1, a + step)));
+          } else if (e.key === 'Enter' && open && shown[active]) {
+            e.preventDefault();
+            pick(shown[active]!);
+          } else if (e.key === 'Escape') {
+            setOpen(false);
+          }
+        }}
+      />
+      {open && !disabled && (
+        <div
+          id="po-vendor-list"
+          role="listbox"
+          style={{
+            position: 'absolute',
+            top: '100%',
+            left: 0,
+            right: 0,
+            zIndex: 30,
+            marginTop: 4,
+            maxHeight: 260,
+            overflowY: 'auto',
+            background: '#fff',
+            border: '1px solid var(--mm-line)',
+            borderRadius: 8,
+            boxShadow: '0 8px 24px rgba(16,24,40,.14)',
+          }}
+        >
+          {shown.map((v, i) => (
+            <div
+              key={v.id}
+              role="option"
+              aria-selected={i === active}
+              // mousedown, not click: the box must not lose focus before the pick lands.
+              onMouseDown={(e) => {
+                e.preventDefault();
+                pick(v);
+              }}
+              onMouseEnter={() => setActive(i)}
+              style={{
+                display: 'flex',
+                justifyContent: 'space-between',
+                gap: 10,
+                padding: '8px 10px',
+                cursor: 'pointer',
+                fontSize: 12,
+                fontWeight: 400,
+                color: 'var(--mm-ink)',
+                background: i === active ? '#eef2f8' : undefined,
+              }}
+            >
+              <span>{v.name}</span>
+              <span className="text-mut" style={{ whiteSpace: 'nowrap' }}>{v.code}</span>
+            </div>
+          ))}
+          {!shown.length && (
+            <div style={{ padding: '10px', fontSize: 11.5, fontWeight: 400 }}>
+              No vendor matches “{text.trim()}”.
+            </div>
+          )}
+          {matches.length > shown.length && (
+            <div style={{ padding: '8px 10px', fontSize: 11, fontWeight: 400 }}>
+              Showing {shown.length} of {matches.length} — keep typing to narrow it down.
+            </div>
+          )}
+        </div>
+      )}
+      {!open && !vendorId && text.trim() && (
+        <span className="text-red font-normal">Pick a vendor from the suggestions.</span>
+      )}
+    </div>
+  );
+}
 
 /**
  * Two suggested vendors for the items in this order — the cheapest and the
