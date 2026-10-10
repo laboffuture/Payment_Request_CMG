@@ -3,6 +3,7 @@
 import { Suspense, useMemo, useState } from 'react';
 import { useRouter } from '@mm/lib/nav';
 import { useQuery } from '@tanstack/react-query';
+import { Download } from 'lucide-react';
 import type { MrDto } from '@cm/shared';
 import { downloadFile, get } from '@mm/lib/api';
 import { Btn, PageHeader, Tabs } from '@mm/components/ui';
@@ -106,11 +107,17 @@ function Mrs() {
 
             {rows.length ? (
               <>
-                <Btn onClick={() => router.push(`/mrs/print?ids=${ids}`)}>
-                  PDF — all {rows.length} shown
+                <Btn
+                  title={`Download all ${rows.length} shown as one PDF`}
+                  onClick={() => router.push(`/mrs/print?ids=${ids}`)}
+                >
+                  <Download size={14} aria-hidden /> PDF
                 </Btn>
-                <Btn onClick={() => downloadFile(`/mrs/export.csv?ids=${ids}`)}>
-                  Excel (CSV)
+                <Btn
+                  title={`Download all ${rows.length} shown as Excel (CSV)`}
+                  onClick={() => downloadFile(`/mrs/export.csv?ids=${ids}`)}
+                >
+                  <Download size={14} aria-hidden /> Excel (CSV)
                 </Btn>
               </>
             ) : null}
