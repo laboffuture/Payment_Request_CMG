@@ -7,7 +7,6 @@ set -uo pipefail
 cd "$(dirname "${BASH_SOURCE[0]}")/.."
 
 PORT=4101
-WRANGLER_BIN="./node_modules/.bin/wrangler"
 
 cleanup() {
   echo "[supervisor] Received shutdown signal, stopping wrangler..."
@@ -22,8 +21,15 @@ cleanup() {
 
 trap cleanup SIGINT SIGTERM
 
-echo "[supervisor] Starting wrangler dev on port $PORT..."
-"$WRANGLER_BIN" dev -c wrangler.selfhost.jsonc --port "$PORT" --ip 127.0.0.1 --local --persist-to .wrangler/state &
+# Started through scripts/selfhost-server.mjs rather than `wrangler dev`: the dev command
+# attaches a DevTools inspector that relays every request and database query, and the memory
+# it held grew by roughly 0.4 MB per request until the service hit MemoryMax and was killed,
+# several times a day. The launcher runs the same worker with the inspector off.
+# WRANGLER_WRITE_LOGS=false stops the debug log files (they had reached 11 GB).
+export WRANGLER_WRITE_LOGS=false
+export WRANGLER_SEND_METRICS=false
+echo "[supervisor] Starting the worker on port $PORT (inspector off)..."
+PORT="$PORT" node scripts/selfhost-server.mjs &
 WRANGLER_PID=$!
 
 # Initial grace period for workerd compilation and binding
