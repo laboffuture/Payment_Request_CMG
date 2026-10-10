@@ -1,0 +1,201 @@
+/* One consistent look for controls across the whole portal.
+
+   The screens were built one at a time, so the same control came out differently on each:
+   dropdowns with the browser's own arrow next to ones with none, button text from 8px to
+   12px, control heights from 26px to 44px. This file is loaded last and evens them out.
+   It changes appearance only - no markup, no behaviour. */
+
+:root{
+  --ui-h:36px;--ui-r:8px;--ui-line:#d5dae1;--ui-line-hover:#b6bfcc;--ui-ink:#0b1d3a;--ui-text:#1d2939;
+  --ui-ring:0 0 0 3px rgba(27,58,102,.14);
+  --ui-chevron:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%23667085' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
+}
+
+/* ---------------------------------------------------------------- dropdowns */
+/* The same arrow on every dropdown, drawn by us rather than by the browser. */
+select:not([multiple]):not([size]){
+  -webkit-appearance:none!important;appearance:none!important;
+  background-image:var(--ui-chevron)!important;background-repeat:no-repeat!important;
+  background-position:right 9px center!important;background-size:15px 15px!important;
+  padding-right:30px!important;text-overflow:ellipsis;cursor:pointer;
+}
+select:disabled{cursor:not-allowed;opacity:.6}
+
+/* Filter rows and the Material screens: one height, one text size, one border. */
+.audit-list-tools select,.wb-tools select,.rq-tools select,.toolbar select,.access-tools select,
+.wf-head-tools select,.recv-head select,.mm select{
+  height:var(--ui-h)!important;font-size:12px!important;border-radius:var(--ui-r)!important;
+  border:1px solid var(--ui-line)!important;background-color:#fff!important;color:var(--ui-text);
+  padding-left:11px!important;line-height:1.2;
+}
+.mm table select{height:32px!important}
+.head-actions>select{height:38px!important;font-size:12px!important;font-weight:500;border-radius:var(--ui-r)!important;
+  border:1px solid #e4e7ec!important;background-color:#fff!important;padding-left:12px!important}
+
+/* ---------------------------------------------------------------- text boxes */
+.mm input:not([type=checkbox]):not([type=radio]):not([type=file]),.mm textarea{
+  border-radius:var(--ui-r);border-color:var(--ui-line);
+}
+.mm input:not([type=checkbox]):not([type=radio]):not([type=file]){height:var(--ui-h)}
+.mm table input:not([type=checkbox]):not([type=radio]):not([type=file]){height:32px}
+.mm .field input,.mm .field textarea{font-weight:400}
+.audit-list-tools input,.wb-tools input,.rq-tools input,.toolbar input,.access-tools input,.recv-search input{font-size:12px!important}
+.audit-list-tools label,.wb-tools label,.rq-tools label,.toolbar label{border-color:var(--ui-line)!important;border-radius:var(--ui-r)!important}
+.audit-list-tools>label,.wb-tools>label,.rq-tools>label{height:var(--ui-h)!important;min-height:0}
+
+select:hover:not(:disabled),.mm input:hover:not(:disabled):not(:focus),.mm textarea:hover:not(:disabled):not(:focus){border-color:var(--ui-line-hover)}
+select:focus-visible,.form input:focus,.form select:focus,.form textarea:focus{
+  outline:0;border-color:#1b3a66!important;box-shadow:var(--ui-ring);
+}
+.audit-list-tools label:focus-within,.wb-tools label:focus-within,.rq-tools label:focus-within,.toolbar label:focus-within,
+.recv-search:focus-within{border-color:#1b3a66!important;box-shadow:var(--ui-ring)}
+::placeholder{color:#98a2b3;opacity:1}
+
+/* ---------------------------------------------------------------- buttons */
+button{cursor:pointer;transition:background-color .12s,border-color .12s,box-shadow .12s,color .12s}
+button:disabled{cursor:not-allowed}
+button:focus-visible,a:focus-visible{outline:2px solid #1b3a66;outline-offset:2px}
+
+/* The main action at the top of a page: one height everywhere. */
+.intro .primary,.rq-head .primary,.access-head .primary,.recv-subhead .primary,.audit-list-actions .primary,.wf-head-tools .primary{
+  height:40px;padding:0 16px!important;font-size:12px!important;font-weight:600!important;border-radius:var(--ui-r)!important;
+  box-shadow:0 1px 2px rgba(16,24,40,.12);white-space:nowrap;
+}
+.primary:hover:not(:disabled){background:#132c55!important}
+.primary:active:not(:disabled){background:#081630!important}
+
+/* Secondary buttons beside it - "Download report" used to come in three colours. */
+.wf-small,.wb-export,.audit-list-actions>button:not(.primary),.panel-head>.wf-small,.access-head-actions>.wf-small{
+  height:var(--ui-h);padding:0 13px!important;font-size:12px!important;font-weight:600!important;border-radius:var(--ui-r)!important;
+  border:1px solid var(--ui-line)!important;background:#fff!important;color:var(--ui-ink)!important;
+  display:inline-flex;align-items:center;gap:7px;white-space:nowrap;box-shadow:0 1px 2px rgba(16,24,40,.05);
+}
+.wf-small:hover:not(:disabled),.wb-export:hover:not(:disabled),.audit-list-actions>button:not(.primary):hover{background:#f5f7fa!important;border-color:var(--ui-line-hover)!important}
+.intro .primary+.wf-small,.access-head-actions>.wf-small,.audit-list-actions>button:not(.primary){height:40px}
+.wb-tools .wb-export{height:var(--ui-h)}
+
+/* Material buttons */
+.mm .mm-btn:not(.link){height:var(--ui-h);border-radius:var(--ui-r);border-color:var(--ui-line);font-size:12px;font-weight:600;
+  white-space:nowrap;box-shadow:0 1px 2px rgba(16,24,40,.05)}
+.mm .mm-btn:hover:not(:disabled):not(.primary):not(.danger){background:#f5f7fa;border-color:var(--ui-line-hover)}
+.mm .mm-btn.small{height:30px;font-size:11.5px;padding:0 11px}
+.mm .mm-btn.primary{box-shadow:0 1px 2px rgba(16,24,40,.12)}
+.mm .mm-tabs button,.settings-tabs button,.schedule-tabs button{height:34px;font-size:12px;border-radius:var(--ui-r)}
+
+/* Buttons inside table rows: readable text and one height, whatever the screen. */
+.wb-next,.wb-delete,.wb-row-actions button,.wf-actions button,.pa-head button,td>button.delete,td>button:not([class]),
+.settings-list button,.company-grid footer button,.wf-node-actions button,.wf-pager button{
+  min-height:30px;font-size:11px!important;font-weight:600!important;border-radius:7px!important;line-height:1.2;
+}
+.wb-next,.wb-row-actions button,.wf-actions button,td>button.delete,td>button:not([class]),.company-grid footer button,.wf-node-actions button{padding:0 11px!important}
+.wf-actions button,.pa-head button{white-space:nowrap}
+.wb-delete{min-width:30px}
+
+/* ---------------------------------------------------------------- tables */
+th{white-space:nowrap}
+/* Row actions stay on one line and inside the table. */
+.mm .t td:last-child .mm-btn{flex:none}
+.mm .t td .inline-flex{flex-wrap:nowrap}
+
+/* ---------------------------------------------------------------- per-screen alignment */
+/* Workbench filter row: the search box takes the spare room, nothing is pushed off the edge. */
+.wb-tools{flex-wrap:wrap;align-items:center}
+.wb-tools>label:first-child{flex:1 1 170px;min-width:170px;max-width:none}
+.wb-tools>select{flex:0 1 auto;max-width:140px}
+.wb-tools .ms-btn{height:var(--ui-h)!important;font-size:12px!important;min-width:140px;border-radius:var(--ui-r)!important;border:1px solid var(--ui-line)!important;padding:0 10px!important}
+.wb-tools .wb-range{height:var(--ui-h)!important}
+.wb-tools .wb-range input{font-size:11.5px!important}
+
+/* Users: the four row actions sit in an even two-by-two block instead of a ragged wrap. */
+.user-table .wf-actions{display:grid;grid-template-columns:repeat(2,minmax(0,max-content));gap:6px;justify-content:start}
+.user-table .wf-actions button{width:100%;justify-content:center}
+
+/* Material tables: tighter cells and compact row buttons so the last column is not cut off. */
+.mm .t td,.mm .t th{padding-left:12px;padding-right:12px}
+.mm .t td .mm-btn:not(.link){height:30px;padding:0 10px;font-size:11.5px}
+.mm .t td .mm-btn.link{height:auto;box-shadow:none}
+.mm .t td .font-mono,.mm .t td.font-mono{white-space:nowrap}
+
+/* Payment tables: every column fits the page, so the status and the next action are in
+   view without scrolling sideways, and dates no longer run into the next column. */
+.wb-panel table{min-width:1040px}
+.wb-panel th,.wb-panel td,.rq-table th,.rq-table td{padding-left:10px;padding-right:10px}
+.wb-panel th:first-child,.wb-panel td:first-child,.rq-table th:first-child,.rq-table td:first-child{padding-left:16px}
+.wb-panel th:last-child,.wb-panel td:last-child,.rq-table th:last-child,.rq-table td:last-child{padding-right:16px}
+.wb-panel th:nth-child(1),.wb-panel td:nth-child(1){width:12%}
+.wb-panel th:nth-child(2),.wb-panel td:nth-child(2){width:11%}
+.wb-panel th:nth-child(3),.wb-panel td:nth-child(3){width:10%}
+.wb-panel th:nth-child(5),.wb-panel td:nth-child(5){width:8%}
+.wb-panel th:nth-child(6),.wb-panel td:nth-child(6){width:9%}
+.wb-panel th:nth-child(7),.wb-panel td:nth-child(7){width:8%}
+.wb-panel th:nth-child(10),.wb-panel td:nth-child(10){width:13%}
+.wb-panel td:nth-child(1) b{font-size:12px}
+.wb-row-actions .wb-next{white-space:normal;overflow-wrap:normal;word-break:normal;text-align:left;padding:6px 10px!important;min-width:0;flex:1}
+.rq-table table{min-width:1040px}
+.rq-table th:nth-child(5),.rq-table td:nth-child(5){width:9%}
+.rq-table th:nth-child(7),.rq-table td:nth-child(7){width:11%}
+.rq-table td:nth-child(1) b,.rq-table td:nth-child(4) b{white-space:nowrap}
+
+/* Organisation chart: the initials stay a round badge instead of stretching across the card. */
+.wf-person>.wf-avatar{flex:0 0 auto!important;border-radius:50%}
+
+/* Wide registers (observations, employees) fit the page; the action button is not cut off. */
+table.wf-wide{min-width:1040px}
+table.wf-wide th,table.wf-wide td{padding-left:10px;padding-right:10px}
+table.wf-wide th:first-child,table.wf-wide td:first-child{padding-left:16px}
+table.wf-wide th:last-child,table.wf-wide td:last-child{padding-right:16px}
+.toolbar>button,.intro>button:not(.primary){font-size:12px;font-weight:500;border-color:var(--ui-line);white-space:nowrap}
+.toolbar>button:hover,.intro>button:not(.primary):hover{background:#f5f7fa;border-color:var(--ui-line-hover)}
+
+/* ---------------------------------------------------------------- Material */
+/* Headings and tile figures in the same clean face as the rest of the portal (were Georgia). */
+.mm h1{font:600 22px var(--font-sans,Inter,ui-sans-serif,system-ui,sans-serif);letter-spacing:-.01em}
+.mm h2{font:600 16px var(--font-sans,Inter,ui-sans-serif,system-ui,sans-serif);letter-spacing:-.005em}
+.mm .mm-tile b{font:600 24px var(--font-sans,Inter,ui-sans-serif,system-ui,sans-serif);letter-spacing:-.01em}
+
+/* Material forms were picking up the dashboard's lopsided 2:1 grid. Columns are even here. */
+.mm .grid{grid-template-columns:minmax(0,1fr)}
+.mm .grid.grid-cols-2{grid-template-columns:repeat(2,minmax(0,1fr))}
+.mm .grid.grid-cols-3{grid-template-columns:repeat(3,minmax(0,1fr))}
+@media(min-width:861px){
+  .mm .grid.desk\:grid-cols-2{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .mm .grid.desk\:grid-cols-3{grid-template-columns:repeat(3,minmax(0,1fr))}
+  .mm .grid.desk\:grid-cols-4{grid-template-columns:repeat(4,minmax(0,1fr))}
+  .mm .grid.desk\:grid-cols-\[1fr_2fr_1fr\]{grid-template-columns:1fr 2fr 1fr}
+}
+.mm .field input:not([type=checkbox]):not([type=radio]),.mm .field textarea,.mm .field select{font-weight:400!important;color:var(--ui-text)}
+
+/* File pickers: a proper button instead of the browser's grey "Browse". */
+input[type=file]{font-size:12px;color:#475467}
+input[type=file]::file-selector-button{
+  height:32px;margin-right:10px;padding:0 12px;border:1px solid var(--ui-line);border-radius:7px;background:#fff;
+  color:var(--ui-ink);font:600 11.5px inherit;font-family:inherit;cursor:pointer;
+}
+input[type=file]::file-selector-button:hover{background:#f5f7fa;border-color:var(--ui-line-hover)}
+
+/* ---------------------------------------------------------------- forms and drawers */
+/* Labels and fields at a readable size, every field the same height. */
+.form label,.access-editor>div>label,.access-editor legend{font-size:11px;font-weight:600;color:#475467}
+.form input:not([type=checkbox]):not([type=radio]):not([type=file]),.form select,
+.access-editor input:not([type=checkbox]):not([type=radio]){
+  height:38px;padding-top:0;padding-bottom:0;padding-left:11px;font-size:12.5px;border-radius:var(--ui-r);border-color:var(--ui-line);color:var(--ui-text);
+}
+.form textarea{font-size:12.5px;border-radius:var(--ui-r);border-color:var(--ui-line);color:var(--ui-text);padding:9px 11px}
+.form input:hover:not(:focus):not(:disabled),.form textarea:hover:not(:focus):not(:disabled),.access-editor input:hover:not(:focus){border-color:var(--ui-line-hover)}
+.access-editor input:focus{outline:0;border-color:#1b3a66;box-shadow:var(--ui-ring)}
+.access-editor fieldset button{font-size:11px;padding:7px 10px;border-radius:7px}
+.access-editor fieldset svg{width:12px}
+.access-offchart{font-size:11.5px!important;font-weight:500!important}
+
+/* Footer buttons of every dialog and drawer: one size, the main one on the right. */
+.modal footer button,.detail>footer button,.access-editor footer>button{
+  height:38px;padding:0 16px!important;font-size:12.5px!important;font-weight:600;border-radius:var(--ui-r)!important;border-color:var(--ui-line);
+}
+.modal footer button:not(.primary):hover,.detail>footer button:not(.primary):hover,.access-editor footer>button:not(.primary):hover{background:#f5f7fa}
+.form input,.form select,.form textarea{font-weight:400}
+.form select{font-size:12.5px!important}
+
+.mm .mm-btn.link{box-shadow:none;height:auto}
+@media print{select:not([multiple]):not([size]){background-image:none!important}}
+/* Phones: keep the drawer fields at 16px so iOS does not zoom in on focus. */
+@media(max-width:760px){.access-editor input:not([type=checkbox]):not([type=radio]),.access-editor select{font-size:16px}}

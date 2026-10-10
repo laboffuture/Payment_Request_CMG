@@ -131,7 +131,7 @@ export default function PoolPage() {
         </span>
       ),
     },
-    { key: 'project', header: 'Project', render: (r) => r.projectCode },
+    { key: 'project', header: 'Project', render: (r) => <span className="whitespace-nowrap">{r.projectCode}</span> },
     {
       key: 'asked',
       header: 'Site engineer asked for',
