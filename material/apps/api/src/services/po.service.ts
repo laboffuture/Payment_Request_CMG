@@ -35,6 +35,8 @@ import { emit } from '../lib/notify.js';
 import { bumpSyncStamp } from '../lib/sync.js';
 import { buildLookups, trailFor, type Lookups } from '../lib/lookups.js';
 import { loadWorld } from '../lib/world.js';
+import { logger } from '../logger.js';
+import { Notification } from '../models/system.js';
 import { enqueueEmails } from '../jobs/queues.js';
 import { Company, Item, Vendor } from '../models/masters.js';
 import { Mr, MrLine } from '../models/mr.js';
@@ -1208,6 +1210,64 @@ export async function cancelPo(actor: Actor, id: string): Promise<void> {
     await writeAudit(session, 'PO', po._id, AUDIT.PO_CANCELLED, actor.id);
     await bumpSyncStamp(session);
   });
+}
+
+/**
+ * Removes a purchase order altogether — an administrator's action, for a PO raised in
+ * error. Cancelling keeps the record and is what procurement does; this takes the PO off
+ * the register.
+ *
+ * Refused once anything has been received against it: the goods-received notes, the stock
+ * ledger and the site receipts all point at the PO, and deleting it would leave stock that
+ * came from nowhere. Such a PO stays on record.
+ *
+ * Its lines go with it, so the MR quantities they held are open in Consolidate MRs again.
+ * The PO number is not reused. The trail keeps a line saying who deleted it.
+ */
+export async function deletePo(actor: Actor, id: string): Promise<{ no: string }> {
+  const removed = await inTransaction(async (session) => {
+    const po = await Po.findById(id).session(session);
+    if (!po) throw notFound();
+
+    const received = await Grn.exists({ poId: po._id });
+    if (received) {
+      throw conflict(
+        `${po.no} has goods received against it, so it cannot be deleted. It stays on record with its receipts.`,
+      );
+    }
+
+    const lookups = await buildLookups();
+    const vendor = lookups.vendorName(po.vendorId);
+    // One after another: a transaction's session cannot run operations side by side.
+    const lines = await PoLine.deleteMany({ poId: po._id }, { session });
+    const allocs = await PoAlloc.deleteMany({ poId: po._id }, { session });
+    const revisions = await PoRevision.deleteMany({ poId: po._id }, { session });
+    const docs = await VendorDoc.deleteMany({ poId: po._id }, { session });
+    const notes = await Notification.deleteMany({ link: `po:${String(po._id)}` }, { session });
+    await Po.deleteOne({ _id: po._id }, { session });
+
+    await writeAudit(
+      session,
+      'PO',
+      po._id,
+      AUDIT.PO_DELETED,
+      actor.id,
+      `${po.no} · ${vendor} · was ${po.status}`,
+    );
+    await bumpSyncStamp(session);
+    return {
+      no: po.no,
+      vendor,
+      status: po.status,
+      lines: lines.deletedCount,
+      allocs: allocs.deletedCount,
+      revisions: revisions.deletedCount,
+      vendorDocs: docs.deletedCount,
+      notifications: notes.deletedCount,
+    };
+  });
+  logger.info({ poId: id, actorId: actor.id, ...removed }, 'purchase order deleted by an administrator');
+  return { no: removed.no };
 }
 
 /** Prototype: A.poAck — the vendor confirms it has the order. */

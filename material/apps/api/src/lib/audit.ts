@@ -67,6 +67,7 @@ export const AUDIT = {
   PO_REJECTED: 'PO rejected — procurement can edit and resubmit',
   PO_MGMT_REJECTED: 'Management rejected the PO',
   PO_CANCELLED: 'PO cancelled — quantities back to pool',
+  PO_DELETED: 'PO deleted by an administrator — quantities back to pool',
   PO_VENDOR_ACK: 'Vendor acknowledged',
   PO_DOC_UPLOADED: (kind: 'INVOICE' | 'DO') =>
     `${kind === 'DO' ? 'Delivery order' : 'Invoice'} uploaded by vendor`,

@@ -54,6 +54,7 @@ import {
   approvePo,
   awardRfq,
   cancelPo,
+  deletePo,
   createPo,
   getPo,
   listPos,
@@ -344,6 +345,16 @@ procurementRouter.post(
   wrap(async (req, res) => {
     await mgmtRejectPo(actorOf(req), req.params.id!, req.body);
     res.json({ ok: true });
+  }),
+);
+
+// Removing a PO from the register: an administrator only, and never one with receipts.
+procurementRouter.delete(
+  '/pos/:id',
+  requireAuth,
+  authorize('ADMIN'),
+  wrap(async (req, res) => {
+    res.json(await deletePo(actorOf(req), req.params.id!));
   }),
 );
 

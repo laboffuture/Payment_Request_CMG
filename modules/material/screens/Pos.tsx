@@ -42,7 +42,7 @@ export default function PosPage() {
       {list.isLoading ? (
         <div className="text-mut">Loading…</div>
       ) : (
-        <PoTable rows={list.data?.rows ?? []} />
+        <PoTable rows={list.data?.rows ?? []} canDelete={me.role === 'ADMIN'} />
       )}
     </>
   );
