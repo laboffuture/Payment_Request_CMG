@@ -116,8 +116,10 @@ export async function renderPoHtml(poId: string): Promise<{ html: string; no: st
     }
 
     return `<tr>
-      <td class="mono">${esc(item?.code)}</td>
-      <td style="white-space:pre-line">${esc(line.description || item?.name)}</td>
+      <td>${esc(item?.name)}</td>
+      <td style="white-space:pre-line">${esc(
+        line.description && line.description.trim() !== (item?.name ?? '').trim() ? line.description : '—',
+      )}</td>
       <td class="mono">${esc(mrNosFor(line._id))}</td>
       <td>${esc(item?.unit)}</td>
       <td class="r">${num(line.qty)}</td>
@@ -232,7 +234,7 @@ export async function renderPoHtml(poId: string): Promise<{ html: string; no: st
 
   <table>
     <thead><tr>
-      <th>Item Code</th><th>Description</th><th>MR No.</th><th>UOM</th>
+      <th>Item Name</th><th>Description</th><th>MR No.</th><th>UOM</th>
       <th class="r">Qty</th><th class="r">Rate</th><th class="r">Amount</th>
     </tr></thead>
     <tbody>
