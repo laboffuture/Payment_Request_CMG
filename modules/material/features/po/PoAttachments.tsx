@@ -185,7 +185,7 @@ export function PoFilePicker({
   const full = count >= MAX_BOQ_FILES;
 
   return (
-    <Card>
+    <Card className="mt-[10px]">
       <div className="flex items-center gap-2 flex-wrap mb-2">
         <h2 style={{ margin: 0 }}>Attachments</h2>
         <span className="text-mut text-sm">optional</span>
