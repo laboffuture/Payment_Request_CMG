@@ -266,3 +266,5 @@ td small .badge{vertical-align:middle}
 .panel.risk .legend i{width:9px;height:9px;border-radius:50%;flex:none}
 .panel.risk .legend b{float:none;margin-left:auto;padding-left:8px;font-size:13px;font-weight:600;color:#101828;font-variant-numeric:tabular-nums}
 @media screen and (max-width:420px){.panel.risk .legend{grid-template-columns:1fr}}
+/* Dashboard: the "PAYMENT COMPLETION" heading in bold black. */
+.health>div>small{color:#101828;font-weight:800}
