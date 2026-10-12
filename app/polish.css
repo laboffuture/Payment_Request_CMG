@@ -251,3 +251,18 @@ td small .badge{vertical-align:middle}
 }
 /* Phone cards: the request number in full, not cut to "PAY-2026-…". */
 @media screen and (max-width:1024px){.wb-panel td:nth-child(1) b{overflow:visible;text-overflow:clip;flex:none}}
+
+/* ---------------------------------------------------------------- dashboard: open requests
+   The ring centred with room around it, and the four figures in an even two-by-two grid:
+   a colour dot, the label on the left, the number on the right, one rule between rows. */
+.panel.risk{display:flex;flex-direction:column}
+.panel.risk .ring{width:136px;height:136px;margin:auto;flex:none}
+.panel.risk .panel-head{margin-bottom:24px}
+.panel.risk .ring:before{width:94px;height:94px}
+.panel.risk .ring span{font-size:10.5px;line-height:1.3}
+.panel.risk .ring b{font-size:26px;line-height:1.1}
+.panel.risk .legend{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:0 26px;padding:0 22px 18px;margin-top:24px}
+.panel.risk .legend span{display:flex;align-items:center;gap:8px;min-width:0;padding:10px 0;border-top:1px solid #eef0f4;font-size:12px;color:#475467}
+.panel.risk .legend i{width:9px;height:9px;border-radius:50%;flex:none}
+.panel.risk .legend b{float:none;margin-left:auto;padding-left:8px;font-size:13px;font-weight:600;color:#101828;font-variant-numeric:tabular-nums}
+@media screen and (max-width:420px){.panel.risk .legend{grid-template-columns:1fr}}

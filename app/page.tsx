@@ -367,9 +367,14 @@ function Dashboard({payments,go}:{payments:Payment[];go:(m:Module)=>void}){
       <b>{p.currency} {Number(p.amount).toLocaleString()}</b><em>{p.status}</em></button>)}
     {!open.length&&<p className="queue-empty">Nothing in the queue. Raise a payment request to begin.</p>}</section>
    <section className="panel risk"><div className="panel-head"><div><small>POSITION</small><h2>Open requests</h2></div></div>
-    <div className="ring"><span><b>{open.length}</b>open</span></div>
-    <div className="legend"><span>🔴 Attention <b>{rejected.length}</b></span><span>🟠 Approval <b>{needsApproval.length}</b></span>
-     <span>🟡 Available <b>{available.length}</b></span><span>🟢 Released <b>{released.length}</b></span></div></section>
+    {(()=>{
+      /* The ring is drawn from the same four figures the legend lists, so the two agree. */
+      const parts=[{label:"Attention",n:rejected.length,color:"#d64545"},{label:"Approval",n:needsApproval.length,color:"#e08a1e"},
+        {label:"Available",n:available.length,color:"#e3b84f"},{label:"Released",n:released.length,color:"#3f9b6f"}];
+      const total=parts.reduce((t,x)=>t+x.n,0);let at=0;
+      const stops=parts.map(x=>{const from=at;at+=total?x.n/total*100:0;return`${x.color} ${from}% ${at}%`}).join(",");
+      return <><div className="ring" style={{background:total?`conic-gradient(${stops})`:"#e4e7ec"}}><span><b>{open.length}</b>open</span></div>
+        <div className="legend">{parts.map(x=><span key={x.label}><i style={{background:x.color}}/>{x.label}<b>{x.n}</b></span>)}</div></>})()}</section>
    <section className="panel"><div className="panel-head"><div><small>COMPANY VIEW</small><h2>Position by entity</h2></div></div>
     {byCompany.map(r=><div className="company" key={r.name}><b>{r.name}</b>
       <span><progress value={r.pct} max="100"/>{r.pct}%</span>
