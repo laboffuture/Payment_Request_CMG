@@ -228,9 +228,9 @@ td small .badge{vertical-align:middle}
 .wb-panel table.wb-cols11 th:last-child,.wb-panel table.wb-cols11 td:last-child{padding-right:14px}
 .wb-panel table.wb-cols11 th{white-space:nowrap}
 .wb-panel table.wb-cols11 :is(th,td):nth-child(1){width:11.5%}
-.wb-panel table.wb-cols11 :is(th,td):nth-child(2){width:8.5%}
+.wb-panel table.wb-cols11 :is(th,td):nth-child(2){width:9.5%}
 .wb-panel table.wb-cols11 :is(th,td):nth-child(3){width:9%}
-.wb-panel table.wb-cols11 :is(th,td):nth-child(4){width:11%}
+.wb-panel table.wb-cols11 :is(th,td):nth-child(4){width:10%}
 .wb-panel table.wb-cols11 :is(th,td):nth-child(5){width:8.5%;text-align:right;white-space:nowrap}
 .wb-panel table.wb-cols11 :is(th,td):nth-child(6){width:8.5%;white-space:nowrap}
 .wb-panel table.wb-cols11 :is(th,td):nth-child(7){width:7.5%}
