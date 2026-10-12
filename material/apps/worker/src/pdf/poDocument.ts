@@ -161,8 +161,9 @@ export async function renderPoHtml(poId: string): Promise<{ html: string; no: st
     `<table class="info">${rows
       .map(([k, v]) => `<tr><th>${esc(k)}</th><td class="c">:</td><td>${esc(v || '—')}</td></tr>`)
       .join('')}</table>`;
-  const sig = (label: string, name: string | null | undefined) =>
-    `<div class="sig"><b>${esc(label)}</b><span>${name ? esc(name) : '&nbsp;'}</span></div>`;
+  // Every column carries the designation line, filled or not, so the signature lines stay level.
+  const sig = (label: string, name: string | null | undefined, designation = '') =>
+    `<div class="sig"><b>${esc(label)}</b><em>${designation ? esc(designation) : '&nbsp;'}</em><span>${name ? esc(name) : '&nbsp;'}</span></div>`;
 
   const html = `<!doctype html>
 <html><head><meta charset="utf-8"><title>${esc(displayNo)}</title>
@@ -185,6 +186,7 @@ export async function renderPoHtml(poId: string): Promise<{ html: string; no: st
   table.info td:last-child { white-space: pre-line; }
   .sigs { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; margin-top: 40px; font-size: 12px; }
   .sig { display: grid; gap: 4px; text-align: center; }
+  .sig em { font-style: normal; font-size: 12px; }
   .sig span { border-top: 1px solid #16191D; margin-top: 24px; padding-top: 4px; min-height: 18px; }
   .terms { white-space: pre-line; font-size: 11px; margin-top: 14px; }
   .logo { max-height: 64px; max-width: 200px; object-fit: contain; margin-right: 12px; }
@@ -249,7 +251,7 @@ export async function renderPoHtml(poId: string): Promise<{ html: string; no: st
   ${po.notes ? `<p style="white-space:pre-line"><b>Remarks:</b> ${esc(po.notes)}</p>` : ''}
 
   <div class="sigs">
-    ${sig('Prepared by', creator?.name)}
+    ${sig('Prepared by', creator?.name, 'Procurement Associate')}
     ${sig('Checked by', checker?.name)}
     ${sig('Verified by', verifier?.name)}
     ${sig('Approved by', po.status !== 'REJECTED' ? approver?.name : null)}

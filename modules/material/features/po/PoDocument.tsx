@@ -72,6 +72,7 @@ const DOC_CSS = `
 .po-doc-table{width:100%;min-width:0!important}
 .po-doc-sign{display:grid;grid-template-columns:repeat(4,1fr);gap:16px;margin-top:40px;font-size:13px}
 .po-doc-sign>div{display:flex;flex-direction:column;gap:4px;text-align:center}
+.po-doc-sign>div>em{font-style:normal;font-size:12px;line-height:1.3}
 .po-doc-sign>div>span{border-top:1px solid currentColor;margin-top:24px;padding-top:4px;min-height:22px}
 @media screen and (max-width:700px){.po-doc-info{grid-template-columns:1fr}.po-doc-sign{grid-template-columns:1fr 1fr}}
 `;
@@ -271,14 +272,16 @@ export function PoDocument({ preview }: { preview: PoDocumentData }) {
       <div className="po-doc-sign">
         {(
           [
-            ['Prepared by', preview.createdByName],
-            ['Checked by', preview.checkedByName],
-            ['Verified by', preview.verifiedByName],
-            ['Approved by', approved],
+            ['Prepared by', 'Procurement Associate', preview.createdByName],
+            ['Checked by', '', preview.checkedByName],
+            ['Verified by', '', preview.verifiedByName],
+            ['Approved by', '', approved],
           ] as const
-        ).map(([label, name]) => (
+        ).map(([label, designation, name]) => (
           <div key={label}>
             <b>{label}</b>
+            {/* Every column keeps this line, filled or not, so the signature lines stay level. */}
+            <em>{designation || '\u00a0'}</em>
             <span>{name || '\u00a0'}</span>
           </div>
         ))}
