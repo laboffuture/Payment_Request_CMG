@@ -381,8 +381,17 @@ function Dashboard({payments,go}:{payments:Payment[];go:(m:Module)=>void}){
       <em>{r.stuck?"Needs attention":r.pct===100?"Clear":"In progress"}</em><small>{r.stuck} flagged</small></div>)}
     {!byCompany.length&&<p className="queue-empty">No requests raised yet.</p>}</section>
    <section className="panel upcoming"><div className="panel-head"><div><small>UPCOMING</small><h2>By due date</h2></div></div>
-    {open.slice(0,5).map(p=><div key={p.id}><time>{String(p.due||"").slice(-2)||"—"}<small>DUE</small></time>
-      <span><b>{p.vendor}</b><small>{p.company} · {p.currency} {Number(p.amount).toLocaleString()}</small></span></div>)}
+    {(()=>{
+      /* Soonest first, as the heading says: it used to list the five newest requests in the
+         order they were raised. A request with no due date goes last. */
+      const today=new Date().toISOString().slice(0,10);
+      const MONTHS=["JAN","FEB","MAR","APR","MAY","JUN","JUL","AUG","SEP","OCT","NOV","DEC"];
+      const soonest=[...open].sort((a,b)=>String(a.due||"9999").localeCompare(String(b.due||"9999"))).slice(0,5);
+      return soonest.map(p=>{const due=String(p.due||""),dated=/^\d{4}-\d{2}-\d{2}/.test(due);
+        return <div key={p.id}><time className={dated&&due.slice(0,10)<today?"late":""} title={dated?(due.slice(0,10)<today?`Was due ${due.slice(0,10)}`:`Due ${due.slice(0,10)}`):"No due date"}>
+            {dated?due.slice(8,10):"—"}<small>{dated?MONTHS[Number(due.slice(5,7))-1]||"DUE":"DUE"}</small></time>
+          <span><b title={p.vendor}>{p.vendor}</b><small>{p.company}</small></span>
+          <em>{p.currency} {Number(p.amount).toLocaleString()}</em></div>})})()}
     {!open.length&&<p className="queue-empty">Nothing scheduled.</p>}</section></div></div>}
 
 function Payments({rows,search,setSearch,open,create}:any){return <div className="page"><div className="toolbar"><label><Search/><input value={search} onChange={e=>setSearch(e.target.value)} placeholder="Search payment, vendor or status"/></label><button>Status: All <ChevronDown/></button><button className="primary" onClick={create}><Plus/>New payment request</button></div><section className="panel table-panel"><div className="panel-head"><div><small>PAYMENT CONTROL</small><h2>All requests</h2></div><span>{rows.length} records</span></div><div className="table-wrap"><table><thead><tr><th>REQUEST</th><th>COMPANY / DEPARTMENT</th><th>VENDOR</th><th>AMOUNT</th><th>DUE</th><th>STATUS</th><th>OWNER</th></tr></thead><tbody>{rows.map((p:Payment)=><tr key={p.id} onClick={()=>open(p)}><td><b>{p.requestNo}</b></td><td>{p.company}<small>{p.department}</small></td><td>{p.vendor}</td><td><b>{p.currency} {p.amount.toLocaleString()}</b></td><td>{p.due}<small>{p.urgency}</small></td><td><span className={`badge ${tone[p.status]||"blue"}`}>{p.status}</span></td><td>{p.owner}</td></tr>)}</tbody></table></div></section></div>}
