@@ -129,6 +129,16 @@ export async function renderPoHtml(poId: string): Promise<{ html: string; no: st
     </tr>`;
   });
 
+  // Optional extra charges (transport, cutting, round-off…): flat amounts, already in po.total.
+  const chargeRows = ((po.charges ?? []) as { type: string; amount: number }[])
+    .filter((c) => num(c.amount))
+    .map(
+      (c) =>
+        `<tr><td colspan="5" class="r">${esc(c.type)}</td><td class="r">${money(r2(num(c.amount)))}</td></tr>`,
+    );
+
+  const chargesTotal = ((po.charges ?? []) as { amount: number }[]).reduce((sum, c) => sum + num(c.amount), 0);
+
   const taxRows = [...byRate.entries()]
     .sort((a, b) => a[0] - b[0])
     .flatMap(([rate, tax]) =>
@@ -243,8 +253,9 @@ export async function renderPoHtml(poId: string): Promise<{ html: string; no: st
       ${rows.join('')}
       <tr><td colspan="5" class="r">Subtotal</td><td class="r">${money(r2(subtotal))}</td></tr>
       ${taxRows.join('')}
+      ${chargeRows.join('')}
       <tr><td colspan="5" class="r"><b>Total ${esc(currency)}</b></td>
-          <td class="r"><b>${money(r2(subtotal + taxTotal))}</b></td></tr>
+          <td class="r"><b>${money(r2(subtotal + taxTotal + chargesTotal))}</b></td></tr>
     </tbody>
   </table>
 

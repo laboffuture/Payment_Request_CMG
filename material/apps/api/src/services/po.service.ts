@@ -125,6 +125,11 @@ async function toPoDto(
     vendorAckAt: po.vendorAckAt ? po.vendorAckAt.toISOString() : null,
     projectCodes: extra.projectCodes,
     fileCount: (po.files ?? []).length,
+    charges: ((po.charges ?? []) as { type: string; amount: number }[]).map((c) => ({
+      type: c.type,
+      amount: num(c.amount),
+    })),
+    chargesTotal: num(po.chargesTotal),
     receivedPct: extra.receivedPct,
   };
 }
@@ -396,7 +401,13 @@ export async function getPo(actor: Actor, id: string): Promise<PoDetailDto> {
       ? null
       : {
           poTotal: num(po.total),
-          receivedValue: poReceivedValue(world, calcPo as never),
+          // Extra charges count as received in step with the goods, so a vendor invoice
+          // that includes them is not flagged as "more than received".
+          receivedValue: ((goods: number) => {
+            const lineTotal = num(po.subtotal) + num(po.taxTotal);
+            const share = lineTotal > 0 ? Math.min(1, goods / lineTotal) : 0;
+            return r2(goods + num(po.chargesTotal) * share);
+          })(poReceivedValue(world, calcPo as never)),
           invoiced,
         },
     files: isVendor ? [] : poFilesOf(po),
@@ -502,6 +513,23 @@ async function assertRowsAvailable(
  * Rows are grouped into one `poLine` per item + rate + tax, with one
  * `poAlloc` per row — exactly as the prototype's savePOCore does.
  */
+/**
+ * Puts the optional extra charges on the PO and folds them into its total. They are flat
+ * amounts: no tax is worked out on them, and the line subtotal and the tax stay what the
+ * material lines make them.
+ */
+function applyCharges(
+  po: { charges: unknown; chargesTotal: number; total: number },
+  totals: { subtotal: number; taxTotal: number },
+  charges: { type: string; amount: number }[] | undefined,
+): void {
+  const kept = (charges ?? []).map((c) => ({ type: c.type, amount: r2(num(c.amount)) }));
+  const chargesTotal = r2(kept.reduce((sum, c) => sum + c.amount, 0));
+  po.charges = kept;
+  po.chargesTotal = chargesTotal;
+  po.total = r2(totals.subtotal + totals.taxTotal + chargesTotal);
+}
+
 async function writePoLines(
   poId: Types.ObjectId,
   // Rows from an awarded enquiry carry no description; the PO then prints the item name.
@@ -650,6 +678,7 @@ export async function createPo(
 
     const totals = await writePoLines(po!._id, input.rows, input.taxMode, session);
     Object.assign(po!, totals);
+    applyCharges(po! as never, totals, input.charges);
     await po!.save({ session });
 
     await writeAudit(
@@ -729,6 +758,7 @@ export async function updatePo(
 
     const totals = await writePoLines(po._id, input.rows, input.taxMode, session);
     Object.assign(po, totals);
+    applyCharges(po as never, totals, input.charges);
     await po.save({ session });
 
     await writeAudit(
@@ -811,6 +841,7 @@ export async function revisePo(
 
     const totals = await writePoLines(po._id, input.rows, input.taxMode, session);
     Object.assign(po, totals);
+    applyCharges(po as never, totals, input.charges);
     await po.save({ session });
 
     await writeAudit(

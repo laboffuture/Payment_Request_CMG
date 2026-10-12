@@ -45,6 +45,9 @@ export interface IPo extends Timestamped {
   rfqId: Types.ObjectId | null;
   /** Supporting papers procurement attaches when raising the PO: quotation, vendor mail, drawing. */
   files: StoredFileDoc[];
+  /** Optional extra charges, each a flat amount added to the total. */
+  charges: { type: string; amount: number }[];
+  chargesTotal: number;
   subtotal: number;
   taxTotal: number;
   total: number;
@@ -105,6 +108,11 @@ const poSchema = new Schema<IPo>(
     lastCommentRole: { type: String, default: '' },
     vendorAckAt: { type: Date, default: null },
     files: { type: [fileSchema], default: [] },
+    charges: {
+      type: [new Schema({ type: { type: String, required: true }, amount: { type: Number, required: true } }, { _id: false })],
+      default: [],
+    },
+    chargesTotal: { type: Number, default: 0 },
   },
   baseOptions(),
 );

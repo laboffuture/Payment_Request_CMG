@@ -233,3 +233,26 @@ export const DEFAULT_PO_DELIVERY_DAYS = 7;
 /** Upload limits (§13). */
 export const MAX_VENDOR_DOC_BYTES = 1024 * 1024; // 1 MB
 export const MAX_LOGO_BYTES = 300 * 1024; // 300 KB
+
+/**
+ * Extra charges procurement may add to a purchase order, beside the material lines.
+ * Optional: a PO without any is the normal case. Each is a flat amount in the PO's
+ * currency, added to the total as entered; Round-off alone may be negative.
+ */
+export const PO_EXTRA_CHARGES = [
+  'Transport Charge',
+  'Cut-out Charge',
+  'Planing Charge',
+  'Weighing Charge',
+  'Energy Surcharge',
+  'Document Charge',
+  'Handling Charge',
+  'Insurance Charge',
+  'Polishing Charge',
+  'Logo Charge',
+  'Cutting Charge',
+  'Loading Charge',
+  'Round-off',
+] as const;
+export type PoExtraCharge = (typeof PO_EXTRA_CHARGES)[number];
+export const PO_ROUND_OFF: PoExtraCharge = 'Round-off';

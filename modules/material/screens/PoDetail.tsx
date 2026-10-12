@@ -160,6 +160,7 @@ export default function PoDetailPage() {
             taxTotal: data.taxTotal,
             total: data.total,
           },
+          charges: data.charges ?? [],
         }}
       />
 

@@ -363,6 +363,10 @@ export interface PoDto extends Doc {
   projectCodes: string[];
   /** how many files are attached to the PO */
   fileCount: number;
+  /** extra charges procurement added (transport, cutting, round-off…), in the PO's currency */
+  charges: { type: string; amount: number }[];
+  /** their sum; already inside `total` */
+  chargesTotal: number;
   receivedPct: number;
 }
 

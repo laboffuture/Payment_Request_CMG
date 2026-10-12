@@ -1,6 +1,13 @@
 import { z } from 'zod';
 import { isoDate, money, objectId, percent, qty } from './common.js';
-import { CURRENCIES, DELIVER_TO, TAX_MODES, VENDOR_DOC_TYPES } from '../enums.js';
+import {
+  CURRENCIES,
+  DELIVER_TO,
+  PO_EXTRA_CHARGES,
+  PO_ROUND_OFF,
+  TAX_MODES,
+  VENDOR_DOC_TYPES,
+} from '../enums.js';
 import { MSG } from '../messages.js';
 
 /**
@@ -24,6 +31,17 @@ export const poRowInput = z.object({
 });
 export type PoRowInput = z.infer<typeof poRowInput>;
 
+/** One extra charge on a PO. Round-off may be negative; every other charge is an amount above zero. */
+export const poChargeInput = z
+  .object({
+    type: z.enum(PO_EXTRA_CHARGES),
+    amount: z.number().finite().min(-10_000_000).max(10_000_000),
+  })
+  .refine((c) => c.amount !== 0, { message: 'Enter an amount for the charge, or remove it' })
+  .refine((c) => c.type === PO_ROUND_OFF || c.amount > 0, {
+    message: 'A charge is an amount above zero (only Round-off can be negative)',
+  });
+
 export const upsertPoInput = z.object({
   vendorId: objectId,
   companyId: objectId,
@@ -40,6 +58,15 @@ export const upsertPoInput = z.object({
   /** why this vendor without an enquiry */
   reason: z.string().trim().max(200).optional().default(''),
   rows: z.array(poRowInput).min(1, MSG.poNoLines),
+  /** optional extra charges; each kind at most once */
+  charges: z
+    .array(poChargeInput)
+    .max(PO_EXTRA_CHARGES.length)
+    .optional()
+    .default([])
+    .refine((list) => new Set(list.map((c) => c.type)).size === list.length, {
+      message: 'Each extra charge can be added once',
+    }),
   /** true = submit for approval, false = save as a draft */
   submit: z.boolean().default(false),
   rv: z.number().int().min(0).optional(),

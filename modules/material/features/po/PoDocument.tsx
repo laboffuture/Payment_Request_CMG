@@ -54,6 +54,8 @@ export interface PoDocumentData {
   date?: string;
   lines: PoDocumentLine[];
   totals: { subtotal: number; taxTotal: number; total: number };
+  /** optional extra charges, printed between the tax and the total; already inside totals.total */
+  charges?: { type: string; amount: number }[];
 }
 
 /*
@@ -82,6 +84,7 @@ const NUMERIC = new Set(['Qty', 'Rate', 'Amount']);
 
 export function PoDocument({ preview }: { preview: PoDocumentData }) {
   const { company, vendor, lines, totals, taxMode, currency, projectCodes } = preview;
+  const charges = (preview.charges ?? []).filter((c) => c.amount);
 
   const split = taxMode === 'CGST_SGST';
   const span = COLUMNS.length - 1;
@@ -234,6 +237,15 @@ export function PoDocument({ preview }: { preview: PoDocumentData }) {
                     </tr>,
                   ],
             )}
+
+          {charges.map((charge) => (
+            <tr key={charge.type}>
+              <Cell colSpan={span} right>
+                {charge.type}
+              </Cell>
+              <Cell right>{money(charge.amount)}</Cell>
+            </tr>
+          ))}
 
           <tr>
             <Cell colSpan={span} right>

@@ -10,6 +10,8 @@ import {
   DEFAULT_PAYMENT_TERMS,
   MSG,
   PO_DIRECT_REASONS,
+  PO_EXTRA_CHARGES,
+  PO_ROUND_OFF,
   TAX_MODES,
   TAX_MODE_LABELS,
   TAX_RATES,
@@ -56,6 +58,8 @@ interface PoFormState {
   taxMode: TaxMode;
   reason: string;
   revisionReason: string;
+  /** optional extra charges; the amount is kept as typed until it is saved */
+  charges: { type: string; amount: string }[];
 }
 
 export function PoWizard({
@@ -90,6 +94,7 @@ export function PoWizard({
     taxMode: (existing?.taxMode ?? defaultCompany?.taxMode ?? 'VAT') as TaxMode,
     reason: existing?.reason || PO_DIRECT_REASONS[0],
     revisionReason: '',
+    charges: (existing?.charges ?? []).map((c) => ({ type: c.type, amount: String(c.amount) })),
   });
 
   // Loading an existing PO replaces whatever the pool put in the draft.
@@ -113,7 +118,17 @@ export function PoWizard({
     }
   }, [defaultCompany, form.companyId]);
 
-  const totals = draftTotals(rows, form.taxMode);
+  // Extra charges are flat amounts on top of the lines and their tax.
+  const charges = form.charges
+    .map((c) => ({ type: c.type, amount: Number(c.amount) }))
+    .filter((c) => Number.isFinite(c.amount) && c.amount !== 0);
+  const chargesTotal = Math.round(charges.reduce((sum, c) => sum + c.amount, 0) * 100) / 100;
+  const lineTotals = draftTotals(rows, form.taxMode);
+  const totals = {
+    ...lineTotals,
+    chargesTotal,
+    total: Math.round((lineTotals.total + chargesTotal) * 100) / 100,
+  };
   const grouped = groupRows(rows);
   const currency = form.currency;
 
@@ -129,6 +144,7 @@ export function PoWizard({
     notes: form.notes,
     taxMode: form.taxMode,
     reason: form.reason,
+    charges,
     submit,
     rv: existing?.rv,
     ...(revise ? { revisionReason: form.revisionReason } : {}),
@@ -219,6 +235,15 @@ export function PoWizard({
       if (!form.companyId) return toast(MSG.poNoCompanyShort);
       for (const group of grouped) {
         if (!(group.rate > 0)) return toast(MSG.poRateRequired(group.itemName));
+      }
+      for (const charge of form.charges) {
+        const amount = Number(charge.amount);
+        if (!charge.amount.trim() || !Number.isFinite(amount) || amount === 0) {
+          return toast(`Enter the amount for ${charge.type}, or remove it`);
+        }
+        if (amount < 0 && charge.type !== PO_ROUND_OFF) {
+          return toast(`${charge.type} must be above zero — only Round-off can be negative`);
+        }
       }
       const projects = new Set(rows.map((r) => r.projectCode));
       if (form.deliverTo === 'SITE' && projects.size > 1) {
@@ -583,7 +608,7 @@ function StepVendorPrices({
   grouped: ReturnType<typeof groupRows>;
   rows: PoDraftRow[];
   onPatchItem: (itemId: string, patch: Partial<PoDraftRow>) => void;
-  totals: { subtotal: number; taxTotal: number; total: number };
+  totals: { subtotal: number; taxTotal: number; total: number; chargesTotal: number };
   currency: string;
   locked: boolean;
   /** the attachment box, placed after the prices and before moving on */
@@ -845,6 +870,12 @@ function StepVendorPrices({
         </table>
       </div>
 
+      <ExtraCharges
+        charges={form.charges}
+        currency={currency}
+        onChange={(next) => setForm((f) => ({ ...f, charges: next }))}
+      />
+
       <Card className="flex flex-wrap justify-end gap-6 mt-[10px]">
         <span>
           Subtotal <b>{money(totals.subtotal)}</b>
@@ -864,6 +895,11 @@ function StepVendorPrices({
             <b>{money(totals.taxTotal)}</b>
           </span>
         )}
+        {totals.chargesTotal ? (
+          <span>
+            Extra charges <b>{money(totals.chargesTotal)}</b>
+          </span>
+        ) : null}
         <span className="text-[17px]">
           Total{' '}
           <b>
@@ -903,7 +939,7 @@ function StepReview({
   existing?: PoDetailDto;
   revise: boolean;
   rows: PoDraftRow[];
-  totals: { subtotal: number; taxTotal: number; total: number };
+  totals: { subtotal: number; taxTotal: number; total: number; chargesTotal: number };
   currency: string;
   busy: boolean;
   /** names of what is, or will be, attached - shown so it is checked before submitting */
@@ -993,6 +1029,9 @@ function StepReview({
             gstPct: form.taxMode === 'NONE' ? 0 : g.gstPct,
           })),
           totals,
+          charges: form.charges
+            .map((c) => ({ type: c.type, amount: Number(c.amount) }))
+            .filter((c) => Number.isFinite(c.amount) && c.amount !== 0),
         }}
       />
 
@@ -1035,6 +1074,95 @@ function StepReview({
   );
 }
 
+
+/**
+ * Optional extra charges on the PO - transport, cutting, round-off and the like. Pick one
+ * from the list, give it an amount, and it is added to the total and printed on the PO.
+ * Each kind can be added once. Nothing here is required: most POs have none.
+ */
+function ExtraCharges({
+  charges,
+  currency,
+  onChange,
+}: {
+  charges: { type: string; amount: string }[];
+  currency: string;
+  onChange: (next: { type: string; amount: string }[]) => void;
+}) {
+  const left = PO_EXTRA_CHARGES.filter((type) => !charges.some((c) => c.type === type));
+  const sum = charges.reduce((total, c) => total + (Number(c.amount) || 0), 0);
+
+  return (
+    <Card className="mt-[10px]">
+      <div className="flex items-center gap-2 flex-wrap mb-2">
+        <h2 style={{ margin: 0 }}>Extra charges</h2>
+        <span className="text-mut text-sm">optional</span>
+        {charges.length ? <Tag label={`${charges.length} ADDED`} tone="ac" /> : null}
+      </div>
+      <p className="text-mut text-sm mt-0 mb-3">
+        Add a charge only if the vendor bills it on this order. The amount is added to the PO
+        total exactly as entered — put in what is payable, including any tax on it. Round-off
+        can be a minus figure.
+      </p>
+
+      {charges.length ? (
+        <div className="flex flex-col gap-2 mb-3">
+          {charges.map((charge, index) => (
+            <div
+              key={charge.type}
+              className="grid items-center gap-2"
+              style={{ gridTemplateColumns: 'minmax(0,1fr) minmax(110px,180px) auto' }}
+            >
+              <span className="font-semibold">{charge.type}</span>
+              <input
+                type="number"
+                inputMode="decimal"
+                step="0.01"
+                min={charge.type === PO_ROUND_OFF ? undefined : 0}
+                aria-label={`${charge.type} amount in ${currency}`}
+                placeholder={`Amount (${currency})`}
+                className="text-right"
+                value={charge.amount}
+                onChange={(e) =>
+                  onChange(
+                    charges.map((c, i) => (i === index ? { ...c, amount: e.target.value } : c)),
+                  )
+                }
+              />
+              <Btn small variant="danger" onClick={() => onChange(charges.filter((_, i) => i !== index))}>
+                Remove
+              </Btn>
+            </div>
+          ))}
+          <div className="text-right text-sm text-mut">
+            Extra charges total{' '}
+            <b className="text-ink">
+              {currency} {money(Math.round(sum * 100) / 100)}
+            </b>
+          </div>
+        </div>
+      ) : null}
+
+      {left.length ? (
+        <select
+          aria-label="Add an extra charge"
+          value=""
+          onChange={(e) => {
+            if (e.target.value) onChange([...charges, { type: e.target.value, amount: '' }]);
+          }}
+          style={{ maxWidth: 280 }}
+        >
+          <option value="">+ Add a charge…</option>
+          {left.map((type) => (
+            <option key={type} value={type}>
+              {type}
+            </option>
+          ))}
+        </select>
+      ) : null}
+    </Card>
+  );
+}
 
 const VENDOR_SUGGESTION_LIMIT = 40;
 
