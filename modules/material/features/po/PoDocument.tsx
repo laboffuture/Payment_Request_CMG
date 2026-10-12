@@ -273,7 +273,7 @@ export function PoDocument({ preview }: { preview: PoDocumentData }) {
         {(
           [
             ['Prepared by', 'Procurement Associate', preview.createdByName],
-            ['Checked by', '', preview.checkedByName],
+            ['Checked by', 'Procurement Manager', preview.checkedByName],
             ['Verified by', '', preview.verifiedByName],
             ['Approved by', '', approved],
           ] as const

@@ -252,7 +252,7 @@ export async function renderPoHtml(poId: string): Promise<{ html: string; no: st
 
   <div class="sigs">
     ${sig('Prepared by', creator?.name, 'Procurement Associate')}
-    ${sig('Checked by', checker?.name)}
+    ${sig('Checked by', checker?.name, 'Procurement Manager')}
     ${sig('Verified by', verifier?.name)}
     ${sig('Approved by', po.status !== 'REJECTED' ? approver?.name : null)}
   </div>
