@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import type { VendorDto } from '@cm/shared';
 import { get, post, put } from '@mm/lib/api';
@@ -27,13 +27,53 @@ export default function VendorsPage() {
     queryFn: () => get<VendorDto[]>('/admin/vendors'),
   });
 
+  // Every word typed must appear somewhere on the vendor: "plywood coimbatore" narrows to
+  // the plywood suppliers there.
+  const [search, setSearch] = useState('');
+  const shown = useMemo(() => {
+    const all = vendors.data ?? [];
+    const words = search.toLowerCase().split(/\s+/).filter(Boolean);
+    if (!words.length) return all;
+    return all.filter((v) => {
+      const text = [v.code, v.name, v.category, v.contactPerson, v.phone, v.email, v.taxNo, v.city, v.address]
+        .join(' ')
+        .toLowerCase();
+      return words.every((w) => text.includes(w));
+    });
+  }, [vendors.data, search]);
+
   const columns: Column<VendorDto>[] = [
     { key: 'code', header: 'Vendor No', render: (v) => <span className="font-mono">{v.code || '—'}</span> },
-    { key: 'name', header: 'Vendor', render: (v) => <b>{v.name}</b> },
-    { key: 'country', header: 'Country', render: (v) => v.country || '—' },
-    { key: 'email', header: 'Email', render: (v) => v.email || '—' },
-    { key: 'phone', header: 'Phone', render: (v) => v.phone || '—' },
-    { key: 'taxNo', header: 'Tax no.', render: (v) => v.taxNo || '—' },
+    {
+      key: 'name',
+      header: 'Vendor',
+      render: (v) => (
+        <span>
+          <b>{v.name}</b>
+          {v.category ? <span className="block text-mut text-xs">{v.category}</span> : null}
+        </span>
+      ),
+    },
+    {
+      key: 'contact',
+      header: 'Contact',
+      render: (v) =>
+        v.contactPerson || v.phone ? (
+          <span>
+            {v.contactPerson || '—'}
+            {v.phone ? <span className="block text-mut text-xs whitespace-nowrap">{v.phone}</span> : null}
+          </span>
+        ) : (
+          '—'
+        ),
+    },
+    { key: 'email', header: 'Email', render: (v) => <span className="break-all">{v.email || '—'}</span> },
+    { key: 'taxNo', header: 'GSTIN', render: (v) => <span className="font-mono">{v.taxNo || '—'}</span> },
+    {
+      key: 'city',
+      header: 'Location',
+      render: (v) => <span title={v.address || undefined}>{v.city || v.country || '—'}</span>,
+    },
     { key: 'source', header: 'Source', render: (v) => v.sourceLabel },
     {
       key: 'logins',
@@ -69,9 +109,19 @@ export default function VendorsPage() {
         title="Vendors"
         subtitle="Suppliers who receive enquiries and POs. A vendor's portal login is made under Users & access, with the Vendor role and this supplier."
         actions={
-          <Btn variant="primary" onClick={() => setAdding(true)}>
-            + Add vendor
-          </Btn>
+          <>
+            <input
+              type="search"
+              aria-label="Search vendors"
+              placeholder="Search name, category, city or GSTIN"
+              className="min-w-[250px]"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+            />
+            <Btn variant="primary" onClick={() => setAdding(true)}>
+              + Add vendor
+            </Btn>
+          </>
         }
       />
 
@@ -80,9 +130,9 @@ export default function VendorsPage() {
       ) : (
         <DataTable
           columns={columns}
-          rows={vendors.data ?? []}
+          rows={shown}
           rowKey={(v) => v.id}
-          emptyText="No vendors yet"
+          emptyText={search.trim() ? 'No vendor matches the search' : 'No vendors yet'}
         />
       )}
 
@@ -117,6 +167,9 @@ function VendorModal({
     phone: vendor?.phone ?? '',
     taxNo: vendor?.taxNo ?? '',
     address: vendor?.address ?? '',
+    contactPerson: vendor?.contactPerson ?? '',
+    category: vendor?.category ?? '',
+    city: vendor?.city ?? '',
   });
 
   const set = (key: keyof typeof form) => (e: { target: { value: string } }) =>
@@ -179,6 +232,24 @@ function VendorModal({
         <label className="field">
           TRN / GSTIN
           <input value={form.taxNo} onChange={set('taxNo')} />
+        </label>
+      </div>
+      <div className="grid gap-3 desk:grid-cols-3">
+        <label className="field">
+          Category
+          <input
+            placeholder="Plywood, Electrical Material…"
+            value={form.category}
+            onChange={set('category')}
+          />
+        </label>
+        <label className="field">
+          Contact person
+          <input value={form.contactPerson} onChange={set('contactPerson')} />
+        </label>
+        <label className="field">
+          Location (city)
+          <input value={form.city} onChange={set('city')} />
         </label>
       </div>
       <label className="field">

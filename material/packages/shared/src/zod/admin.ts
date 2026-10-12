@@ -56,6 +56,10 @@ export const upsertVendorInput = z.object({
   phone: z.string().trim().max(40).optional().default(''),
   taxNo: z.string().trim().max(60).optional().default(''),
   address: z.string().trim().max(500).optional().default(''),
+  contactPerson: z.string().trim().max(80).optional().default(''),
+  /** what the supplier is used for */
+  category: z.string().trim().max(80).optional().default(''),
+  city: z.string().trim().max(60).optional().default(''),
 });
 export type UpsertVendorInput = z.infer<typeof upsertVendorInput>;
 

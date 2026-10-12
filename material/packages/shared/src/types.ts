@@ -56,6 +56,10 @@ export interface VendorDto extends Doc {
   phone: string;
   taxNo: string;
   address: string;
+  contactPerson: string;
+  /** what the supplier is used for: "Plywood", "Electrical Material"… */
+  category: string;
+  city: string;
   source: MasterSource;
   /** "Payment app" | "Created here" */
   sourceLabel: string;

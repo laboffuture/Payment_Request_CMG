@@ -111,6 +111,12 @@ export interface IVendor extends Timestamped {
   phone: string;
   taxNo: string;
   address: string;
+  /** who to ask for at the supplier */
+  contactPerson: string;
+  /** what the supplier is used for: "Plywood", "Electrical Material"… */
+  category: string;
+  /** the town the supplier is in */
+  city: string;
   source: MasterSource;
   externalId: string;
 }
@@ -124,6 +130,9 @@ const vendorSchema = new Schema<IVendor>(
     phone: { type: String, default: '', trim: true },
     taxNo: { type: String, default: '', trim: true },
     address: { type: String, default: '' },
+    contactPerson: { type: String, default: '', trim: true },
+    category: { type: String, default: '', trim: true },
+    city: { type: String, default: '', trim: true },
     source: { type: String, enum: MASTER_SOURCES, default: 'LOCAL', index: true },
     externalId: { type: String, default: '', index: true },
   },
