@@ -275,7 +275,7 @@ export function PoDocument({ preview }: { preview: PoDocumentData }) {
             ['Prepared by', 'Procurement Associate', preview.createdByName],
             ['Checked by', 'Procurement Manager', preview.checkedByName],
             ['Verified by', 'Quantity Survey', preview.verifiedByName],
-            ['Approved by', '', approved],
+            ['Approved by', 'Executive Director', approved],
           ] as const
         ).map(([label, designation, name]) => (
           <div key={label}>
