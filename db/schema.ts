@@ -33,7 +33,13 @@ export const paymentRequests=sqliteTable("payment_requests",{id:integer("id").pr
   rejectedBy:text("rejected_by").notNull().default(""),
   rejectedAt:text("rejected_at").notNull().default(""),
   resubmitNote:text("resubmit_note").notNull().default(""),
-  resubmittedAt:text("resubmitted_at").notNull().default("")});
+  resubmittedAt:text("resubmitted_at").notNull().default(""),
+  /* A department head's priority for the request - Critical, High or Medium - given once
+     management has approved it. Optional and outside the workflow: empty means none was
+     given, and setting it changes neither the status nor the owner. */
+  deptPriority:text("dept_priority").notNull().default(""),
+  deptPriorityBy:text("dept_priority_by").notNull().default(""),
+  deptPriorityAt:text("dept_priority_at").notNull().default("")});
 /* Master data an administrator maintains from the Settings screen.
 
    setting_options holds the choices behind a dropdown; which dropdowns exist is a

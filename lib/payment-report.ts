@@ -15,7 +15,8 @@ export type ReportRow={requestNo:string;status:string;company:string;department:
   poNumber?:string;invoiceNumber?:string;invoiceDate?:string;paymentTerms?:string;period?:string;
   paymentMode?:string;tds?:string;tdsPercent?:string;tdsValue?:string;utrNumber?:string;raisedBy?:string;
   createdAt?:string;lastActionBy?:string;lastActionAt?:string;lastActionNote?:string;latestRemark?:string;
-  rejectionNote?:string;rejectedBy?:string;resubmitNote?:string;extra?:string};
+  rejectionNote?:string;rejectedBy?:string;resubmitNote?:string;extra?:string;
+  deptPriority?:string;deptPriorityBy?:string;deptPriorityAt?:string};
 
 type Column={head:string;value:(p:ReportRow)=>string|number;
   /* Columns that belong to older requests only (the job number and type of works were
@@ -54,6 +55,10 @@ const COLUMNS:Column[]=[
   {head:"Net payable",value:net},
   {head:"Due date",value:p=>p.due},
   {head:"Urgency",value:p=>p.urgency},
+  /* Given by the department head, if at all. Blank means no priority was set. */
+  {head:"Priority (Dept. Head)",value:p=>p.deptPriority||""},
+  {head:"Priority set by",value:p=>p.deptPriority?p.deptPriorityBy||"":""},
+  {head:"Priority set on",value:p=>p.deptPriority?day(p.deptPriorityAt):""},
   {head:"Owner",value:p=>p.owner},
   {head:"Raised by",value:p=>p.raisedBy||""},
   {head:"Raised on",value:p=>day(p.createdAt)},

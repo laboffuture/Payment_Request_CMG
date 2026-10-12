@@ -199,3 +199,21 @@ input[type=file]::file-selector-button:hover{background:#f5f7fa;border-color:var
 @media print{select:not([multiple]):not([size]){background-image:none!important}}
 /* Phones: keep the drawer fields at 16px so iOS does not zoom in on focus. */
 @media(max-width:760px){.access-editor input:not([type=checkbox]):not([type=radio]),.access-editor select{font-size:16px}}
+
+/* ---------------------------------------------------------------- department head priority */
+.wf-priority{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:10px 14px;
+  margin:14px 22px 0;padding:12px 14px;border:1px solid #e4e7ec;border-radius:10px;background:#fafbfc}
+.wf-priority small{display:block;font-size:9px;font-weight:800;letter-spacing:.1em;color:#8a93a3;margin-bottom:5px}
+.wf-priority p{margin:0;display:flex;flex-wrap:wrap;align-items:center;gap:8px;font-size:11.5px}
+.wf-priority em{font-style:normal;color:#667085;font-size:11px}
+.wf-priority-pick{display:flex;flex-wrap:wrap;gap:6px}
+.wf-priority-pick button{height:32px;padding:0 13px;border:1px solid var(--ui-line);border-radius:var(--ui-r);background:#fff;
+  color:var(--ui-ink);font-size:11.5px;font-weight:600}
+.wf-priority-pick button:hover:not(:disabled){background:#f5f7fa;border-color:var(--ui-line-hover)}
+.wf-priority-pick button:disabled{opacity:.55}
+.wf-priority-pick button.on.critical{background:#fde9e8;border-color:#e3a59e;color:#b43e3c}
+.wf-priority-pick button.on.high{background:#fff0dd;border-color:#e6bf85;color:#b86b08}
+.wf-priority-pick button.on.medium{background:#fff8d9;border-color:#e0cf80;color:#8e7314}
+.wf-priority-pick button.clear{border-color:transparent;background:none;color:#667085;font-weight:500;padding:0 8px}
+.wf-priority-error{flex-basis:100%;margin:0;color:#b3372a;font-size:11.5px}
+td small .badge{vertical-align:middle}

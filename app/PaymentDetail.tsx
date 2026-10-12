@@ -1,5 +1,5 @@
 "use client";
-import{STAGES as stages,stageIndex}from"../lib/payment-stages";
+import{DEPT_PRIORITIES,DEPT_PRIORITY_ROLES,STAGES as stages,priorityOpen,stageIndex}from"../lib/payment-stages";
 import{FIELD_ORDER,labelFor,ruleFor}from"../lib/payment-fields";
 import type{FieldKey}from"../lib/payment-fields";
 import{useEffect,useMemo,useState}from"react";
@@ -11,7 +11,7 @@ import type{Job}from"../lib/jobs";
 type Payment={canApprove?:boolean;projectCode?:string;invoiceNumber?:string;invoiceDate?:string;paymentTerms?:string;period?:string;extra?:string;tds?:string;nature?:string;poNumber?:string;resubmitNote?:string;resubmittedAt?:string;rejectionNote?:string;rejectedBy?:string;rejectedAt?:string;raisedBy?:string;tdsPercent?:string;tdsValue?:string;
   /* The note left by whoever moved the request last. This panel declares its own Payment
      type rather than sharing page.tsx's, so a field added there does not arrive here. */
-  lastActionNote?:string;lastActionBy?:string;utrNumber?:string;id:number;requestNo:string;company:string;vendor:string;amount:number;currency:string;due:string;urgency:string;status:string;owner:string;department:string};
+  deptPriority?:string;deptPriorityBy?:string;deptPriorityAt?:string;lastActionNote?:string;lastActionBy?:string;utrNumber?:string;id:number;requestNo:string;company:string;vendor:string;amount:number;currency:string;due:string;urgency:string;status:string;owner:string;department:string};
 /* The badge was hardcoded blue, so a rejected request looked the same as one in
    progress. Colour follows the status. */
 const statusTone=(s:string)=>s==="Query Raised"||s==="Audit Query"?"amber":/reject|query/i.test(s)?"red"
@@ -38,7 +38,40 @@ const tdsLine=(p:{tds?:string;tdsPercent?:string;tdsValue?:string;currency:strin
     .filter(Boolean).join(" · ")};
 const stamp=(v:string)=>v?new Date(v).toLocaleDateString("en-GB",{day:"2-digit",month:"short",year:"numeric"}):"";
 
-export default function PaymentDetail({payment:p,busy=false,role,onClose,onAction,onDelete,userEmail="",userName="",companies=[],departments=[],natures=[],currencies=[],tdsChoices=[],termsChoices=[],modeChoices=[],jobs=[]}:{payment:Payment;busy?:boolean;role:string;onClose:()=>void;onAction:(s:string,note?:string,fields?:Record<string,string>)=>void;onDelete?:()=>void;userEmail?:string;userName?:string;companies?:{id:string;name:string}[];departments?:string[];natures?:string[];currencies?:string[];tdsChoices?:string[];termsChoices?:string[];modeChoices?:string[];jobs?:Job[]}){
+/* The department head's priority. Optional, and beside the workflow rather than in it:
+   choosing one - or none - changes no status and moves the request nowhere. The head (or an
+   administrator) can set it once management has approved the request and until it is
+   closed; everybody else who opens the request sees what was chosen, if anything was. */
+const priorityTone=(v?:string)=>v==="Critical"?"critical":v==="High"?"high":v==="Medium"?"medium":"";
+function DeptPriority({p,role,onSaved}:{p:Payment;role:string;onSaved?:(saved:Partial<Payment>&{id:number})=>void}){
+  const[saving,setSaving]=useState(false);
+  const[error,setError]=useState("");
+  const maySet=DEPT_PRIORITY_ROLES.includes(role)&&priorityOpen(p.status)&&!!onSaved;
+  if(!maySet&&!p.deptPriority)return null;
+  const choose=async(value:string)=>{
+    setSaving(true);setError("");
+    try{
+      const r=await fetch("/api/payments/priority",{method:"PATCH",headers:{"content-type":"application/json"},
+        body:JSON.stringify({id:p.id,priority:value})});
+      const b=await r.json().catch(()=>({})) as{payment?:Partial<Payment>&{id:number};error?:string};
+      if(!r.ok||!b.payment)setError(b.error||"The priority could not be saved. Try again.");
+      else onSaved?.(b.payment);
+    }catch{setError("The priority could not be saved. Check the connection and try again.")}
+    setSaving(false)};
+  return <section className="wf-priority" aria-label="Priority set by the department head">
+    <div><small>PRIORITY · DEPARTMENT HEAD{maySet?" · OPTIONAL":""}</small>
+      {p.deptPriority
+        ?<p><span className={`badge ${priorityTone(p.deptPriority)}`}>{p.deptPriority}</span>
+           {(p.deptPriorityBy||p.deptPriorityAt)&&<em>set{p.deptPriorityBy?` by ${p.deptPriorityBy}`:""}{p.deptPriorityAt?` · ${when(p.deptPriorityAt)}`:""}</em>}</p>
+        :<p><em>No priority set. The request moves on as usual either way.</em></p>}</div>
+    {maySet&&<div className="wf-priority-pick" role="group" aria-label="Set priority">
+      {DEPT_PRIORITIES.map(v=><button type="button" key={v} disabled={saving} aria-pressed={p.deptPriority===v}
+        className={p.deptPriority===v?`on ${priorityTone(v)}`:""} onClick={()=>choose(v)}>{v}</button>)}
+      {!!p.deptPriority&&<button type="button" className="clear" disabled={saving} onClick={()=>choose("")}>Remove</button>}</div>}
+    {error&&<p className="wf-priority-error" role="alert">{error}</p>}
+  </section>}
+
+export default function PaymentDetail({payment:p,busy=false,role,onClose,onAction,onDelete,onPriority,userEmail="",userName="",companies=[],departments=[],natures=[],currencies=[],tdsChoices=[],termsChoices=[],modeChoices=[],jobs=[]}:{payment:Payment;busy?:boolean;role:string;onClose:()=>void;onAction:(s:string,note?:string,fields?:Record<string,string>)=>void;onDelete?:()=>void;onPriority?:(saved:Partial<Payment>&{id:number})=>void;userEmail?:string;userName?:string;companies?:{id:string;name:string}[];departments?:string[];natures?:string[];currencies?:string[];tdsChoices?:string[];termsChoices?:string[];modeChoices?:string[];jobs?:Job[]}){
  const isPrivileged=["Administrator","Audit Head","Management","Accountant","Auditor","Finance"].includes(role);
  const isOwnRequest=!p.raisedBy||!userEmail||p.raisedBy.trim().toLowerCase()===userEmail.trim().toLowerCase();
  const mayRemoveAttachment=(a:Attachment)=>{
@@ -62,7 +95,7 @@ export default function PaymentDetail({payment:p,busy=false,role,onClose,onActio
    fetch(`/api/payments?history=${encodeURIComponent(String(p.id))}`)
      .then(r=>r.ok?r.json() as Promise<{history?:Entry[]}>:{history:[]})
      .then(b=>{if(!dead)setHistory(b.history||[])}).catch(()=>{});
-   return()=>{dead=true}},[p.id,p.status]);
+   return()=>{dead=true}},[p.id,p.status,p.deptPriority]);
  const remarks=history.map(readEntry).filter(e=>e.remark).reverse();
  /* A query audit raised goes back to audit when it is answered - the server decides that;
     this only names it on the button. */
@@ -313,7 +346,7 @@ export default function PaymentDetail({payment:p,busy=false,role,onClose,onActio
       {!!p.invoiceNumber&&<div><dt>Invoice</dt><dd>{p.invoiceNumber}{p.invoiceDate?` · ${p.invoiceDate}`:""}</dd></div>}
       {!!p.paymentTerms&&<div><dt>Payment terms</dt><dd>{p.paymentTerms}</dd></div>}
       {!!p.period&&<div><dt>Period</dt><dd>{p.period}</dd></div>}{(()=>{try{return(JSON.parse(p.extra||"[]") as {id:string;label:string;value:string}[])
-  .map(x=><div key={x.id}><dt>{x.label}</dt><dd>{x.value}</dd></div>)}catch{return null}})()}<div><dt>Due</dt><dd>{p.due}</dd></div><div><dt>Owner</dt><dd>{p.owner}</dd></div></dl></div><div className="wf-stage">{stages.map((s,i)=><div className={i<active?"past":i===active?"now":""} key={s}><i>{i<active?<Check/>:i+1}</i><span>{s}</span></div>)}</div><section className="wf-work"><div className="wf-title"><div><small>CURRENT ACTION</small><h4>{title}</h4></div><span className="badge amber">{role}</span></div>
+  .map(x=><div key={x.id}><dt>{x.label}</dt><dd>{x.value}</dd></div>)}catch{return null}})()}<div><dt>Due</dt><dd>{p.due}</dd></div><div><dt>Owner</dt><dd>{p.owner}</dd></div></dl></div><div className="wf-stage">{stages.map((s,i)=><div className={i<active?"past":i===active?"now":""} key={s}><i>{i<active?<Check/>:i+1}</i><span>{s}</span></div>)}</div><DeptPriority p={p} role={role} onSaved={onPriority}/><section className="wf-work"><div className="wf-title"><div><small>CURRENT ACTION</small><h4>{title}</h4></div><span className="badge amber">{role}</span></div>
    {/* Everything said about this request so far, newest first, above whatever is asked
        of the reader now - the reason accounts sent it on is what audit reads it by. */}
    {!!remarks.length&&<div className="wf-remarks"><small>REMARKS SO FAR</small>

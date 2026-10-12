@@ -69,3 +69,12 @@ export const needsManagementApproval=(company:string,setting:ManagementSetting={
    request is finished too - it is closed, and what follows it is a new request. */
 export const isFinished=(status:string)=>
   ["Payment Released","Reconciliation","Audit Closed","Rejected"].includes(status);
+
+/* The priority a department head may give a request. Optional, and no part of the flow:
+   it is a label accounts, audit and finance can read, and it moves nothing. It can be given
+   from the moment a request is past management approval (or was never subject to it) until
+   the request is closed - released or rejected. */
+export const DEPT_PRIORITIES=["Critical","High","Medium"] as const;
+export const DEPT_PRIORITY_ROLES=["Department Head","Administrator"];
+const PRIORITY_CLOSED=["Management Approval","Rejected","Payment Released","Reconciliation","Audit Closed"];
+export const priorityOpen=(status:string)=>!PRIORITY_CLOSED.includes(status);

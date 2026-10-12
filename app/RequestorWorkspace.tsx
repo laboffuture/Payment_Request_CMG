@@ -12,7 +12,7 @@ import{STAGES,isFinished,stageIndex}from"../lib/payment-stages";
    so a request reads the same wherever it is seen - except the next action, which is an
    instruction to accounts or audit and none of the requestor's business. */
 
-type P={id:number;requestNo:string;company:string;vendor:string;amount:number;currency:string;
+type P={deptPriority?:string;deptPriorityBy?:string;id:number;requestNo:string;company:string;vendor:string;amount:number;currency:string;
   due:string;urgency:string;status:string;owner:string;department:string;
   nature?:string;tds?:string;poNumber?:string;createdAt?:string;
   lastActionBy?:string;lastActionNote?:string;latestRemark?:string;latestRemarkBy?:string;lastActionAt?:string;
@@ -77,7 +77,7 @@ export default function RequestorWorkspace({rows,open,create,scope="own"}:{rows:
         <th>VERIFIED BY</th><th>REMARKS</th><th>CURRENT STEP</th><th>STATUS TRACKER</th>
       </tr></thead>
       <tbody>{mine.map(p=><tr key={p.id} onClick={()=>open(p)}>
-        <td><b>{p.requestNo}</b><small>{p.urgency} priority</small>{p.createdAt&&<small className="req-when" title="Requested on">{stamp(p.createdAt)}</small>}</td>
+        <td><b>{p.requestNo}</b>{p.deptPriority?<small><span className={`badge ${p.deptPriority.toLowerCase()}`} title={`Priority set by the department head${p.deptPriorityBy?` (${p.deptPriorityBy})`:""}`}>{p.deptPriority}</span></small>:<small>{p.urgency} priority</small>}{p.createdAt&&<small className="req-when" title="Requested on">{stamp(p.createdAt)}</small>}</td>
         <td>{p.company}<small>{p.department}</small></td>
         <td title={p.vendor}>{p.vendor}</td>
         <td><b>{p.currency} {p.amount.toLocaleString()}</b></td>
