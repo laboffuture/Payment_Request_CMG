@@ -249,3 +249,5 @@ td small .badge{vertical-align:middle}
   .wb-panel table.wb-cols11 .wb-row-actions .wb-next{padding:6px 8px!important}
   .wb-panel table.wb-cols11 .wb-delete{min-width:28px;width:28px;flex:none}
 }
+/* Phone cards: the request number in full, not cut to "PAY-2026-…". */
+@media screen and (max-width:1024px){.wb-panel td:nth-child(1) b{overflow:visible;text-overflow:clip;flex:none}}
