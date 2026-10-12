@@ -23,7 +23,11 @@ export default function PaymentWorkbench({rows,role,search,setSearch,open,create
   const seen=new Set(register);
   return[...register,...Array.from(new Set(used.filter(Boolean))).filter(x=>!seen.has(x)).sort()]};
  const deptChoices=withRegister(departments,rows.map(p=>p.department));
- const companyChoices=withRegister(companies,rows.map(p=>p.company));
+ /* A company name that is not on the register is offered only while some request under it is
+    still live. One left behind on rejected requests alone - a mistyped name, turned down for
+    exactly that - is not a company anybody filters by; those requests stay in the list under
+    "All companies" and in the search. */
+ const companyChoices=withRegister(companies,rows.filter(p=>p.status!=="Rejected").map(p=>p.company));
  const shown=useMemo(()=>rows.filter(p=>match(p)&&(department==="All departments"||p.department===department)&&(!companyPicks.length||companyPicks.includes(p.company))&&(status==="All statuses"||p.status===status)&&(!from&&!to||!!p.due&&(!from||p.due>=from)&&(!to||p.due<=to))),[rows,tab,department,companyPicks,status,from,to]);
  const download=()=>{
   /* Every field of the requests, the same columns as the requestor's report. */
