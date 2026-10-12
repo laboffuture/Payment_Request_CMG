@@ -1,4 +1,5 @@
 "use client";
+import{matchesPayment}from"../lib/payment-search";
 import{useState}from"react";
 import{CheckCircle2,Clock3,Download,FileText,Plus,Search}from"lucide-react";
 import{stamp}from"../lib/stamp";
@@ -33,8 +34,7 @@ export default function RequestorWorkspace({rows,open,create,scope="own"}:{rows:
   /* The vendor is what the search is for, but somebody hunting "the ABC one" may just as
      easily remember the request number or the company, and being told "no match" because
      they typed the right thing in the wrong field would be the search's fault, not theirs. */
-  const found=q?rows.filter(p=>[p.vendor,p.requestNo,p.company,p.department,p.nature||""]
-    .some(v=>v.toLowerCase().includes(q))):rows;
+  const found=q?rows.filter(p=>matchesPayment(p,q)):rows;
   /* Clamped rather than used as given: if the list shortens under a reader who has paged
      forward - a search narrows it, a request is withdrawn - an unclamped offset would land
      past the end and show an empty table, which reads as "no requests" rather than as a
@@ -69,7 +69,7 @@ export default function RequestorWorkspace({rows,open,create,scope="own"}:{rows:
           <Download/>Download report</button></div>
       <div className="rq-tools"><label><Search/>
         <input value={term} onChange={e=>{setTerm(e.target.value);setOffset(0)}}
-          placeholder="Search vendor, request number or company"/></label>
+          placeholder="Search vendor, request number, company or amount"/></label>
         {q&&<button className="rq-clear" onClick={()=>{setTerm("");setOffset(0)}}>
           Clear · {found.length} of {rows.length}</button>}</div>
       <div className="table-wrap"><table><thead><tr>

@@ -3,6 +3,7 @@ import MultiSelect from"./MultiSelect";
 import {useCallback,useEffect,useMemo,useRef,useState} from "react";
 import {Bell,AlertTriangle,Building2,CalendarClock,CalendarDays,CheckCircle2,ChevronDown,CircleDollarSign,ClipboardCheck,FileBarChart,FileText,History,Import,LayoutDashboard,LogOut,Menu,MessageSquareText,Plus,ReceiptText,Search,Settings,ShieldCheck,SlidersHorizontal,Users,X,GraduationCap,Upload} from "lucide-react";
 import PaymentDetail from "./PaymentDetail";
+import{matchesPayment}from"../lib/payment-search";
 import FilePicker from "./FilePicker";
 import {asDataUrl} from "./Attachments";
 import PaymentWorkbench from "./PaymentWorkbench";
@@ -118,7 +119,7 @@ export default function Home(){
    const t=setInterval(loadPayments,60000);window.addEventListener("focus",loadPayments);
    return()=>{clearInterval(t);window.removeEventListener("focus",loadPayments)}},[userEmail,loadPayments]);
  const openRequest=(p:Payment)=>{setDrawer(p);loadPayments()};
- const filtered=useMemo(()=>payments.filter(p=>(!companyPicks.length||companyPicks.includes(p.company))&&(`${p.requestNo} ${p.vendor} ${p.status}`.toLowerCase().includes(search.toLowerCase()))),[payments,companyPicks,search]);
+ const filtered=useMemo(()=>payments.filter(p=>(!companyPicks.length||companyPicks.includes(p.company))&&matchesPayment(p,search)),[payments,companyPicks,search]);
  /* A requestor sees the requests they raised. raisedBy is written server-side from the
     session, so it cannot be spoofed by the browser. Requests created before this was
     recorded carry an empty value and belong to nobody. */
