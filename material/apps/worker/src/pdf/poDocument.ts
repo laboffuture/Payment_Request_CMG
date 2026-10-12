@@ -116,10 +116,11 @@ export async function renderPoHtml(poId: string): Promise<{ html: string; no: st
     }
 
     return `<tr>
-      <td>${esc(item?.name)}</td>
-      <td style="white-space:pre-line">${esc(
-        line.description && line.description.trim() !== (item?.name ?? '').trim() ? line.description : '—',
-      )}</td>
+      <td><b>${esc(item?.name)}</b>${
+        line.description && line.description.trim() !== (item?.name ?? '').trim()
+          ? `<small class="desc">${esc(line.description)}</small>`
+          : ''
+      }</td>
       <td class="mono">${esc(mrNosFor(line._id))}</td>
       <td>${esc(item?.unit)}</td>
       <td class="r">${num(line.qty)}</td>
@@ -133,11 +134,11 @@ export async function renderPoHtml(poId: string): Promise<{ html: string; no: st
     .flatMap(([rate, tax]) =>
       split
         ? [
-            `<tr><td colspan="6" class="r">CGST ${rate / 2}%</td><td class="r">${money(r2(tax / 2))}</td></tr>`,
-            `<tr><td colspan="6" class="r">SGST ${rate / 2}%</td><td class="r">${money(r2(tax / 2))}</td></tr>`,
+            `<tr><td colspan="5" class="r">CGST ${rate / 2}%</td><td class="r">${money(r2(tax / 2))}</td></tr>`,
+            `<tr><td colspan="5" class="r">SGST ${rate / 2}%</td><td class="r">${money(r2(tax / 2))}</td></tr>`,
           ]
         : [
-            `<tr><td colspan="6" class="r">${
+            `<tr><td colspan="5" class="r">${
               po.taxMode === 'IGST' ? 'IGST' : po.taxMode === 'VAT' ? 'VAT' : 'Tax'
             } ${rate}%</td><td class="r">${money(tax)}</td></tr>`,
           ],
@@ -188,6 +189,7 @@ export async function renderPoHtml(poId: string): Promise<{ html: string; no: st
   table.info td:last-child { white-space: pre-line; }
   .sigs { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; margin-top: 40px; font-size: 12px; }
   .sig { display: grid; gap: 4px; text-align: center; }
+  small.desc { display: block; white-space: pre-line; font-size: 11px; line-height: 1.35; margin-top: 2px; color: #4b5563; }
   .sig em { font-style: normal; font-size: 12px; }
   .sig span { border-top: 1px solid #16191D; margin-top: 24px; padding-top: 4px; min-height: 18px; }
   .terms { white-space: pre-line; font-size: 11px; margin-top: 14px; }
@@ -234,14 +236,14 @@ export async function renderPoHtml(poId: string): Promise<{ html: string; no: st
 
   <table>
     <thead><tr>
-      <th>Item Name</th><th>Description</th><th>MR No.</th><th>UOM</th>
+      <th>Item Name</th><th>MR No.</th><th>UOM</th>
       <th class="r">Qty</th><th class="r">Rate</th><th class="r">Amount</th>
     </tr></thead>
     <tbody>
       ${rows.join('')}
-      <tr><td colspan="6" class="r">Subtotal</td><td class="r">${money(r2(subtotal))}</td></tr>
+      <tr><td colspan="5" class="r">Subtotal</td><td class="r">${money(r2(subtotal))}</td></tr>
       ${taxRows.join('')}
-      <tr><td colspan="6" class="r"><b>Total ${esc(currency)}</b></td>
+      <tr><td colspan="5" class="r"><b>Total ${esc(currency)}</b></td>
           <td class="r"><b>${money(r2(subtotal + taxTotal))}</b></td></tr>
     </tbody>
   </table>

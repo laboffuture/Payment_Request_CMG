@@ -77,7 +77,7 @@ const DOC_CSS = `
 @media screen and (max-width:700px){.po-doc-info{grid-template-columns:1fr}.po-doc-sign{grid-template-columns:1fr 1fr}}
 `;
 
-const COLUMNS = ['Item Name', 'Description', 'MR No.', 'UOM', 'Qty', 'Rate', 'Amount'];
+const COLUMNS = ['Item Name', 'MR No.', 'UOM', 'Qty', 'Rate', 'Amount'];
 const NUMERIC = new Set(['Qty', 'Rate', 'Amount']);
 
 export function PoDocument({ preview }: { preview: PoDocumentData }) {
@@ -179,16 +179,15 @@ export function PoDocument({ preview }: { preview: PoDocumentData }) {
         <tbody>
           {lines.map((line) => (
             <tr key={line.id}>
+              {/* The item by name, with what was asked for in small print underneath. The
+                  description is left out when it only repeats the name. */}
               <Cell>
-                <span>{line.itemName}</span>
-              </Cell>
-              {/* The name has its own column now, so the description is not filled with it again. */}
-              <Cell>
-                <span className="whitespace-pre-line">
-                  {line.description && line.description.trim() !== (line.itemName || '').trim()
-                    ? line.description
-                    : '—'}
-                </span>
+                <b className="block font-semibold">{line.itemName}</b>
+                {line.description && line.description.trim() !== (line.itemName || '').trim() ? (
+                  <small className="block whitespace-pre-line text-[11px] leading-[1.35] mt-[2px] opacity-80">
+                    {line.description}
+                  </small>
+                ) : null}
               </Cell>
               <Cell>
                 <span className="font-mono">{(line.mrNos ?? []).join(', ')}</span>
