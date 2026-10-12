@@ -312,4 +312,4 @@ td small .badge{vertical-align:middle}
 .mm .po-totals .total small{font-size:11px;font-weight:600;color:#667085;letter-spacing:.04em;margin-right:2px}
 
 /* Vendors: the e-mail column wide enough to read an address on one or two lines. */
-.mm .t td:has(> span[style*="overflow-wrap"]){min-width:190px}
+.mm .t td:has(> span[style*="overflow-wrap"]){min-width:150px}

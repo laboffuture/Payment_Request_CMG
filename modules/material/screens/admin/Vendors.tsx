@@ -96,9 +96,9 @@ export default function VendorsPage() {
       key: 'actions',
       header: '',
       render: (v) => (
-        <div className="flex gap-[10px]">
-          <Btn small onClick={() => openUsersAndAccess()}>
-            + Portal login
+        <div className="flex gap-[6px] justify-end">
+          <Btn small title="Create a portal login for this vendor" onClick={() => openUsersAndAccess()}>
+            + Login
           </Btn>
           {v.source === 'LOCAL' ? (
             <Btn small onClick={() => setEditing(v)}>
