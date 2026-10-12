@@ -876,36 +876,44 @@ function StepVendorPrices({
         onChange={(next) => setForm((f) => ({ ...f, charges: next }))}
       />
 
-      <Card className="flex flex-wrap justify-end gap-6 mt-[10px]">
-        <span>
-          Subtotal <b>{money(totals.subtotal)}</b>
-        </span>
-        {form.taxMode === 'CGST_SGST' ? (
-          <>
-            <span>
-              CGST <b>{money(totals.taxTotal / 2)}</b>
-            </span>
-            <span>
-              SGST <b>{money(totals.taxTotal / 2)}</b>
-            </span>
-          </>
-        ) : (
-          <span>
-            {form.taxMode === 'NONE' ? 'Tax' : TAX_MODE_LABELS[form.taxMode]}{' '}
-            <b>{money(totals.taxTotal)}</b>
-          </span>
-        )}
-        {totals.chargesTotal ? (
-          <span>
-            Extra charges <b>{money(totals.chargesTotal)}</b>
-          </span>
-        ) : null}
-        <span className="text-[17px]">
-          Total{' '}
-          <b>
-            {currency} {money(totals.total)}
-          </b>
-        </span>
+      {/* The totals as a small ledger: labels down the left, figures in one column on the
+          right, and the total set off underneath. */}
+      <Card className="mt-[10px]">
+        <dl className="po-totals">
+          <div>
+            <dt>Subtotal</dt>
+            <dd>{money(totals.subtotal)}</dd>
+          </div>
+          {form.taxMode === 'CGST_SGST' ? (
+            <>
+              <div>
+                <dt>CGST</dt>
+                <dd>{money(totals.taxTotal / 2)}</dd>
+              </div>
+              <div>
+                <dt>SGST</dt>
+                <dd>{money(totals.taxTotal / 2)}</dd>
+              </div>
+            </>
+          ) : (
+            <div>
+              <dt>{form.taxMode === 'NONE' ? 'Tax' : TAX_MODE_LABELS[form.taxMode]}</dt>
+              <dd>{money(totals.taxTotal)}</dd>
+            </div>
+          )}
+          {totals.chargesTotal ? (
+            <div>
+              <dt>Extra charges</dt>
+              <dd>{money(totals.chargesTotal)}</dd>
+            </div>
+          ) : null}
+          <div className="total">
+            <dt>Total</dt>
+            <dd>
+              <small>{currency}</small> {money(totals.total)}
+            </dd>
+          </div>
+        </dl>
       </Card>
 
       {attachments}

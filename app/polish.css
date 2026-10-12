@@ -299,3 +299,14 @@ td small .badge{vertical-align:middle}
 .wb-row-actions .wb-delete svg{width:15px;height:15px;stroke-width:2;display:block}
 .wb-row-actions .wb-delete:hover{background:#c0392b;border-color:#c0392b;color:#fff}
 .wb-row-actions .wb-delete:focus-visible{outline:2px solid #c0392b;outline-offset:2px}
+
+/* ---------------------------------------------------------------- PO wizard: totals
+   A right-hand ledger - labels on the left, figures aligned in one column, total beneath. */
+.mm .po-totals{display:flex;flex-direction:column;gap:7px;width:100%;max-width:340px;margin:0 0 0 auto}
+.mm .po-totals>div{display:flex;justify-content:space-between;align-items:baseline;gap:24px;font-size:12.5px;color:#475467}
+.mm .po-totals dt{margin:0}
+.mm .po-totals dd{margin:0;font-weight:600;color:#101828;font-variant-numeric:tabular-nums;white-space:nowrap}
+.mm .po-totals .total{margin-top:5px;padding-top:11px;border-top:1px solid var(--mm-line);font-size:15px;color:#101828}
+.mm .po-totals .total dt{font-weight:600}
+.mm .po-totals .total dd{font-size:18px;font-weight:700}
+.mm .po-totals .total small{font-size:11px;font-weight:600;color:#667085;letter-spacing:.04em;margin-right:2px}
