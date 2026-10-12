@@ -67,14 +67,21 @@ export default function VendorsPage() {
           '—'
         ),
     },
-    { key: 'email', header: 'Email', render: (v) => <span className="break-all">{v.email || '—'}</span> },
-    { key: 'taxNo', header: 'GSTIN', render: (v) => <span className="font-mono">{v.taxNo || '—'}</span> },
+    {
+      key: 'email',
+      header: 'Email',
+      render: (v) => <span style={{ overflowWrap: 'anywhere' }}>{v.email || '—'}</span>,
+    },
+    {
+      key: 'taxNo',
+      header: 'GSTIN',
+      render: (v) => <span className="font-mono whitespace-nowrap">{v.taxNo || '—'}</span>,
+    },
     {
       key: 'city',
       header: 'Location',
       render: (v) => <span title={v.address || undefined}>{v.city || v.country || '—'}</span>,
     },
-    { key: 'source', header: 'Source', render: (v) => v.sourceLabel },
     {
       key: 'logins',
       header: 'Portal logins',
