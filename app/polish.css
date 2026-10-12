@@ -289,3 +289,13 @@ td small .badge{vertical-align:middle}
   .wb-tabs{flex-wrap:wrap;overflow:visible;row-gap:0}
   .wb-tabs button{padding:11px 3px 10px;margin-right:20px}
 }
+/* The row delete button: a square with the bin drawn at full size, centred. (The shared
+   row-button padding above was squeezing the icon down to a dot.) */
+.wb-row-actions .wb-delete,.wb-panel table.wb-cols11 .wb-delete{
+  width:30px;min-width:30px;height:30px;min-height:30px;padding:0!important;flex:none;
+  display:inline-grid;place-items:center;border:1px solid #f0c9c5;border-radius:8px!important;
+  background:#fff;color:#c0392b;line-height:0;
+}
+.wb-row-actions .wb-delete svg{width:15px;height:15px;stroke-width:2;display:block}
+.wb-row-actions .wb-delete:hover{background:#c0392b;border-color:#c0392b;color:#fff}
+.wb-row-actions .wb-delete:focus-visible{outline:2px solid #c0392b;outline-offset:2px}
