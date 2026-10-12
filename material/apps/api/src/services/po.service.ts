@@ -14,7 +14,9 @@ import {
 import {
   DEFAULT_CURRENCY,
   DEFAULT_PO_DELIVERY_DAYS,
+  MAX_BOQ_FILES,
   MSG,
+  type BoqFileDto,
   type PoAllocDto,
   type PoDetailDto,
   type PoDto,
@@ -36,6 +38,7 @@ import { bumpSyncStamp } from '../lib/sync.js';
 import { buildLookups, trailFor, type Lookups } from '../lib/lookups.js';
 import { loadWorld } from '../lib/world.js';
 import { logger } from '../logger.js';
+import { deleteFile, signedUrlFor, uploadBoq } from '../lib/files.js';
 import { Notification } from '../models/system.js';
 import { enqueueEmails } from '../jobs/queues.js';
 import { Company, Item, Vendor } from '../models/masters.js';
@@ -121,6 +124,7 @@ async function toPoDto(
     lastCommentRole: po.lastCommentRole ?? '',
     vendorAckAt: po.vendorAckAt ? po.vendorAckAt.toISOString() : null,
     projectCodes: extra.projectCodes,
+    fileCount: (po.files ?? []).length,
     receivedPct: extra.receivedPct,
   };
 }
@@ -395,6 +399,9 @@ export async function getPo(actor: Actor, id: string): Promise<PoDetailDto> {
           receivedValue: poReceivedValue(world, calcPo as never),
           invoiced,
         },
+    files: isVendor ? [] : poFilesOf(po),
+    canAttach: mayAttach(actor, po.status),
+    canDetach: mayDetach(actor, po.status),
     canEdit: isBuyer(actor.role) && ['DRAFT', 'REJECTED'].includes(po.status),
     canApprove:
       actor.role === 'PROC_MGR' && po.status === 'PENDING_APPROVAL' && !isOwnPo,
@@ -1244,6 +1251,7 @@ export async function deletePo(actor: Actor, id: string): Promise<{ no: string }
     const revisions = await PoRevision.deleteMany({ poId: po._id }, { session });
     const docs = await VendorDoc.deleteMany({ poId: po._id }, { session });
     const notes = await Notification.deleteMany({ link: `po:${String(po._id)}` }, { session });
+    const fileIds = ((po.files ?? []) as unknown as Record<string, any>[]).map((f) => String(f.publicId));
     await Po.deleteOne({ _id: po._id }, { session });
 
     await writeAudit(
@@ -1264,10 +1272,118 @@ export async function deletePo(actor: Actor, id: string): Promise<{ no: string }
       revisions: revisions.deletedCount,
       vendorDocs: docs.deletedCount,
       notifications: notes.deletedCount,
+      fileIds,
     };
   });
+  // The attached files go once the PO is really gone.
+  for (const fileId of removed.fileIds) await deleteFile(fileId).catch(() => undefined);
   logger.info({ poId: id, actorId: actor.id, ...removed }, 'purchase order deleted by an administrator');
   return { no: removed.no };
+}
+
+// ---------------------------------------------------------------------------
+// Attachments
+// ---------------------------------------------------------------------------
+
+/** Statuses in which nobody has finally approved the PO yet. */
+const BEFORE_APPROVAL = ['DRAFT', 'PENDING_APPROVAL', 'REJECTED', 'QS_VALIDATION', 'MGMT_APPROVAL'];
+
+const attachRole = (actor: Actor): boolean => isBuyer(actor.role) || actor.role === 'ADMIN';
+/** Papers can be added until the PO is cancelled — a later quotation or mail still belongs with it. */
+const mayAttach = (actor: Actor, status: string): boolean =>
+  attachRole(actor) && status !== 'CANCELLED';
+/** Taking one off again stops at approval: what the approvers saw stays what is on record. */
+const mayDetach = (actor: Actor, status: string): boolean =>
+  attachRole(actor) && BEFORE_APPROVAL.includes(status);
+
+/** A PO's files with short-lived links. */
+function poFilesOf(po: Record<string, any>): BoqFileDto[] {
+  return ((po.files ?? []) as Record<string, any>[]).map((file) => ({
+    id: file.publicId,
+    name: file.name,
+    size: num(file.size),
+    url: signedUrlFor(file.publicId),
+  }));
+}
+
+/**
+ * Attaches supporting files to a PO — the vendor's quotation, a mail, a drawing. Optional,
+ * and added to whatever is already there. The approvers (Procurement Manager, QS,
+ * management) see the same files; a vendor login never does.
+ */
+export async function attachPoFiles(
+  actor: Actor,
+  id: string,
+  files: Express.Multer.File[],
+): Promise<BoqFileDto[]> {
+  if (!files?.length) throw badRequest(MSG.boqNoFiles);
+  const po = await Po.findById(id);
+  if (!po) throw notFound();
+  if (!mayAttach(actor, po.status)) throw forbidden();
+
+  const already = (po.files ?? []).length;
+  if (already + files.length > MAX_BOQ_FILES) {
+    throw badRequest(`Attach at most ${MAX_BOQ_FILES} files to a PO`);
+  }
+
+  // All uploaded before the PO is touched, so one bad file does not leave it half-changed.
+  const stored: Awaited<ReturnType<typeof uploadBoq>>[] = [];
+  try {
+    for (const file of files) {
+      try {
+        stored.push(await uploadBoq(file, 'po'));
+      } catch (err) {
+        // The shared checks speak of "the BOQ"; on a PO, name the file and say it plainly.
+        const said = err instanceof Error ? err.message : '';
+        if (said === MSG.boqWrongType) {
+          throw badRequest(
+            `${file.originalname} cannot be attached — use a PDF, an image or a spreadsheet (CSV, XLS, XLSX)`,
+          );
+        }
+        if (said === MSG.boqTooLarge) {
+          throw badRequest(`${file.originalname} is larger than 5 MB — compress it and try again`);
+        }
+        throw err;
+      }
+    }
+  } catch (err) {
+    // Nothing is attached unless everything is: drop what did get stored.
+    for (const file of stored) await deleteFile(file.publicId).catch(() => undefined);
+    throw err;
+  }
+
+  // Only the files are written - not the whole document - so this cannot undo a status
+  // change made by somebody else in the same moment.
+  await Po.updateOne({ _id: po._id }, { $push: { files: { $each: stored } } });
+  await bumpSyncStamp();
+  const fresh = await Po.findById(id).lean();
+  return poFilesOf(fresh ?? {});
+}
+
+/** Takes one file off a PO, by its storage id, while the PO is not yet approved. */
+export async function removePoFile(actor: Actor, id: string, fileId: string): Promise<BoqFileDto[]> {
+  const po = await Po.findById(id).lean();
+  if (!po) throw notFound();
+  if (!mayDetach(actor, po.status)) {
+    throw conflict('Files can be removed only until the PO is approved');
+  }
+  const has = ((po.files ?? []) as Record<string, any>[]).some((f) => f.publicId === fileId);
+  if (!has) throw notFound('That file is no longer attached');
+
+  await Po.updateOne({ _id: po._id }, { $pull: { files: { publicId: fileId } } });
+  // The bytes go only once the PO no longer points at them.
+  await deleteFile(fileId).catch(() => undefined);
+  await bumpSyncStamp();
+  const fresh = await Po.findById(id).lean();
+  return poFilesOf(fresh ?? {});
+}
+
+/** Fresh signed links, for whoever may open the PO inside the company. */
+export async function poFileLinks(actor: Actor, id: string): Promise<BoqFileDto[]> {
+  const po = await Po.findById(id).lean();
+  if (!po) throw notFound();
+  if (actor.role === 'VENDOR') throw forbidden();
+  return poFilesOf(po);
 }
 
 /** Prototype: A.poAck — the vendor confirms it has the order. */

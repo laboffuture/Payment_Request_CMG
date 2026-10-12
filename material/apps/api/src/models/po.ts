@@ -43,6 +43,8 @@ export interface IPo extends Timestamped {
   /** Why this vendor without an enquiry (prototype: PO wizard step 3). */
   reason: string;
   rfqId: Types.ObjectId | null;
+  /** Supporting papers procurement attaches when raising the PO: quotation, vendor mail, drawing. */
+  files: StoredFileDoc[];
   subtotal: number;
   taxTotal: number;
   total: number;
@@ -102,6 +104,7 @@ const poSchema = new Schema<IPo>(
     lastCommentBy: optionalRefTo('User'),
     lastCommentRole: { type: String, default: '' },
     vendorAckAt: { type: Date, default: null },
+    files: { type: [fileSchema], default: [] },
   },
   baseOptions(),
 );

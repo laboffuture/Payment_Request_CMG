@@ -1,6 +1,8 @@
 import { Router } from 'express';
 import multer from 'multer';
 import {
+  MAX_BOQ_BYTES,
+  MAX_BOQ_FILES,
   MAX_VENDOR_DOC_BYTES,
   QUOTATION_SHEET_COLS,
   awardRfqInput,
@@ -53,6 +55,9 @@ import {
   acknowledgePo,
   approvePo,
   awardRfq,
+  attachPoFiles,
+  poFileLinks,
+  removePoFile,
   cancelPo,
   deletePo,
   createPo,
@@ -76,6 +81,12 @@ import {
 } from '../services/vendorDoc.service.js';
 
 export const procurementRouter: Router = Router();
+
+/** What procurement attaches to a PO — the same kinds and sizes as an MR's attachments. */
+const poFileUpload = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: MAX_BOQ_BYTES },
+});
 
 const docUpload = multer({
   storage: multer.memoryStorage(),
@@ -345,6 +356,41 @@ procurementRouter.post(
   wrap(async (req, res) => {
     await mgmtRejectPo(actorOf(req), req.params.id!, req.body);
     res.json({ ok: true });
+  }),
+);
+
+// --- PO attachments (optional, added while raising the PO or later) ----------
+
+/** Several at once — added to whatever is already attached. */
+procurementRouter.post(
+  '/pos/:id/files',
+  requireAuth,
+  authorize('PROC', 'PROC_MGR', 'ADMIN'),
+  uploadLimiter,
+  poFileUpload.array('files', MAX_BOQ_FILES),
+  wrap(async (req, res) => {
+    const files = (req.files ?? []) as Express.Multer.File[];
+    res.json(await attachPoFiles(actorOf(req), req.params.id!, files));
+  }),
+);
+
+/** One file, by its storage id. */
+procurementRouter.delete(
+  '/pos/:id/files/:fileId(*)',
+  requireAuth,
+  authorize('PROC', 'PROC_MGR', 'ADMIN'),
+  wrap(async (req, res) => {
+    res.json(await removePoFile(actorOf(req), req.params.id!, req.params.fileId!));
+  }),
+);
+
+/** Fresh signed links — everybody inside the company who can open the PO. */
+procurementRouter.get(
+  '/pos/:id/files',
+  requireAuth,
+  authorize('PROC', 'PROC_MGR', 'QS', 'PM', 'MGMT', 'ADMIN', 'STORE', 'SITE'),
+  wrap(async (req, res) => {
+    res.json(await poFileLinks(actorOf(req), req.params.id!));
   }),
 );
 

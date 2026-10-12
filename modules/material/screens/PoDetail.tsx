@@ -23,6 +23,7 @@ import { useSession } from '@mm/lib/session';
 import { fmtDateTime, money, qty } from '@mm/lib/format';
 import { DocsTable } from '@mm/features/docs/DocsTable';
 import { PoDocument } from '@mm/features/po/PoDocument';
+import { PoFiles } from '@mm/features/po/PoAttachments';
 import { VendorDocUpload } from '@mm/features/vendor/VendorDocUpload';
 
 /**
@@ -119,6 +120,13 @@ export default function PoDetailPage() {
 
         <ApprovalChain po={data} />
       </div>
+
+      <PoFiles
+        poId={data.id}
+        files={data.files ?? []}
+        canAttach={!!data.canAttach}
+        canDetach={!!data.canDetach}
+      />
 
       <PoDocument
         preview={{

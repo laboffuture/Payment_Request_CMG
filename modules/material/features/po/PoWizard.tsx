@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import { useRouter } from '@mm/lib/nav';
 import { useQuery } from '@tanstack/react-query';
 import {
@@ -14,6 +14,8 @@ import {
   TAX_MODE_LABELS,
   TAX_RATES,
   type Currency,
+  MAX_BOQ_FILES,
+  type BoqFileDto,
   type PoDetailDto,
   type PoRecommendationsDto,
   type PoolRowDto,
@@ -21,7 +23,7 @@ import {
   type VendorDto,
   type VendorSuggestionDto,
 } from '@cm/shared';
-import { get, newIdempotencyKey, post, put } from '@mm/lib/api';
+import { del, get, newIdempotencyKey, post, put } from '@mm/lib/api';
 import { Btn, Card, EmptyState, PageHeader, Stack, Stepper, StickyActionBar, Tag } from '@mm/components/ui';
 import { useToast } from '@mm/components/Toast';
 import { useAction } from '@mm/lib/hooks';
@@ -29,6 +31,7 @@ import { useReference } from '@mm/lib/reference';
 import { addDays, fmtDate, money, qty } from '@mm/lib/format';
 import { draftTotals, groupRows, usePoDraft, type PoDraftRow } from './draft';
 import { PoDocument } from './PoDocument';
+import { PoFilePicker, acceptPoFiles, uploadPoFiles } from './PoAttachments';
 
 /**
  * The three-step purchase order wizard.
@@ -68,6 +71,9 @@ export function PoWizard({
   const { rows, setRows, addRow, removeRow, patchRow, patchItem, clear } = usePoDraft();
 
   const [step, setStep] = useState(1);
+  // Attachments: what the PO already carries, and what was chosen now and goes up on save.
+  const [attached, setAttached] = useState<BoqFileDto[]>(existing?.files ?? []);
+  const [pending, setPending] = useState<File[]>([]);
   const defaultCompany =
     reference.companies.find((c) => c.isDefault) ?? reference.companies[0];
 
@@ -135,29 +141,63 @@ export function PoWizard({
     })),
   });
 
+  type Saved = { id: string; no: string; filesFailed?: string };
   const save = useAction(
-    (submit: boolean) => {
-      if (revise && existing) {
-        return post<{ id: string; no: string }>(
-          `/pos/${existing.id}/revise`,
-          payload(submit),
-          newIdempotencyKey(),
-        );
+    async (submit: boolean): Promise<Saved> => {
+      const po: Saved =
+        revise && existing
+          ? await post<Saved>(`/pos/${existing.id}/revise`, payload(submit), newIdempotencyKey())
+          : existing
+            ? await put<Saved>(`/pos/${existing.id}`, payload(submit))
+            : await post<Saved>('/pos', payload(submit), newIdempotencyKey());
+      // The PO exists now, so the chosen files have somewhere to go. If they fail the PO is
+      // still saved - it is said plainly, and they can be added from the PO page.
+      if (pending.length) {
+        try {
+          await uploadPoFiles(po.id, pending);
+        } catch (err) {
+          po.filesFailed = err instanceof Error ? err.message : 'the files could not be uploaded';
+        }
       }
-      if (existing) {
-        return put<{ id: string; no: string }>(`/pos/${existing.id}`, payload(submit));
-      }
-      return post<{ id: string; no: string }>('/pos', payload(submit), newIdempotencyKey());
+      return po;
     },
     {
-      invalidate: [['pos'], ['pool'], ['mrs']],
+      invalidate: [['pos'], ['pool'], ['mrs'], ['po']],
       onDone: (po) => {
         clear();
+        setPending([]);
         router.push(`/pos/${po.id}`);
       },
       success: (po) =>
-        `${po.no} ${revise ? 'revision sent for approval' : 'saved'}`,
+        po.filesFailed
+          ? `${po.no} saved, but the attachments were not added (${po.filesFailed}). Add them on the PO page.`
+          : `${po.no} ${revise ? 'revision sent for approval' : 'saved'}`,
     },
+  );
+
+  const dropAttached = useAction(
+    (fileId: string) =>
+      del<BoqFileDto[]>(`/pos/${existing!.id}/files/${encodeURIComponent(fileId)}`),
+    { success: 'File removed', onDone: setAttached, invalidate: [['po']] },
+  );
+
+  const pickFiles = (chosen: FileList | null) => {
+    const room = MAX_BOQ_FILES - attached.length - pending.length;
+    const accepted = acceptPoFiles(chosen, pending, room, toast);
+    if (accepted.length) setPending((list) => [...list, ...accepted]);
+  };
+
+  const attachments = (
+    <PoFilePicker
+      poId={existing?.id}
+      pending={pending}
+      attached={attached}
+      onPick={pickFiles}
+      onDropPending={(index) => setPending((list) => list.filter((_, i) => i !== index))}
+      onDropAttached={(fileId) => dropAttached.mutate(fileId)}
+      busy={dropAttached.isPending}
+      canDetach={existing?.canDetach ?? true}
+    />
   );
 
   /** Prototype: A.poStep — each step validates before letting you move on. */
@@ -250,6 +290,7 @@ export function PoWizard({
           totals={totals}
           currency={currency}
           locked={revise}
+          attachments={attachments}
           onBack={() => setStep(1)}
           onNext={() => goToStep(3)}
         />
@@ -265,6 +306,7 @@ export function PoWizard({
           totals={totals}
           currency={currency}
           busy={save.isPending}
+          fileNames={[...attached.map((f) => f.name), ...pending.map((f) => f.name)]}
           onBack={() => setStep(2)}
           onSave={submit}
         />
@@ -532,6 +574,7 @@ function StepVendorPrices({
   totals,
   currency,
   locked,
+  attachments,
   onBack,
   onNext,
 }: {
@@ -543,6 +586,8 @@ function StepVendorPrices({
   totals: { subtotal: number; taxTotal: number; total: number };
   currency: string;
   locked: boolean;
+  /** the attachment box, placed after the prices and before moving on */
+  attachments: ReactNode;
   onBack: () => void;
   onNext: () => void;
 }) {
@@ -827,6 +872,8 @@ function StepVendorPrices({
         </span>
       </Card>
 
+      {attachments}
+
       <StickyActionBar>
         <Btn onClick={onBack}>← Back</Btn>
         <Btn variant="primary" onClick={onNext}>
@@ -847,6 +894,7 @@ function StepReview({
   totals,
   currency,
   busy,
+  fileNames,
   onBack,
   onSave,
 }: {
@@ -858,6 +906,8 @@ function StepReview({
   totals: { subtotal: number; taxTotal: number; total: number };
   currency: string;
   busy: boolean;
+  /** names of what is, or will be, attached - shown so it is checked before submitting */
+  fileNames: string[];
   onBack: () => void;
   onSave: (submit: boolean) => void;
 }) {
@@ -945,6 +995,28 @@ function StepReview({
           totals,
         }}
       />
+
+      <Card>
+        <b>Attachments</b>{' '}
+        {fileNames.length ? (
+          <>
+            <span className="text-mut text-sm">
+              — {fileNames.length} file{fileNames.length > 1 ? 's' : ''} go with this PO
+            </span>
+            <ul className="m-0 mt-2 pl-5 text-sm">
+              {fileNames.map((name, i) => (
+                <li key={`${name}-${i}`} className="break-all">
+                  {name}
+                </li>
+              ))}
+            </ul>
+          </>
+        ) : (
+          <span className="text-mut text-sm">
+            — none. Go back a step to add a quotation or other papers, or carry on without.
+          </span>
+        )}
+      </Card>
 
       <StickyActionBar>
         <Btn onClick={onBack}>← Back</Btn>

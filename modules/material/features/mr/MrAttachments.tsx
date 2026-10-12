@@ -16,7 +16,7 @@ import FilePreview from '@/app/FilePreview';
  * the moment of the click and the file is read with the signed-in session, which also
  * works in the installed app where a new browser tab would not be signed in.
  */
-export function useAttachmentViewer(mrId: string) {
+export function useAttachmentViewer(mrId: string, linksPath = `/mrs/${mrId}/boq`) {
   const toast = useToast();
   const [file, setFile] = useState<File | null>(null);
   const [busy, setBusy] = useState('');
@@ -24,9 +24,9 @@ export function useAttachmentViewer(mrId: string) {
   const open = async (wanted: { id: string; name: string }) => {
     setBusy(wanted.id);
     try {
-      const fresh = await get<BoqFileDto[]>(`/mrs/${mrId}/boq`);
+      const fresh = await get<BoqFileDto[]>(linksPath);
       const link = fresh.find((f) => f.id === wanted.id);
-      if (!link) throw new Error('That file is no longer attached to the MR');
+      if (!link) throw new Error('That file is no longer attached');
       const res = await fetch(link.url, { credentials: 'same-origin' });
       if (!res.ok) throw new Error('The file could not be opened — please try again');
       const blob = await res.blob();
@@ -43,8 +43,17 @@ export function useAttachmentViewer(mrId: string) {
 }
 
 /** The attached files as buttons, each opening in the viewer. */
-export function AttachmentLinks({ mrId, files }: { mrId: string; files: BoqFileDto[] }) {
-  const { open, busy, viewer } = useAttachmentViewer(mrId);
+export function AttachmentLinks({
+  mrId,
+  files,
+  linksPath,
+}: {
+  mrId: string;
+  files: BoqFileDto[];
+  /** where fresh links come from, when the files belong to something other than an MR */
+  linksPath?: string;
+}) {
+  const { open, busy, viewer } = useAttachmentViewer(mrId, linksPath);
   return (
     <>
       <div className="flex flex-col gap-1 items-start">

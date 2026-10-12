@@ -361,6 +361,8 @@ export interface PoDto extends Doc {
   lastCommentRole: string;
   vendorAckAt: string | null;
   projectCodes: string[];
+  /** how many files are attached to the PO */
+  fileCount: number;
   receivedPct: number;
 }
 
@@ -655,6 +657,11 @@ export interface PoDetailDto extends PoDto {
     totalBefore: number;
   }[];
   valueCheck: { poTotal: number; receivedValue: number; invoiced: number } | null;
+  /** what procurement attached (quotation, vendor mail, drawing) — never sent to a vendor login */
+  files: BoqFileDto[];
+  /** this reader may add files / may take one off again */
+  canAttach: boolean;
+  canDetach: boolean;
   canEdit: boolean;
   canApprove: boolean;
   /** QS, on a PO the Procurement Manager has passed on */
