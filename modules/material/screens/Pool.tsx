@@ -37,6 +37,9 @@ export default function PoolPage() {
   const [projectId, setProjectId] = useState('');
   const [category, setCategory] = useState('');
   const [search, setSearch] = useState('');
+  // Required-by date range. Either end can be left open.
+  const [from, setFrom] = useState('');
+  const [to, setTo] = useState('');
   const [picked, setPicked] = useState<Record<string, string>>({});
   const [rfqOpen, setRfqOpen] = useState(false);
   const [analysisOpen, setAnalysisOpen] = useState(false);
@@ -56,14 +59,19 @@ export default function PoolPage() {
   // Every word typed must appear somewhere on the line: "cpvc 0003" finds CPVC items on MR ...0003.
   const shown = useMemo(() => {
     const words = search.toLowerCase().split(/\s+/).filter(Boolean);
-    if (!words.length) return rows;
+    if (!words.length && !from && !to) return rows;
     return rows.filter((r) => {
+      // Dates are YYYY-MM-DD, so they compare as text. A line with no date falls outside any range.
+      const due = (r.requiredDate || '').slice(0, 10);
+      if (from && (!due || due < from)) return false;
+      if (to && (!due || due > to)) return false;
+      if (!words.length) return true;
       const text = [r.mrNo, r.projectCode, r.itemName, r.itemCode, r.category, r.mrDescription]
         .join(' ')
         .toLowerCase();
       return words.every((w) => text.includes(w));
     });
-  }, [rows, search]);
+  }, [rows, search, from, to]);
 
   const selection = useMemo(
     () =>
@@ -257,6 +265,37 @@ export default function PoolPage() {
                 <option key={c.id}>{c.name}</option>
               ))}
             </select>
+            <span className="mm-range" role="group" aria-label="Required date range">
+              <span>Required</span>
+              <input
+                type="date"
+                aria-label="Required from"
+                value={from}
+                max={to || undefined}
+                onChange={(e) => setFrom(e.target.value)}
+              />
+              <i>to</i>
+              <input
+                type="date"
+                aria-label="Required to"
+                value={to}
+                min={from || undefined}
+                onChange={(e) => setTo(e.target.value)}
+              />
+              {from || to ? (
+                <button
+                  type="button"
+                  aria-label="Clear the date range"
+                  title="Clear the date range"
+                  onClick={() => {
+                    setFrom('');
+                    setTo('');
+                  }}
+                >
+                  ×
+                </button>
+              ) : null}
+            </span>
             <Btn
               onClick={() =>
                 setPicked((current) => ({
@@ -278,7 +317,7 @@ export default function PoolPage() {
       {pool.isLoading ? (
         <div className="text-mut">Loading…</div>
       ) : rows.length && !shown.length ? (
-        <EmptyState text="No material matches that search." />
+        <EmptyState text="No material matches that search or date range." />
       ) : rows.length ? (
         <DataTable
           columns={columns}
