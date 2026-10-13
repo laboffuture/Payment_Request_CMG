@@ -78,9 +78,20 @@ export function AttachmentLinks({
  * A paperclip with the number of files, for a table row. The list of files is fetched
  * when it is clicked; with one file it opens straight away.
  */
-export function AttachmentButton({ mrId, count }: { mrId: string; count: number }) {
+export function AttachmentButton({
+  mrId,
+  count,
+  linksPath = `/mrs/${mrId}/boq`,
+  title = 'Open what the site engineer attached',
+}: {
+  mrId: string;
+  count: number;
+  /** where the list and fresh links come from, when the files are not an MR's */
+  linksPath?: string;
+  title?: string;
+}) {
   const toast = useToast();
-  const { open, busy, viewer } = useAttachmentViewer(mrId);
+  const { open, busy, viewer } = useAttachmentViewer(mrId, linksPath);
   const [files, setFiles] = useState<BoqFileDto[] | null>(null);
   const [loading, setLoading] = useState(false);
 
@@ -90,7 +101,7 @@ export function AttachmentButton({ mrId, count }: { mrId: string; count: number 
     if (files) return setFiles(null);
     setLoading(true);
     try {
-      const list = await get<BoqFileDto[]>(`/mrs/${mrId}/boq`);
+      const list = await get<BoqFileDto[]>(linksPath);
       if (list.length === 1) await open(list[0]!);
       else setFiles(list);
     } catch (err) {
@@ -105,7 +116,7 @@ export function AttachmentButton({ mrId, count }: { mrId: string; count: number 
       <button
         type="button"
         className="inline-flex items-center gap-1 text-ac font-semibold whitespace-nowrap"
-        title="Open what the site engineer attached"
+        title={title}
         aria-label={`${count} file(s) attached — open`}
         disabled={loading || !!busy}
         onClick={() => void click()}

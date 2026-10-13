@@ -1,6 +1,9 @@
-import { Router } from 'express';
+import { Router, type NextFunction, type Request, type Response } from 'express';
+import multer from 'multer';
 import { z } from 'zod';
 import {
+  MAX_BOQ_BYTES,
+  MAX_BOQ_FILES,
   REPORT_TAB_VALUES,
   acceptIssueInput,
   createIssueInput,
@@ -18,7 +21,9 @@ import {
   acceptIssue,
   createIssue,
   getIssue,
+  grnFileLinks,
   issuableMrs,
+  issueFileLinks,
   listGrns,
   listIssues,
   openPos,
@@ -27,6 +32,28 @@ import {
 import { report, reportCsvRows } from '../services/reports.service.js';
 
 export const storeRouter: Router = Router();
+
+/**
+ * A receipt can arrive with its papers: the form sends the usual JSON in a `payload`
+ * field beside the files. A plain JSON request passes through both of these untouched.
+ */
+const receiptUpload = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: MAX_BOQ_BYTES },
+}).array('files', MAX_BOQ_FILES);
+
+function unwrapPayload(req: Request, _res: Response, next: NextFunction): void {
+  const payload = (req.body as { payload?: unknown } | undefined)?.payload;
+  if (typeof payload === 'string') {
+    try {
+      req.body = JSON.parse(payload);
+    } catch {
+      return next(badRequest('The form could not be read — reload the page and try again'));
+    }
+  }
+  next();
+}
+const filesOf = (req: Request): Express.Multer.File[] => (req.files ?? []) as Express.Multer.File[];
 
 
 // ---------------------------------------------------------------------------
@@ -53,11 +80,21 @@ storeRouter.post(
   '/grns',
   requireAuth,
   authorize('STORE', 'SITE', 'ADMIN'),
+  receiptUpload,
+  unwrapPayload,
   idempotency,
   validateBody(postGrnInput),
   wrap(async (req, res) => {
-    res.status(201).json(await postGrn(actorOf(req), req.body));
+    res.status(201).json(await postGrn(actorOf(req), req.body, filesOf(req)));
   }),
+);
+
+/** What was attached to a receipt — the delivery note, photos. */
+storeRouter.get(
+  '/grns/:id/files',
+  requireAuth,
+  authorize('STORE', 'SITE', 'PROC', 'PROC_MGR', 'QS', 'PM', 'MGMT', 'ADMIN'),
+  wrap(async (req, res) => res.json(await grnFileLinks(req.params.id!))),
 );
 
 // ---------------------------------------------------------------------------
@@ -102,12 +139,22 @@ storeRouter.post(
   '/issues/:id/accept',
   requireAuth,
   authorize('SITE', 'ADMIN'),
+  receiptUpload,
+  unwrapPayload,
   idempotency,
   validateBody(acceptIssueInput),
   wrap(async (req, res) => {
-    await acceptIssue(actorOf(req), req.params.id!, req.body);
+    await acceptIssue(actorOf(req), req.params.id!, req.body, filesOf(req));
     res.json({ ok: true });
   }),
+);
+
+/** What the site attached when accepting an issue. */
+storeRouter.get(
+  '/issues/:id/files',
+  requireAuth,
+  authorize('STORE', 'SITE', 'PROC', 'PROC_MGR', 'QS', 'PM', 'MGMT', 'ADMIN'),
+  wrap(async (req, res) => res.json(await issueFileLinks(actorOf(req), req.params.id!))),
 );
 
 // ---------------------------------------------------------------------------

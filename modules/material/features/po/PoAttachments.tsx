@@ -57,7 +57,7 @@ export function uploadPoFiles(poId: string, files: File[]): Promise<BoqFileDto[]
   return upload<BoqFileDto[]>(`/pos/${poId}/files`, body);
 }
 
-function DropZone({
+export function DropZone({
   full,
   onPick,
   compact = false,
@@ -111,7 +111,7 @@ function DropZone({
   );
 }
 
-function FileRow({
+export function FileRow({
   name,
   size,
   note,

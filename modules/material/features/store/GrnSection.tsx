@@ -3,11 +3,12 @@
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { MSG, type GrnOpenPoDto } from '@cm/shared';
-import { get, newIdempotencyKey, post } from '@mm/lib/api';
+import { get, newIdempotencyKey, post, postWithFiles } from '@mm/lib/api';
 import { Btn, Card, Stack, Tag } from '@mm/components/ui';
 import { useToast } from '@mm/components/Toast';
 import { useAction } from '@mm/lib/hooks';
 import { qty } from '@mm/lib/format';
+import { ReceiptFiles } from './ReceiptFiles';
 
 /**
  * Receiving against a PO.
@@ -22,6 +23,9 @@ export function GrnSection({ location }: { location: 'STORE' | 'SITE' }) {
   const [selectedNo, setSelectedNo] = useState('');
   const [receive, setReceive] = useState<Record<string, { now: string; rejected: string }>>({});
   const [header, setHeader] = useState({ dnNo: '', invNo: '', remark: '' });
+  // Delivery note / photos. Required when receiving at site, optional in the store.
+  const [files, setFiles] = useState<File[]>([]);
+  const filesRequired = location === 'SITE';
 
   const params = new URLSearchParams({ location });
   if (selectedNo) params.set('no', selectedNo);
@@ -43,6 +47,7 @@ export function GrnSection({ location }: { location: 'STORE' | 'SITE' }) {
     setSearch(no);
     setReceive({});
     setHeader({ dnNo: '', invNo: '', remark: '' });
+    setFiles([]);
   };
 
   const rowsFor = (po: GrnOpenPoDto) =>
@@ -54,8 +59,9 @@ export function GrnSection({ location }: { location: 'STORE' | 'SITE' }) {
 
   const postGrn = useAction(
     (po: GrnOpenPoDto) =>
-      post<{ no: string }>(
-        '/grns',
+      (files.length
+        ? (body: unknown, key: string) => postWithFiles<{ no: string }>('/grns', body, files, key)
+        : (body: unknown, key: string) => post<{ no: string }>('/grns', body, key))(
         {
           poId: po.po.id,
           location,
@@ -76,6 +82,7 @@ export function GrnSection({ location }: { location: 'STORE' | 'SITE' }) {
         toast(`${result.no} posted`);
         setSelectedNo('');
         setSearch('');
+        setFiles([]);
       },
     },
   );
@@ -92,6 +99,7 @@ export function GrnSection({ location }: { location: 'STORE' | 'SITE' }) {
       }
     }
     if (!rows.some((r) => (Number(r.now) || 0) > 0)) return toast(MSG.grnQtyRequired);
+    if (filesRequired && !files.length) return toast(MSG.receiptFileRequired);
 
     postGrn.mutate(po);
   };
@@ -258,6 +266,8 @@ export function GrnSection({ location }: { location: 'STORE' | 'SITE' }) {
                 onChange={(e) => setHeader({ ...header, remark: e.target.value })}
               />
             </label>
+
+            <ReceiptFiles files={files} onChange={setFiles} required={filesRequired} />
 
             <div className="text-mut text-sm">
               {location === 'STORE'

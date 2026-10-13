@@ -3,11 +3,12 @@
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { MSG, type IssueDetailDto, type IssueDto } from '@cm/shared';
-import { get, newIdempotencyKey, post } from '@mm/lib/api';
+import { get, newIdempotencyKey, postWithFiles } from '@mm/lib/api';
 import { Btn, Card, EmptyState, PageHeader, Stack } from '@mm/components/ui';
 import { useToast } from '@mm/components/Toast';
 import { useAction } from '@mm/lib/hooks';
 import { GrnSection } from '@mm/features/store/GrnSection';
+import { ReceiptFiles } from '@mm/features/store/ReceiptFiles';
 import { fmtDateTime, qty } from '@mm/lib/format';
 
 /**
@@ -29,7 +30,7 @@ export default function ReceivePage() {
     <>
       <PageHeader
         title="Receive at site"
-        subtitle="Accept store issues, or receive a PO delivered straight to site by searching its number."
+        subtitle="Accept store issues, or receive a PO delivered straight to site by searching its number. Each needs the delivery note or a photo attached."
       />
 
       <h2>Store issues to accept ({waiting.length})</h2>
@@ -55,6 +56,8 @@ function AcceptCard({ issueId }: { issueId: string }) {
   const toast = useToast();
   const [accepted, setAccepted] = useState<Record<string, string>>({});
   const [remark, setRemark] = useState('');
+  // The signed issue note or a photo of what arrived - required to accept.
+  const [files, setFiles] = useState<File[]>([]);
 
   const issue = useQuery({
     queryKey: ['issue', issueId],
@@ -63,7 +66,7 @@ function AcceptCard({ issueId }: { issueId: string }) {
 
   const accept = useAction(
     () =>
-      post(
+      postWithFiles(
         `/issues/${issueId}/accept`,
         {
           rv: issue.data?.rv,
@@ -73,6 +76,7 @@ function AcceptCard({ issueId }: { issueId: string }) {
             qtyAccepted: Number(accepted[line.id] ?? line.qtyIssued) || 0,
           })),
         },
+        files,
         newIdempotencyKey(),
       ),
     {
@@ -89,6 +93,7 @@ function AcceptCard({ issueId }: { issueId: string }) {
       const value = Number(accepted[line.id] ?? line.qtyIssued) || 0;
       if (value < 0 || value > line.qtyIssued) return toast(MSG.acceptRange);
     }
+    if (!files.length) return toast(MSG.receiptFileRequired);
     accept.mutate();
   };
 
@@ -133,6 +138,13 @@ function AcceptCard({ issueId }: { issueId: string }) {
           aria-label={`Remark for ${data.no}`}
           value={remark}
           onChange={(e) => setRemark(e.target.value)}
+        />
+
+        <ReceiptFiles
+          files={files}
+          onChange={setFiles}
+          required
+          label="Signed issue note / photo"
         />
 
         <div className="flex justify-end">

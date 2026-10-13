@@ -358,6 +358,7 @@ export async function getPo(actor: Actor, id: string): Promise<PoDetailDto> {
           invNo: g.invNo ?? '',
           remark: g.remark ?? '',
           createdByName: lookups.userName(g.createdBy),
+          fileCount: ((g as { files?: unknown[] }).files ?? []).length,
           projectCodes: [
             ...new Set(
               grnLines

@@ -3,6 +3,7 @@ import { allocReceived, issueRows, lineCalc, num, stock } from '@cm/calc';
 import {
   MSG,
   type AcceptIssueInput,
+  type BoqFileDto,
   type CreateIssueInput,
   type GrnDto,
   type GrnOpenPoDto,
@@ -20,6 +21,7 @@ import { emit } from '../lib/notify.js';
 import { bumpSyncStamp } from '../lib/sync.js';
 import { buildLookups } from '../lib/lookups.js';
 import { loadWorld } from '../lib/world.js';
+import { deleteFile, signedUrlFor, uploadBoq } from '../lib/files.js';
 import { enqueueEmails } from '../jobs/queues.js';
 import { Mr, MrLine } from '../models/mr.js';
 import { Po, PoAlloc, PoLine, VendorDoc } from '../models/po.js';
@@ -173,13 +175,81 @@ export async function openPos(
  * transaction, so it never sits in the main store and counts as accepted at
  * site (§8). Rejected quantity is recorded but stays open on the PO.
  */
-export async function postGrn(actor: Actor, input: PostGrnInput): Promise<{ no: string }> {
+/**
+ * Stores the papers that come with a receipt - the delivery note, a photo of the goods.
+ * Done before the transaction, so a file that is refused stops the receipt rather than
+ * leaving one posted without it; `undo` removes them again if the receipt then fails.
+ */
+async function storeReceiptFiles(
+  files: Express.Multer.File[],
+  folder: string,
+): Promise<{ stored: Awaited<ReturnType<typeof uploadBoq>>[]; undo: () => Promise<void> }> {
+  const stored: Awaited<ReturnType<typeof uploadBoq>>[] = [];
+  const undo = async () => {
+    for (const file of stored) await deleteFile(file.publicId).catch(() => undefined);
+  };
+  try {
+    for (const file of files) {
+      try {
+        stored.push(await uploadBoq(file, folder));
+      } catch (err) {
+        const said = err instanceof Error ? err.message : '';
+        if (said === MSG.boqWrongType) {
+          throw badRequest(
+            `${file.originalname} cannot be attached — use a PDF, an image or a spreadsheet (CSV, XLS, XLSX)`,
+          );
+        }
+        if (said === MSG.boqTooLarge) {
+          throw badRequest(`${file.originalname} is larger than 5 MB — compress it and try again`);
+        }
+        throw err;
+      }
+    }
+  } catch (err) {
+    await undo();
+    throw err;
+  }
+  return { stored, undo };
+}
+
+const fileLinks = (files: unknown): BoqFileDto[] =>
+  ((files ?? []) as Record<string, any>[]).map((file) => ({
+    id: file.publicId,
+    name: file.name,
+    size: num(file.size),
+    url: signedUrlFor(file.publicId),
+  }));
+
+/** Fresh links to what was attached to a receipt. */
+export async function grnFileLinks(id: string): Promise<BoqFileDto[]> {
+  const grn = await Grn.findById(id).select('files').lean();
+  if (!grn) throw notFound();
+  return fileLinks(grn.files);
+}
+
+/** Fresh links to what the site attached when accepting an issue. */
+export async function issueFileLinks(actor: Actor, id: string): Promise<BoqFileDto[]> {
+  const issue = await Issue.findById(id).select('acceptFiles projectId').lean();
+  if (!issue) throw notFound();
+  if (!canSeeProject(actor, String(issue.projectId))) throw forbidden();
+  return fileLinks(issue.acceptFiles);
+}
+
+export async function postGrn(
+  actor: Actor,
+  input: PostGrnInput,
+  files: Express.Multer.File[] = [],
+): Promise<{ no: string }> {
   if (input.location === 'STORE' && actor.role !== 'STORE' && actor.role !== 'ADMIN') {
     throw forbidden();
   }
   if (input.location === 'SITE' && actor.role !== 'SITE' && actor.role !== 'ADMIN') {
     throw forbidden();
   }
+
+  // A delivery taken at site has no storekeeper to vouch for it: the note or a photo is the proof.
+  if (input.location === 'SITE' && !files.length) throw badRequest(MSG.receiptFileRequired);
+  const papers = await storeReceiptFiles(files, 'grn');
 
   const world = await loadWorld({ includeClosed: true });
   const lookups = await buildLookups();
@@ -231,6 +301,7 @@ export async function postGrn(actor: Actor, input: PostGrnInput): Promise<{ no: 
           invNo: input.invNo,
           remark: input.remark,
           createdBy: actor.id,
+          files: papers.stored,
         },
       ],
       { session, ordered: true },
@@ -331,6 +402,10 @@ export async function postGrn(actor: Actor, input: PostGrnInput): Promise<{ no: 
 
     await bumpSyncStamp(session);
     return { no: grn!.no, poId: String(po._id), mrs: [...touchedMrs], outbox };
+  }).catch(async (err: unknown) => {
+    // The receipt did not post, so its papers are not kept either.
+    await papers.undo();
+    throw err;
   });
 
   await enqueueEmails(result.outbox);
@@ -383,6 +458,7 @@ export async function listGrns(limit = 15): Promise<GrnDto[]> {
       remark: grn.remark ?? '',
       createdByName: lookups.userName(grn.createdBy),
       projectCodes: [...codes],
+      fileCount: (grn.files ?? []).length,
     };
   });
 }
@@ -587,6 +663,7 @@ export async function listIssues(actor: Actor): Promise<IssueDto[]> {
     acceptedAt: issue.acceptedAt ? issue.acceptedAt.toISOString() : null,
     remark: issue.remark ?? '',
     lineCount: countMap.get(String(issue._id)) ?? 0,
+    acceptFileCount: (issue.acceptFiles ?? []).length,
   }));
 }
 
@@ -624,6 +701,7 @@ export async function getIssue(actor: Actor, id: string): Promise<IssueDetailDto
     acceptedAt: issue.acceptedAt ? issue.acceptedAt.toISOString() : null,
     remark: issue.remark ?? '',
     lineCount,
+    acceptFileCount: (issue.acceptFiles ?? []).length,
     lines: lines.map((line) => {
       const mrLine = mrLines.find((l) => String(l._id) === String(line.mrLineId));
       const item = mrLine?.itemId ? lookups.item(mrLine.itemId) : null;
@@ -648,8 +726,12 @@ export async function acceptIssue(
   actor: Actor,
   id: string,
   input: AcceptIssueInput,
+  files: Express.Multer.File[] = [],
 ): Promise<void> {
   if (actor.role !== 'SITE' && actor.role !== 'ADMIN') throw forbidden();
+  // Accepting at site is the site's word that the material arrived: a paper or photo goes with it.
+  if (!files.length) throw badRequest(MSG.receiptFileRequired);
+  const papers = await storeReceiptFiles(files, 'issue');
 
   const result = await inTransaction(async (session) => {
     const issue = await Issue.findById(id).session(session);
@@ -704,6 +786,7 @@ export async function acceptIssue(
     issue.acceptedBy = oid(actor.id) as never;
     issue.acceptedAt = new Date();
     issue.remark = input.remark;
+    issue.acceptFiles = papers.stored as never;
     await issue.save({ session });
 
     await writeAudit(
@@ -725,6 +808,9 @@ export async function acceptIssue(
 
     await bumpSyncStamp(session);
     return { mrId: String(issue.mrId), outbox };
+  }).catch(async (err: unknown) => {
+    await papers.undo();
+    throw err;
   });
 
   await enqueueEmails(result.outbox);

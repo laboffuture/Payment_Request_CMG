@@ -24,6 +24,7 @@ import { fmtDateTime, money, qty } from '@mm/lib/format';
 import { DocsTable } from '@mm/features/docs/DocsTable';
 import { PoDocument } from '@mm/features/po/PoDocument';
 import { PoFiles } from '@mm/features/po/PoAttachments';
+import { AttachmentButton } from '@mm/features/mr/MrAttachments';
 import { VendorDocUpload } from '@mm/features/vendor/VendorDocUpload';
 
 /**
@@ -307,6 +308,21 @@ export default function PoDetailPage() {
                     render: (g) => g.projectCodes.join(', '),
                   },
                   { key: 'dn', header: 'DN no.', render: (g) => g.dnNo },
+                  {
+                    key: 'files',
+                    header: 'Attached',
+                    render: (g) =>
+                      g.fileCount ? (
+                        <AttachmentButton
+                          mrId={g.id}
+                          count={g.fileCount}
+                          linksPath={`/grns/${g.id}/files`}
+                          title="Open the delivery note or photos attached at receipt"
+                        />
+                      ) : (
+                        '—'
+                      ),
+                  },
                 ]}
                 rows={data.grns}
                 rowKey={(g) => g.id}

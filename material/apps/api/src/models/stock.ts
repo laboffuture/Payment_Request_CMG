@@ -11,9 +11,11 @@ import {
   defineModel,
   appendOnlyOptions,
   baseOptions,
+  fileSchema,
   optionalRefTo,
   qtyField,
   refTo,
+  type StoredFileDoc,
   type Timestamped,
 } from './base.js';
 
@@ -29,6 +31,8 @@ export interface IGrn extends Timestamped {
   invNo: string;
   remark: string;
   createdBy: Types.ObjectId;
+  /** Delivery note / photos taken at receipt. Required for a site receipt. */
+  files: StoredFileDoc[];
 }
 
 const grnSchema = new Schema<IGrn>(
@@ -40,6 +44,7 @@ const grnSchema = new Schema<IGrn>(
     invNo: { type: String, default: '' },
     remark: { type: String, default: '' },
     createdBy: refTo('User'),
+    files: { type: [fileSchema], default: [] },
   },
   baseOptions(),
 );
@@ -83,6 +88,8 @@ export interface IIssue extends Timestamped {
   acceptedBy: Types.ObjectId | null;
   acceptedAt: Date | null;
   remark: string;
+  /** What the site attached when accepting the issue: the signed note, a photo. */
+  acceptFiles: StoredFileDoc[];
 }
 
 const issueSchema = new Schema<IIssue>(
@@ -102,6 +109,7 @@ const issueSchema = new Schema<IIssue>(
     acceptedBy: optionalRefTo('User'),
     acceptedAt: { type: Date, default: null },
     remark: { type: String, default: '' },
+    acceptFiles: { type: [fileSchema], default: [] },
   },
   baseOptions(),
 );

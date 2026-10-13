@@ -6,6 +6,7 @@ import { get } from '@mm/lib/api';
 import { DataTable, type Column } from '@mm/components/DataTable';
 import { PageHeader } from '@mm/components/ui';
 import { GrnSection } from '@mm/features/store/GrnSection';
+import { AttachmentButton } from '@mm/features/mr/MrAttachments';
 import { fmtDateTime } from '@mm/lib/format';
 
 /** Prototype: VIEWS.grn — receive against a PO, then the recent GRNs. */
@@ -23,6 +24,21 @@ export default function GrnPage() {
     { key: 'at', header: 'At', render: (g) => (g.location === 'SITE' ? 'Site' : 'Store') },
     { key: 'projects', header: 'Projects', render: (g) => g.projectCodes.join(', ') },
     { key: 'dn', header: 'DN no.', render: (g) => g.dnNo },
+    {
+      key: 'files',
+      header: 'Attached',
+      render: (g) =>
+        g.fileCount ? (
+          <AttachmentButton
+            mrId={g.id}
+            count={g.fileCount}
+            linksPath={`/grns/${g.id}/files`}
+            title="Open the delivery note or photos attached at receipt"
+          />
+        ) : (
+          '—'
+        ),
+    },
   ];
 
   return (

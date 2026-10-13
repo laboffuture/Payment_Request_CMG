@@ -7,6 +7,7 @@ import { get } from '@mm/lib/api';
 import { DataTable, type Column } from '@mm/components/DataTable';
 import { Chip, PageHeader } from '@mm/components/ui';
 import { fmtDateTime, qty } from '@mm/lib/format';
+import { AttachmentButton } from '@mm/features/mr/MrAttachments';
 
 /**
  * Prototype: A.showIssue — the modal, given its own route so the `iss:<id>`
@@ -46,6 +47,16 @@ export default function IssueDetailPage() {
               <div>
                 Accepted by {data.acceptedByName} {fmtDateTime(data.acceptedAt)}
                 {data.remark ? ` · ${data.remark}` : ''}
+              </div>
+            ) : null}
+            {data.acceptFileCount ? (
+              <div className="mt-1">
+                <AttachmentButton
+                  mrId={data.id}
+                  count={data.acceptFileCount}
+                  linksPath={`/issues/${data.id}/files`}
+                  title="Open what the site attached when accepting"
+                />
               </div>
             ) : null}
           </>

@@ -37,6 +37,8 @@ export const MSG = {
   pmCommentRequired: 'Write a comment for the requester',
   boqTooLarge: 'The BOQ file is larger than 5 MB — compress it and try again',
   boqTooMany: (max: number) => `Attach at most ${max} BOQ files`,
+  receiptFileRequired:
+    'Attach the delivery note or a photo of the delivery — a site receipt cannot be submitted without one',
   boqNoFiles: 'Choose at least one file',
   boqNotFound: 'That BOQ file is no longer attached',
   boqWrongType:

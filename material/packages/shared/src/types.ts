@@ -413,6 +413,8 @@ export interface IssueDto extends Doc {
   acceptedAt: string | null;
   remark: string;
   lineCount: number;
+  /** what the site attached when accepting the issue */
+  acceptFileCount: number;
 }
 
 export interface VendorDocDto extends Doc {
@@ -693,6 +695,8 @@ export interface GrnDto extends Doc {
   remark: string;
   createdByName: string;
   projectCodes: string[];
+  /** delivery note / photos attached when it was received — required for a site receipt */
+  fileCount: number;
 }
 
 /** One receivable allocation on the GRN screen. */

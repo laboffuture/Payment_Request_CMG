@@ -114,6 +114,22 @@ export const patch = <T>(path: string, body?: unknown) =>
 
 export const del = <T>(path: string) => api<T>(path, { method: 'DELETE' });
 
+/**
+ * A submission that carries files with it: the usual JSON goes in a `payload` field, the
+ * files beside it, and the idempotency key makes a retry safe like any other post.
+ */
+export const postWithFiles = <T>(
+  path: string,
+  body: unknown,
+  files: File[],
+  idempotencyKey?: string,
+) => {
+  const form = new FormData();
+  form.append('payload', JSON.stringify(body));
+  for (const file of files) form.append('files', file);
+  return api<T>(path, { method: 'POST', form, idempotencyKey });
+};
+
 export const upload = <T>(path: string, form: FormData) =>
   api<T>(path, { method: 'POST', form });
 
