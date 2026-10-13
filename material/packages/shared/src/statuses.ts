@@ -156,6 +156,63 @@ export const EMAIL_ST: Record<EmailStatus, ChipSpec> = {
 };
 
 /** Prototype: st() — unknown statuses fall back to a grey chip of their own name. */
+/**
+ * Where a material that QS approved for purchase has got to, for procurement.
+ *
+ *   PENDING        nothing ordered yet
+ *   ON_ENQUIRY     out to vendors on an enquiry, no PO yet
+ *   PART_ORDERED   some of it is on a PO, the rest still to order
+ *   PO_COMPLETE    all of it is on a PO; nothing received yet
+ *   PART_DELIVERED some of it has been received
+ *   DELIVERED      all of it has been received
+ *   QUERY          procurement asked QS a question; waiting for the answer
+ *   PROC_REJECTED  procurement sent it back to QS as not to be bought
+ */
+export const MATERIAL_STATUSES = [
+  'PENDING',
+  'ON_ENQUIRY',
+  'PART_ORDERED',
+  'PO_COMPLETE',
+  'PART_DELIVERED',
+  'DELIVERED',
+  'QUERY',
+  'PROC_REJECTED',
+] as const;
+export type MaterialStatus = (typeof MATERIAL_STATUSES)[number];
+
+export const MATERIAL_ST: Record<MaterialStatus, ChipSpec> = {
+  PENDING: { label: 'Pending', tone: 'amb' },
+  ON_ENQUIRY: { label: 'On enquiry', tone: 'pur' },
+  PART_ORDERED: { label: 'Part ordered', tone: 'blu' },
+  PO_COMPLETE: { label: 'PO complete', tone: 'ac' },
+  PART_DELIVERED: { label: 'Part delivered', tone: 'blu' },
+  DELIVERED: { label: 'Delivered', tone: 'grn' },
+  QUERY: { label: 'Query raised', tone: 'red' },
+  PROC_REJECTED: { label: 'Rejected — with QS', tone: 'gry' },
+};
+
+/**
+ * The one rule both lists use. Quantities are the line's: what QS approved to buy, what
+ * is on live POs, what has been received against them, and what is out on an enquiry.
+ */
+export function materialStatusOf(q: {
+  hold: string | null | undefined;
+  toBuy: number;
+  onPo: number;
+  received: number;
+  onEnquiry: number;
+}): MaterialStatus {
+  if (q.hold === 'QUERY') return 'QUERY';
+  if (q.hold === 'REJECT') return 'PROC_REJECTED';
+  const eps = 1e-9;
+  if (q.toBuy > 0 && q.received + eps >= q.toBuy) return 'DELIVERED';
+  if (q.received > eps) return 'PART_DELIVERED';
+  if (q.toBuy > 0 && q.onPo + eps >= q.toBuy) return 'PO_COMPLETE';
+  if (q.onPo > eps) return 'PART_ORDERED';
+  if (q.onEnquiry > eps) return 'ON_ENQUIRY';
+  return 'PENDING';
+}
+
 export const chipFor = <T extends string>(
   map: Record<string, ChipSpec>,
   status: T,

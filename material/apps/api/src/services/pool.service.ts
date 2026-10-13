@@ -1,6 +1,7 @@
 import { Types } from 'mongoose';
 import { clampMin0, lineCalc, num, poolRows, r2 } from '@cm/calc';
 import type {
+  MaterialStatusRowDto,
   PoolAnalysisDto,
   PoolAnalysisInput,
   PoolHoldInput,
@@ -10,7 +11,7 @@ import type {
   ProcHoldAnswerInput,
   ProcHoldDto,
 } from '@cm/shared';
-import { MSG } from '@cm/shared';
+import { MSG, materialStatusOf } from '@cm/shared';
 import { inTransaction } from '../db.js';
 import { AUDIT, writeAudit } from '../lib/audit.js';
 import { badRequest, conflict, notFound } from '../lib/errors.js';
@@ -91,6 +92,14 @@ export async function listPool(query: PoolQuery): Promise<PoolRowDto[]> {
           ? lookups.userName(answered.get(row.line.id)!.qsReplyBy)
           : '',
         attachments: attachments.get(row.mr.id) ?? 0,
+        // A pool line is never held, so this is Pending, On enquiry or Part ordered.
+        status: materialStatusOf({
+          hold: null,
+          toBuy: row.calc.po,
+          onPo: row.calc.poAlloc,
+          received: row.calc.received,
+          onEnquiry: row.calc.rfqOpen,
+        }),
       };
     })
     // Group by item, then by MR — the order the prototype's table shows.
@@ -98,6 +107,88 @@ export async function listPool(query: PoolQuery): Promise<PoolRowDto[]> {
       (a, b) =>
         a.itemName.localeCompare(b.itemName) || a.mrNo.localeCompare(b.mrNo),
     );
+}
+
+/**
+ * Every material QS approved for purchase, with where it has got to: pending, on a PO,
+ * delivered, or back with QS on a query. The pool above drops a line once nothing is left
+ * to order; this keeps it, so procurement can answer "what happened to that MR line?".
+ *
+ * Closed MRs are included - a fully delivered material usually belongs to one.
+ */
+export async function listMaterialStatus(query: PoolQuery): Promise<MaterialStatusRowDto[]> {
+  const [world, lookups] = await Promise.all([loadWorld({ includeClosed: true }), buildLookups()]);
+  const mrById = new Map(world.mrs.map((m) => [String(m.id), m]));
+  const poById = new Map(world.pos.map((p) => [String(p.id), p]));
+
+  const picked = world.mrLines.filter((line) => {
+    const mr = mrById.get(String(line.mrId));
+    if (!mr || (mr.status !== 'APPROVED' && mr.status !== 'CLOSED')) return false;
+    if (line.lineStatus === 'REJECTED' || !line.itemId) return false;
+    // Only what was approved to be bought; store-only lines are not procurement's.
+    if (!(num(line.poQty) > 0) && (!line.procHold || line.procHold === 'NONE')) return false;
+    if (query.projectId && String(mr.projectId) !== query.projectId) return false;
+    if (query.category && lookups.item(line.itemId)?.category !== query.category) return false;
+    return true;
+  });
+
+  const described = await MrLine.find({ _id: { $in: picked.map((l) => l.id) } })
+    .select('description measurement procRemark')
+    .lean();
+  const extra = new Map(described.map((l) => [String(l._id), l]));
+
+  return picked
+    .map((line) => {
+      const mr = mrById.get(String(line.mrId))!;
+      const item = lookups.item(line.itemId)!;
+      const calc = lineCalc(world, line);
+      const more = extra.get(String(line.id));
+      const poIds = [
+        ...new Set(
+          world.poAllocs
+            .filter((a) => String(a.mrLineId) === String(line.id))
+            .map((a) => String(a.poId)),
+        ),
+      ];
+      const pos = poIds
+        .map((id) => poById.get(id))
+        .filter((po): po is NonNullable<typeof po> => !!po && po.status !== 'REJECTED' && po.status !== 'CANCELLED')
+        .map((po) => ({
+          id: String(po.id),
+          no: po.no + (num(po.rev) > 0 ? ` Rev ${po.rev}` : ''),
+          status: po.status,
+        }));
+      return {
+        mrLineId: String(line.id),
+        mrId: String(mr.id),
+        mrNo: mr.no,
+        projectId: String(mr.projectId),
+        projectCode: lookups.projectCode(mr.projectId),
+        requiredDate: mr.requiredDate,
+        itemCode: item.code,
+        itemName: item.name,
+        mrDescription: [more?.description, more?.measurement]
+          .map((v) => (v ?? '').trim())
+          .filter(Boolean)
+          .join(' — '),
+        unit: item.unit,
+        category: item.category,
+        status: materialStatusOf({
+          hold: line.procHold,
+          toBuy: calc.po,
+          onPo: calc.poAlloc,
+          received: calc.received,
+          onEnquiry: calc.rfqOpen,
+        }),
+        toBuy: calc.po,
+        onPo: calc.poAlloc,
+        received: calc.received,
+        openQty: calc.poolOpen,
+        pos,
+        procRemark: more?.procRemark ?? '',
+      };
+    })
+    .sort((a, b) => a.mrNo.localeCompare(b.mrNo) || a.itemName.localeCompare(b.itemName));
 }
 
 /**

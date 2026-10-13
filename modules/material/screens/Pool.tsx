@@ -5,14 +5,20 @@ import { useRouter } from '@mm/lib/nav';
 import { useQuery } from '@tanstack/react-query';
 import {
   DEFAULT_RFQ_DUE_HOURS,
+  MATERIAL_ST,
+  MATERIAL_STATUSES,
   MSG,
+  PO_ST,
+  chipFor,
+  type MaterialStatus,
+  type MaterialStatusRowDto,
   type PoolAnalysisDto,
   type PoolRowDto,
   type VendorDto,
 } from '@cm/shared';
 import { get, newIdempotencyKey, post } from '@mm/lib/api';
 import { DataTable, type Column } from '@mm/components/DataTable';
-import { Btn, EmptyState, PageHeader, StickyActionBar, Tag } from '@mm/components/ui';
+import { Btn, Chip, EmptyState, PageHeader, StickyActionBar, Tabs, Tag } from '@mm/components/ui';
 import { Modal } from '@mm/components/Modal';
 import { useToast } from '@mm/components/Toast';
 import { useAction } from '@mm/lib/hooks';
@@ -36,6 +42,9 @@ export default function PoolPage() {
 
   const [projectId, setProjectId] = useState('');
   const [category, setCategory] = useState('');
+  // Two views of the same materials: what is left to order, and the status of everything.
+  const [view, setView] = useState<'ORDER' | 'STATUS'>('ORDER');
+  const [statusFilter, setStatusFilter] = useState<MaterialStatus | ''>('');
   const [search, setSearch] = useState('');
   // Required-by date range. Either end can be left open.
   const [from, setFrom] = useState('');
@@ -56,6 +65,14 @@ export default function PoolPage() {
 
   const rows = pool.data ?? [];
 
+  // The status view is fetched once it is opened, and again whenever the pool changes.
+  const statusList = useQuery({
+    queryKey: ['pool', 'status', projectId, category],
+    queryFn: () => get<MaterialStatusRowDto[]>(`/pool/status?${params}`),
+    enabled: view === 'STATUS',
+  });
+  const statusRows = statusList.data ?? [];
+
   // Every word typed must appear somewhere on the line: "cpvc 0003" finds CPVC items on MR ...0003.
   const shown = useMemo(() => {
     const words = search.toLowerCase().split(/\s+/).filter(Boolean);
@@ -72,6 +89,38 @@ export default function PoolPage() {
       return words.every((w) => text.includes(w));
     });
   }, [rows, search, from, to]);
+
+  // The same search and date range, applied to the status view.
+  const statusInRange = useMemo(() => {
+    const words = search.toLowerCase().split(/\s+/).filter(Boolean);
+    return statusRows.filter((r) => {
+      const due = (r.requiredDate || '').slice(0, 10);
+      if (from && (!due || due < from)) return false;
+      if (to && (!due || due > to)) return false;
+      if (!words.length) return true;
+      const text = [
+        r.mrNo,
+        r.projectCode,
+        r.itemName,
+        r.itemCode,
+        r.category,
+        r.mrDescription,
+        MATERIAL_ST[r.status].label,
+        ...r.pos.map((p) => p.no),
+      ]
+        .join(' ')
+        .toLowerCase();
+      return words.every((w) => text.includes(w));
+    });
+  }, [statusRows, search, from, to]);
+  const statusCounts = useMemo(() => {
+    const counts = new Map<MaterialStatus, number>();
+    for (const r of statusInRange) counts.set(r.status, (counts.get(r.status) ?? 0) + 1);
+    return counts;
+  }, [statusInRange]);
+  const statusShown = statusFilter
+    ? statusInRange.filter((r) => r.status === statusFilter)
+    : statusInRange;
 
   const selection = useMemo(
     () =>
@@ -189,10 +238,80 @@ export default function PoolPage() {
       ),
     },
     {
+      key: 'status',
+      header: 'Status',
+      render: (r) => <Chip spec={chipFor(MATERIAL_ST, r.status)} />,
+    },
+    {
       key: 'rate',
       header: 'Last rate',
       align: 'right',
       render: (r) => (r.lastRate ? money(r.lastRate) : '—'),
+    },
+  ];
+
+  const statusColumns: Column<MaterialStatusRowDto>[] = [
+    {
+      key: 'mr',
+      header: 'MR no.',
+      render: (r) => (
+        <button
+          className="text-ac underline font-semibold font-mono whitespace-nowrap"
+          onClick={() => router.push(`/mrs/${r.mrId}`)}
+        >
+          {r.mrNo}
+        </button>
+      ),
+    },
+    { key: 'project', header: 'Project', render: (r) => <span className="whitespace-nowrap">{r.projectCode}</span> },
+    {
+      key: 'material',
+      header: 'Material',
+      render: (r) => (
+        <span>
+          <b>{r.itemName}</b>
+          {r.mrDescription ? <span className="block text-mut text-xs">{r.mrDescription}</span> : null}
+          {r.procRemark && (r.status === 'QUERY' || r.status === 'PROC_REJECTED') ? (
+            <span className="block text-xs text-[#b42318]">Procurement: {r.procRemark}</span>
+          ) : null}
+        </span>
+      ),
+    },
+    { key: 'toBuy', header: 'To buy', align: 'right', render: (r) => `${qty(r.toBuy)} ${r.unit}` },
+    { key: 'onPo', header: 'On PO', align: 'right', render: (r) => qty(r.onPo) },
+    { key: 'received', header: 'Received', align: 'right', render: (r) => qty(r.received) },
+    {
+      key: 'open',
+      header: 'To order',
+      align: 'right',
+      render: (r) => (r.openQty > 0 ? <b>{qty(r.openQty)}</b> : '—'),
+    },
+    { key: 'required', header: 'Required', render: (r) => <span className="whitespace-nowrap">{fmtDate(r.requiredDate)}</span> },
+    {
+      key: 'pos',
+      header: 'PO',
+      render: (r) =>
+        r.pos.length ? (
+          <span className="inline-flex flex-col items-start gap-[2px]">
+            {r.pos.map((po) => (
+              <button
+                key={po.id}
+                className="text-ac underline font-mono whitespace-nowrap"
+                title={chipFor(PO_ST, po.status).label}
+                onClick={() => router.push(`/pos/${po.id}`)}
+              >
+                {po.no}
+              </button>
+            ))}
+          </span>
+        ) : (
+          '—'
+        ),
+    },
+    {
+      key: 'status',
+      header: 'Status',
+      render: (r) => <Chip spec={chipFor(MATERIAL_ST, r.status)} />,
     },
   ];
 
@@ -296,62 +415,121 @@ export default function PoolPage() {
                 </button>
               ) : null}
             </span>
-            <Btn
-              onClick={() =>
-                setPicked((current) => ({
-                  ...current,
-                  ...Object.fromEntries(shown.map((r) => [r.mrLineId, String(r.openQty)])),
-                }))
-              }
-            >
-              Select shown
-            </Btn>
-            <Btn onClick={() => setPicked({})}>Clear</Btn>
-            <Btn onClick={() => setAnalysisOpen(true)}>Site-wise analysis</Btn>
+            {view === 'ORDER' ? (
+              <>
+                <Btn
+                  onClick={() =>
+                    setPicked((current) => ({
+                      ...current,
+                      ...Object.fromEntries(shown.map((r) => [r.mrLineId, String(r.openQty)])),
+                    }))
+                  }
+                >
+                  Select shown
+                </Btn>
+                <Btn onClick={() => setPicked({})}>Clear</Btn>
+                <Btn onClick={() => setAnalysisOpen(true)}>Site-wise analysis</Btn>
+              </>
+            ) : null}
           </>
         }
       />
 
-      <ProcHolds canAnswer={false} />
+      <Tabs
+        tabs={[
+          { value: 'ORDER', label: `To order (${rows.length})` },
+          { value: 'STATUS', label: 'Status of all materials' },
+        ]}
+        active={view}
+        onChange={setView}
+      />
 
-      {pool.isLoading ? (
-        <div className="text-mut">Loading…</div>
-      ) : rows.length && !shown.length ? (
-        <EmptyState text="No material matches that search or date range." />
-      ) : rows.length ? (
-        <DataTable
-          columns={columns}
-          rows={shown}
-          rowKey={(r) => r.mrLineId}
-          groupBy={groupFor}
-          rowClassName={(r) => (picked[r.mrLineId] !== undefined ? 'bg-[#EEF5F4]' : '')}
-          emptyText=""
-        />
+      {view === 'ORDER' ? (
+        <>
+        <ProcHolds canAnswer={false} />
+
+        {pool.isLoading ? (
+          <div className="text-mut">Loading…</div>
+        ) : rows.length && !shown.length ? (
+          <EmptyState text="No material matches that search or date range." />
+        ) : rows.length ? (
+          <DataTable
+            columns={columns}
+            rows={shown}
+            rowKey={(r) => r.mrLineId}
+            groupBy={groupFor}
+            rowClassName={(r) => (picked[r.mrLineId] !== undefined ? 'bg-[#EEF5F4]' : '')}
+            emptyText=""
+          />
+        ) : (
+          <EmptyState text="Nothing waiting — all PO quantities are on an enquiry or PO." />
+        )}
+
+        <StickyActionBar>
+          <div>
+            <b>{summary.lines} line(s)</b> · {summary.mrs} MR(s) · {summary.projects} project(s) ·{' '}
+            {summary.items} item(s)
+          </div>
+          <div className="flex flex-wrap gap-[10px]">
+            <Btn onClick={() => setAnalysisOpen(true)}>Analysis</Btn>
+            <Btn disabled={!summary.lines} onClick={() => setSendBack('QUERY')}>
+              Send query
+            </Btn>
+            <Btn disabled={!summary.lines} onClick={() => setSendBack('REJECT')}>
+              <span className={summary.lines ? 'text-[#b42318]' : ''}>Reject</span>
+            </Btn>
+            <Btn disabled={!summary.lines} onClick={createPo}>
+              Create PO
+            </Btn>
+            <Btn variant="primary" disabled={!summary.lines} onClick={() => setRfqOpen(true)}>
+              Send enquiry
+            </Btn>
+          </div>
+        </StickyActionBar>
+        </>
       ) : (
-        <EmptyState text="Nothing waiting — all PO quantities are on an enquiry or PO." />
-      )}
+        <>
+          {/* One chip per status with its count; clicking one narrows the list to it. */}
+          <div className="flex flex-wrap gap-2 mb-3" role="group" aria-label="Filter by status">
+            <button
+              type="button"
+              className={`mm-status-pick ${statusFilter === '' ? 'on' : ''}`}
+              onClick={() => setStatusFilter('')}
+            >
+              All <b>{statusInRange.length}</b>
+            </button>
+            {MATERIAL_STATUSES.filter((st) => statusCounts.get(st)).map((st) => (
+              <button
+                type="button"
+                key={st}
+                className={`mm-status-pick ${statusFilter === st ? 'on' : ''}`}
+                onClick={() => setStatusFilter(statusFilter === st ? '' : st)}
+              >
+                {MATERIAL_ST[st].label} <b>{statusCounts.get(st)}</b>
+              </button>
+            ))}
+          </div>
 
-      <StickyActionBar>
-        <div>
-          <b>{summary.lines} line(s)</b> · {summary.mrs} MR(s) · {summary.projects} project(s) ·{' '}
-          {summary.items} item(s)
-        </div>
-        <div className="flex flex-wrap gap-[10px]">
-          <Btn onClick={() => setAnalysisOpen(true)}>Analysis</Btn>
-          <Btn disabled={!summary.lines} onClick={() => setSendBack('QUERY')}>
-            Send query
-          </Btn>
-          <Btn disabled={!summary.lines} onClick={() => setSendBack('REJECT')}>
-            <span className={summary.lines ? 'text-[#b42318]' : ''}>Reject</span>
-          </Btn>
-          <Btn disabled={!summary.lines} onClick={createPo}>
-            Create PO
-          </Btn>
-          <Btn variant="primary" disabled={!summary.lines} onClick={() => setRfqOpen(true)}>
-            Send enquiry
-          </Btn>
-        </div>
-      </StickyActionBar>
+          {statusList.isLoading ? (
+            <div className="text-mut">Loading…</div>
+          ) : statusShown.length ? (
+            <DataTable
+              columns={statusColumns}
+              rows={statusShown}
+              rowKey={(r) => r.mrLineId}
+              emptyText=""
+            />
+          ) : (
+            <EmptyState
+              text={
+                statusRows.length
+                  ? 'No material matches that search, date range or status.'
+                  : 'No material has been approved for purchase yet.'
+              }
+            />
+          )}
+        </>
+      )}
 
       {analysisOpen ? (
         <AnalysisModal

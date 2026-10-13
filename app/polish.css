@@ -325,3 +325,12 @@ td small .badge{vertical-align:middle}
 .mm .mm-range:focus-within{border-color:#1b3a66;box-shadow:var(--ui-ring)}
 .mm .mm-range>button{width:24px;height:24px;border:0;border-radius:6px;background:none;color:#667085;font-size:16px;line-height:1}
 .mm .mm-range>button:hover{background:#f2f4f7;color:#b3372a}
+
+/* ---------------------------------------------------------------- Consolidate MRs: status chips
+   One per status with its count; the chosen one is filled. */
+.mm .mm-status-pick{display:inline-flex;align-items:center;gap:7px;height:32px;padding:0 12px;border:1px solid var(--ui-line);
+  border-radius:20px;background:#fff;color:#344054;font-size:11.5px;font-weight:500;white-space:nowrap}
+.mm .mm-status-pick b{font-weight:700;color:#101828;font-variant-numeric:tabular-nums}
+.mm .mm-status-pick:hover{background:#f5f7fa;border-color:var(--ui-line-hover)}
+.mm .mm-status-pick.on{background:#0b1d3a;border-color:#0b1d3a;color:#fff}
+.mm .mm-status-pick.on b{color:#fff}

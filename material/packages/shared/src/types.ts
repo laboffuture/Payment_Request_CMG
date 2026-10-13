@@ -24,6 +24,7 @@ import type {
   RfqVendorStatus,
   VendorDocStatus,
   EmailStatus,
+  MaterialStatus,
 } from './statuses.js';
 
 export interface Doc {
@@ -547,6 +548,39 @@ export interface PoolRowDto {
   qsReplyBy: string;
   /** how many drawings / BOQ files the site engineer attached to the MR */
   attachments: number;
+  /** where this material has got to: pending, part ordered, on enquiry… */
+  status: MaterialStatus;
+}
+
+/**
+ * One material QS approved for purchase, whatever has happened to it since - the status
+ * view of Consolidate MRs. Unlike a pool row it stays listed once it is fully ordered or
+ * delivered.
+ */
+export interface MaterialStatusRowDto {
+  mrLineId: string;
+  mrId: string;
+  mrNo: string;
+  projectId: string;
+  projectCode: string;
+  requiredDate: string;
+  itemCode: string;
+  itemName: string;
+  mrDescription: string;
+  unit: string;
+  category: string;
+  status: MaterialStatus;
+  /** what QS approved to buy */
+  toBuy: number;
+  /** on purchase orders that are still live */
+  onPo: number;
+  received: number;
+  /** still to be ordered */
+  openQty: number;
+  /** the POs it is on, with each PO's own status */
+  pos: { id: string; no: string; status: string }[];
+  /** what procurement asked or said when sending it back to QS */
+  procRemark: string;
 }
 
 /** A pool line procurement sent back to QS, waiting for QS's answer. */

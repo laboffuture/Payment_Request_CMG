@@ -33,6 +33,7 @@ import { buildCsv, csvFilename } from '../lib/csv.js';
 import {
   answerProcHold,
   holdPoolLines,
+  listMaterialStatus,
   listPool,
   listProcHolds,
   poolAnalysis,
@@ -104,6 +105,16 @@ procurementRouter.get(
   authorize('PROC'),
   wrap(async (req, res) => {
     res.json(await listPool(poolQuery.parse(req.query)));
+  }),
+);
+
+/** Every approved material with its status — ordered, delivered, on a query. */
+procurementRouter.get(
+  '/pool/status',
+  requireAuth,
+  authorize('PROC', 'PROC_MGR', 'QS', 'MGMT', 'ADMIN'),
+  wrap(async (req, res) => {
+    res.json(await listMaterialStatus(poolQuery.parse(req.query)));
   }),
 );
 
