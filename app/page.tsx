@@ -133,8 +133,11 @@ export default function Home(){
  const flash=(x:string)=>{setToast(x);setTimeout(()=>setToast(""),2500)};
  const openMaterial=useCallback(()=>setActive("material"),[]);
  const leaveMaterial=useCallback(()=>{if(!materialOnly)setActive(landingFor(role))},[materialOnly,role]);
- useEffect(()=>{if(active!=="material"&&window.location.hash.startsWith("#/m"))
-   window.history.pushState(null,"",window.location.pathname+window.location.search)},[active]);
+ /* Off the material panel, the address drops its #/m/... part. Not while the session is
+    still being read on load, though: then "dashboard" is only the starting value, and
+    clearing the address would lose the Material screen a refresh is meant to come back to. */
+ useEffect(()=>{if(!booting&&active!=="material"&&window.location.hash.startsWith("#/m"))
+   window.history.pushState(null,"",window.location.pathname+window.location.search)},[active,booting]);
  useEffect(()=>{const open=(e:Event)=>{const m=(e as CustomEvent<string>).detail as Module;
    if(nav.some(n=>n.id===m))setActive(m)};
    window.addEventListener("cmg:open-module",open);return()=>window.removeEventListener("cmg:open-module",open)},[]);
