@@ -79,7 +79,7 @@ const DOC_CSS = `
 @media screen and (max-width:700px){.po-doc-info{grid-template-columns:1fr}.po-doc-sign{grid-template-columns:1fr 1fr}}
 `;
 
-const COLUMNS = ['Item Name', 'MR No.', 'UOM', 'Qty', 'Rate', 'Amount'];
+const COLUMNS = ['S.No', 'Item Name', 'MR No.', 'UOM', 'Qty', 'Rate', 'Amount'];
 const NUMERIC = new Set(['Qty', 'Rate', 'Amount']);
 
 export function PoDocument({ preview }: { preview: PoDocumentData }) {
@@ -171,7 +171,7 @@ export function PoDocument({ preview }: { preview: PoDocumentData }) {
               <th
                 key={h}
                 className={`border border-[#D5D1C8] px-2 py-[6px] bg-bg ${
-                  NUMERIC.has(h) ? 'text-right' : 'text-left'
+                  h === 'S.No' ? 'text-center w-[44px]' : NUMERIC.has(h) ? 'text-right' : 'text-left'
                 }`}
               >
                 {h}
@@ -180,8 +180,9 @@ export function PoDocument({ preview }: { preview: PoDocumentData }) {
           </tr>
         </thead>
         <tbody>
-          {lines.map((line) => (
+          {lines.map((line, index) => (
             <tr key={line.id}>
+              <Cell center>{index + 1}</Cell>
               {/* The item by name, with what was asked for in small print underneath. The
                   description is left out when it only repeats the name. */}
               <Cell>
@@ -324,15 +325,19 @@ function InfoRows({ rows }: { rows: [string, React.ReactNode][] }) {
 const Cell = ({
   children,
   right,
+  center,
   colSpan,
 }: {
   children?: React.ReactNode;
   right?: boolean;
+  center?: boolean;
   colSpan?: number;
 }) => (
   <td
     colSpan={colSpan}
-    className={`border border-[#D5D1C8] px-2 py-[6px] ${right ? 'text-right' : 'text-left'}`}
+    className={`border border-[#D5D1C8] px-2 py-[6px] ${
+      center ? 'text-center' : right ? 'text-right' : 'text-left'
+    }`}
   >
     {children}
   </td>

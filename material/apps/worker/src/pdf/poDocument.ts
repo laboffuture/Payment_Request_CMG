@@ -105,7 +105,7 @@ export async function renderPoHtml(poId: string): Promise<{ html: string; no: st
   let subtotal = 0;
   let taxTotal = 0;
 
-  const rows = lines.map((line) => {
+  const rows = lines.map((line, index) => {
     const item = items.find((i) => String(i._id) === String(line.itemId));
     const amount = num(line.qty) * num(line.rate);
     const tax = po.taxMode === 'NONE' ? 0 : (amount * num(line.gstPct)) / 100;
@@ -116,6 +116,7 @@ export async function renderPoHtml(poId: string): Promise<{ html: string; no: st
     }
 
     return `<tr>
+      <td class="c">${index + 1}</td>
       <td><b>${esc(item?.name)}</b>${
         line.description && line.description.trim() !== (item?.name ?? '').trim()
           ? `<small class="desc">${esc(line.description)}</small>`
@@ -134,7 +135,7 @@ export async function renderPoHtml(poId: string): Promise<{ html: string; no: st
     .filter((c) => num(c.amount))
     .map(
       (c) =>
-        `<tr><td colspan="5" class="r">${esc(c.type)}</td><td class="r">${money(r2(num(c.amount)))}</td></tr>`,
+        `<tr><td colspan="6" class="r">${esc(c.type)}</td><td class="r">${money(r2(num(c.amount)))}</td></tr>`,
     );
 
   const chargesTotal = ((po.charges ?? []) as { amount: number }[]).reduce((sum, c) => sum + num(c.amount), 0);
@@ -144,11 +145,11 @@ export async function renderPoHtml(poId: string): Promise<{ html: string; no: st
     .flatMap(([rate, tax]) =>
       split
         ? [
-            `<tr><td colspan="5" class="r">CGST ${rate / 2}%</td><td class="r">${money(r2(tax / 2))}</td></tr>`,
-            `<tr><td colspan="5" class="r">SGST ${rate / 2}%</td><td class="r">${money(r2(tax / 2))}</td></tr>`,
+            `<tr><td colspan="6" class="r">CGST ${rate / 2}%</td><td class="r">${money(r2(tax / 2))}</td></tr>`,
+            `<tr><td colspan="6" class="r">SGST ${rate / 2}%</td><td class="r">${money(r2(tax / 2))}</td></tr>`,
           ]
         : [
-            `<tr><td colspan="5" class="r">${
+            `<tr><td colspan="6" class="r">${
               po.taxMode === 'IGST' ? 'IGST' : po.taxMode === 'VAT' ? 'VAT' : 'Tax'
             } ${rate}%</td><td class="r">${money(tax)}</td></tr>`,
           ],
@@ -190,6 +191,7 @@ export async function renderPoHtml(poId: string): Promise<{ html: string; no: st
   th, td { border: 1px solid #D5D1C8; padding: 6px 8px; text-align: left; }
   th { background: #F5F3EE; }
   .r { text-align: right; }
+  table:not(.info) td.c, table:not(.info) th.c { text-align: center; }
   .mono { font-family: ui-monospace, Consolas, monospace; font-size: 11px; }
   .cols { display: grid; grid-template-columns: 1fr 1fr; gap: 28px; margin: 16px 0; align-items: start; }
   table.info { margin: 0; font-size: 13px; }
@@ -246,15 +248,15 @@ export async function renderPoHtml(poId: string): Promise<{ html: string; no: st
 
   <table>
     <thead><tr>
-      <th>Item Name</th><th>MR No.</th><th>UOM</th>
+      <th class="c" style="width:36px">S.No</th><th>Item Name</th><th>MR No.</th><th>UOM</th>
       <th class="r">Qty</th><th class="r">Rate</th><th class="r">Amount</th>
     </tr></thead>
     <tbody>
       ${rows.join('')}
-      <tr><td colspan="5" class="r">Subtotal</td><td class="r">${money(r2(subtotal))}</td></tr>
+      <tr><td colspan="6" class="r">Subtotal</td><td class="r">${money(r2(subtotal))}</td></tr>
       ${taxRows.join('')}
       ${chargeRows.join('')}
-      <tr><td colspan="5" class="r"><b>Total ${esc(currency)}</b></td>
+      <tr><td colspan="6" class="r"><b>Total ${esc(currency)}</b></td>
           <td class="r"><b>${money(r2(subtotal + taxTotal + chargesTotal))}</b></td></tr>
     </tbody>
   </table>
