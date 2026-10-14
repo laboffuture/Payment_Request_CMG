@@ -657,7 +657,13 @@ function LineCard({
   );
 }
 
-/** Prototype: pickerHtml() — choose from the list, or describe a new item. */
+/**
+ * Prototype: pickerHtml() — choose the item from the master.
+ *
+ * Site engineers pick from the list only. Typing in a "new item" used to be offered too,
+ * and it filled the master with duplicates of items that were already there under a
+ * slightly different name; a missing item is now added to the master by QS instead.
+ */
 function ItemPicker({
   usedItemIds,
   onClose,
@@ -667,18 +673,9 @@ function ItemPicker({
   onClose: () => void;
   onPick: (line: FormLine) => void;
 }) {
-  const toast = useToast();
   const reference = useReference();
-  const [mode, setMode] = useState<'list' | 'new'>('list');
   const [search, setSearch] = useState('');
   const [category, setCategory] = useState('');
-
-  const [draft, setDraft] = useState({
-    name: '',
-    unit: 'Nos' as Unit,
-    category: reference.categories[0]?.name ?? '',
-    spec: '',
-  });
 
   const params = new URLSearchParams({ limit: '50' });
   if (search) params.set('q', search);
@@ -687,163 +684,80 @@ function ItemPicker({
   const items = useQuery({
     queryKey: ['items', search, category],
     queryFn: () => get<ItemDto[]>(`/items?${params}`),
-    enabled: mode === 'list',
   });
-
-  const addNew = () => {
-    const name = draft.name.trim();
-    if (!name || !draft.category) return toast(MSG.mrItemNameAndCategory);
-
-    onPick(
-      blankLine({
-        name,
-        unit: draft.unit,
-        category: draft.category,
-        newItemName: name + (draft.spec ? ` — ${draft.spec}` : ''),
-        newUnit: draft.unit,
-        newCategory: draft.category,
-        newSpec: draft.spec,
-      }),
-    );
-  };
 
   return (
     <Modal title="Add item" onClose={onClose}>
-      <div className="grid grid-cols-2 bg-grys rounded-xl p-1 gap-1">
-        {(['list', 'new'] as const).map((value) => (
-          <button
-            key={value}
-            onClick={() => setMode(value)}
-            className={`min-h-[40px] rounded-[9px] ${
-              mode === value ? 'bg-white font-semibold shadow-sm' : ''
-            }`}
-          >
-            {value === 'list' ? 'Choose from list' : 'Add new item'}
-          </button>
-        ))}
+      <div className="flex gap-[10px] flex-wrap">
+        <select
+          aria-label="Category"
+          className="basis-[150px]"
+          value={category}
+          onChange={(e) => setCategory(e.target.value)}
+        >
+          <option value="">All categories</option>
+          {reference.categories.map((c) => (
+            <option key={c.id}>{c.name}</option>
+          ))}
+        </select>
+        <input
+          className="flex-1"
+          placeholder="Search code or name"
+          autoComplete="off"
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+        />
       </div>
 
-      {mode === 'list' ? (
-        <>
-          <div className="flex gap-[10px] flex-wrap">
-            <select
-              aria-label="Category"
-              className="basis-[150px]"
-              value={category}
-              onChange={(e) => setCategory(e.target.value)}
+      <div className="flex flex-col border border-line rounded-xl overflow-hidden max-h-[340px] overflow-y-auto">
+        {(items.data ?? []).map((item) => {
+          // An item can be added again — the same glass in another size is another line.
+          const used = usedItemIds.filter((id) => id === item.id).length;
+          return (
+            <button
+              key={item.id}
+              onClick={() =>
+                onPick(
+                  blankLine({
+                    itemId: item.id,
+                    itemCode: item.code,
+                    name: item.name,
+                    unit: item.unit,
+                    category: item.category,
+                  }),
+                )
+              }
+              className="flex justify-between gap-2 min-h-[56px] px-[14px] py-2 border-b border-line2 bg-white text-left disabled:opacity-45"
             >
-              <option value="">All categories</option>
-              {reference.categories.map((c) => (
-                <option key={c.id}>{c.name}</option>
-              ))}
-            </select>
-            <input
-              className="flex-1"
-              placeholder="Search code or name"
-              autoComplete="off"
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-            />
-          </div>
+              <span>
+                <span className="font-semibold">{item.name}</span>
+                <br />
+                <span className="text-mut font-mono text-xs">
+                  {item.code} · {item.unit}
+                  {item.brand ? ` · ${item.brand}` : ''}
+                  {item.packing ? ` · ${item.packing}` : ''}
+                  {used
+                    ? ` · on this MR ${used === 1 ? 'once' : `${used} times`} — pick again for another measurement`
+                    : ''}
+                </span>
+              </span>
+              <span className="text-mut">
+                {item.category}
+                {item.subCategory ? ` / ${item.subCategory}` : ''}
+              </span>
+            </button>
+          );
+        })}
+        {items.isLoading ? <div className="p-[14px] text-mut">Loading…</div> : null}
+        {!items.isLoading && !(items.data ?? []).length ? (
+          <div className="p-[14px] text-mut">No match</div>
+        ) : null}
+      </div>
 
-          <div className="flex flex-col border border-line rounded-xl overflow-hidden max-h-[340px] overflow-y-auto">
-            {(items.data ?? []).map((item) => {
-              // An item can be added again — the same glass in another size is another line.
-              const used = usedItemIds.filter((id) => id === item.id).length;
-              return (
-                <button
-                  key={item.id}
-                  onClick={() =>
-                    onPick(
-                      blankLine({
-                        itemId: item.id,
-                        itemCode: item.code,
-                        name: item.name,
-                        unit: item.unit,
-                        category: item.category,
-                      }),
-                    )
-                  }
-                  className="flex justify-between gap-2 min-h-[56px] px-[14px] py-2 border-b border-line2 bg-white text-left disabled:opacity-45"
-                >
-                  <span>
-                    <span className="font-semibold">{item.name}</span>
-                    <br />
-                    <span className="text-mut font-mono text-xs">
-                      {item.code} · {item.unit}
-                      {item.brand ? ` · ${item.brand}` : ''}
-                      {item.packing ? ` · ${item.packing}` : ''}
-                      {used
-                        ? ` · on this MR ${used === 1 ? 'once' : `${used} times`} — pick again for another measurement`
-                        : ''}
-                    </span>
-                  </span>
-                  <span className="text-mut">
-                    {item.category}
-                    {item.subCategory ? ` / ${item.subCategory}` : ''}
-                  </span>
-                </button>
-              );
-            })}
-            {items.isLoading ? <div className="p-[14px] text-mut">Loading…</div> : null}
-            {!items.isLoading && !(items.data ?? []).length ? (
-              <div className="p-[14px] text-mut">No match</div>
-            ) : null}
-          </div>
-
-          <div className="warn">
-            Can&apos;t find it? Switch to <b>Add new item</b> — QS approves it.
-          </div>
-        </>
-      ) : (
-        <>
-          <label className="field">
-            Item name *
-            <input
-              maxLength={120}
-              value={draft.name}
-              onChange={(e) => setDraft({ ...draft, name: e.target.value })}
-            />
-          </label>
-          <div className="flex gap-[10px]">
-            <label className="field flex-1">
-              Unit *
-              <select
-                value={draft.unit}
-                onChange={(e) => setDraft({ ...draft, unit: e.target.value as Unit })}
-              >
-                {UNITS.map((u) => (
-                  <option key={u} value={u}>
-                {UNIT_NAMES[u]}
-              </option>
-                ))}
-              </select>
-            </label>
-            <label className="field flex-1">
-              Category *
-              <select
-                value={draft.category}
-                onChange={(e) => setDraft({ ...draft, category: e.target.value })}
-              >
-                {reference.categories.map((c) => (
-                  <option key={c.id}>{c.name}</option>
-                ))}
-              </select>
-            </label>
-          </div>
-          <label className="field">
-            Spec / brand (optional)
-            <input
-              maxLength={120}
-              value={draft.spec}
-              onChange={(e) => setDraft({ ...draft, spec: e.target.value })}
-            />
-          </label>
-          <Btn variant="primary" onClick={addNew}>
-            Add to MR
-          </Btn>
-        </>
-      )}
+      <div className="warn">
+        Can&apos;t find it? Try another word or the item code. If it is really not in the list,
+        ask QS to add it to the item master — then pick it here.
+      </div>
     </Modal>
   );
 }

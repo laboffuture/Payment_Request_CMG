@@ -525,6 +525,15 @@ async function writeLines(
 
   for (const [index, line] of input.lines.entries()) {
     const isNewItem = !line.itemId;
+    // Site engineers pick from the item master only: free-typed "new items" were creating
+    // duplicates of what is already there. A new-item line already on this MR (from before
+    // the rule) can stay while the MR is edited; a fresh one is refused.
+    if (isNewItem && actor.role === 'SITE') {
+      const already = line.id
+        ? await MrLine.exists({ _id: line.id, mrId: mr._id, itemId: null }).session(session)
+        : null;
+      if (!already) throw badRequest(MSG.mrNoNewItems);
+    }
     const payload = {
       mrId: mr._id,
       sn: index + 1,

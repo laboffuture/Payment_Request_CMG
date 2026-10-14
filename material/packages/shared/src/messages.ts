@@ -39,6 +39,8 @@ export const MSG = {
   boqTooMany: (max: number) => `Attach at most ${max} BOQ files`,
   receiptFileRequired:
     'Attach the delivery note or a photo of the delivery — a site receipt cannot be submitted without one',
+  mrNoNewItems:
+    'Pick the item from the item master — new items can no longer be added on an MR. If it is not listed, ask QS to add it to the item master.',
   boqNoFiles: 'Choose at least one file',
   boqNotFound: 'That BOQ file is no longer attached',
   boqWrongType:
