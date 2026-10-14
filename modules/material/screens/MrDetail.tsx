@@ -40,6 +40,7 @@ import { useAction } from '@mm/lib/hooks';
 import { fmtDate, fmtDateTime, money, qty } from '@mm/lib/format';
 import { useSession } from '@mm/lib/session';
 import { AttachmentLinks } from '@mm/features/mr/MrAttachments';
+import { ItemSearchSelect } from '@mm/components/ItemSearchSelect';
 
 /**
  * Prototype: VIEWS.mrview — lines, progress bars, the approval panels, the
@@ -593,11 +594,6 @@ function NewItemPanel({ lines, mrId }: { lines: MrLineDetailDto[]; mrId: string 
   const [mapTo, setMapTo] = useState<Record<string, string>>({});
   const toast = useToast();
 
-  const items = useQuery({
-    queryKey: ['items', 'all'],
-    queryFn: () => get<ItemDto[]>('/items?limit=200'),
-  });
-
   const invalidate = [['mr', mrId], ['mrs'], ['items']];
 
   const approve = useAction((lineId: string) => post(`/mr-lines/${lineId}/approve-new`), {
@@ -633,18 +629,12 @@ function NewItemPanel({ lines, mrId }: { lines: MrLineDetailDto[]; mrId: string 
             {line.remarks ? ` · ${line.remarks}` : ''}
           </div>
 
-          <select
-            aria-label={`Map ${line.newItemName} to an existing item`}
+          <ItemSearchSelect
+            ariaLabel={`Map ${line.newItemName} to an existing item`}
+            placeholder="Map to existing item — type its name or code"
             value={mapTo[line.id] ?? ''}
-            onChange={(e) => setMapTo({ ...mapTo, [line.id]: e.target.value })}
-          >
-            <option value="">Map to existing item…</option>
-            {(items.data ?? []).map((item) => (
-              <option key={item.id} value={item.id}>
-                {item.code} · {item.name} ({item.unit})
-              </option>
-            ))}
-          </select>
+            onChange={(itemId) => setMapTo((cur) => ({ ...cur, [line.id]: itemId }))}
+          />
 
           <div className="flex flex-wrap gap-[10px]">
             <Btn small variant="primary" onClick={() => approve.mutate(line.id)}>
