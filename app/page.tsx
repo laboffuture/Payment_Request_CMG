@@ -213,7 +213,25 @@ export default function Home(){
    Promise.all([count("/api/planning?assigned=me"),count("/api/completion?assigned=me")])
      .then(([plans,jobs])=>setManagesPlans(plans+jobs>0))},[userEmail]);
  const visible=nav.filter(n=>(access[role]||[]).includes(n.id)||(n.id==="accountsreceived"&&managesPlans));
- const login=(u:Actor)=>{setExpired(false);setUserName(u.name);setUserEmail(u.email);setAllowedRoles(u.roles);setRole(u.roles[0]);setActive(landingFor(u.roles[0]))};
+ /* Which role and screen this person was on, so a refresh - or reopening the app - lands
+    back there instead of on their first role. Kept in this browser only, per person, and
+    used only when that role is still theirs; a screen the role cannot open falls back to
+    the role's own first screen. Storage can be unavailable (private window), so every
+    read and write is allowed to fail quietly. */
+ const viewKey=(email:string)=>`cmg.view.${email.trim().toLowerCase()}`;
+ const savedView=(email:string,roles:string[]):{role:string;active:Module}|null=>{
+   try{
+     const v=JSON.parse(localStorage.getItem(viewKey(email))||"null") as {role?:string;active?:string}|null;
+     if(!v?.role||!roles.includes(v.role))return null;
+     const screen=v.active as Module|undefined;
+     const opens=!!screen&&((access[v.role]||[]).includes(screen)||(screen==="material"&&!!materialCodeFor(v.role)));
+     return{role:v.role,active:opens?screen!:landingFor(v.role)};
+   }catch{return null}};
+ const login=(u:Actor)=>{setExpired(false);setUserName(u.name);setUserEmail(u.email);setAllowedRoles(u.roles);
+   const back=savedView(u.email,u.roles);
+   setRole(back?.role??u.roles[0]);setActive(back?.active??landingFor(u.roles[0]))};
+ useEffect(()=>{if(!userEmail||!role)return;
+   try{localStorage.setItem(viewKey(userEmail),JSON.stringify({role,active}))}catch{}},[userEmail,role,active]);
  /* Ask the server who this is. The session cookie is HttpOnly, so the browser cannot
     read it; only this call can say whether it is still valid, which is what makes a
     revoked or expired session take effect on a refresh. */
