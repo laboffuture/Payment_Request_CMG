@@ -168,7 +168,7 @@ export default function MrDetailPage() {
         <QsPanel mr={data} />
       ) : data.canPm ? null : (
         <>
-          <LinesTable lines={data.lines} approved={approved} />
+          <LinesTable lines={data.lines} approved={approved} qsMr={data.canQs ? data : null} />
           {data.canQs ? (
             <QsDecisionPanel mr={data} pending={pending.length} review={null} />
           ) : null}
@@ -278,9 +278,12 @@ function QtyWithRequest({ line }: { line: MrLineDetailDto }) {
 function LinesTable({
   lines,
   approved,
+  qsMr,
 }: {
   lines: MrLineDetailDto[];
   approved: boolean;
+  /** set when the reader is QS and the MR is waiting for QS: adds Query / Delete per item */
+  qsMr?: MrDetailDto | null;
 }) {
   const requested: Column<MrLineDetailDto>[] = [
     { key: 'sn', header: '#', render: (l) => l.sn },
@@ -296,13 +299,24 @@ function LinesTable({
           {l.newStatus === 'MAPPED' ? <Tag label="MAPPED" tone="ac" /> : null}
           {l.changed ? <Tag label="CHANGED" tone="amb" /> : null}
           {l.lineStatus === 'REJECTED' ? <Tag label="LINE REJECTED" tone="red" /> : null}
+          {l.qsQuery ? <Tag label="QS QUERY" tone="red" /> : null}
         </span>
       ),
     },
     {
       key: 'description',
       header: 'Description',
-      render: (l) => <span className="whitespace-pre-line">{l.description || '—'}</span>,
+      render: (l) => (
+        <span className="whitespace-pre-line">
+          {l.description || '—'}
+          {l.qsQuery ? (
+            <span className="block text-xs text-[#b42318] mt-1">QS asks: {l.qsQuery}</span>
+          ) : null}
+          {l.lineStatus === 'REJECTED' && l.qsRemark ? (
+            <span className="block text-xs text-mut mt-1">Removed: {l.qsRemark}</span>
+          ) : null}
+        </span>
+      ),
     },
     {
       key: 'measurement',
@@ -324,6 +338,7 @@ function LinesTable({
       render: (l) => <QtyWithRequest line={l} />,
     },
     { key: 'remarks', header: 'Remarks', render: (l) => l.remarks },
+    ...(qsMr ? [qsActionColumn(qsMr)] : []),
   ];
 
   // After approval every line shows its whole journey (§7).
@@ -392,6 +407,184 @@ function LinesTable({
       rowClassName={(l) => (l.lineStatus === 'REJECTED' ? 'opacity-55' : '')}
       emptyText="No items"
     />
+  );
+}
+
+/**
+ * QS's actions on one item while the MR is with QS:
+ *   Query  - a question about the item goes back to the site engineer, who changes it and
+ *            resubmits. Several items can be queried together; the MR goes back once.
+ *   Delete - the item is not wanted; it is removed straight away, with an optional reason.
+ */
+function qsActionColumn(mr: MrDetailDto): Column<MrLineDetailDto> {
+  return {
+    key: 'qsActions',
+    header: 'Action',
+    render: (l) =>
+      l.lineStatus === 'REJECTED' ? (
+        <span className="text-mut text-xs">Removed{l.qsRemark ? ` — ${l.qsRemark}` : ''}</span>
+      ) : (
+        <QsLineActions mr={mr} line={l} />
+      ),
+  };
+}
+
+function QsLineActions({ mr, line }: { mr: MrDetailDto; line: MrLineDetailDto }) {
+  const [open, setOpen] = useState<'query' | 'delete' | null>(null);
+  return (
+    <>
+      <span className="inline-flex gap-[6px] whitespace-nowrap">
+        <Btn small onClick={() => setOpen('query')}>
+          Query
+        </Btn>
+        <Btn small variant="danger" onClick={() => setOpen('delete')}>
+          Delete
+        </Btn>
+      </span>
+      {open === 'query' ? <QueryItemsModal mr={mr} first={line} onClose={() => setOpen(null)} /> : null}
+      {open === 'delete' ? <DeleteItemModal mr={mr} line={line} onClose={() => setOpen(null)} /> : null}
+    </>
+  );
+}
+
+function QueryItemsModal({
+  mr,
+  first,
+  onClose,
+}: {
+  mr: MrDetailDto;
+  first: MrLineDetailDto;
+  onClose: () => void;
+}) {
+  const toast = useToast();
+  const lines = mr.lines.filter((l) => l.lineStatus !== 'REJECTED');
+  const [asked, setAsked] = useState<Record<string, string>>({ [first.id]: '' });
+  const send = useAction(
+    () =>
+      post(`/mrs/${mr.id}/line-queries`, {
+        rv: mr.rv,
+        queries: Object.entries(asked).map(([lineId, remark]) => ({ lineId, remark: remark.trim() })),
+      }),
+    {
+      success: 'Query sent to the site engineer',
+      invalidate: [['mr', mr.id], ['mrs'], ['counts']],
+      onDone: onClose,
+    },
+  );
+  const submit = () => {
+    const blank = Object.entries(asked).find(([, remark]) => !remark.trim());
+    if (blank) return toast('Write the question for each item you have ticked');
+    send.mutate(undefined);
+  };
+  const count = Object.keys(asked).length;
+
+  return (
+    <Modal
+      title="Query items with the site engineer"
+      onClose={onClose}
+      footer={
+        <>
+          <Btn onClick={onClose}>Cancel</Btn>
+          <Btn variant="primary" disabled={send.isPending || !count} onClick={submit}>
+            {send.isPending ? 'Sending…' : `Send query (${count} item${count === 1 ? '' : 's'})`}
+          </Btn>
+        </>
+      }
+    >
+      <p className="mt-0 text-sm">
+        The MR goes back to <b>{mr.createdByName}</b> with your question on each ticked item. They
+        change the item and resubmit. Tick more items to ask about them in the same go.
+      </p>
+      <div className="flex flex-col gap-2">
+        {lines.map((l) => {
+          const on = asked[l.id] !== undefined;
+          return (
+            <div key={l.id} className={`border rounded-xl px-3 py-2 ${on ? 'border-ac' : 'border-line'}`}>
+              <label className="flex items-center gap-2 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={on}
+                  onChange={(e) =>
+                    setAsked((cur) => {
+                      const next = { ...cur };
+                      if (e.target.checked) next[l.id] = '';
+                      else delete next[l.id];
+                      return next;
+                    })
+                  }
+                />
+                <span>
+                  <b>
+                    {l.sn}. {l.name}
+                  </b>
+                  <span className="text-mut text-xs">
+                    {' '}
+                    · {qty(l.qty)} {l.unit}
+                    {l.description ? ` · ${l.description}` : ''}
+                  </span>
+                </span>
+              </label>
+              {on ? (
+                <input
+                  className="mt-2 w-full"
+                  autoFocus={l.id === first.id}
+                  maxLength={500}
+                  placeholder="Your question — e.g. which grade? wrong item, use 18mm plywood instead"
+                  aria-label={`Question about ${l.name}`}
+                  value={asked[l.id]}
+                  onChange={(e) => setAsked((cur) => ({ ...cur, [l.id]: e.target.value }))}
+                />
+              ) : null}
+            </div>
+          );
+        })}
+      </div>
+    </Modal>
+  );
+}
+
+function DeleteItemModal({
+  mr,
+  line,
+  onClose,
+}: {
+  mr: MrDetailDto;
+  line: MrLineDetailDto;
+  onClose: () => void;
+}) {
+  const [remark, setRemark] = useState('');
+  const drop = useAction(() => post(`/mrs/${mr.id}/lines/${line.id}/drop`, { remark }), {
+    success: `${line.name} removed from ${mr.no}`,
+    invalidate: [['mr', mr.id], ['mrs'], ['counts']],
+    onDone: onClose,
+  });
+  return (
+    <Modal
+      title={`Remove ${line.name}?`}
+      onClose={onClose}
+      footer={
+        <>
+          <Btn onClick={onClose}>Keep it</Btn>
+          <Btn variant="danger" disabled={drop.isPending} onClick={() => drop.mutate(undefined)}>
+            {drop.isPending ? 'Removing…' : 'Remove item'}
+          </Btn>
+        </>
+      }
+    >
+      <p className="mt-0">
+        Item {line.sn} — <b>{line.name}</b> ({qty(line.qty)} {line.unit}) — is taken off {mr.no}. It stays
+        on record as removed, with your reason, so the site engineer and the PM can see what went.
+      </p>
+      <label className="field">
+        Reason (optional)
+        <input
+          maxLength={250}
+          placeholder="e.g. not needed for this site / already in stock at site"
+          value={remark}
+          onChange={(e) => setRemark(e.target.value)}
+        />
+      </label>
+    </Modal>
   );
 }
 
@@ -814,21 +1007,7 @@ function QsPanel({ mr }: { mr: MrDetailDto }) {
         />
       ),
     },
-    {
-      key: 'reject',
-      header: 'Drop line',
-      render: (l) => (
-        <label className="flex items-center gap-2">
-          <input
-            type="checkbox"
-            aria-label={`Drop ${l.name}`}
-            checked={review[l.id]?.rejected ?? false}
-            onChange={(e) => patchReview(l.id, { rejected: e.target.checked })}
-          />
-          <span className="text-mut text-xs">Not needed</span>
-        </label>
-      ),
-    },
+    qsActionColumn(mr),
   ];
 
   return (

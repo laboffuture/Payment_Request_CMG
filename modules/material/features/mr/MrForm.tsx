@@ -49,6 +49,8 @@ interface FormLine {
   boqRef: string;
   remarks: string;
   rejected?: boolean;
+  /** QS's open question about this item — answered by changing it and resubmitting */
+  qsQuery?: string;
 }
 
 /** A line starts with the item's own unit; the engineer may override it. */
@@ -95,9 +97,12 @@ export function MrForm({ existing }: { existing?: MrDetailDto }) {
       boqRef: l.boqRef,
       remarks: l.remarks,
       rejected: l.lineStatus === 'REJECTED',
+      qsQuery: l.qsQuery ?? '',
     })) ?? [],
   );
   const [pickerOpen, setPickerOpen] = useState(false);
+  // Which line the picker is replacing (QS queried it), or null to add a new line.
+  const [replaceAt, setReplaceAt] = useState<number | null>(null);
   // The bill of quantities is optional — the MR is raised with or without it.
   // `pending` are files chosen but not yet sent; `attached` are already stored.
   const [pending, setPending] = useState<File[]>([]);
@@ -320,6 +325,10 @@ export function MrForm({ existing }: { existing?: MrDetailDto }) {
               line={line}
               onChange={(patch) => setLine(index, patch)}
               onRemove={() => setLines((rows) => rows.filter((_, i) => i !== index))}
+              onChangeItem={() => {
+                setReplaceAt(index);
+                setPickerOpen(true);
+              }}
             />
           ),
         )}
@@ -372,9 +381,33 @@ export function MrForm({ existing }: { existing?: MrDetailDto }) {
       {pickerOpen ? (
         <ItemPicker
           usedItemIds={lines.filter((l) => l.itemId).map((l) => l.itemId!)}
-          onClose={() => setPickerOpen(false)}
+          onClose={() => {
+            setPickerOpen(false);
+            setReplaceAt(null);
+          }}
           onPick={(line) => {
-            setLines((rows) => [...rows, line]);
+            if (replaceAt !== null) {
+              // Swap the item, keep what was written about it; the query is answered.
+              setLines((rows) =>
+                rows.map((r, i) =>
+                  i === replaceAt
+                    ? {
+                        ...r,
+                        itemId: line.itemId,
+                        itemCode: line.itemCode,
+                        name: line.name,
+                        unit: line.unit,
+                        category: line.category,
+                        newItemName: '',
+                        qsQuery: '',
+                      }
+                    : r,
+                ),
+              );
+            } else {
+              setLines((rows) => [...rows, line]);
+            }
+            setReplaceAt(null);
             setPickerOpen(false);
           }}
         />
@@ -542,10 +575,13 @@ function LineCard({
   line,
   onChange,
   onRemove,
+  onChangeItem,
 }: {
   line: FormLine;
   onChange: (patch: Partial<FormLine>) => void;
   onRemove: () => void;
+  /** pick a different item for this line, keeping the quantity and description */
+  onChangeItem: () => void;
 }) {
   const isNew = !line.itemId;
 
@@ -571,6 +607,20 @@ function LineCard({
           </Btn>
         </div>
       </div>
+
+      {line.qsQuery ? (
+        <div className="errb flex items-start justify-between gap-3 flex-wrap">
+          <span>
+            <b>QS query:</b> {line.qsQuery}
+            <span className="block text-xs opacity-80">
+              Change the item (or its quantity / description) and resubmit the MR.
+            </span>
+          </span>
+          <Btn small onClick={onChangeItem}>
+            Change item
+          </Btn>
+        </div>
+      ) : null}
 
       {/* Compulsory, and first — it is what everyone downstream reads. */}
       <label className="field">

@@ -33,6 +33,8 @@ export const AUDIT = {
   MR_QS_APPROVED: 'QS approved split',
   MR_QS_CHANGED: (n: number) => `QS changed ${n} line(s)`,
   MR_SENT_BACK: 'Sent back by QS',
+  MR_QS_LINE_QUERY: (n: number) => `QS queried ${n} item(s) — sent back to the site engineer`,
+  MR_QS_LINE_DROPPED: (item: string) => `QS removed ${item} from the MR`,
   MR_REJECTED: 'Rejected by QS',
   MR_NEW_ITEM_APPROVED: 'New item approved to master',
   MR_NEW_ITEM_MAPPED: 'New item mapped',

@@ -174,6 +174,8 @@ export interface MrLineDto {
   storeQty: number | null;
   poQty: number | null;
   qsRemark: string;
+  /** QS's open question about this item — the site engineer changes it and resubmits */
+  qsQuery: string;
   lineStatus: MrLineStatus;
 }
 

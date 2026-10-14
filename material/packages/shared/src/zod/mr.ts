@@ -104,6 +104,26 @@ export const mrCommentInput = z.object({
 });
 export type MrCommentInput = z.infer<typeof mrCommentInput>;
 
+/** QS's questions about particular items: each goes back to the site engineer on its line. */
+export const mrLineQueryInput = z.object({
+  queries: z
+    .array(
+      z.object({
+        lineId: objectId,
+        remark: z.string().trim().min(1, 'Write the question for each item you are querying').max(500),
+      }),
+    )
+    .min(1, 'Choose at least one item to query'),
+  rv: z.number().int().min(0).optional(),
+});
+export type MrLineQueryInput = z.infer<typeof mrLineQueryInput>;
+
+/** QS removing one item from the MR, with an optional reason. */
+export const mrLineDropInput = z.object({
+  remark: z.string().trim().max(250).optional().default(''),
+});
+export type MrLineDropInput = z.infer<typeof mrLineDropInput>;
+
 /** Map a new-item line onto an existing item. Prototype: A.mapNew. */
 export const mapNewItemInput = z.object({
   itemId: objectId,

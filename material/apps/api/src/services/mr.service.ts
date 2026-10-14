@@ -6,6 +6,8 @@ import {
   MSG,
   type MapNewItemInput,
   type MrCommentInput,
+  type MrLineDropInput,
+  type MrLineQueryInput,
   type MrDetailDto,
   type MrDto,
   type MrLineDetailDto,
@@ -107,6 +109,7 @@ export function toMrLineDto(line: Record<string, any>, lookups: Lookups): MrLine
     storeQty: line.storeQty ?? null,
     poQty: line.poQty ?? null,
     qsRemark: line.qsRemark ?? '',
+    qsQuery: line.qsQuery ?? '',
     lineStatus: line.lineStatus,
   };
 }
@@ -554,6 +557,8 @@ async function writeLines(
     // by the PM or QS is then visibly a change, not a silent rewrite.
     const asRequested = input.submit
       ? {
+          // Resubmitting answers QS's questions on the lines.
+          qsQuery: '',
           requestedQty: num(line.qty),
           requestedMeasurement: line.measurement ?? '',
           requestedUnit: line.unit ?? '',
@@ -1348,6 +1353,93 @@ export async function sendBackMr(
   });
 
   await enqueueEmails(outboxIds);
+}
+
+/**
+ * QS's questions about particular items. Each question is written on its line, and the MR
+ * goes back to the site engineer, who changes those items and resubmits - which clears the
+ * questions. QS can query several items at once; the MR's comment lists them all.
+ */
+export async function queryMrLines(
+  actor: Actor,
+  id: string,
+  input: MrLineQueryInput,
+): Promise<void> {
+  const outboxIds = await inTransaction(async (session) => {
+    const mr = await Mr.findById(id).session(session);
+    if (!mr) throw notFound();
+    if (mr.status !== 'QS_PENDING') throw conflict(MSG.mrNotWithQs);
+    if (input.rv !== undefined && input.rv !== (mr.rv ?? 0)) throw stale();
+
+    const lookups = await buildLookups();
+    const said: string[] = [];
+    for (const q of input.queries) {
+      const line = await MrLine.findOne({ _id: q.lineId, mrId: mr._id }).session(session);
+      if (!line || line.lineStatus === 'REJECTED') throw badRequest('One of those items is no longer on the MR');
+      line.qsQuery = q.remark;
+      line.qsQueryBy = oid(actor.id) as never;
+      line.qsQueryAt = new Date();
+      await line.save({ session });
+      const name = line.itemId ? (lookups.item(line.itemId)?.name ?? 'item') : line.newItemName;
+      said.push(`${line.sn}. ${name}: ${q.remark}`);
+    }
+
+    const comment = `Query on ${said.length} item(s) — ${said.join(' · ')}`.slice(0, 2000);
+    mr.status = 'SENT_BACK';
+    mr.lastComment = comment;
+    mr.lastCommentBy = oid(actor.id) as never;
+    mr.lastCommentRole = 'QS';
+    await mr.save({ session });
+
+    await writeAudit(session, 'MR', mr._id, AUDIT.MR_QS_LINE_QUERY(said.length), actor.id, comment);
+    const outbox = await emit(session, 'MR_SENT_BACK', {
+      title: `${mr.no}: QS has a query on ${said.length} item(s)`,
+      body: comment,
+      link: `mr:${String(mr._id)}`,
+      to: [{ userId: mr.createdBy }, mr.pmBy ? { userId: mr.pmBy } : null],
+      actorId: actor.id,
+    });
+    await bumpSyncStamp(session);
+    return outbox;
+  });
+  await enqueueEmails(outboxIds);
+}
+
+/**
+ * QS removes one item from the MR straight away - it is not wanted. The line stays on
+ * record as removed, with the reason, so the site engineer and the PM can see what went.
+ * The last item cannot be removed this way: rejecting the MR is the answer then.
+ */
+export async function dropMrLine(
+  actor: Actor,
+  id: string,
+  lineId: string,
+  input: MrLineDropInput,
+): Promise<void> {
+  await inTransaction(async (session) => {
+    const mr = await Mr.findById(id).session(session);
+    if (!mr) throw notFound();
+    if (mr.status !== 'QS_PENDING') throw conflict(MSG.mrNotWithQs);
+    const line = await MrLine.findOne({ _id: lineId, mrId: mr._id }).session(session);
+    if (!line) throw notFound();
+    if (line.lineStatus === 'REJECTED') throw conflict('That item is already removed');
+    const others = await MrLine.countDocuments({
+      mrId: mr._id,
+      lineStatus: { $ne: 'REJECTED' },
+      _id: { $ne: line._id },
+    }).session(session);
+    if (!others) {
+      throw conflict('This is the last item on the MR — reject the MR instead of removing it');
+    }
+    const lookups = await buildLookups();
+    const name = line.itemId ? (lookups.item(line.itemId)?.name ?? 'an item') : line.newItemName;
+    line.lineStatus = 'REJECTED';
+    line.qsRemark = input.remark || 'Removed by QS';
+    line.qsQuery = '';
+    await line.save({ session });
+    await writeAudit(session, 'MR', mr._id, AUDIT.MR_QS_LINE_DROPPED(name), actor.id, input.remark);
+    await bumpSyncStamp(session);
+  });
 }
 
 export async function rejectMr(

@@ -129,6 +129,10 @@ export interface IMrLine extends Timestamped {
   storeQty: number | null;
   poQty: number | null;
   qsRemark: string;
+  /** QS's question about this item, sent back to the site engineer; cleared on resubmit */
+  qsQuery: string;
+  qsQueryBy: Types.ObjectId | null;
+  qsQueryAt: Date | null;
   lineStatus: MrLineStatus;
   /** procurement sent the line back to QS from Consolidate MRs; NONE = with procurement */
   procHold: ProcHold;
@@ -163,6 +167,9 @@ const mrLineSchema = new Schema<IMrLine>(
     storeQty: { type: Number, default: null, min: 0 },
     poQty: { type: Number, default: null, min: 0 },
     qsRemark: { type: String, default: '' },
+    qsQuery: { type: String, default: '' },
+    qsQueryBy: optionalRefTo('User'),
+    qsQueryAt: { type: Date, default: null },
     procHold: { type: String, enum: PROC_HOLDS, default: 'NONE', index: true },
     procRemark: { type: String, default: '' },
     procBy: optionalRefTo('User'),

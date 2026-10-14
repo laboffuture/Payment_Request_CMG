@@ -11,6 +11,8 @@ import {
   pmApproveInput,
   qsApproveInput,
   upsertMrInput,
+  mrLineQueryInput,
+  mrLineDropInput,
 } from '@cm/shared';
 import { sendCsv, wrap } from '../lib/http.js';
 import { validateBody } from '../middleware/validate.js';
@@ -36,6 +38,8 @@ import {
   rejectNewItem,
   removeBoqFile,
   sendBackMr,
+  queryMrLines,
+  dropMrLine,
   updateMr,
 } from '../services/mr.service.js';
 
@@ -218,6 +222,30 @@ mrRouter.post(
   validateBody(mrCommentInput),
   wrap(async (req, res) => {
     await sendBackMr(actorOf(req), req.params.id!, req.body);
+    res.json({ ok: true });
+  }),
+);
+
+/** QS's questions about particular items — the MR goes back to the site engineer. */
+mrRouter.post(
+  '/mrs/:id/line-queries',
+  requireAuth,
+  authorize('QS'),
+  validateBody(mrLineQueryInput),
+  wrap(async (req, res) => {
+    await queryMrLines(actorOf(req), req.params.id!, req.body);
+    res.json({ ok: true });
+  }),
+);
+
+/** QS removes one item that is not wanted. */
+mrRouter.post(
+  '/mrs/:id/lines/:lineId/drop',
+  requireAuth,
+  authorize('QS'),
+  validateBody(mrLineDropInput),
+  wrap(async (req, res) => {
+    await dropMrLine(actorOf(req), req.params.id!, req.params.lineId!, req.body);
     res.json({ ok: true });
   }),
 );
