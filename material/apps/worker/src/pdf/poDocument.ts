@@ -235,7 +235,7 @@ export async function renderPoHtml(poId: string): Promise<{ html: string; no: st
       ['Country', vendor?.country ?? ''],
       ['Number', vendor?.phone ?? ''],
       ['Email', vendor?.email ?? ''],
-      ['TRN No', vendor?.taxNo ?? ''],
+      ['GST No', vendor?.taxNo ?? ''],
     ])}
     ${info([
       ['Order No', displayNo],

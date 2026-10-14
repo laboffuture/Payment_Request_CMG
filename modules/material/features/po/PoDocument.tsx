@@ -150,7 +150,7 @@ export function PoDocument({ preview }: { preview: PoDocumentData }) {
             ['Country', vendor?.country],
             ['Number', vendor?.phone],
             ['Email', vendor?.email],
-            ['TRN No', vendor?.taxNo],
+            ['GST No', vendor?.taxNo],
           ]}
         />
         <InfoRows

@@ -237,7 +237,7 @@ function VendorModal({
           <input value={form.phone} onChange={set('phone')} />
         </label>
         <label className="field">
-          TRN / GSTIN
+          GST No
           <input value={form.taxNo} onChange={set('taxNo')} />
         </label>
       </div>
