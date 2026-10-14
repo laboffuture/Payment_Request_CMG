@@ -223,7 +223,7 @@ export const CURRENCY_LABELS: Record<Currency, string> = {
   SAR: 'SAR — Saudi riyal',
 };
 
-export const DEFAULT_CURRENCY: Currency = 'AED';
+export const DEFAULT_CURRENCY: Currency = 'INR';
 
 export const DEFAULT_PAYMENT_TERMS = '30 days from delivery';
 export const DEFAULT_QUOTE_VALIDITY_DAYS = 14;
