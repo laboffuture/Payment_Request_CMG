@@ -1,5 +1,6 @@
 'use client';
 
+import { Download } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import { useParams, useRouter } from '@mm/lib/nav';
 import { useQuery } from '@tanstack/react-query';
@@ -21,7 +22,7 @@ import {
   type Role,
   type Unit,
 } from '@cm/shared';
-import { del, get, post } from '@mm/lib/api';
+import { del, downloadFile, get, post } from '@mm/lib/api';
 import { Modal } from '@mm/components/Modal';
 import { DataTable, type Column } from '@mm/components/DataTable';
 import {
@@ -144,6 +145,13 @@ export default function MrDetailPage() {
               </Btn>
             ) : null}
             <Btn onClick={() => router.push(`/mrs/print?ids=${id}`)}>MR form / PDF</Btn>
+            {/* The same MR, line by line, as a spreadsheet: quantities, what QS approved, who signed. */}
+            <Btn
+              title="Download this MR, line by line, to open in Excel"
+              onClick={() => downloadFile(`/mrs/export.csv?ids=${id}`)}
+            >
+              <Download size={14} aria-hidden /> Excel (CSV)
+            </Btn>
             {me.role === 'ADMIN' ? <AdminDeleteMr id={id} no={data.no} /> : null}
           </>
         }
