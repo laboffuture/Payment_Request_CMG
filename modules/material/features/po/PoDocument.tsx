@@ -14,6 +14,7 @@ import {
 } from '@cm/shared';
 import { Fragment } from 'react';
 import { fmtDate, money, qty } from '@mm/lib/format';
+import { useReference } from '@mm/lib/reference';
 
 /**
  * The printable purchase order.
@@ -84,6 +85,11 @@ const NUMERIC = new Set(['Qty', 'Rate', 'Amount']);
 
 export function PoDocument({ preview }: { preview: PoDocumentData }) {
   const { company, vendor, lines, totals, taxMode, currency, projectCodes } = preview;
+  // The project(s) this order is for, by number and by name. One PO can serve several.
+  const reference = useReference();
+  const projectNames = projectCodes
+    .map((code) => reference.projects.find((p) => p.code === code)?.name ?? '')
+    .filter(Boolean);
   const charges = (preview.charges ?? []).filter((c) => c.amount);
 
   const split = taxMode === 'CGST_SGST';
@@ -157,6 +163,8 @@ export function PoDocument({ preview }: { preview: PoDocumentData }) {
           rows={[
             ['Order No', <span key="no" className="font-mono">{preview.displayNo}</span>],
             ['Order Date', fmtDate(preview.date ?? new Date().toISOString())],
+            ['Project No', projectCodes.join(', ')],
+            ['Project Name', projectNames.join(', ')],
             ['Delivery Address', deliveryAddress],
             ['Billing Address', billingAddress],
             ['Delivery Date', fmtDate(preview.deliveryDate)],

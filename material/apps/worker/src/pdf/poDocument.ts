@@ -165,6 +165,16 @@ export async function renderPoHtml(poId: string): Promise<{ html: string; no: st
   ]
     .filter(Boolean)
     .join(', ');
+  const projectNames = [
+    ...new Set(
+      allocs.map(
+        (a) =>
+          projects.find((p) => String(p._id) === String(a.projectId))?.name ?? '',
+      ),
+    ),
+  ]
+    .filter(Boolean)
+    .join(', ');
 
   const deliveryAddress =
     po.deliveryAddress || (po.deliverTo === 'SITE' ? `Site — ${projectCodes}` : 'Main store');
@@ -240,6 +250,8 @@ export async function renderPoHtml(poId: string): Promise<{ html: string; no: st
     ${info([
       ['Order No', displayNo],
       ['Order Date', fmtDate(po.approvedAt ?? po.createdAt)],
+      ['Project No', projectCodes],
+      ['Project Name', projectNames],
       ['Delivery Address', deliveryAddress],
       ['Billing Address', billingAddress],
       ['Delivery Date', fmtDate(po.deliveryDate)],
