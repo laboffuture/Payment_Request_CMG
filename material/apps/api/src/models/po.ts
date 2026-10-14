@@ -37,6 +37,8 @@ export interface IPo extends Timestamped {
   billingAddress: string;
   terms: string;
   notes: string;
+  /** Terms & conditions for this order. Empty = the billing company's standard PO terms print. */
+  conditions: string;
   taxMode: TaxMode;
   /** the currency the order is placed in; the company's is the default */
   currency: string;
@@ -88,6 +90,7 @@ const poSchema = new Schema<IPo>(
     billingAddress: { type: String, default: '' },
     terms: { type: String, default: '' },
     notes: { type: String, default: '' },
+    conditions: { type: String, default: '' },
     taxMode: { type: String, enum: TAX_MODES, default: 'VAT' },
     currency: { type: String, enum: CURRENCIES, default: DEFAULT_CURRENCY },
     reason: { type: String, default: '' },

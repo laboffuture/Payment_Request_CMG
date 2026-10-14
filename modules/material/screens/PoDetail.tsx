@@ -141,6 +141,7 @@ export default function PoDetailPage() {
           billingAddress: data.billingAddress,
           terms: data.terms,
           notes: data.notes,
+          conditions: data.conditions,
           taxMode: data.taxMode,
           currency,
           projectCodes: data.projectCodes,

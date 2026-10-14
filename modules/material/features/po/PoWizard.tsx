@@ -55,6 +55,8 @@ interface PoFormState {
   billingAddress: string;
   terms: string;
   notes: string;
+  /** terms & conditions for this order; empty = the company's standard PO terms */
+  conditions: string;
   taxMode: TaxMode;
   reason: string;
   revisionReason: string;
@@ -91,6 +93,7 @@ export function PoWizard({
     billingAddress: existing?.billingAddress ?? '',
     terms: existing?.terms || DEFAULT_PAYMENT_TERMS,
     notes: existing?.notes ?? '',
+    conditions: existing?.conditions ?? '',
     taxMode: (existing?.taxMode ?? defaultCompany?.taxMode ?? 'VAT') as TaxMode,
     reason: existing?.reason || PO_DIRECT_REASONS[0],
     revisionReason: '',
@@ -142,6 +145,7 @@ export function PoWizard({
     billingAddress: form.billingAddress,
     terms: form.terms,
     notes: form.notes,
+    conditions: form.conditions,
     taxMode: form.taxMode,
     reason: form.reason,
     charges,
@@ -737,6 +741,24 @@ function StepVendorPrices({
                 ))}
               </select>
             </label>
+            {/* Free text, printed on the PO under "Terms and conditions". Left empty, the
+                billing company's standard PO terms print instead (shown here as the hint). */}
+            <label className="field desk:col-span-3">
+              Terms &amp; Conditions
+              <textarea
+                rows={4}
+                maxLength={8000}
+                placeholder={
+                  reference.companies.find((c) => c.id === form.companyId)?.poTerms ||
+                  'Terms and conditions for this order — printed on the PO'
+                }
+                value={form.conditions}
+                onChange={(e) => setForm((f) => ({ ...f, conditions: e.target.value }))}
+              />
+              <span className="text-mut font-normal">
+                Optional. Left empty, the company&apos;s standard terms print on the PO.
+              </span>
+            </label>
           </div>
 
         </Stack>
@@ -1016,6 +1038,7 @@ function StepReview({
           billingAddress: form.billingAddress,
           terms: form.terms,
           notes: form.notes,
+          conditions: form.conditions,
           taxMode: form.taxMode,
           currency,
           projectCodes: [...new Set(rows.map((r) => r.projectCode))],

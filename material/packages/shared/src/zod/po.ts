@@ -52,6 +52,8 @@ export const upsertPoInput = z.object({
   billingAddress: z.string().trim().max(500).optional().default(''),
   terms: z.string().trim().max(200).optional().default(''),
   notes: z.string().trim().max(4000).optional().default(''),
+  /** terms & conditions for this order; empty = the company's standard PO terms */
+  conditions: z.string().trim().max(8000).optional().default(''),
   taxMode: z.enum(TAX_MODES).default('VAT'),
   /** the currency the order is placed in — the company's is the default */
   currency: z.enum(CURRENCIES).optional(),

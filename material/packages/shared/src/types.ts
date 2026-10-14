@@ -336,6 +336,8 @@ export interface PoDto extends Doc {
   billingAddress: string;
   terms: string;
   notes: string;
+  /** terms & conditions written for this order; empty = the company's standard ones apply */
+  conditions: string;
   taxMode: TaxMode;
   /** the currency this order is placed in */
   currency: Currency;

@@ -40,6 +40,8 @@ export interface PoDocumentData {
   billingAddress?: string;
   terms: string;
   notes: string;
+  /** written for this order; when empty the company's standard PO terms print */
+  conditions?: string;
   taxMode: TaxMode;
   currency: string;
   projectCodes: string[];
@@ -279,11 +281,11 @@ export function PoDocument({ preview }: { preview: PoDocumentData }) {
         </span>
       </div>
 
-      {company?.poTerms ? (
+      {preview.conditions || company?.poTerms ? (
         <p className="whitespace-pre-line text-xs mt-3">
           <b>Terms and conditions</b>
           {'\n'}
-          {company.poTerms}
+          {preview.conditions || company?.poTerms}
         </p>
       ) : null}
 
