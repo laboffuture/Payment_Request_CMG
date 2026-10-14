@@ -1,8 +1,11 @@
 import { Router } from 'express';
 import multer from 'multer';
 import {
+  MATERIAL_ST,
   MAX_BOQ_BYTES,
   MAX_BOQ_FILES,
+  PO_ST,
+  chipFor,
   MAX_VENDOR_DOC_BYTES,
   QUOTATION_SHEET_COLS,
   awardRfqInput,
@@ -105,6 +108,71 @@ procurementRouter.get(
   authorize('PROC'),
   wrap(async (req, res) => {
     res.json(await listPool(poolQuery.parse(req.query)));
+  }),
+);
+
+/**
+ * The same list as a spreadsheet - every MR material QS approved for purchase, with its
+ * status, quantities and POs. The screen's filters ride along (project, category, required
+ * dates, status, search), so it downloads what is on screen; with none set, it is everything.
+ */
+procurementRouter.get(
+  '/pool/status.csv',
+  requireAuth,
+  authorize('PROC', 'PROC_MGR', 'QS', 'MGMT', 'ADMIN'),
+  wrap(async (req, res) => {
+    const text = (k: string) => (typeof req.query[k] === 'string' ? (req.query[k] as string) : '');
+    const from = text('from');
+    const to = text('to');
+    const status = text('status');
+    const words = text('q').toLowerCase().split(/\s+/).filter(Boolean);
+    const rows = (await listMaterialStatus(poolQuery.parse(req.query))).filter((r) => {
+      const due = (r.requiredDate || '').slice(0, 10);
+      if (from && (!due || due < from)) return false;
+      if (to && (!due || due > to)) return false;
+      if (status && r.status !== status) return false;
+      if (!words.length) return true;
+      const hay = [r.mrNo, r.projectCode, r.itemName, r.itemCode, r.category, r.mrDescription,
+        MATERIAL_ST[r.status].label, ...r.pos.map((p) => p.no)].join(' ').toLowerCase();
+      return words.every((w) => hay.includes(w));
+    });
+    const columns = [
+      'MR no.',
+      'Project',
+      'Required by',
+      'Item code',
+      'Material',
+      'Site engineer asked for',
+      'Category',
+      'Unit',
+      'To buy',
+      'On PO',
+      'Received',
+      'To order',
+      'Status',
+      'PO',
+      'PO status',
+      'Procurement remark',
+    ] as const;
+    const out = rows.map((r) => ({
+      'MR no.': r.mrNo,
+      Project: r.projectCode,
+      'Required by': r.requiredDate,
+      'Item code': r.itemCode,
+      Material: r.itemName,
+      'Site engineer asked for': r.mrDescription,
+      Category: r.category,
+      Unit: r.unit,
+      'To buy': r.toBuy,
+      'On PO': r.onPo,
+      Received: r.received,
+      'To order': r.openQty,
+      Status: MATERIAL_ST[r.status].label,
+      PO: r.pos.map((p) => p.no).join(', '),
+      'PO status': r.pos.map((p) => chipFor(PO_ST, p.status).label).join(', '),
+      'Procurement remark': r.procRemark,
+    }));
+    sendCsv(res, csvFilename('consolidate-mrs'), buildCsv([...columns], out));
   }),
 );
 

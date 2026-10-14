@@ -3,6 +3,7 @@
 import { useMemo, useState } from 'react';
 import { useRouter } from '@mm/lib/nav';
 import { useQuery } from '@tanstack/react-query';
+import { Download } from 'lucide-react';
 import {
   DEFAULT_RFQ_DUE_HOURS,
   MATERIAL_ST,
@@ -16,7 +17,7 @@ import {
   type PoolRowDto,
   type VendorDto,
 } from '@cm/shared';
-import { get, newIdempotencyKey, post } from '@mm/lib/api';
+import { downloadFile, get, newIdempotencyKey, post } from '@mm/lib/api';
 import { DataTable, type Column } from '@mm/components/DataTable';
 import { Btn, Chip, EmptyState, PageHeader, StickyActionBar, Tabs, Tag } from '@mm/components/ui';
 import { Modal } from '@mm/components/Modal';
@@ -415,6 +416,19 @@ export default function PoolPage() {
                 </button>
               ) : null}
             </span>
+            <Btn
+              title="Every MR material approved for purchase, with its status, quantities and POs — narrowed by the filters set here"
+              onClick={() => {
+                const q = new URLSearchParams(params);
+                if (from) q.set('from', from);
+                if (to) q.set('to', to);
+                if (view === 'STATUS' && statusFilter) q.set('status', statusFilter);
+                if (search.trim()) q.set('q', search.trim());
+                downloadFile(`/pool/status.csv?${q}`);
+              }}
+            >
+              <Download size={14} aria-hidden /> Excel (CSV)
+            </Btn>
             {view === 'ORDER' ? (
               <>
                 <Btn
