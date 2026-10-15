@@ -551,6 +551,8 @@ export interface PoolRowDto {
   /** set when the line came back from QS: what procurement had asked, and QS's answer */
   procRemark: string;
   qsReply: string;
+  /** what QS attached to that answer */
+  qsReplyFiles: BoqFileDto[];
   qsReplyBy: string;
   /** how many drawings / BOQ files the site engineer attached to the MR */
   attachments: number;

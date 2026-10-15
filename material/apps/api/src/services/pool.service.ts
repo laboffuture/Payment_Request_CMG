@@ -33,12 +33,55 @@ import { closeMrIfComplete } from './mr.service.js';
  * or an open enquiry — `poolOpen` in packages/calc.
  */
 
+/** Files sent with a query or an answer, with short-lived links. */
+const linksOf = (files: { publicId: string; name?: string; size?: number }[] | undefined) =>
+  (files ?? []).map((f) => ({
+    id: f.publicId,
+    name: f.name ?? '',
+    size: num(f.size),
+    url: signedUrlFor(f.publicId),
+  }));
+
+/**
+ * Stores the files that go with a query or an answer. Done before the change, so a file
+ * that is refused stops it rather than sending it without; `undo` removes them again if
+ * the change then fails.
+ */
+async function storeQueryFiles(files: Express.Multer.File[]) {
+  const stored: Awaited<ReturnType<typeof uploadBoq>>[] = [];
+  const undo = async () => {
+    for (const file of stored) await deleteFile(file.publicId).catch(() => undefined);
+  };
+  try {
+    for (const file of files) {
+      try {
+        stored.push(await uploadBoq(file, 'query'));
+      } catch (err) {
+        const said = err instanceof Error ? err.message : '';
+        if (said === MSG.boqWrongType) {
+          throw badRequest(
+            `${file.originalname} cannot be attached — use a PDF, an image or a spreadsheet (CSV, XLS, XLSX)`,
+          );
+        }
+        if (said === MSG.boqTooLarge) {
+          throw badRequest(`${file.originalname} is larger than 5 MB — compress it and try again`);
+        }
+        throw err;
+      }
+    }
+  } catch (err) {
+    await undo();
+    throw err;
+  }
+  return { stored, undo };
+}
+
 export async function listPool(query: PoolQuery): Promise<PoolRowDto[]> {
   const [world, lookups] = await Promise.all([loadWorld(), buildLookups()]);
   const now = today();
   const rows = poolRows(world);
   const described = await MrLine.find({ _id: { $in: rows.map((r) => r.line.id) } })
-    .select('description measurement procRemark qsReply qsReplyBy')
+    .select('description measurement procRemark qsReply qsReplyFiles qsReplyBy')
     .lean();
   const answered = new Map(described.map((l) => [String(l._id), l]));
   // Drawings and BOQ sheets on the MR, so the buyer can open them from the pool.
@@ -89,6 +132,7 @@ export async function listPool(query: PoolQuery): Promise<PoolRowDto[]> {
         gstRate: item.gstRate,
         procRemark: answered.get(row.line.id)?.procRemark ?? '',
         qsReply: answered.get(row.line.id)?.qsReply ?? '',
+        qsReplyFiles: linksOf(answered.get(row.line.id)?.qsReplyFiles),
         qsReplyBy: answered.get(row.line.id)?.qsReplyBy
           ? lookups.userName(answered.get(row.line.id)!.qsReplyBy)
           : '',
@@ -309,33 +353,8 @@ export async function holdPoolLines(
   });
 
   const isQuery = input.action === 'QUERY';
-  // Stored first, so a file that is refused stops the query rather than sending it
-  // without; removed again if the query then fails.
-  const stored: Awaited<ReturnType<typeof uploadBoq>>[] = [];
-  const undo = async () => {
-    for (const file of stored) await deleteFile(file.publicId).catch(() => undefined);
-  };
-  try {
-    for (const file of files) {
-      try {
-        stored.push(await uploadBoq(file, 'query'));
-      } catch (err) {
-        const said = err instanceof Error ? err.message : '';
-        if (said === MSG.boqWrongType) {
-          throw badRequest(
-            `${file.originalname} cannot be attached — use a PDF, an image or a spreadsheet (CSV, XLS, XLSX)`,
-          );
-        }
-        if (said === MSG.boqTooLarge) {
-          throw badRequest(`${file.originalname} is larger than 5 MB — compress it and try again`);
-        }
-        throw err;
-      }
-    }
-  } catch (err) {
-    await undo();
-    throw err;
-  }
+  // Stored first, so a file that is refused stops the query rather than sending it.
+  const { stored, undo } = await storeQueryFiles(files);
 
   const outboxIds = await inTransaction(async (session) => {
     const changed = await MrLine.updateMany(
@@ -348,6 +367,7 @@ export async function holdPoolLines(
           procAt: new Date(),
           procFiles: stored,
           qsReply: '',
+          qsReplyFiles: [],
           qsReplyBy: null,
           qsReplyAt: null,
         },
@@ -426,12 +446,7 @@ export async function listProcHolds(): Promise<ProcHoldDto[]> {
         openQty: lineCalc(world, lineIn).poolOpen,
         action: l.procHold as 'QUERY' | 'REJECT',
         remark: l.procRemark ?? '',
-        files: (l.procFiles ?? []).map((f) => ({
-          id: f.publicId,
-          name: f.name,
-          size: num(f.size),
-          url: signedUrlFor(f.publicId),
-        })),
+        files: linksOf(l.procFiles),
         byName: l.procBy ? lookups.userName(l.procBy) : '',
         at: (l.procAt ?? l.updatedAt).toISOString(),
       },
@@ -449,7 +464,9 @@ export async function answerProcHold(
   actor: Actor,
   lineId: string,
   input: ProcHoldAnswerInput,
+  files: Express.Multer.File[] = [],
 ): Promise<void> {
+  const { stored, undo } = await storeQueryFiles(files);
   const world = await loadWorld();
   const lookups = await buildLookups();
   let mrId = '';
@@ -477,6 +494,7 @@ export async function answerProcHold(
 
     line.procHold = 'NONE';
     line.qsReply = input.remark;
+    line.qsReplyFiles = stored as never;
     line.qsReplyBy = new Types.ObjectId(actor.id) as never;
     line.qsReplyAt = new Date();
     await line.save({ session });
@@ -508,6 +526,9 @@ export async function answerProcHold(
 
     await bumpSyncStamp(session);
     return outbox;
+  }).catch(async (err) => {
+    await undo();
+    throw err;
   });
 
   await enqueueEmails(outboxIds);

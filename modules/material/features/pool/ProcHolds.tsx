@@ -4,7 +4,8 @@ import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { Paperclip } from 'lucide-react';
 import type { ProcHoldDto } from '@cm/shared';
-import { get, post } from '@mm/lib/api';
+import { get, postWithFiles } from '@mm/lib/api';
+import { ReceiptFiles } from '@mm/features/store/ReceiptFiles';
 import { DataTable, type Column } from '@mm/components/DataTable';
 import { Btn, Tag } from '@mm/components/ui';
 import { Modal } from '@mm/components/Modal';
@@ -117,9 +118,15 @@ export function ProcHolds({ canAnswer }: { canAnswer: boolean }) {
 function AnswerModal({ hold, onClose }: { hold: ProcHoldDto; onClose: () => void }) {
   const [decision, setDecision] = useState<'RETURN' | 'CANCEL'>('RETURN');
   const [remark, setRemark] = useState('');
+  const [files, setFiles] = useState<File[]>([]);
 
   const answer = useAction(
-    () => post(`/pool/holds/${hold.mrLineId}/answer`, { decision, remark: remark.trim() }),
+    () =>
+      postWithFiles(
+        `/pool/holds/${hold.mrLineId}/answer`,
+        { decision, remark: remark.trim() },
+        files,
+      ),
     {
       success: decision === 'CANCEL' ? 'Quantity cancelled' : 'Sent back to procurement',
       invalidate: KEYS,
@@ -200,12 +207,19 @@ function AnswerModal({ hold, onClose }: { hold: ProcHoldDto; onClose: () => void
           onChange={(e) => setRemark(e.target.value)}
         />
       </label>
+      <ReceiptFiles
+        files={files}
+        onChange={setFiles}
+        required={false}
+        label="Attachments — photo, drawing, approval"
+        note="goes to procurement with your answer"
+      />
     </Modal>
   );
 }
 
-/** What procurement attached to the query - each opens in a new tab. */
-function HoldFiles({ files }: { files: ProcHoldDto['files'] | undefined }) {
+/** Files sent with a query or an answer - each opens in a new tab. */
+export function HoldFiles({ files }: { files: ProcHoldDto['files'] | undefined }) {
   if (!files?.length) return null;
   return (
     <div className="flex flex-wrap gap-x-3 gap-y-1 mt-1">

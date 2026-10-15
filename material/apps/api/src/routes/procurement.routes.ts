@@ -1,4 +1,4 @@
-import { Router } from 'express';
+import { Router, type NextFunction, type Request, type Response } from 'express';
 import multer from 'multer';
 import {
   MATERIAL_ST,
@@ -98,6 +98,18 @@ const docUpload = multer({
   limits: { fileSize: MAX_VENDOR_DOC_BYTES },
 });
 
+
+/** A form that carries files sends its JSON in a `payload` field beside them. */
+function unwrapPayload(req: Request, _res: Response, next: NextFunction): void {
+  const payload = (req.body as { payload?: unknown } | undefined)?.payload;
+  if (typeof payload !== 'string') return next();
+  try {
+    req.body = JSON.parse(payload);
+    next();
+  } catch {
+    next(badRequest('The form could not be read — reload the page and try again'));
+  }
+}
 
 // ---------------------------------------------------------------------------
 // Consolidation — prototype VIEWS.pool
@@ -205,16 +217,7 @@ procurementRouter.post(
   requireAuth,
   authorize('PROC'),
   poFileUpload.array('files', MAX_BOQ_FILES),
-  (req, _res, next) => {
-    const payload = (req.body as { payload?: unknown } | undefined)?.payload;
-    if (typeof payload !== 'string') return next();
-    try {
-      req.body = JSON.parse(payload);
-      next();
-    } catch {
-      next(badRequest('The form could not be read — reload the page and try again'));
-    }
-  },
+  unwrapPayload,
   validateBody(poolHoldInput),
   wrap(async (req, res) => {
     const files = (req.files ?? []) as Express.Multer.File[];
@@ -234,9 +237,12 @@ procurementRouter.post(
   '/pool/holds/:lineId/answer',
   requireAuth,
   authorize('QS'),
+  poFileUpload.array('files', MAX_BOQ_FILES),
+  unwrapPayload,
   validateBody(procHoldAnswerInput),
   wrap(async (req, res) => {
-    await answerProcHold(actorOf(req), req.params.lineId!, req.body);
+    const files = (req.files ?? []) as Express.Multer.File[];
+    await answerProcHold(actorOf(req), req.params.lineId!, req.body, files);
     res.json({ ok: true });
   }),
 );

@@ -26,7 +26,7 @@ import { useAction } from '@mm/lib/hooks';
 import { useReference } from '@mm/lib/reference';
 import { dateTimeLocal, fmtDate, money, qty } from '@mm/lib/format';
 import { usePoDraft } from '@mm/features/po/draft';
-import { ProcHolds } from '@mm/features/pool/ProcHolds';
+import { HoldFiles, ProcHolds } from '@mm/features/pool/ProcHolds';
 import { ReceiptFiles } from '@mm/features/store/ReceiptFiles';
 import { AttachmentButton } from '@mm/features/mr/MrAttachments';
 
@@ -201,6 +201,7 @@ export default function PoolPage() {
             <div className="text-xs mt-1" style={{ color: 'var(--pur)' }}>
               <b>QS{r.qsReplyBy ? ` (${r.qsReplyBy})` : ''}:</b> {r.qsReply}
               {r.procRemark ? <span className="text-mut"> — you asked: {r.procRemark}</span> : null}
+              <HoldFiles files={r.qsReplyFiles} />
             </div>
           ) : null}
         </>

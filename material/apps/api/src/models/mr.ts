@@ -143,6 +143,8 @@ export interface IMrLine extends Timestamped {
   procFiles: StoredFileDoc[];
   /** QS's last answer to procurement, shown to procurement beside the line */
   qsReply: string;
+  /** what QS attached to that answer */
+  qsReplyFiles: StoredFileDoc[];
   qsReplyBy: Types.ObjectId | null;
   qsReplyAt: Date | null;
 }
@@ -178,6 +180,7 @@ const mrLineSchema = new Schema<IMrLine>(
     procAt: { type: Date, default: null },
     procFiles: { type: [fileSchema], default: [] },
     qsReply: { type: String, default: '' },
+    qsReplyFiles: { type: [fileSchema], default: [] },
     qsReplyBy: optionalRefTo('User'),
     qsReplyAt: { type: Date, default: null },
     lineStatus: {
