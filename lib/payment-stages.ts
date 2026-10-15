@@ -43,6 +43,10 @@ export const stageLabel=(status:string)=>STAGES[stageIndex(status)];
    payment.managementApproval); this is what applies before anyone has changed it. */
 export const MANAGEMENT_FIRST_COMPANIES=["TOP ROCK GLOBAL"];
 export const MANAGEMENT_APPROVAL="Management Approval";
+/* Finance release onwards: approved and waiting to be paid, and paid. Rejecting a request
+   here is an administrator's decision alone - it undoes what audit cleared, or money paid. */
+export const FINANCE_STAGES=["Approved by Auditor – Ready to Release","Management Approval: Yes","Finance Queue"];
+export const PAID_STAGES=["Payment Released","Reconciliation"];
 export const MANAGEMENT_ROLES=["Management","Administrator"];
 export const MANAGEMENT_SETTING="payment.managementApproval";
 /* approvers: for a company, the logins (emails) of the managers who approve its requests.

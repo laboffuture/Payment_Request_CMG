@@ -1,5 +1,5 @@
 "use client";
-import{DEPT_PRIORITIES,DEPT_PRIORITY_ROLES,STAGES as stages,priorityOpen,stageIndex}from"../lib/payment-stages";
+import{DEPT_PRIORITIES,DEPT_PRIORITY_ROLES,FINANCE_STAGES,PAID_STAGES,STAGES as stages,priorityOpen,stageIndex}from"../lib/payment-stages";
 import{FIELD_ORDER,labelFor,ruleFor}from"../lib/payment-fields";
 import type{FieldKey}from"../lib/payment-fields";
 import{useEffect,useMemo,useState}from"react";
@@ -128,6 +128,8 @@ export default function PaymentDetail({payment:p,busy=false,role,onClose,onActio
  /* Each stage belongs to one role. An administrator or audit head may also act, so a
     request is never stuck because the responsible person is unavailable. */
  const can=(r:string)=>role===r||role==="Administrator"||role==="Audit Head";
+ /* From finance release on, rejecting is the administrator's call alone (the server holds the same rule). */
+ const adminReject=role==="Administrator"&&[...FINANCE_STAGES,...PAID_STAGES].includes(p.status);
  /* The ways a request goes back. A query to the requestor returns it to be corrected and
     resubmitted; a rejection closes it for good, and a new request is raised instead. Audit
     can also put a query to accounts, who answer it and send the request back to audit.
@@ -145,8 +147,8 @@ export default function PaymentDetail({payment:p,busy=false,role,onClose,onActio
      cls:"wf-reject",ask:"Why is this request being rejected?",
      hint:"The request is closed and cannot be resubmitted. If the payment is still needed, the requestor raises a new one.",
      title:"Close the request. The requestor must raise a new one"}} as const;
- const rejectForm=(fromAudit=false)=>{
-   const offered=(fromAudit?["accounts","query","reject"]:["query","reject"]) as (keyof typeof SEND_BACK)[];
+ const rejectForm=(fromAudit=false,only?:(keyof typeof SEND_BACK)[])=>{
+   const offered=only||(fromAudit?["accounts","query","reject"]:["query","reject"]) as (keyof typeof SEND_BACK)[];
    const open=sendBack?SEND_BACK[sendBack]:null;
    return open
    ?<div className="wf-reject-form">
@@ -257,7 +259,8 @@ export default function PaymentDetail({payment:p,busy=false,role,onClose,onActio
      {releaseFile&&<b>{releaseFile.name}</b>}</label>
    {noteBox("Remarks","Anything worth recording with the release (optional)")}
    {releaseErr&&<p className="wf-release-error">{releaseErr}</p>}
-   <button className="wf-primary" disabled={!utr.trim()} title={utr.trim()?"":"Enter the UTR number first"} onClick={release}>Mark as Released</button></>;
+   <div className="wf-actions">{adminReject&&rejectForm(false,["reject"])}
+   {!sendBack&&<button className="wf-primary" disabled={!utr.trim()} title={utr.trim()?"":"Enter the UTR number first"} onClick={release}>Mark as Released</button>}</div></>;
  if(p.status==="Rejected")action=<><div className="wf-observation"><X/><div>
    <small>REQUEST REJECTED</small>
    <b>{p.rejectionNote||"No reason was recorded."}</b>
@@ -336,7 +339,12 @@ export default function PaymentDetail({payment:p,busy=false,role,onClose,onActio
     </div>
    :<><div className="wf-callout"><Clock3/>Correct what is noted above, change any detail that was wrong, attach any replacement document, then say what you changed.</div>
      <button className="wf-primary" onClick={startFix}><Check/>Correct and resubmit</button></>)}</>;
- if(released)action=<div className="wf-success"><FileCheck2/><div><b>Payment Released</b><p>Release proof and the complete approval history are retained.</p></div></div>;
+ if(released||p.status==="Reconciliation")action=<><div className="wf-success"><FileCheck2/><div><b>Payment Released</b><p>Release proof and the complete approval history are retained.</p></div></div>
+   {adminReject&&<><div className="wf-callout"><AlertTriangle/>Administrator: reject this released payment if it bounced, was paid in error or must be reversed. Give the reason - it is kept on the record with the UTR.</div>
+   <div className="wf-actions">{rejectForm(false,["reject"])}</div></>}</>;
+ /* Waiting at finance release in a stage with no release form: the administrator can still reject it. */
+ if(adminReject&&!approved&&FINANCE_STAGES.includes(p.status))action=<><div className="wf-callout"><Clock3/>Waiting for finance release.</div>
+   <div className="wf-actions">{rejectForm(false,["reject"])}</div></>;
  /* A requestor only watches the accounts and audit stages - but a query is theirs to
     answer and a rejection is theirs to read, so this notice must not overwrite either. */
  if((role==="Requestor"||role==="Payment Requestor")&&p.status!=="Rejected"&&p.status!=="Query Raised")

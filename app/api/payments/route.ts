@@ -5,7 +5,7 @@ import{deleteFile}from"../../../lib/storage";
 import{companyLock,departmentPeers,hasWriteRole,inCompany,requireAuth}from"../../../lib/auth";
 import{emailsForRoles,notify,rolesActingOn}from"../../../lib/notify";
 import{FIELD_ORDER,REQUIRED_ON_SAVE,labelFor,ruleFor}from"../../../lib/payment-fields";
-import{MANAGEMENT_APPROVAL,MANAGEMENT_ROLES,approversOf,needsManagementApproval}from"../../../lib/payment-stages";
+import{FINANCE_STAGES,MANAGEMENT_APPROVAL,MANAGEMENT_ROLES,PAID_STAGES,approversOf,needsManagementApproval}from"../../../lib/payment-stages";
 import type{ManagementSetting}from"../../../lib/payment-stages";
 import{managementSetting,managementUsers}from"../../../lib/app-settings";
 import{rememberVendor}from"../../../lib/vendors";
@@ -287,6 +287,11 @@ export async function PATCH(req:Request){
        undo a rejection made in error - and nobody can resubmit one. */
     if(old.status===REJECTED&&!(actor?.roles||[]).includes("Administrator"))
       return bad("This request was rejected and is closed. Raise a new request instead.",409);
+    /* At finance release, and after the payment is released, only an administrator may
+       reject it - and a paid request moves nowhere else. */
+    if(status===REJECTED&&[...FINANCE_STAGES,...PAID_STAGES].includes(old.status)
+      &&!(actor?.roles||[]).includes("Administrator"))
+      return bad(`${old.requestNo} is at "${old.status}" - only an administrator can reject it now.`,403);
     /* Both ends of a return have to say something. A query or rejection must say what is
        wrong, and the resubmission must say what was done about it - otherwise accounts
        reopens the request knowing only that it came back. The original reason stays on
