@@ -191,6 +191,9 @@
    A material document (MR form, PO) prints on its own, without the shell. */
 @media print {
   .shell > .side, .shell > main > header, .toast, .scrim { display: none !important; }
+  html, body { background: #fff !important; }
+  /* a full-height shell is a whole sheet on paper: it pushed a blank second page */
+  .shell { min-height: 0 !important; display: block !important; }
   .shell > main { margin: 0 !important; width: 100% !important; }
   .mm .noprint { display: none !important; }
   .mm .page { padding: 0; }

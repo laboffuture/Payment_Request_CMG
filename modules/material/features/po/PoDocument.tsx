@@ -80,6 +80,25 @@ const DOC_CSS = `
 .po-doc-sign>div>em{font-style:normal;font-size:12px;line-height:1.3}
 .po-doc-sign>div>span{border-top:1px solid currentColor;margin-top:24px;padding-top:4px;min-height:22px}
 @media screen and (max-width:700px){.po-doc-info{grid-template-columns:1fr}.po-doc-sign{grid-template-columns:1fr 1fr}}
+/* printed, the whole order (rows, totals, terms, signatures) fits one A4 sheet */
+@page{size:A4;margin:10mm}
+@media print{
+.po-doc-head{padding-bottom:6px}
+.po-doc-head img{max-height:44px}
+.po-doc-stack,.po-doc-title{font-size:10.5px;gap:1px}
+.po-doc-stack>b{font-size:13px}
+.po-doc-title>b{font-size:15px}
+.po-doc-info{margin:8px 0;gap:4px 24px;font-size:10.5px;line-height:1.3}
+.po-doc-rows{grid-template-columns:96px 10px 1fr;row-gap:1px}
+.po-doc-table{font-size:10px}
+.po-doc-table th,.po-doc-table td{padding:3px 5px!important;line-height:1.25}
+.po-doc-table small{font-size:9px!important}
+.po-doc>p,.po-doc>div.mt-3{font-size:10.5px!important;margin-top:6px!important}
+.po-doc-sign{margin-top:14px;font-size:10.5px;gap:10px;break-inside:avoid}
+.po-doc-sign>div{gap:1px}
+.po-doc-sign>div>em{font-size:9.5px}
+.po-doc-sign>div>span{margin-top:22px;min-height:0}
+}
 `;
 
 const COLUMNS = ['S.No', 'Item Name', 'MR No.', 'UOM', 'Qty', 'Rate', 'Amount'];
@@ -119,7 +138,7 @@ export function PoDocument({ preview }: { preview: PoDocumentData }) {
     preview.status === 'REJECTED' ? null : preview.approvedByName;
 
   return (
-    <div className="bg-white border border-line rounded-card p-7 max-w-[900px] print:border-0 print:p-0">
+    <div className="po-doc bg-white border border-line rounded-card p-7 max-w-[900px] print:border-0 print:p-0">
       <style>{DOC_CSS}</style>
       <div className="po-doc-head">
         <div className="po-doc-co">
