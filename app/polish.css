@@ -334,3 +334,5 @@ td small .badge{vertical-align:middle}
 .mm .mm-status-pick:hover{background:#f5f7fa;border-color:var(--ui-line-hover)}
 .mm .mm-status-pick.on{background:#0b1d3a;border-color:#0b1d3a;color:#fff}
 .mm .mm-status-pick.on b{color:#fff}
+/* two columns on a wide screen (MR items) */
+@media(min-width:1280px){.mm .grid.xl\:grid-cols-2{grid-template-columns:repeat(2,minmax(0,1fr))}}

@@ -249,7 +249,7 @@ export function MrForm({ existing }: { existing?: MrDetailDto }) {
   const chosenProject = reference.projects.find((p) => p.id === projectId) ?? null;
 
   return (
-    <div className="max-w-[620px]">
+    <div className="w-full">
       <PageHeader
         title={existing ? `Edit ${existing.no || 'draft'}` : 'New material request'}
         subtitle="One project and one required date per MR. On submit it goes to the Project Manager, and then to QS."
@@ -265,9 +265,10 @@ export function MrForm({ existing }: { existing?: MrDetailDto }) {
       <Card>
         <Stack>
           {/* The same project, chosen by whichever the engineer knows — the
-              two lists are the same projects and stay in step. */}
-          <div className="flex gap-[10px] flex-wrap">
-            <label className="field basis-[180px] grow">
+              two lists are the same projects and stay in step. Code, name and
+              date sit on one line on a wide screen. */}
+          <div className="grid gap-3 items-end desk:grid-cols-[1fr_2fr_1fr]">
+            <label className="field">
               Project code *
               <select value={projectId} onChange={(e) => setProjectId(e.target.value)}>
                 <option value="">Select code</option>
@@ -279,7 +280,7 @@ export function MrForm({ existing }: { existing?: MrDetailDto }) {
               </select>
             </label>
 
-            <label className="field basis-[240px] grow-[2]">
+            <label className="field">
               Project name *
               <select value={projectId} onChange={(e) => setProjectId(e.target.value)}>
                 <option value="">Select name</option>
@@ -290,34 +291,45 @@ export function MrForm({ existing }: { existing?: MrDetailDto }) {
                 ))}
               </select>
             </label>
+
+            <label className="field">
+              Required date *
+              <input
+                type="date"
+                min={earliestRequiredDate()}
+                value={requiredDate}
+                onChange={(e) => setRequiredDate(e.target.value)}
+              />
+            </label>
           </div>
 
-          {chosenProject ? (
-            <div className="text-mut text-sm">
-              Raising for <b className="text-ink">{chosenProject.code}</b> ·{' '}
-              {chosenProject.name}
-            </div>
-          ) : null}
-
-          <label className="field">
-            Required date * — applies to every item, from {fmtDate(earliestRequiredDate())}
-            <input
-              type="date"
-              min={earliestRequiredDate()}
-              value={requiredDate}
-              onChange={(e) => setRequiredDate(e.target.value)}
-            />
-          </label>
-
-          <div className="text-mut text-sm">
-            Items needed on another date go in a separate MR.
+          <div className="flex flex-wrap justify-between gap-x-6 gap-y-1 text-mut text-sm">
+            <span>
+              {chosenProject ? (
+                <>
+                  Raising for <b className="text-ink">{chosenProject.code}</b> ·{' '}
+                  {chosenProject.name}
+                </>
+              ) : (
+                'Choose the project by its code or its name.'
+              )}
+            </span>
+            <span>
+              The date applies to every item, from {fmtDate(earliestRequiredDate())}. Items
+              needed on another date go in a separate MR.
+            </span>
           </div>
         </Stack>
       </Card>
 
-      <h2>Items ({active.length})</h2>
+      <div className="flex items-center justify-between gap-3 flex-wrap mt-[22px] mb-3">
+        <h2 className="!m-0">Items ({active.length})</h2>
+        <Btn variant="primary" onClick={() => setPickerOpen(true)}>
+          + Add item
+        </Btn>
+      </div>
 
-      <div className="flex flex-col gap-3">
+      <div className="grid gap-3 items-start xl:grid-cols-2">
         {lines.map((line, index) =>
           line.rejected ? null : (
             <LineCard
@@ -332,23 +344,40 @@ export function MrForm({ existing }: { existing?: MrDetailDto }) {
             />
           ),
         )}
-        {!active.length ? <div className="text-mut">No items yet.</div> : null}
+        {!active.length ? (
+          <div className="text-mut text-center rounded-card border border-dashed border-line bg-white py-6 xl:col-span-2">
+            No items yet — use <b>+ Add item</b> to pick from the item master.
+          </div>
+        ) : null}
       </div>
 
-      <Btn
-        className="w-full my-3 border-[1.5px] border-ac text-ac"
-        onClick={() => setPickerOpen(true)}
-      >
-        + Add item
-      </Btn>
+      {active.length ? (
+        <Btn
+          className="w-full my-3 border-[1.5px] border-ac text-ac"
+          onClick={() => setPickerOpen(true)}
+        >
+          + Add another item
+        </Btn>
+      ) : (
+        <div className="h-3" />
+      )}
 
-      <Card>
-        <Stack>
-          <label className="field">
+      {/* Remarks beside the BOQ on a wide screen. */}
+      <div className="grid gap-3 items-stretch desk:grid-cols-2">
+        <Card>
+          <label className="field h-full">
             MR remarks
-            <textarea rows={2} value={remarks} onChange={(e) => setRemarks(e.target.value)} />
+            <textarea
+              rows={5}
+              className="grow"
+              placeholder="Anything the PM, QS or procurement should know about this request"
+              value={remarks}
+              onChange={(e) => setRemarks(e.target.value)}
+            />
           </label>
+        </Card>
 
+        <Card>
           <BoqUpload
             pending={pending}
             attached={attached}
@@ -357,8 +386,8 @@ export function MrForm({ existing }: { existing?: MrDetailDto }) {
             onDropAttached={(fileId) => dropAttached.mutate(fileId)}
             busy={dropAttached.isPending}
           />
-        </Stack>
-      </Card>
+        </Card>
+      </div>
 
       <StickyActionBar>
         <div>
