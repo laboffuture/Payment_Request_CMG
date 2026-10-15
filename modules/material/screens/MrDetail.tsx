@@ -307,8 +307,6 @@ function LinesTable({
           {l.changed ? <Tag label="CHANGED" tone="amb" /> : null}
           {l.lineStatus === 'REJECTED' ? <Tag label="LINE REJECTED" tone="red" /> : null}
           {l.qsQuery ? <Tag label="QS QUERY" tone="red" /> : null}
-          {l.procHold === 'QUERY' ? <Tag label="PROCUREMENT QUERY" tone="amb" /> : null}
-          {l.procHold === 'REJECT' ? <Tag label="PROCUREMENT REJECTED" tone="red" /> : null}
         </span>
       ),
     },
@@ -324,18 +322,7 @@ function LinesTable({
           {l.lineStatus === 'REJECTED' && l.qsRemark ? (
             <span className="block text-xs text-mut mt-1">Removed: {l.qsRemark}</span>
           ) : null}
-          {l.procRemark ? (
-            <span className="block text-xs mt-1 text-[#9a5b00]">
-              <b>Procurement{l.procByName ? ` (${l.procByName})` : ''}:</b> {l.procRemark}
-              <HoldFiles files={l.procFiles} />
-            </span>
-          ) : null}
-          {l.qsReply ? (
-            <span className="block text-xs mt-1" style={{ color: 'var(--pur)' }}>
-              <b>QS answered:</b> {l.qsReply}
-              <HoldFiles files={l.qsReplyFiles} />
-            </span>
-          ) : null}
+          <ProcurementNotes line={l} />
         </span>
       ),
     },
@@ -376,6 +363,7 @@ function LinesTable({
             {l.measurement ? ` · ${l.measurement}` : ''}
             {l.qsRemark ? ` · QS: ${l.qsRemark}` : ''}
           </div>
+          <ProcurementNotes line={l} />
         </span>
       ),
     },
@@ -1256,5 +1244,36 @@ function PoProgressCard({ po }: { po: LinkedPoDto }) {
         ) : null}
       </Stack>
     </Card>
+  );
+}
+
+/**
+ * Procurement's query or rejection on a line (from Consolidate MRs) and QS's answer, with
+ * the files sent each way - so whoever checks the MR sees what was asked and shown.
+ */
+function ProcurementNotes({ line }: { line: MrLineDetailDto }) {
+  if (!line.procRemark && !line.qsReply) return null;
+  const waiting = line.procHold === 'QUERY' || line.procHold === 'REJECT';
+  return (
+    <div className="text-xs mt-1 flex flex-col gap-1">
+      {line.procRemark ? (
+        <div className="text-[#9a5b00]">
+          {waiting ? (
+            <Tag
+              label={line.procHold === 'QUERY' ? 'PROCUREMENT QUERY' : 'PROCUREMENT REJECTED'}
+              tone={line.procHold === 'QUERY' ? 'amb' : 'red'}
+            />
+          ) : null}{' '}
+          <b>Procurement{line.procByName ? ` (${line.procByName})` : ''}:</b> {line.procRemark}
+          <HoldFiles files={line.procFiles} />
+        </div>
+      ) : null}
+      {line.qsReply ? (
+        <div style={{ color: 'var(--pur)' }}>
+          <b>QS answered:</b> {line.qsReply}
+          <HoldFiles files={line.qsReplyFiles} />
+        </div>
+      ) : null}
+    </div>
   );
 }
