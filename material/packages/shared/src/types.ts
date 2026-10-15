@@ -216,6 +216,8 @@ export interface TrailRowDto {
   action: string;
   userName: string;
   note: string;
+  /** The enquiry / PO an entry belongs to, on QS's start-to-end trail of an MR. */
+  doc?: string;
 }
 
 export interface NotificationDto {

@@ -284,17 +284,22 @@ export function DueCountdown({ due }: { due?: string | null }) {
 
 export function Trail({
   rows,
+  title = 'Trail',
 }: {
-  rows: { id: string; at: string; action: string; userName: string; note: string }[];
+  rows: { id: string; at: string; action: string; userName: string; note: string; doc?: string }[];
+  title?: string;
 }) {
   if (!rows.length) return null;
   return (
     <>
-      <h2 className="noprint">Trail</h2>
+      <h2 className="noprint">{title}</h2>
       <div className="card flex flex-col gap-[6px] text-sm text-sub noprint">
         {rows.map((row) => (
           <div key={row.id} className="flex gap-[10px]">
             <b className="min-w-[130px]">{fmtDateTime(row.at)}</b>
+            {row.doc ? (
+              <span className="font-mono text-[11px] min-w-[150px] shrink-0">{row.doc}</span>
+            ) : null}
             <span>
               {row.action} — {row.userName}
               {row.note ? ` · ${row.note}` : ''}

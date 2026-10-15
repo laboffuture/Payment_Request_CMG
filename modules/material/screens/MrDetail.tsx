@@ -198,7 +198,12 @@ export default function MrDetailPage() {
         </>
       ) : null}
 
-      {me.role !== 'VENDOR' ? <Trail rows={data.trail} /> : null}
+      {me.role !== 'VENDOR' ? (
+        <Trail
+          rows={data.trail}
+          title={me.role === 'QS' ? 'Trail — start to end (MR, enquiry, PO, receipts)' : 'Trail'}
+        />
+      ) : null}
     </>
   );
 }

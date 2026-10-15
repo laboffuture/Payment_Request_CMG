@@ -18,6 +18,7 @@ import {
   type MrPrintDto,
   type PmApproveInput,
   type QsApproveInput,
+  type TrailRowDto,
   type UpsertMrInput,
 } from '@cm/shared';
 import { inTransaction } from '../db.js';
@@ -375,13 +376,28 @@ export async function getMr(actor: Actor, id: string): Promise<MrDetailDto> {
     .select('no status dueAt')
     .lean();
 
+  // QS follows the request from start to end: the MR's own trail, then its
+  // enquiries and POs (raised, checked, approved, received) in one time line.
+  let fullTrail: TrailRowDto[] = trail;
+  if (actor.role === 'QS' && (rfqs.length || pos.length)) {
+    const [rfqTrails, poTrails] = await Promise.all([
+      Promise.all(rfqs.map((r) => trailFor('RFQ', String(r._id), lookups))),
+      Promise.all(pos.map((p) => trailFor('PO', String(p._id), lookups))),
+    ]);
+    fullTrail = [
+      ...trail.map((row) => ({ ...row, doc: mr.no })),
+      ...rfqTrails.flatMap((rows, k) => rows.map((row) => ({ ...row, doc: rfqs[k]!.no }))),
+      ...poTrails.flatMap((rows, k) => rows.map((row) => ({ ...row, doc: pos[k]!.no }))),
+    ].sort((a, b) => a.at.localeCompare(b.at));
+  }
+
   return {
     ...toMrDto(mr, lookups, {
       lines: lines.length,
       newItems: lines.filter((l) => l.newStatus === 'PENDING').length,
     }),
     lines: lineDtos,
-    trail: actor.role === 'VENDOR' ? [] : trail,
+    trail: actor.role === 'VENDOR' ? [] : fullTrail,
     linkedPos,
     linkedRfqs: rfqs.map((r) => ({
       id: String(r._id),
