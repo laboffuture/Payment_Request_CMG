@@ -139,6 +139,8 @@ export interface IMrLine extends Timestamped {
   procRemark: string;
   procBy: Types.ObjectId | null;
   procAt: Date | null;
+  /** what procurement attached to its query / rejection - a photo, a quotation, a drawing */
+  procFiles: StoredFileDoc[];
   /** QS's last answer to procurement, shown to procurement beside the line */
   qsReply: string;
   qsReplyBy: Types.ObjectId | null;
@@ -174,6 +176,7 @@ const mrLineSchema = new Schema<IMrLine>(
     procRemark: { type: String, default: '' },
     procBy: optionalRefTo('User'),
     procAt: { type: Date, default: null },
+    procFiles: { type: [fileSchema], default: [] },
     qsReply: { type: String, default: '' },
     qsReplyBy: optionalRefTo('User'),
     qsReplyAt: { type: Date, default: null },

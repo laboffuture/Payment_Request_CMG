@@ -15,6 +15,7 @@ import { MSG, materialStatusOf } from '@cm/shared';
 import { inTransaction } from '../db.js';
 import { AUDIT, writeAudit } from '../lib/audit.js';
 import { badRequest, conflict, notFound } from '../lib/errors.js';
+import { deleteFile, signedUrlFor, uploadBoq } from '../lib/files.js';
 import { emit } from '../lib/notify.js';
 import { bumpSyncStamp } from '../lib/sync.js';
 import { enqueueEmails } from '../jobs/queues.js';
@@ -295,6 +296,7 @@ const mrDescriptionOf = (l: { description?: string; measurement?: string }): str
 export async function holdPoolLines(
   actor: Actor,
   input: PoolHoldInput,
+  files: Express.Multer.File[] = [],
 ): Promise<{ lines: number }> {
   const open = new Map(
     (await listPool({ projectId: '', category: '' })).map((r) => [r.mrLineId, r]),
@@ -307,6 +309,34 @@ export async function holdPoolLines(
   });
 
   const isQuery = input.action === 'QUERY';
+  // Stored first, so a file that is refused stops the query rather than sending it
+  // without; removed again if the query then fails.
+  const stored: Awaited<ReturnType<typeof uploadBoq>>[] = [];
+  const undo = async () => {
+    for (const file of stored) await deleteFile(file.publicId).catch(() => undefined);
+  };
+  try {
+    for (const file of files) {
+      try {
+        stored.push(await uploadBoq(file, 'query'));
+      } catch (err) {
+        const said = err instanceof Error ? err.message : '';
+        if (said === MSG.boqWrongType) {
+          throw badRequest(
+            `${file.originalname} cannot be attached — use a PDF, an image or a spreadsheet (CSV, XLS, XLSX)`,
+          );
+        }
+        if (said === MSG.boqTooLarge) {
+          throw badRequest(`${file.originalname} is larger than 5 MB — compress it and try again`);
+        }
+        throw err;
+      }
+    }
+  } catch (err) {
+    await undo();
+    throw err;
+  }
+
   const outboxIds = await inTransaction(async (session) => {
     const changed = await MrLine.updateMany(
       { _id: { $in: ids }, procHold: { $in: ['NONE', null] } },
@@ -316,6 +346,7 @@ export async function holdPoolLines(
           procRemark: input.remark,
           procBy: new Types.ObjectId(actor.id),
           procAt: new Date(),
+          procFiles: stored,
           qsReply: '',
           qsReplyBy: null,
           qsReplyAt: null,
@@ -351,6 +382,9 @@ export async function holdPoolLines(
 
     await bumpSyncStamp(session);
     return outbox;
+  }).catch(async (err) => {
+    await undo();
+    throw err;
   });
 
   await enqueueEmails(outboxIds);
@@ -392,6 +426,12 @@ export async function listProcHolds(): Promise<ProcHoldDto[]> {
         openQty: lineCalc(world, lineIn).poolOpen,
         action: l.procHold as 'QUERY' | 'REJECT',
         remark: l.procRemark ?? '',
+        files: (l.procFiles ?? []).map((f) => ({
+          id: f.publicId,
+          name: f.name,
+          size: num(f.size),
+          url: signedUrlFor(f.publicId),
+        })),
         byName: l.procBy ? lookups.userName(l.procBy) : '',
         at: (l.procAt ?? l.updatedAt).toISOString(),
       },

@@ -17,7 +17,7 @@ import {
   type PoolRowDto,
   type VendorDto,
 } from '@cm/shared';
-import { downloadFile, get, newIdempotencyKey, post } from '@mm/lib/api';
+import { downloadFile, get, newIdempotencyKey, post, postWithFiles } from '@mm/lib/api';
 import { DataTable, type Column } from '@mm/components/DataTable';
 import { Btn, Chip, EmptyState, PageHeader, StickyActionBar, Tabs, Tag } from '@mm/components/ui';
 import { Modal } from '@mm/components/Modal';
@@ -27,6 +27,7 @@ import { useReference } from '@mm/lib/reference';
 import { dateTimeLocal, fmtDate, money, qty } from '@mm/lib/format';
 import { usePoDraft } from '@mm/features/po/draft';
 import { ProcHolds } from '@mm/features/pool/ProcHolds';
+import { ReceiptFiles } from '@mm/features/store/ReceiptFiles';
 import { AttachmentButton } from '@mm/features/mr/MrAttachments';
 
 /**
@@ -598,15 +599,16 @@ function SendBackModal({
   onSent: () => void;
 }) {
   const [remark, setRemark] = useState('');
+  const [files, setFiles] = useState<File[]>([]);
   const isQuery = action === 'QUERY';
 
   const send = useAction(
     () =>
-      post<{ lines: number }>('/pool/hold', {
-        mrLineIds: rows.map((r) => r.mrLineId),
-        action,
-        remark: remark.trim(),
-      }),
+      postWithFiles<{ lines: number }>(
+        '/pool/hold',
+        { mrLineIds: rows.map((r) => r.mrLineId), action, remark: remark.trim() },
+        files,
+      ),
     {
       success: (r) =>
         `${r.lines} material(s) ${isQuery ? 'sent to QS with your query' : 'rejected and sent back to QS'}`,
@@ -659,6 +661,13 @@ function SendBackModal({
           onChange={(e) => setRemark(e.target.value)}
         />
       </label>
+      <ReceiptFiles
+        files={files}
+        onChange={setFiles}
+        required={false}
+        label="Attachments — photo, quotation, drawing"
+        note="goes to QS with this query"
+      />
     </Modal>
   );
 }

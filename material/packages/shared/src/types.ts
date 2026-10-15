@@ -603,6 +603,8 @@ export interface ProcHoldDto {
   openQty: number;
   action: 'QUERY' | 'REJECT';
   remark: string;
+  /** what procurement attached to the query / rejection */
+  files: BoqFileDto[];
   byName: string;
   at: string;
 }

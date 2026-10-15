@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
+import { Paperclip } from 'lucide-react';
 import type { ProcHoldDto } from '@cm/shared';
 import { get, post } from '@mm/lib/api';
 import { DataTable, type Column } from '@mm/components/DataTable';
@@ -75,6 +76,7 @@ export function ProcHolds({ canAnswer }: { canAnswer: boolean }) {
       render: (r) => (
         <>
           {r.remark}
+          <HoldFiles files={r.files} />
           <div className="text-mut text-xs">
             {[r.byName, fmtDateTime(r.at)].filter(Boolean).join(' · ')}
           </div>
@@ -151,6 +153,7 @@ function AnswerModal({ hold, onClose }: { hold: ProcHoldDto; onClose: () => void
       </p>
       <div className="warn">
         <b>{hold.byName || 'Procurement'}:</b> {hold.remark}
+        <HoldFiles files={hold.files} />
       </div>
 
       <label className="flex items-start gap-2">
@@ -198,5 +201,26 @@ function AnswerModal({ hold, onClose }: { hold: ProcHoldDto; onClose: () => void
         />
       </label>
     </Modal>
+  );
+}
+
+/** What procurement attached to the query - each opens in a new tab. */
+function HoldFiles({ files }: { files: ProcHoldDto['files'] | undefined }) {
+  if (!files?.length) return null;
+  return (
+    <div className="flex flex-wrap gap-x-3 gap-y-1 mt-1">
+      {files.map((file) => (
+        <a
+          key={file.id}
+          href={file.url}
+          target="_blank"
+          rel="noreferrer"
+          className="inline-flex items-center gap-1 text-xs text-ac underline"
+        >
+          <Paperclip className="w-3 h-3" aria-hidden />
+          {file.name}
+        </a>
+      ))}
+    </div>
   );
 }

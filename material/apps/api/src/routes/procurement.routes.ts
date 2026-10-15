@@ -28,6 +28,7 @@ import {
   vendorQuoteInput,
 } from '@cm/shared';
 import { sendCsv, wrap } from '../lib/http.js';
+import { badRequest } from '../lib/errors.js';
 import { validateBody } from '../middleware/validate.js';
 import { actorOf, authorize, requireAuth } from '../middleware/auth.js';
 import { idempotency } from '../middleware/idempotency.js';
@@ -197,13 +198,27 @@ procurementRouter.post(
 );
 
 // Procurement sends ticked lines back to QS with remarks: a query, or a rejection.
+// Photos, a quotation or a drawing may go with it: the form sends the JSON in a
+// `payload` field beside the files.
 procurementRouter.post(
   '/pool/hold',
   requireAuth,
   authorize('PROC'),
+  poFileUpload.array('files', MAX_BOQ_FILES),
+  (req, _res, next) => {
+    const payload = (req.body as { payload?: unknown } | undefined)?.payload;
+    if (typeof payload !== 'string') return next();
+    try {
+      req.body = JSON.parse(payload);
+      next();
+    } catch {
+      next(badRequest('The form could not be read — reload the page and try again'));
+    }
+  },
   validateBody(poolHoldInput),
   wrap(async (req, res) => {
-    res.json(await holdPoolLines(actorOf(req), req.body));
+    const files = (req.files ?? []) as Express.Multer.File[];
+    res.json(await holdPoolLines(actorOf(req), req.body, files));
   }),
 );
 

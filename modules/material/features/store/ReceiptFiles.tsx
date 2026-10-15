@@ -17,11 +17,14 @@ export function ReceiptFiles({
   onChange,
   required,
   label = 'Delivery note / photo',
+  note = 'goes with this receipt',
 }: {
   files: File[];
   onChange: (next: File[]) => void;
   required: boolean;
   label?: string;
+  /** said beside each chosen file */
+  note?: string;
 }) {
   const toast = useToast();
   const pick = (chosen: FileList | null) => {
@@ -47,7 +50,7 @@ export function ReceiptFiles({
               key={`${file.name}-${file.size}-${index}`}
               name={file.name}
               size={file.size}
-              note="goes with this receipt"
+              note={note}
               onRemove={() => onChange(files.filter((_, i) => i !== index))}
             />
           ))}
