@@ -467,6 +467,16 @@ export interface LineCalcDto {
 
 export interface MrLineDetailDto extends MrLineDto {
   calc: LineCalcDto;
+  /**
+   * Procurement's query / rejection from Consolidate MRs and QS's answer, with the files
+   * sent each way - shown to staff on the MR page (not to site engineers or vendors).
+   */
+  procHold?: 'NONE' | 'QUERY' | 'REJECT';
+  procRemark?: string;
+  procByName?: string;
+  procFiles?: BoqFileDto[];
+  qsReply?: string;
+  qsReplyFiles?: BoqFileDto[];
   /** store availability, shown on the QS split screen */
   available: number;
   onHand: number;

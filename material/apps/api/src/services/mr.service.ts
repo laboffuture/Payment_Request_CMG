@@ -304,8 +304,29 @@ export async function getMr(actor: Actor, id: string): Promise<MrDetailDto> {
 
     const s = line.itemId ? stock(world, String(line.itemId)) : null;
 
+    const staff = actor.role !== 'SITE' && actor.role !== 'VENDOR';
+    const links = (files: Record<string, any>[] | undefined) =>
+      (files ?? []).map((f) => ({
+        id: f.publicId,
+        name: f.name ?? '',
+        size: num(f.size),
+        url: signedUrlFor(f.publicId),
+      }));
+    const procurement =
+      staff && ((line.procRemark ?? '') || (line.qsReply ?? ''))
+        ? {
+            procHold: (line.procHold ?? 'NONE') as 'NONE' | 'QUERY' | 'REJECT',
+            procRemark: line.procRemark ?? '',
+            procByName: line.procBy ? lookups.userName(line.procBy) : '',
+            procFiles: links(line.procFiles),
+            qsReply: line.qsReply ?? '',
+            qsReplyFiles: links(line.qsReplyFiles),
+          }
+        : {};
+
     return {
       ...toMrLineDto(line, lookups),
+      ...procurement,
       calc: {
         store: calc.store,
         po: calc.po,

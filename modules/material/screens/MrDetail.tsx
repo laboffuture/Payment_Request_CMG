@@ -35,6 +35,7 @@ import {
   Tag,
   Trail,
 } from '@mm/components/ui';
+import { HoldFiles } from '@mm/features/pool/ProcHolds';
 import { useToast } from '@mm/components/Toast';
 import { useAction } from '@mm/lib/hooks';
 import { fmtDate, fmtDateTime, money, qty } from '@mm/lib/format';
@@ -306,6 +307,8 @@ function LinesTable({
           {l.changed ? <Tag label="CHANGED" tone="amb" /> : null}
           {l.lineStatus === 'REJECTED' ? <Tag label="LINE REJECTED" tone="red" /> : null}
           {l.qsQuery ? <Tag label="QS QUERY" tone="red" /> : null}
+          {l.procHold === 'QUERY' ? <Tag label="PROCUREMENT QUERY" tone="amb" /> : null}
+          {l.procHold === 'REJECT' ? <Tag label="PROCUREMENT REJECTED" tone="red" /> : null}
         </span>
       ),
     },
@@ -320,6 +323,18 @@ function LinesTable({
           ) : null}
           {l.lineStatus === 'REJECTED' && l.qsRemark ? (
             <span className="block text-xs text-mut mt-1">Removed: {l.qsRemark}</span>
+          ) : null}
+          {l.procRemark ? (
+            <span className="block text-xs mt-1 text-[#9a5b00]">
+              <b>Procurement{l.procByName ? ` (${l.procByName})` : ''}:</b> {l.procRemark}
+              <HoldFiles files={l.procFiles} />
+            </span>
+          ) : null}
+          {l.qsReply ? (
+            <span className="block text-xs mt-1" style={{ color: 'var(--pur)' }}>
+              <b>QS answered:</b> {l.qsReply}
+              <HoldFiles files={l.qsReplyFiles} />
+            </span>
           ) : null}
         </span>
       ),
