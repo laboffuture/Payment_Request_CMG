@@ -293,35 +293,38 @@ export default function ItemsPage() {
 
   return (
     <>
-      <PageHeader
-        title="Item master"
-        subtitle="New items approved by QS land here. Bulk load with Import inventory."
-        actions={
-          <>
-            <input
-              type="search"
-              aria-label="Search items"
-              placeholder="Search item name or code"
-              className="min-w-[220px]"
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-            />
-            <select
-              aria-label="Category"
-              value={category}
-              onChange={(e) => setCategory(e.target.value)}
-            >
-              <option value="">All categories</option>
-              {reference.categories.map((c) => (
-                <option key={c.id}>{c.name}</option>
-              ))}
-            </select>
-            <Btn variant="primary" onClick={() => setAdding(true)}>
-              Add item
-            </Btn>
-          </>
-        }
-      />
+      {/* The title, search, category and Add item stay in view while the list scrolls. */}
+      <div className="mm-sticky-head">
+        <PageHeader
+          title="Item master"
+          subtitle="New items approved by QS land here. Bulk load with Import inventory."
+          actions={
+            <>
+              <input
+                type="search"
+                aria-label="Search items"
+                placeholder="Search item name or code"
+                className="min-w-[220px]"
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+              />
+              <select
+                aria-label="Category"
+                value={category}
+                onChange={(e) => setCategory(e.target.value)}
+              >
+                <option value="">All categories</option>
+                {reference.categories.map((c) => (
+                  <option key={c.id}>{c.name}</option>
+                ))}
+              </select>
+              <Btn variant="primary" onClick={() => setAdding(true)}>
+                Add item
+              </Btn>
+            </>
+          }
+        />
+      </div>
 
       {data.data?.pendingNewItems ? (
         <div className="warn mb-3">

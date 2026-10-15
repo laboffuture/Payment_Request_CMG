@@ -187,6 +187,16 @@
   .mm .t td.grp::before { content: none; }
 }
 
+/* A page header that stays put under the top bar while a long list scrolls. */
+.mm .mm-sticky-head {
+  position: sticky; top: 62px; z-index: 12;
+  background: var(--mm-bg); margin: -10px -6px 0; padding: 10px 6px 2px;
+  box-shadow: 0 8px 10px -10px rgba(11, 29, 58, .25);
+}
+.mm .mm-sticky-head .intro { margin-bottom: 10px; }
+@media (max-width: 760px) { .mm .mm-sticky-head { top: 58px; } }
+@media print { .mm .mm-sticky-head { position: static; box-shadow: none; } }
+
 /* ---------------------------------------------------------------- printing
    A material document (MR form, PO) prints on its own, without the shell. */
 @media print {
