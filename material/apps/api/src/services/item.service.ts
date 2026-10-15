@@ -92,15 +92,15 @@ export async function getItem(id: string): Promise<ItemDto> {
 }
 
 /**
- * Prototype: A.addMaster. The duplicate-name check is global and
- * case-insensitive, matching the prototype's `i.name.toLowerCase() === n`.
+ * Prototype: A.addMaster. The duplicate check is global and case-insensitive, on
+ * name + brand: the same item may be kept in several brands, each its own entry.
  */
 export async function createItem(
   input: CreateItemInput,
   createdBy: string,
 ): Promise<ItemDto> {
   return inTransaction(async (session) => {
-    const clash = await Item.findOne({ name: input.name })
+    const clash = await Item.findOne({ name: input.name, brand: input.brand ?? '' })
       .collation(ci)
       .select('code')
       .session(session)
@@ -135,7 +135,7 @@ export async function createItem(
 
 /**
  * Corrects an item in the master. The code stays as it is: MRs, POs and the stock
- * ledger know the item by it. The name must stay unique, as when an item is added.
+ * ledger know the item by it. Name + brand must stay unique, as when an item is added.
  */
 export async function updateItem(
   id: string,
@@ -145,8 +145,12 @@ export async function updateItem(
   const item = await Item.findById(id).exec();
   if (!item) throw notFound();
 
-  if (input.name !== undefined) {
-    const clash = await Item.findOne({ name: input.name, _id: { $ne: item._id } })
+  if (input.name !== undefined || input.brand !== undefined) {
+    const clash = await Item.findOne({
+      name: input.name ?? item.name,
+      brand: input.brand ?? item.brand ?? '',
+      _id: { $ne: item._id },
+    })
       .collation(ci)
       .select('_id')
       .lean();

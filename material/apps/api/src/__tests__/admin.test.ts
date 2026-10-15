@@ -178,6 +178,30 @@ describe('item master', () => {
     expect(res.status).toBe(409);
     expect(res.body.error).toBe(MSG.itemExists);
   });
+
+  it('keeps the same name in another brand as its own item', async () => {
+    const first = await admin.post('/api/admin/items').send({
+      name: 'Wall Putty 40 Kg',
+      unit: 'Bag',
+      category: 'Civil',
+      brand: 'Birla',
+    });
+    expect(first.status).toBe(201);
+    const second = await admin.post('/api/admin/items').send({
+      name: 'wall putty 40 kg',
+      unit: 'Bag',
+      category: 'Civil',
+      brand: 'JK',
+    });
+    expect(second.status).toBe(201);
+    const again = await admin.post('/api/admin/items').send({
+      name: 'Wall Putty 40 Kg',
+      unit: 'Bag',
+      category: 'Civil',
+      brand: 'birla',
+    });
+    expect(again.status).toBe(409);
+  });
 });
 
 describe('inventory import', () => {

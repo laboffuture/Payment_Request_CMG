@@ -161,7 +161,9 @@ export const MSG = {
   categoryNameRequired: 'Enter a category name',
   categoryExists: 'Already exists',
   itemNameCategoryRequired: 'Name and category are required',
-  itemExists: 'Item already exists',
+  itemExists: 'An item with this name and brand already exists',
+  importNameAmbiguous: (name: string) =>
+    `More than one item is called "${name}" (different brands) — give its Item Code`,
   importMissingColumn: (col: string) =>
     `Missing column: ${col} — use the template`,
   importEmpty: 'The file is empty',

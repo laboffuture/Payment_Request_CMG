@@ -760,7 +760,8 @@ export async function approveNewItem(actor: Actor, lineId: string): Promise<void
 
     const name = line.newItemName.trim();
     // Plan decision (d)(5): the prototype skipped this check here.
-    const clash = await Item.findOne({ name })
+    // The new item has no brand yet, so it clashes only with a brand-less entry of that name.
+    const clash = await Item.findOne({ name, brand: '' })
       .collation({ locale: 'en', strength: 2 })
       .select('code')
       .session(session)

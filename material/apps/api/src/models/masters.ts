@@ -291,8 +291,9 @@ const itemSchema = new Schema<IItem>(
 );
 
 itemSchema.index({ code: 1 }, { unique: true });
+// The same name may be stocked in several brands; name + brand is what must be unique.
 itemSchema.index(
-  { name: 1 },
+  { name: 1, brand: 1 },
   { unique: true, collation: { locale: 'en', strength: 2 } },
 );
 // Item picker: category filter + search by code or name.

@@ -129,9 +129,18 @@ export async function preview(csvText: string): Promise<ImportPreview> {
     }
     seen.add(key);
 
-    const existing = code
-      ? await Item.findOne({ code }).collation(ci).lean()
-      : await Item.findOne({ name }).collation(ci).lean();
+    let existing;
+    if (code) {
+      existing = await Item.findOne({ code }).collation(ci).lean();
+    } else {
+      // A name kept in several brands cannot say which one is meant.
+      const named = await Item.find({ name }).collation(ci).limit(2).lean();
+      if (named.length > 1) {
+        bad.push({ row: rowNo, err: MSG.importNameAmbiguous(name) });
+        continue;
+      }
+      existing = named[0] ?? null;
+    }
 
     if (existing) {
       const hasOpening = await StockLedger.exists({
