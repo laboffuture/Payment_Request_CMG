@@ -48,6 +48,7 @@ import { Po, PoAlloc, PoLine, PoRevision, VendorDoc } from '../models/po.js';
 import { Rfq } from '../models/rfq.js';
 import { isBuyer } from '@cm/shared';
 import type { Actor } from '../middleware/auth.js';
+import { sitePoIdsOf } from '../lib/siteScope.js';
 import { toCompanyDto, listVendors } from './masters.service.js';
 import { markAwarded, planAward } from './rfq.service.js';
 
@@ -166,6 +167,8 @@ export async function listPos(
   query: PoListQuery,
 ): Promise<{ rows: PoDto[]; total: number }> {
   const filter = listFilterFor(actor, query);
+  const own = await sitePoIdsOf(actor);
+  if (own) filter._id = { $in: [...own].map(oid) };
 
   const [pos, lookups] = await Promise.all([
     Po.find(filter).sort({ createdAt: -1 }).lean(),
@@ -229,6 +232,8 @@ export async function getPo(actor: Actor, id: string): Promise<PoDetailDto> {
     if (!actor.vendorId || String(po.vendorId) !== actor.vendorId) throw forbidden();
     if (!['APPROVED', 'PARTIAL', 'RECEIVED'].includes(po.status)) throw forbidden();
   }
+  const own = await sitePoIdsOf(actor);
+  if (own && !own.has(String(po._id))) throw forbidden();
 
   const [lines, allocs, lookups, world, company, vendorList] = await Promise.all([
     PoLine.find({ poId: id }).lean(),
@@ -1419,6 +1424,8 @@ export async function poFileLinks(actor: Actor, id: string): Promise<BoqFileDto[
   const po = await Po.findById(id).lean();
   if (!po) throw notFound();
   if (actor.role === 'VENDOR') throw forbidden();
+  const own = await sitePoIdsOf(actor);
+  if (own && !own.has(String(po._id))) throw forbidden();
   return poFilesOf(po);
 }
 

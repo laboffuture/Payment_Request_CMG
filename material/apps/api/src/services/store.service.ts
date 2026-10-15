@@ -23,6 +23,7 @@ import { buildLookups } from '../lib/lookups.js';
 import { loadWorld } from '../lib/world.js';
 import { deleteFile, signedUrlFor, uploadBoq } from '../lib/files.js';
 import { enqueueEmails } from '../jobs/queues.js';
+import { sitePoIdsOf } from '../lib/siteScope.js';
 import { Mr, MrLine } from '../models/mr.js';
 import { Po, PoAlloc, PoLine, VendorDoc } from '../models/po.js';
 import { Grn, GrnLine, Issue, IssueLine, StockLedger } from '../models/stock.js';
@@ -73,11 +74,14 @@ export async function openPos(
   ]);
 
   const scope = projectScopeOf(actor);
+  const own = await sitePoIdsOf(actor);
   const allocs = await PoAlloc.find({
     poId: { $in: candidates.map((p) => p._id) },
   }).lean();
 
   const visible = candidates.filter((po) => {
+    // A site engineer receives only the POs raised against their own MRs.
+    if (own && !own.has(String(po._id))) return false;
     if (!scope) return true;
     return allocs
       .filter((a) => String(a.poId) === String(po._id))
@@ -253,10 +257,12 @@ export async function postGrn(
 
   const world = await loadWorld({ includeClosed: true });
   const lookups = await buildLookups();
+  const own = await sitePoIdsOf(actor);
 
   const result = await inTransaction(async (session) => {
     const po = await Po.findById(input.poId).session(session);
     if (!po) throw notFound();
+    if (own && !own.has(String(po._id))) throw forbidden();
     if (!['APPROVED', 'PARTIAL'].includes(po.status)) {
       throw conflict('That PO can no longer be received against');
     }
