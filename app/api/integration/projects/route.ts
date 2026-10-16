@@ -26,7 +26,7 @@ export async function GET(req:Request){
     const out=[];
     for(const row of rows){
       const[job]=parseJobs([row.name]);
-      if(!job)continue;
+      if(!job||job.paymentOnly)continue;
       out.push({id:row.id,code:job.code,project:job.project,location:job.location,active:!!row.active});
     }
     return Response.json(out);
