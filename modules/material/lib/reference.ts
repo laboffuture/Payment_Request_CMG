@@ -1,11 +1,14 @@
 'use client';
 
 import { useQuery } from '@tanstack/react-query';
-import type {
-  CategoryDto,
-  CompanyDto,
-  ProjectDto,
-  VendorDto,
+import {
+  UNITS,
+  unitLabel,
+  type CategoryDto,
+  type CompanyDto,
+  type ProjectDto,
+  type UnitDto,
+  type VendorDto,
 } from '@cm/shared';
 import { get } from './api';
 
@@ -21,6 +24,8 @@ export interface Reference {
   categories: CategoryDto[];
   vendors: VendorDto[];
   companies: CompanyDto[];
+  /** built-in units and the ones added from the item master */
+  units: UnitDto[];
 }
 
 const EMPTY: Reference = {
@@ -28,6 +33,7 @@ const EMPTY: Reference = {
   categories: [],
   vendors: [],
   companies: [],
+  units: [],
 };
 
 export const referenceQuery = () => ({
@@ -48,4 +54,11 @@ export function subCategoriesOf(
 ): string[] {
   const main = reference.categories.find((c) => c.name === mainCategory);
   return (main?.children ?? []).filter((c) => c.active).map((c) => c.name);
+}
+
+/** The units the dropdowns offer - the built-in list until the reference data has loaded. */
+export function unitsOf(reference: Reference): UnitDto[] {
+  return reference.units?.length
+    ? reference.units
+    : UNITS.map((u) => ({ name: u, label: unitLabel(u), builtIn: true }));
 }

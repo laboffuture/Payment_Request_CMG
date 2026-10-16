@@ -31,6 +31,7 @@ import { buildLookups, companyFor, today, trailFor, type Lookups } from '../lib/
 import { loadWorld } from '../lib/world.js';
 import { enqueueEmails } from '../jobs/queues.js';
 import { deleteFile, signedUrlFor, uploadBoq } from '../lib/files.js';
+import { knownUnit } from './unit.service.js';
 import { Item, Project } from '../models/masters.js';
 import { Mr, MrLine } from '../models/mr.js';
 import { Issue, IssueLine, StockLedger } from '../models/stock.js';
@@ -579,13 +580,13 @@ async function writeLines(
       sn: index + 1,
       itemId: line.itemId ?? null,
       newItemName: isNewItem ? line.newItemName : '',
-      newUnit: isNewItem ? (line.newUnit ?? '') : '',
+      newUnit: isNewItem && line.newUnit ? await knownUnit(line.newUnit) : '',
       newCategory: isNewItem ? line.newCategory : '',
       newSpec: isNewItem ? line.newSpec : '',
       qty: num(line.qty),
       description: line.description ?? '',
       measurement: line.measurement ?? '',
-      unit: line.unit ?? '',
+      unit: line.unit ? await knownUnit(line.unit) : '',
       boqRef: line.boqRef,
       remarks: line.remarks,
     };
@@ -944,7 +945,7 @@ async function applyReviewedLines(
 
     line.qty = num(row.qty);
     line.measurement = row.measurement ?? '';
-    if (row.unit) line.unit = row.unit;
+    if (row.unit) line.unit = await knownUnit(row.unit);
     if (row.remark) line.remarks = row.remark;
 
     if (

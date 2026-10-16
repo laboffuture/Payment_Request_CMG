@@ -92,6 +92,13 @@ export interface CompanyDto extends Doc {
   isDefault: boolean;
 }
 
+/** A unit of measure as the dropdowns offer it. */
+export interface UnitDto {
+  name: string;
+  label: string;
+  builtIn: boolean;
+}
+
 export interface CategoryDto extends Doc {
   name: string;
   parentId: string | null;

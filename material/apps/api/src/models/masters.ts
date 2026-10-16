@@ -3,7 +3,6 @@ import {
   MASTER_SOURCES,
   ROLES,
   TAX_MODES,
-  UNITS,
   type MasterSource,
   type Role,
   type TaxMode,
@@ -272,7 +271,8 @@ const itemSchema = new Schema<IItem>(
   {
     code: { type: String, required: true, trim: true },
     name: { type: String, required: true, trim: true },
-    unit: { type: String, enum: UNITS, required: true },
+    // Built-in or added (MeasureUnit below); the item service checks the name is known.
+    unit: { type: String, required: true, trim: true },
     category: { type: String, required: true, index: true },
     subCategory: { type: String, default: '' },
     spec: { type: String, default: '' },
@@ -300,3 +300,27 @@ itemSchema.index(
 itemSchema.index({ category: 1, name: 1 });
 
 export const Item = defineModel<IItem>('Item', itemSchema);
+
+/**
+ * Units added from the item master when the one needed is not built in. The built-in
+ * list (UNITS) is not stored; this holds only the additions.
+ */
+export interface IMeasureUnit extends Timestamped {
+  name: string;
+  label: string;
+  active: boolean;
+  createdBy: Types.ObjectId | null;
+}
+
+const measureUnitSchema = new Schema<IMeasureUnit>(
+  {
+    name: { type: String, required: true, trim: true },
+    label: { type: String, default: '' },
+    active: { type: Boolean, default: true },
+    createdBy: optionalRefTo('User'),
+  },
+  baseOptions(),
+);
+measureUnitSchema.index({ name: 1 }, { unique: true, collation: { locale: 'en', strength: 2 } });
+
+export const MeasureUnit = defineModel<IMeasureUnit>('MeasureUnit', measureUnitSchema);

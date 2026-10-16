@@ -7,6 +7,7 @@ import {
   MAX_VENDOR_DOC_BYTES,
   ROLES,
   createCategoryInput,
+  createUnitInput,
   createItemInput,
   createProjectInput,
   importPaymentUsersInput,
@@ -51,6 +52,7 @@ import {
   pendingNewItemCount,
   updateItem,
 } from '../services/item.service.js';
+import { createUnit } from '../services/unit.service.js';
 import { adminDeleteMr } from '../services/mr.service.js';
 import { runImport } from '../services/importRun.service.js';
 import {
@@ -130,6 +132,27 @@ adminRouter.delete(
   ...itemMaster,
   wrap(async (req, res) => {
     res.json(await deleteItem(req.params.id!, actorOf(req).id));
+  }),
+);
+
+// While adding an item, QS (or an administrator) can add the unit, category or
+// sub-category it needs when the dropdown does not have it. Adding only - renaming and
+// retiring stay with the administrator below.
+adminRouter.post(
+  '/item-units',
+  ...itemMaster,
+  validateBody(createUnitInput),
+  wrap(async (req, res) => {
+    res.status(201).json(await createUnit(req.body, actorOf(req).id));
+  }),
+);
+
+adminRouter.post(
+  '/item-categories',
+  ...itemMaster,
+  validateBody(createCategoryInput),
+  wrap(async (req, res) => {
+    res.status(201).json(await createCategory(req.body));
   }),
 );
 

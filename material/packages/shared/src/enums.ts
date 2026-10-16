@@ -32,13 +32,18 @@ export const UNITS = [
   'Case',
   'Ml',
 ] as const;
-export type Unit = (typeof UNITS)[number];
+export type BuiltInUnit = (typeof UNITS)[number];
+/**
+ * A unit name. The built-in list above, plus any unit QS or an administrator adds from the
+ * item master (kept in the units collection); the API checks a name is on one of the two.
+ */
+export type Unit = string;
 
 /**
  * The long name behind each abbreviation, for the dropdowns — "Cft" and "Cum"
  * are one letter apart on screen and a factor of 35 apart on site.
  */
-export const UNIT_NAMES: Record<Unit, string> = {
+export const UNIT_NAMES: Record<BuiltInUnit, string> = {
   Nos: 'Nos — numbers',
   Pkt: 'Pkt — packets',
   Lm: 'Lm — linear metre',
@@ -66,6 +71,10 @@ export const UNIT_NAMES: Record<Unit, string> = {
   Case: 'Case',
   Ml: 'Ml — millilitre',
 };
+
+/** The dropdown label for a unit: the long name of a built-in one, else the name itself. */
+export const unitLabel = (unit: string): string =>
+  (UNIT_NAMES as Record<string, string>)[unit] ?? unit;
 
 /** Suggested tax rates offered in the datalists. Not a constraint. */
 export const TAX_RATES = [0, 5, 12, 15, 18, 28] as const;

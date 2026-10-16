@@ -13,6 +13,7 @@ import { storeRouter } from './store.routes.js';
 import { readSyncStamp } from '../lib/sync.js';
 import { inventory, itemLedger } from '../services/inventory.service.js';
 import { listItems } from '../services/item.service.js';
+import { listUnits } from '../services/unit.service.js';
 import {
   listCategories,
   listCompanies,
@@ -56,10 +57,11 @@ apiRouter.get(
   requireAuth,
   wrap(async (req, res) => {
     const actor = actorOf(req);
-    const [projects, categories, companies] = await Promise.all([
+    const [projects, categories, companies, units] = await Promise.all([
       listProjects(),
       listCategories(),
       listCompanies(),
+      listUnits(),
     ]);
 
     // A site user only ever picks from the projects they are allowed to raise
@@ -72,6 +74,8 @@ apiRouter.get(
     res.json({
       projects: scoped,
       categories,
+      // built-in units and the ones added from the item master
+      units,
       // Vendor lists are internal; a vendor portal user never receives one.
       vendors: actor.role === 'VENDOR' ? [] : await listVendors(),
       companies: actor.role === 'VENDOR' ? [] : companies,

@@ -76,3 +76,6 @@ export const apiError = z.object({
   details: z.unknown().optional(),
 });
 export type ApiError = z.infer<typeof apiError>;
+
+/** A unit of measure - built in, or added from the item master; the API checks it is known. */
+export const unitName = z.string().trim().min(1, 'Choose a unit').max(20, 'Keep the unit under 20 characters');

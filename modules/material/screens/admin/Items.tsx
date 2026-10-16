@@ -1,14 +1,15 @@
 'use client';
 
 import { useMemo, useState } from 'react';
-import { useQuery } from '@tanstack/react-query';
-import { UNITS, UNIT_NAMES, type ItemDto, type Unit } from '@cm/shared';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
+import type { CategoryDto, ItemDto, UnitDto } from '@cm/shared';
 import { del, get, newIdempotencyKey, post, put } from '@mm/lib/api';
 import { Modal } from '@mm/components/Modal';
 import { useAction } from '@mm/lib/hooks';
 import { DataTable, type Column } from '@mm/components/DataTable';
 import { Btn, PageHeader } from '@mm/components/ui';
-import { subCategoriesOf, useReference, type Reference } from '@mm/lib/reference';
+import { subCategoriesOf, unitsOf, useReference, type Reference } from '@mm/lib/reference';
+import { useToast } from '@mm/components/Toast';
 import { money } from '@mm/lib/format';
 
 /**
@@ -21,6 +22,107 @@ interface ItemsResponse {
 }
 
 const ITEM_KEYS = [['admin', 'items'], ['inventory'], ['items']];
+
+/**
+ * A dropdown that can grow: its last option opens a small box to add the value that is
+ * missing. What is added joins the shared list (for everybody) and is chosen here.
+ */
+function AddableSelect({
+  label,
+  value,
+  options,
+  onChange,
+  addText,
+  placeholder,
+  onAdd,
+}: {
+  label: string;
+  value: string;
+  options: { value: string; label: string }[];
+  onChange: (value: string) => void;
+  /** the option that opens the add box; empty hides it */
+  addText: string;
+  placeholder: string;
+  /** stores the new value and resolves to it as the list spells it */
+  onAdd: (name: string) => Promise<string>;
+}) {
+  const toast = useToast();
+  const [adding, setAdding] = useState(false);
+  const [name, setName] = useState('');
+  const [busy, setBusy] = useState(false);
+
+  const add = async () => {
+    if (!name.trim()) return;
+    setBusy(true);
+    try {
+      const stored = await onAdd(name.trim());
+      onChange(stored);
+      toast(`${label} "${stored}" added`);
+      setAdding(false);
+      setName('');
+    } catch (err) {
+      toast(err instanceof Error ? err.message : `Could not add the ${label.toLowerCase()}`);
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <div className="field">
+      <span>{label}</span>
+      <select
+        aria-label={label}
+        value={adding ? '__add__' : value}
+        onChange={(e) => {
+          if (e.target.value === '__add__') {
+            setAdding(true);
+          } else {
+            setAdding(false);
+            onChange(e.target.value);
+          }
+        }}
+      >
+        {options.map((o) => (
+          <option key={o.value || '-'} value={o.value}>
+            {o.label}
+          </option>
+        ))}
+        {addText ? <option value="__add__">{addText}</option> : null}
+      </select>
+      {adding ? (
+        <div className="flex gap-2 mt-2">
+          <input
+            autoFocus
+            className="flex-1 min-w-0"
+            maxLength={label === 'Unit' ? 20 : 80}
+            placeholder={placeholder}
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') {
+                e.preventDefault();
+                void add();
+              }
+              if (e.key === 'Escape') setAdding(false);
+            }}
+          />
+          <Btn small variant="primary" disabled={busy || !name.trim()} onClick={() => void add()}>
+            {busy ? 'Adding…' : 'Add'}
+          </Btn>
+          <Btn
+            small
+            onClick={() => {
+              setAdding(false);
+              setName('');
+            }}
+          >
+            Cancel
+          </Btn>
+        </div>
+      ) : null}
+    </div>
+  );
+}
 
 /**
  * The one form for an item: adds a new one, or corrects an existing one. On an existing
@@ -40,7 +142,7 @@ function ItemForm({
 }) {
   const [form, setForm] = useState({
     name: item?.name ?? '',
-    unit: item?.unit ?? ('Nos' as Unit),
+    unit: item?.unit ?? 'Nos',
     category: item?.category ?? (startCategory || reference.categories[0]?.name || ''),
     subCategory: item?.subCategory ?? '',
     brand: item?.brand ?? '',
@@ -63,6 +165,32 @@ function ItemForm({
       ...subCategoriesOf(reference, form.category),
     ]),
   ];
+
+  // QS can add the unit, category or sub-category the item needs when the list lacks it.
+  const queryClient = useQueryClient();
+  const refreshReference = () => queryClient.invalidateQueries({ queryKey: ['reference'] });
+  const units = unitsOf(reference);
+  const unitOptions = [
+    ...(units.some((u) => u.name === form.unit) ? [] : [{ value: form.unit, label: form.unit }]),
+    ...units.map((u) => ({ value: u.name, label: u.label })),
+  ];
+  const addUnit = async (name: string) => {
+    const list = await post<UnitDto[]>('/admin/item-units', { name });
+    await refreshReference();
+    return list.find((u) => u.name.toLowerCase() === name.toLowerCase())?.name ?? name;
+  };
+  const addCategory = async (name: string, parentName = '') => {
+    const parentId = parentName
+      ? (reference.categories.find((c) => c.name === parentName)?.id ?? '')
+      : '';
+    if (parentName && !parentId) throw new Error('Choose the main category first');
+    const tree = await post<CategoryDto[]>('/admin/item-categories', { name, parentId });
+    await refreshReference();
+    const pool = parentName
+      ? (tree.find((c) => c.id === parentId)?.children ?? [])
+      : tree.filter((c) => !c.parentId);
+    return pool.find((c) => c.name.toLowerCase() === name.toLowerCase())?.name ?? name;
+  };
 
   const save = useAction(
     () => {
@@ -118,36 +246,36 @@ function ItemForm({
           Item name *
           <input value={form.name} onChange={(e) => set({ name: e.target.value })} />
         </label>
-        <label className="field">
-          Unit
-          <select value={form.unit} onChange={(e) => set({ unit: e.target.value as Unit })}>
-            {UNITS.map((u) => (
-              <option key={u} value={u}>
-                {UNIT_NAMES[u]}
-              </option>
-            ))}
-          </select>
-        </label>
-        <label className="field">
-          Category
-          <select
-            value={form.category}
-            onChange={(e) => set({ category: e.target.value, subCategory: '' })}
-          >
-            {categories.map((c) => (
-              <option key={c}>{c}</option>
-            ))}
-          </select>
-        </label>
-        <label className="field">
-          Sub-category
-          <select value={form.subCategory} onChange={(e) => set({ subCategory: e.target.value })}>
-            <option value="">—</option>
-            {subCategories.map((sub) => (
-              <option key={sub}>{sub}</option>
-            ))}
-          </select>
-        </label>
+        <AddableSelect
+          label="Unit"
+          value={form.unit}
+          options={unitOptions}
+          onChange={(unit) => set({ unit })}
+          addText="+ Add new unit…"
+          placeholder="e.g. Mtr, Drum, Tube"
+          onAdd={addUnit}
+        />
+        <AddableSelect
+          label="Category"
+          value={form.category}
+          options={categories.map((c) => ({ value: c, label: c }))}
+          onChange={(category) => set({ category, subCategory: '' })}
+          addText="+ Add new category…"
+          placeholder="New category name"
+          onAdd={(name) => addCategory(name)}
+        />
+        <AddableSelect
+          label="Sub-category"
+          value={form.subCategory}
+          options={[
+            { value: '', label: '—' },
+            ...subCategories.map((sub) => ({ value: sub, label: sub })),
+          ]}
+          onChange={(subCategory) => set({ subCategory })}
+          addText={form.category ? `+ Add sub-category under ${form.category}…` : ''}
+          placeholder="New sub-category name"
+          onAdd={(name) => addCategory(name, form.category)}
+        />
         <label className="field">
           Brand
           <input value={form.brand} onChange={(e) => set({ brand: e.target.value })} />

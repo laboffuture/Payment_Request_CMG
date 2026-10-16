@@ -9,8 +9,6 @@ import {
   MAX_BOQ_BYTES,
   MAX_BOQ_FILES,
   MSG,
-  UNIT_NAMES,
-  UNITS,
   type BoqFileDto,
   type ItemDto,
   type MrDetailDto,
@@ -22,6 +20,7 @@ import { Modal } from '@mm/components/Modal';
 import { useToast } from '@mm/components/Toast';
 import { useAction } from '@mm/lib/hooks';
 import { useReference } from '@mm/lib/reference';
+import { UnitOptions } from '@mm/components/UnitOptions';
 import { fmtDate } from '@mm/lib/format';
 
 /**
@@ -694,11 +693,7 @@ function LineCard({
               )
             }
           >
-            {UNITS.map((u) => (
-              <option key={u} value={u}>
-                {UNIT_NAMES[u]}
-              </option>
-            ))}
+            <UnitOptions current={isNew ? line.newUnit : line.unit} />
           </select>
         </label>
         <label className="field flex-1 min-w-[180px]">

@@ -6,6 +6,7 @@ import {
   type UpdateItemInput,
 } from '@cm/shared';
 import { conflict, notFound } from '../lib/errors.js';
+import { knownUnit } from './unit.service.js';
 import { inTransaction } from '../db.js';
 import { nextItemCode } from '../lib/counters.js';
 import { bumpSyncStamp } from '../lib/sync.js';
@@ -112,7 +113,7 @@ export async function createItem(
         {
           code: await nextItemCode(session),
           name: input.name,
-          unit: input.unit,
+          unit: await knownUnit(input.unit),
           category: input.category,
           subCategory: input.subCategory ?? '',
           spec: input.spec ?? '',
@@ -156,6 +157,8 @@ export async function updateItem(
       .lean();
     if (clash) throw conflict(MSG.itemExists);
   }
+
+  if (input.unit !== undefined) input = { ...input, unit: await knownUnit(input.unit) };
 
   for (const key of [
     'name',

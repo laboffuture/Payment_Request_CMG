@@ -1,6 +1,6 @@
 import { z } from 'zod';
-import { login, money, objectId, optionalEmail, password } from './common.js';
-import { ROLES, TAX_MODES, UNITS } from '../enums.js';
+import { login, money, objectId, optionalEmail, password, unitName } from './common.js';
+import { ROLES, TAX_MODES } from '../enums.js';
 import { MSG } from '../messages.js';
 
 // ---------------------------------------------------------------------------
@@ -104,13 +104,26 @@ export const createCategoryInput = z.object({
 });
 export type CreateCategoryInput = z.infer<typeof createCategoryInput>;
 
+/** A unit QS or an administrator adds from the item form when the one needed is missing. */
+export const createUnitInput = z.object({
+  name: z
+    .string()
+    .trim()
+    .min(1, 'Give the unit a name')
+    .max(20, 'Keep the unit under 20 characters')
+    .regex(/^[A-Za-z][A-Za-z0-9 ./-]*$/, 'Use letters, numbers, spaces, dots, slashes or dashes'),
+  /** optional long name for the dropdown, e.g. "Mtr — metre" */
+  label: z.string().trim().max(40).optional().default(''),
+});
+export type CreateUnitInput = z.infer<typeof createUnitInput>;
+
 // ---------------------------------------------------------------------------
 // Items — prototype A.addMaster
 // ---------------------------------------------------------------------------
 
 export const createItemInput = z.object({
   name: z.string().trim().min(1, MSG.itemNameCategoryRequired).max(160),
-  unit: z.enum(UNITS),
+  unit: unitName,
   category: z.string().trim().min(1, MSG.itemNameCategoryRequired),
   subCategory: z.string().trim().optional().default(''),
   spec: z.string().trim().max(160).optional().default(''),

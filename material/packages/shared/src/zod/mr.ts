@@ -1,6 +1,5 @@
 import { z } from 'zod';
-import { isoDate, objectId, qty } from './common.js';
-import { UNITS } from '../enums.js';
+import { isoDate, objectId, qty, unitName } from './common.js';
 import { MSG } from '../messages.js';
 
 /**
@@ -23,7 +22,7 @@ export const mrLineInput = z
     itemId: objectId.nullable().optional(),
     /** … or a new item for QS to clear */
     newItemName: z.string().trim().max(160).optional().default(''),
-    newUnit: z.enum(UNITS).optional(),
+    newUnit: unitName.optional(),
     newCategory: z.string().trim().optional().default(''),
     newSpec: z.string().trim().max(160).optional().default(''),
     qty: qty,
@@ -36,7 +35,7 @@ export const mrLineInput = z
     /** free text: "2400 × 1200 × 12.5 mm", "M20", "6 m lengths" … */
     measurement: z.string().trim().max(120).optional().default(''),
     /** the unit this line is ordered in; defaults to the item's own unit */
-    unit: z.enum(UNITS).optional(),
+    unit: unitName.optional(),
     boqRef: z.string().trim().max(30).optional().default(''),
     remarks: z.string().trim().max(250).optional().default(''),
   })
@@ -66,7 +65,7 @@ export const reviewedLine = z.object({
   id: objectId,
   qty: qty,
   measurement: z.string().trim().max(120).optional().default(''),
-  unit: z.enum(UNITS).optional(),
+  unit: unitName.optional(),
   /** drop this line from the request entirely */
   rejected: z.boolean().optional().default(false),
   remark: z.string().trim().max(250).optional().default(''),

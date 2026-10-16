@@ -12,8 +12,6 @@ import {
   PO_ST,
   RFQ_ST,
   ROLE_NAMES,
-  UNIT_NAMES,
-  UNITS,
   chipFor,
   type ItemDto,
   type LinkedPoDto,
@@ -36,6 +34,7 @@ import {
   Trail,
 } from '@mm/components/ui';
 import { HoldFiles } from '@mm/features/pool/ProcHolds';
+import { UnitOptions } from '@mm/components/UnitOptions';
 import { useToast } from '@mm/components/Toast';
 import { useAction } from '@mm/lib/hooks';
 import { fmtDate, fmtDateTime, money, qty } from '@mm/lib/format';
@@ -749,11 +748,7 @@ function reviewColumns(
           value={review[l.id]?.unit ?? 'Nos'}
           onChange={(e) => patch(l.id, { unit: e.target.value })}
         >
-          {UNITS.map((u) => (
-            <option key={u} value={u}>
-                {UNIT_NAMES[u]}
-              </option>
-          ))}
+          <UnitOptions current={review[l.id]?.unit ?? 'Nos'} />
         </select>
       ),
     },
