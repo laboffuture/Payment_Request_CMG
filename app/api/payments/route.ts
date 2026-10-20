@@ -101,12 +101,13 @@ export async function GET(req:Request){
         .orderBy(asc(auditLogs.id));
       return Response.json({history});
     }
-    /* The window is org-wide and only then filtered to the reader, so it has to be wide
-       enough to still contain an individual's older requests. At 50 a requestor's own
-       work fell out of view once the group as a whole passed fifty - invisible while the
-       register is small, and indistinguishable from a paging bug once it is not. */
+    /* The whole register, newest first, and only then filtered to the reader. Any window
+       hides the oldest requests from everybody once the register outgrows it - at 50 a
+       requestor's own work vanished, and at 500 the oldest 51 (still awaiting release,
+       answers to queries and audit observations among them) could not be found even by
+       an administrator searching the request number. */
     const rows=await db.select().from(paymentRequests)
-      .orderBy(desc(paymentRequests.id)).limit(500);
+      .orderBy(desc(paymentRequests.id));
     /* A department head's scope is enforced here, not by the screen. Without this the
        whole register is one fetch away for anybody with a session, whatever the menu
        shows. Compared in lower case because addresses are stored as they were typed.
