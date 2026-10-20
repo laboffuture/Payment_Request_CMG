@@ -4,10 +4,12 @@ import {
   MR_STATUSES,
   NEW_ITEM_STATUSES,
   PROC_HOLDS,
+  REQUEST_TYPES,
   type MrLineStatus,
   type MrStatus,
   type NewItemStatus,
   type ProcHold,
+  type RequestType,
 } from '@cm/shared';
 import {
   defineModel,
@@ -31,6 +33,8 @@ export interface IMr extends Timestamped {
   /** YYYY-MM-DD */
   requiredDate: string;
   remarks: string;
+  /** material, tools or services - the same process for each */
+  requestType: RequestType;
   status: MrStatus;
   createdBy: Types.ObjectId;
   submittedAt: Date | null;
@@ -58,8 +62,10 @@ const mrSchema = new Schema<IMr>(
     // Indexed below with a partial filter, since drafts share the empty string.
     no: { type: String, default: '', trim: true },
     projectId: refTo('Project'),
-    requiredDate: { type: String, required: true },
+    // A draft may be saved before the date is chosen; submitting requires it (mr.service).
+    requiredDate: { type: String, default: '' },
     remarks: { type: String, default: '' },
+    requestType: { type: String, enum: REQUEST_TYPES, default: 'MATERIAL', index: true },
     status: {
       type: String,
       enum: MR_STATUSES,

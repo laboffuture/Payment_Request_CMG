@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { isoDate, objectId, qty, unitName } from './common.js';
+import { REQUEST_TYPES } from '../enums.js';
 import { MSG } from '../messages.js';
 
 /**
@@ -46,6 +47,8 @@ export const mrLineInput = z
 export type MrLineInput = z.infer<typeof mrLineInput>;
 
 export const upsertMrInput = z.object({
+  /** material, tools or services - the same process for each */
+  requestType: z.enum(REQUEST_TYPES).optional().default('MATERIAL'),
   projectId: objectId,
   /** only required on submit — a draft may be saved without one */
   requiredDate: isoDate.or(z.literal('')).optional().default(''),

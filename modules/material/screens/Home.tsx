@@ -53,7 +53,7 @@ export default function HomePage() {
         actions={
           me.role === 'SITE' ? (
             <Btn variant="primary" onClick={() => router.push('/mrs/new')}>
-              + New MR
+              + New request
             </Btn>
           ) : null
         }
@@ -96,7 +96,7 @@ function tilesFor(
       { label: 'Drafts', value: countMrs('DRAFT'), href: '/mrs' },
       { label: 'Sent back to me', value: countMrs('SENT_BACK'), href: '/mrs' },
       {
-        label: 'My MRs in progress',
+        label: 'My requests in progress',
         value: countMrs('PM_PENDING', 'QS_PENDING', 'APPROVED'),
         href: '/mrs',
       },

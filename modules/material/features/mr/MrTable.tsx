@@ -1,7 +1,7 @@
 'use client';
 
 import { useRouter } from '@mm/lib/nav';
-import { MR_ST, chipFor, type MrDto } from '@cm/shared';
+import { REQUEST_TYPE_LABELS, MR_ST, chipFor, type MrDto } from '@cm/shared';
 import { DataTable, type Column } from '@mm/components/DataTable';
 import { Btn, Chip, Tag } from '@mm/components/ui';
 import { fmtDate } from '@mm/lib/format';
@@ -27,8 +27,11 @@ export function MrTable({ rows }: { rows: MrDto[] }) {
       header: 'MR no.',
       // Kept on one line so the number never breaks beside a long project name.
       render: (m) => (
-        <span className="font-mono" style={{ whiteSpace: 'nowrap' }}>
-          {m.no || 'Draft'}
+        <span style={{ whiteSpace: 'nowrap' }}>
+          <span className="font-mono">{m.no || 'Draft'}</span>
+          <span className="block text-mut text-[11px]">
+            {REQUEST_TYPE_LABELS[m.requestType ?? 'MATERIAL']}
+          </span>
         </span>
       ),
     },

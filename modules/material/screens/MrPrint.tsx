@@ -78,7 +78,10 @@ function MrDocument({ doc }: { doc: MrPrintDto }) {
             alt="Chandramari Group"
             className="max-h-16 max-w-[200px] object-contain"
           />
-          <b className="text-[22px] tracking-[.04em]">MATERIAL REQUISITION FORM</b>
+          <b className="text-[22px] tracking-[.04em]">
+            {{ MATERIAL: 'MATERIAL', TOOLS: 'TOOLS', SERVICES: 'SERVICES' }[mr.requestType ?? 'MATERIAL']}{' '}
+            REQUISITION FORM
+          </b>
         </div>
         <div className="grid gap-1 text-right text-[13px]">
           <b>{company?.legalName || company?.name}</b>

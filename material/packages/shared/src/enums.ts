@@ -265,3 +265,16 @@ export const PO_EXTRA_CHARGES = [
 ] as const;
 export type PoExtraCharge = (typeof PO_EXTRA_CHARGES)[number];
 export const PO_ROUND_OFF: PoExtraCharge = 'Round-off';
+
+/**
+ * What a request is for. All three follow the same process (PM, QS, procurement, PO,
+ * receipt); the type only says what is being asked for. Requests from before the type
+ * existed are material requests.
+ */
+export const REQUEST_TYPES = ['MATERIAL', 'TOOLS', 'SERVICES'] as const;
+export type RequestType = (typeof REQUEST_TYPES)[number];
+export const REQUEST_TYPE_LABELS: Record<RequestType, string> = {
+  MATERIAL: 'Material request',
+  TOOLS: 'Tools',
+  SERVICES: 'Services',
+};

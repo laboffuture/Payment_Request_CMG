@@ -6,6 +6,7 @@
 
 import type {
   Currency,
+  RequestType,
   DeliverTo,
   LedgerDocType,
   MasterSource,
@@ -188,6 +189,8 @@ export interface MrLineDto {
 
 export interface MrDto extends Doc {
   no: string;
+  /** material, tools or services */
+  requestType: RequestType;
   projectId: string;
   projectCode: string;
   projectName: string;

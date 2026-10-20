@@ -57,7 +57,7 @@ interface Planned {
 const PLANNED: readonly Planned[] = [
   {
     prefix: '/mrs/new',
-    title: 'New material request',
+    title: 'New request',
     phase: 2,
     summary:
       'The mobile-first MR form: one project and one required date, the item picker (choose from the master list or add a new item for QS to clear), quantity, B.O.Q ref and remarks per line, then Save draft or Submit to QS.',

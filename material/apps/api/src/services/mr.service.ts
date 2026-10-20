@@ -149,6 +149,7 @@ export function toMrDto(
     projectName: lookups.projectName(project),
     requiredDate: mr.requiredDate,
     remarks: mr.remarks ?? '',
+    requestType: mr.requestType ?? 'MATERIAL',
     status: mr.status,
     createdBy: String(mr.createdBy),
     createdByName: lookups.userName(mr.createdBy),
@@ -541,6 +542,7 @@ async function newMrDocument(
         projectId: input.projectId,
         requiredDate: input.requiredDate,
         remarks: input.remarks,
+        requestType: input.requestType,
         status: input.submit ? 'PM_PENDING' : 'DRAFT',
         createdBy: actor.id,
         submittedAt: input.submit ? new Date() : null,
@@ -672,6 +674,7 @@ export async function updateMr(
     mr.projectId = oid(input.projectId) as never;
     mr.requiredDate = input.requiredDate;
     mr.remarks = input.remarks;
+    mr.requestType = input.requestType;
 
     if (input.submit) {
       if (!mr.no) {

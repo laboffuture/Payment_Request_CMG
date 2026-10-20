@@ -162,6 +162,7 @@ table.wf-wide th:last-child,table.wf-wide td:last-child{padding-right:16px}
   .mm .grid.desk\:grid-cols-3{grid-template-columns:repeat(3,minmax(0,1fr))}
   .mm .grid.desk\:grid-cols-4{grid-template-columns:repeat(4,minmax(0,1fr))}
   .mm .grid.desk\:grid-cols-\[1fr_2fr_1fr\]{grid-template-columns:1fr 2fr 1fr}
+  .mm .grid.desk\:grid-cols-\[1fr_1fr_2fr_1fr\]{grid-template-columns:1fr 1fr 2fr 1fr}
 }
 .mm .field input:not([type=checkbox]):not([type=radio]),.mm .field textarea,.mm .field select{font-weight:400!important;color:var(--ui-text)}
 

@@ -36,8 +36,8 @@ export type Counts = Partial<Record<CountKey, number>>;
 export const NAV: Record<Role, readonly NavItem[]> = {
   SITE: [
     { href: '/', label: 'Home' },
-    { href: '/mrs', label: 'My MRs' },
-    { href: '/mrs/new', label: 'New MR' },
+    { href: '/mrs', label: 'My requests' },
+    { href: '/mrs/new', label: 'New request' },
     // Read-only: where a request went once QS approved it.
     { href: '/pos', label: 'Purchase orders' },
     { href: '/receive', label: 'Receive at site', count: 'receive' },

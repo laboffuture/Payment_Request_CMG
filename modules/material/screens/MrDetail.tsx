@@ -6,6 +6,7 @@ import { useParams, useRouter } from '@mm/lib/nav';
 import { useQuery } from '@tanstack/react-query';
 import {
   BRAND_LOGO_URL,
+  REQUEST_TYPE_LABELS,
   IS_ST,
   MR_ST,
   MSG,
@@ -126,6 +127,7 @@ export default function MrDetailPage() {
             />
             <span className="font-mono">{data.no || 'Draft'}</span>
             <Chip spec={chipFor(MR_ST, data.status)} />
+            <Tag label={REQUEST_TYPE_LABELS[data.requestType ?? 'MATERIAL'].toUpperCase()} tone="ac" />
           </span>
         }
         subtitle={

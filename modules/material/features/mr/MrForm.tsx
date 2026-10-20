@@ -9,9 +9,12 @@ import {
   MAX_BOQ_BYTES,
   MAX_BOQ_FILES,
   MSG,
+  REQUEST_TYPES,
+  REQUEST_TYPE_LABELS,
   type BoqFileDto,
   type ItemDto,
   type MrDetailDto,
+  type RequestType,
   type Unit,
 } from '@cm/shared';
 import { get, post, put, del, newIdempotencyKey, upload } from '@mm/lib/api';
@@ -75,6 +78,8 @@ export function MrForm({ existing }: { existing?: MrDetailDto }) {
   const toast = useToast();
   const reference = useReference();
 
+  // What the request is for - chosen first; the process is the same for each.
+  const [requestType, setRequestType] = useState<RequestType | ''>(existing?.requestType ?? '');
   const [projectId, setProjectId] = useState(existing?.projectId ?? '');
   const [requiredDate, setRequiredDate] = useState(existing?.requiredDate ?? '');
   const [remarks, setRemarks] = useState(existing?.remarks ?? '');
@@ -108,6 +113,7 @@ export function MrForm({ existing }: { existing?: MrDetailDto }) {
   const [attached, setAttached] = useState<BoqFileDto[]>(existing?.boqFiles ?? []);
 
   const payload = (submit: boolean) => ({
+    requestType: requestType || 'MATERIAL',
     projectId,
     requiredDate,
     remarks,
@@ -214,6 +220,7 @@ export function MrForm({ existing }: { existing?: MrDetailDto }) {
 
   const submit = (isSubmit: boolean) => {
     // Checked here for a fast answer; the API enforces the same rules (§8).
+    if (!requestType) return toast('Choose the type of request first');
     if (!projectId) return toast(MSG.mrNoProject);
     if (isSubmit) {
       if (!requiredDate) return toast(MSG.mrNoDate);
@@ -250,7 +257,7 @@ export function MrForm({ existing }: { existing?: MrDetailDto }) {
   return (
     <div className="w-full">
       <PageHeader
-        title={existing ? `Edit ${existing.no || 'draft'}` : 'New material request'}
+        title={existing ? `Edit ${existing.no || 'draft'}` : 'New request'}
         subtitle="One project and one required date per MR. On submit it goes to the Project Manager, and then to QS."
       />
 
@@ -266,7 +273,22 @@ export function MrForm({ existing }: { existing?: MrDetailDto }) {
           {/* The same project, chosen by whichever the engineer knows — the
               two lists are the same projects and stay in step. Code, name and
               date sit on one line on a wide screen. */}
-          <div className="grid gap-3 items-end desk:grid-cols-[1fr_2fr_1fr]">
+          <div className="grid gap-3 items-end desk:grid-cols-[1fr_1fr_2fr_1fr]">
+            <label className="field">
+              Type of request *
+              <select
+                value={requestType}
+                onChange={(e) => setRequestType(e.target.value as RequestType)}
+              >
+                <option value="">Select type</option>
+                {REQUEST_TYPES.map((t) => (
+                  <option key={t} value={t}>
+                    {REQUEST_TYPE_LABELS[t]}
+                  </option>
+                ))}
+              </select>
+            </label>
+
             <label className="field">
               Project code *
               <select value={projectId} onChange={(e) => setProjectId(e.target.value)}>

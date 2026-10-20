@@ -101,7 +101,7 @@ function Mrs() {
 
             {me.role === 'SITE' ? (
               <Btn variant="primary" onClick={() => router.push('/mrs/new')}>
-                + New MR
+                + New request
               </Btn>
             ) : null}
 
