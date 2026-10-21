@@ -28,7 +28,7 @@ const AT:Record<string,number>={
   "Audit Reconfirmation":4,
   // cleared for release, and beyond
   "Approved by Auditor – Ready to Release":5,"Management Approval: Yes":5,
-  "Finance Queue":5,"Audit Cleared":5,"Payment Released":5,"Reconciliation":5,
+  "Finance Queue":5,"Audit Cleared":5,"Payment Released":5,"Expenses Booked":5,"Reconciliation":5,
   "Audit Closed":5};
 
 /* 0 to 5. An unknown status sits at the start rather than pretending to progress. */
@@ -46,7 +46,10 @@ export const MANAGEMENT_APPROVAL="Management Approval";
 /* Finance release onwards: approved and waiting to be paid, and paid. Rejecting a request
    here is an administrator's decision alone - it undoes what audit cleared, or money paid. */
 export const FINANCE_STAGES=["Approved by Auditor – Ready to Release","Management Approval: Yes","Finance Queue"];
-export const PAID_STAGES=["Payment Released","Reconciliation"];
+/* Finance closes a request at release one of two ways: paid (with the UTR number), or booked
+   as an expense (with the voucher number). Both are finished in every count. */
+export const EXPENSES_BOOKED="Expenses Booked";
+export const PAID_STAGES=["Payment Released",EXPENSES_BOOKED,"Reconciliation"];
 export const MANAGEMENT_ROLES=["Management","Administrator"];
 export const MANAGEMENT_SETTING="payment.managementApproval";
 /* approvers: for a company, the logins (emails) of the managers who approve its requests.
@@ -72,7 +75,7 @@ export const needsManagementApproval=(company:string,setting:ManagementSetting={
 /* Finished, as the requestor counts it: nothing further is expected of anyone. A rejected
    request is finished too - it is closed, and what follows it is a new request. */
 export const isFinished=(status:string)=>
-  ["Payment Released","Reconciliation","Audit Closed","Rejected"].includes(status);
+  ["Payment Released","Expenses Booked","Reconciliation","Audit Closed","Rejected"].includes(status);
 
 /* The priority a department head may give a request. Optional, and no part of the flow:
    it is a label accounts, audit and finance can read, and it moves nothing. It can be given
@@ -80,5 +83,5 @@ export const isFinished=(status:string)=>
    the request is closed - released or rejected. */
 export const DEPT_PRIORITIES=["Critical","High","Medium"] as const;
 export const DEPT_PRIORITY_ROLES=["Department Head","Administrator"];
-const PRIORITY_CLOSED=["Management Approval","Rejected","Payment Released","Reconciliation","Audit Closed"];
+const PRIORITY_CLOSED=["Management Approval","Rejected","Payment Released","Expenses Booked","Reconciliation","Audit Closed"];
 export const priorityOpen=(status:string)=>!PRIORITY_CLOSED.includes(status);

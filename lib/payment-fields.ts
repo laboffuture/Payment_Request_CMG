@@ -111,7 +111,7 @@ export const ruleFor=(nature:string,field:FieldKey):Need=>
 
 /* Fields recorded outside the request form - TDS percentage and value, entered by accounts -
    have no entry above, and the trail read "Corrected undefined" for them. */
-const OTHER_LABELS:Record<string,string>={tdsPercent:"TDS percentage",tdsValue:"TDS value",utrNumber:"UTR number"};
+const OTHER_LABELS:Record<string,string>={tdsPercent:"TDS percentage",tdsValue:"TDS value",utrNumber:"UTR number",voucherNumber:"Voucher number"};
 
 export const labelFor=(nature:string,field:FieldKey):string=>
   PAYMENT_TYPES[nature]?.labels?.[field]??LABELS[field]??OTHER_LABELS[field as string]??String(field);

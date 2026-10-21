@@ -258,3 +258,9 @@
   border-radius:7px;background:#fff;color:#1b3a66;font:inherit;font-size:12px;font-weight:700;cursor:pointer}
 .audit-list-actions button:not(.primary):disabled{opacity:.55;cursor:not-allowed}
 .audit-list-actions button:not(.primary) svg{width:14px;height:14px}
+/* Finance closes an approved request as Payment released (UTR) or Expenses booked (voucher). */
+.wf-close-as{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin:12px 0 4px}
+.wf-close-as label{display:flex;align-items:center;gap:8px;border:1px solid #d0d5dd;border-radius:8px;padding:10px 12px;font-size:12px;font-weight:600;color:#344054;background:#fff;cursor:pointer}
+.wf-close-as label.on{border-color:#1b3a66;background:#eef3fb;color:#0b1d3a;box-shadow:inset 0 0 0 1px #1b3a66}
+.wf-close-as input{accent-color:#1b3a66;margin:0}
+@media(max-width:420px){.wf-close-as{grid-template-columns:1fr}}

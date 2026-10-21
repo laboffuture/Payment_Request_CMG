@@ -73,7 +73,7 @@ const nav:{id:Module;label:string;icon:any}[]=([
    modules" rather than a list, so the group is still named even though the menu no
    longer keeps them together. */
 const workforceIds:Module[]=["organisation","employees","reports"];
-const tone:Record<string,string>={"Rejected":"red","Query Raised":"amber","Requested":"blue","Accountant Review":"amber","Pre-Audit Queue":"blue","Management Approval":"amber","Management Approval: Yes":"green","Management Approval: No":"red","Audit Rejected":"red","Audit Query":"amber","Finance Queue":"violet","Approved by Auditor – Ready to Release":"green","Payment Released":"green","Reconciliation":"green","Audit Accepted":"blue","Audit Cleared":"green"};
+const tone:Record<string,string>={"Rejected":"red","Query Raised":"amber","Requested":"blue","Accountant Review":"amber","Pre-Audit Queue":"blue","Management Approval":"amber","Management Approval: Yes":"green","Management Approval: No":"red","Audit Rejected":"red","Audit Query":"amber","Finance Queue":"violet","Approved by Auditor – Ready to Release":"green","Payment Released":"green","Expenses Booked":"green","Reconciliation":"green","Audit Accepted":"blue","Audit Cleared":"green"};
 const access:Record<string,Module[]>={"Cost Control":["dashboard","accountsreceived","reports","organisation","employees"],Administrator:nav.map(x=>x.id),Requestor:["dashboard","requests","organisation","employees","meetings","reports"],"Department Head":["dashboard","requests","organisation","employees","meetings","reports"],Accountant:["dashboard","requests","payments","scheduled","organisation","employees","meetings","reports","observations","accountsreceived"],Auditor:["dashboard","requests","payments","scheduled","organisation","employees","preaudit","postaudit","specialaudit","meetings","reports","observations","accountsreceived"],Finance:["meetings","dashboard","payments","organisation","employees","reports"],Management:["meetings","dashboard","payments","accountsreceived",...workforceIds],"Audit Head":nav.filter(x=>x.id!=="settings").map(x=>x.id)};
 type Note={id:string;title:string;body:string;module:string;recordId:string;createdAt:string;readAt:string};
 export default function Home(){
@@ -149,7 +149,7 @@ export default function Home(){
   if(acting.current)return;acting.current=true;setBusy(true);
   const owner=status==="Audit Accepted"?userName||"Assigned Auditor"
     :status==="Approved by Auditor – Ready to Release"?"Accounts & Finance"
-    :status==="Payment Released"?userName||"Accounts & Finance"
+    :status==="Payment Released"||status==="Expenses Booked"?userName||"Accounts & Finance"
     :status==="Submitted"?"Accountant queue":p.owner;
   let saved:Payment|undefined;
   try{
@@ -322,7 +322,7 @@ export default function Home(){
 const landingFor=(role:string):Module=>materialCodeFor(role)&&!isPaymentRole(role)?"material":role==="Requestor"?"requests":"dashboard";
 function PasswordReset({name,email,close,done}:{name:string;email:string;close:()=>void;done:()=>void}){const[current,setCurrent]=useState(""),[next,setNext]=useState(""),[confirm,setConfirm]=useState(""),[error,setError]=useState(""),[saving,setSaving]=useState(false);const valid=current.length>=1&&next.length>=10&&/[A-Za-z]/.test(next)&&/[0-9]/.test(next)&&next===confirm;const submit=async(e:React.FormEvent)=>{e.preventDefault();if(!valid)return;setSaving(true);setError("");try{const r=await fetch("/api/auth/change-password",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({current,next})});const data=(await r.json()) as {error?:string};if(!r.ok)throw new Error(data.error||"Unable to update password.");done()}catch(err){setError(err instanceof Error?err.message:"Unable to update password.")}finally{setSaving(false)}};return <><button className="overlay" onClick={close}/><form className="modal password-reset" onSubmit={submit}><header><div><small>ACCOUNT SECURITY</small><h2>Change my password</h2></div><button type="button" onClick={close}><X/></button></header><div className="form"><p className="wide">Signed in as <b>{name}</b></p><label className="wide">Current password<input required autoComplete="current-password" type="password" value={current} onChange={e=>setCurrent(e.target.value)}/></label><label>New password<input required minLength={10} autoComplete="new-password" type="password" value={next} onChange={e=>setNext(e.target.value)}/></label><label>Confirm new password<input required minLength={10} autoComplete="new-password" type="password" value={confirm} onChange={e=>setConfirm(e.target.value)}/></label>{confirm&&next!==confirm&&<p className="wide login-error">Passwords do not match.</p>}{error&&<p className="wide login-error">{error}</p>}</div><footer><button type="button" onClick={close}>Cancel</button><button className="primary" disabled={!valid||saving}>{saving?"Updating…":"Update administrator password"}</button></footer></form></>}
 function RequestorDashboard({rows,open,create,go}:{rows:Payment[];open:(p:Payment)=>void;create:()=>void;go:(m:Module)=>void}){
- const total=rows.length,released=rows.filter(r=>r.status==="Payment Released").length;
+ const total=rows.length,released=rows.filter(r=>r.status==="Payment Released"||r.status==="Expenses Booked").length;
  const rejected=rows.filter(r=>r.status==="Query Raised").length;
  const closed=rows.filter(r=>r.status==="Rejected"||r.status==="Audit Rejected").length;
  const open_=total-released-rejected-closed;
@@ -353,8 +353,8 @@ function Dashboard({payments,go}:{payments:Payment[];go:(m:Module)=>void}){
     This panel used to show a fixed 82/100 with invented metrics, which on a live
     system reads as real reporting rather than placeholder art. */
  const closed=payments.filter(p=>p.status==="Rejected");
- const open=payments.filter(p=>p.status!=="Payment Released"&&p.status!=="Audit Rejected"&&p.status!=="Rejected");
- const released=payments.filter(p=>p.status==="Payment Released");
+ const open=payments.filter(p=>p.status!=="Payment Released"&&p.status!=="Expenses Booked"&&p.status!=="Audit Rejected"&&p.status!=="Rejected");
+ const released=payments.filter(p=>p.status==="Payment Released"||p.status==="Expenses Booked");
  const needsApproval=payments.filter(p=>/Approval|Review|Queue/.test(p.status));
  const available=payments.filter(p=>p.status==="Pre-Audit Queue");
  const rejected=payments.filter(p=>/Audit Rejected|Query|Observation/.test(p.status));
@@ -364,7 +364,7 @@ function Dashboard({payments,go}:{payments:Payment[];go:(m:Module)=>void}){
  const health=payments.length?Math.round(released.length/payments.length*100):0;
  const byCompany=Array.from(new Set(payments.map(p=>p.company))).map(c=>{
    const rows=payments.filter(p=>p.company===c);
-   const done=rows.filter(p=>p.status==="Payment Released").length;
+   const done=rows.filter(p=>p.status==="Payment Released"||p.status==="Expenses Booked").length;
    return{name:c,pct:rows.length?Math.round(done/rows.length*100):0,
      stuck:rows.filter(p=>/Audit Rejected|Query|Observation/.test(p.status)).length}});
  return <div className="page">

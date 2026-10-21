@@ -5,7 +5,7 @@ import{deleteFile}from"../../../lib/storage";
 import{companyLock,departmentPeers,hasWriteRole,inCompany,requireAuth}from"../../../lib/auth";
 import{emailsForRoles,notify,rolesActingOn}from"../../../lib/notify";
 import{FIELD_ORDER,REQUIRED_ON_SAVE,labelFor,ruleFor}from"../../../lib/payment-fields";
-import{FINANCE_STAGES,MANAGEMENT_APPROVAL,MANAGEMENT_ROLES,PAID_STAGES,approversOf,needsManagementApproval}from"../../../lib/payment-stages";
+import{EXPENSES_BOOKED,FINANCE_STAGES,MANAGEMENT_APPROVAL,MANAGEMENT_ROLES,PAID_STAGES,approversOf,needsManagementApproval}from"../../../lib/payment-stages";
 import type{ManagementSetting}from"../../../lib/payment-stages";
 import{managementSetting,managementUsers}from"../../../lib/app-settings";
 import{rememberVendor}from"../../../lib/vendors";
@@ -27,7 +27,7 @@ import{bad,oops,str}from"../../../lib/workforce-api";
    rather than printed as blanks. */
 const paymentDetail=(p:{vendor?:string|null;currency?:string|null;amount?:number|null;
   company?:string|null;department?:string|null;nature?:string|null;due?:string|null;
-  raisedBy?:string|null;paymentMode?:string|null;utrNumber?:string|null})=>[
+  raisedBy?:string|null;paymentMode?:string|null;utrNumber?:string|null;voucherNumber?:string|null})=>[
   {label:"Vendor",value:String(p.vendor||"")},
   {label:"Amount",value:`${p.currency||""} ${Number(p.amount||0).toLocaleString()}`.trim()},
   {label:"Company",value:[p.company,p.department].filter(Boolean).join(" · ")},
@@ -35,6 +35,7 @@ const paymentDetail=(p:{vendor?:string|null;currency?:string|null;amount?:number
   {label:"Paid by",value:String(p.paymentMode||"")},
   {label:"Due",value:String(p.due||"")},
   {label:"UTR number",value:String(p.utrNumber||"")},
+  {label:"Voucher number",value:String(p.voucherNumber||"")},
   {label:"Raised by",value:String(p.raisedBy||"")}];
 
 /* Two ways to send a request back, and they are not the same thing.
@@ -53,13 +54,13 @@ const AUDIT_STAGES=["Pre-Audit Queue","Audit Accepted","Audit Reconfirmation"];
    sent to audit, a query to accounts and its answer, an observation - still reaches their
    bell, but is not worth an email. */
 const REQUESTOR_EMAIL=["Accountant Accepted",QUERY,"Audit Accepted",
-  "Approved by Auditor – Ready to Release","Payment Released",REJECTED];
+  "Approved by Auditor – Ready to Release","Payment Released",EXPENSES_BOOKED,REJECTED];
 
 const STATUSES=["Submitted","Requested",REJECTED,QUERY,"Accountant Review","Accountant Accepted",
   "Pre-Audit Queue","Audit Accepted","Audit Query","Audit Rejected","Audit Reconfirmation",
   "Observation - Audit Action","Management Approval","Management Approval: Yes",
   "Management Approval: No","Approved by Auditor – Ready to Release","Finance Queue",
-  "Payment Released","Reconciliation","Audit Cleared"];
+  "Payment Released",EXPENSES_BOOKED,"Reconciliation","Audit Cleared"];
 
 /* Who approves a company's requests for management: the managers an administrator named for
    it (Settings -> Payment approvals), else everyone holding the Management role, else - while
@@ -385,7 +386,23 @@ export async function PATCH(req:Request){
        nothing to reconcile the payment against. */
     if(status==="Payment Released"&&old.status!=="Payment Released"&&!String(edits.utrNumber??old.utrNumber??"").trim())
       return bad("Enter the UTR number to release the payment.",422);
-    if(sent&&!tdsOnly&&!releaseOnly){
+    /* Booking it as an expense instead of paying it: the other way finance closes a request
+       at release. It carries the accounts voucher number, as a release carries the UTR,
+       and is only taken from the finance release stage. */
+    const bookOnly=!!sent&&Object.keys(sent).length>0&&Object.keys(sent).every(k=>k==="voucherNumber");
+    if(bookOnly&&sent){
+      if(!hasWriteRole(actor?.roles))return bad("Your role cannot book expenses.",403);
+      if(status!==EXPENSES_BOOKED)return bad("The voucher number is recorded when the expense is booked.",422);
+      const voucher=str(sent.voucherNumber).trim().slice(0,60);
+      if(voucher!==(old.voucherNumber||"")){edits.voucherNumber=voucher;changed.push(["voucherNumber" as FieldKey,old.voucherNumber||"",voucher])}
+    }
+    if(status===EXPENSES_BOOKED&&old.status!==EXPENSES_BOOKED){
+      if(!FINANCE_STAGES.includes(old.status))
+        return bad(`${old.requestNo} is at "${old.status}" - an expense is booked from finance release.`,422);
+      if(!String(edits.voucherNumber??old.voucherNumber??"").trim())
+        return bad("Enter the voucher number to book the expense.",422);
+    }
+    if(sent&&!tdsOnly&&!releaseOnly&&!bookOnly){
       if(!ownResubmit)
         return bad("Only the person who raised a returned request can correct it.",403);
       const nature=String(sent.nature??old.nature??"");
@@ -435,7 +452,8 @@ export async function PATCH(req:Request){
     const effective=String(edits.nature??old.nature??"");
     for(const[field,before,after]of changed)
       await db.insert(auditLogs).values({recordId:Number(id),
-        action:(field as string)==="utrNumber"?"UTR number recorded":`Corrected ${labelFor(effective,field)}`,
+        action:(field as string)==="utrNumber"?"UTR number recorded"
+          :(field as string)==="voucherNumber"?"Voucher number recorded":`Corrected ${labelFor(effective,field)}`,
         actor:actor?.name||actor?.email||"system",
         previousValue:before||"(empty)",newValue:after||"(empty)"});
     /* Tell whoever the request now waits on, and keep the person who raised it informed
@@ -466,12 +484,12 @@ export async function PATCH(req:Request){
       /* The requestor's own copy. A query or a rejection is the one that matters most, so
          it is marked as such and says plainly what to do about it. */
       reference:payment.requestNo,detail:paymentDetail(payment),
-      tone:status===QUERY||status===REJECTED?"warning":status==="Payment Released"?"good":"normal",
+      tone:status===QUERY||status===REJECTED?"warning":status==="Payment Released"||status===EXPENSES_BOOKED?"good":"normal",
       action:status===QUERY
         ?"Open the request, correct what is noted above, say what you changed, and resubmit it."
         :status===REJECTED
         ?"This request is closed and cannot be resubmitted. If the payment is still needed, raise a new request."
-        :status==="Payment Released"?"Nothing further is needed from you."
+        :status==="Payment Released"||status===EXPENSES_BOOKED?"Nothing further is needed from you."
         :"No action is needed from you yet; this is where the request has reached.",
       email:REQUESTOR_EMAIL.includes(status)||approvedByManagement,
       module:"payments",recordId:String(payment.id)},actor?.email);

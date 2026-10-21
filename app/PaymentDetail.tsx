@@ -1,5 +1,5 @@
 "use client";
-import{DEPT_PRIORITIES,DEPT_PRIORITY_ROLES,FINANCE_STAGES,PAID_STAGES,STAGES as stages,priorityOpen,stageIndex}from"../lib/payment-stages";
+import{DEPT_PRIORITIES,DEPT_PRIORITY_ROLES,EXPENSES_BOOKED,FINANCE_STAGES,PAID_STAGES,STAGES as stages,priorityOpen,stageIndex}from"../lib/payment-stages";
 import{FIELD_ORDER,labelFor,ruleFor}from"../lib/payment-fields";
 import type{FieldKey}from"../lib/payment-fields";
 import{useEffect,useMemo,useState}from"react";
@@ -11,11 +11,11 @@ import type{Job}from"../lib/jobs";
 type Payment={canApprove?:boolean;projectCode?:string;invoiceNumber?:string;invoiceDate?:string;paymentTerms?:string;period?:string;extra?:string;tds?:string;nature?:string;poNumber?:string;resubmitNote?:string;resubmittedAt?:string;rejectionNote?:string;rejectedBy?:string;rejectedAt?:string;raisedBy?:string;tdsPercent?:string;tdsValue?:string;
   /* The note left by whoever moved the request last. This panel declares its own Payment
      type rather than sharing page.tsx's, so a field added there does not arrive here. */
-  deptPriority?:string;deptPriorityBy?:string;deptPriorityAt?:string;lastActionNote?:string;lastActionBy?:string;utrNumber?:string;id:number;requestNo:string;company:string;vendor:string;amount:number;currency:string;due:string;urgency:string;status:string;owner:string;department:string};
+  deptPriority?:string;deptPriorityBy?:string;deptPriorityAt?:string;lastActionNote?:string;lastActionBy?:string;utrNumber?:string;voucherNumber?:string;id:number;requestNo:string;company:string;vendor:string;amount:number;currency:string;due:string;urgency:string;status:string;owner:string;department:string};
 /* The badge was hardcoded blue, so a rejected request looked the same as one in
    progress. Colour follows the status. */
 const statusTone=(s:string)=>s==="Query Raised"||s==="Audit Query"?"amber":/reject|query/i.test(s)?"red"
-  :/released|approved|cleared/i.test(s)?"green"
+  :/released|approved|cleared|booked/i.test(s)?"green"
   :/observation|correction|reconfirm/i.test(s)?"amber":"blue";
 /* One row of the trail. Status changes are logged as "<status> — <remark>"; a corrected
    field carries its old and new value instead. */
@@ -169,19 +169,25 @@ export default function PaymentDetail({payment:p,busy=false,role,onClose,onActio
    <textarea value={stageNote} onChange={e=>setStageNote(e.target.value)} placeholder={hint}/></label>;
  const withNote=()=>stageNote.trim()||undefined;
  const[utr,setUtr]=useState(""),[releaseFile,setReleaseFile]=useState<File|null>(null),[releaseErr,setReleaseErr]=useState("");
+ /* Finance closes an approved request one of two ways: paid (UTR number) or booked as an
+    expense (voucher number). The same proof upload and remarks serve both. */
+ const[closeAs,setCloseAs]=useState<"release"|"book">("release"),[voucher,setVoucher]=useState("");
  /* The proof goes up first, so a failed upload stops the release rather than leaving a
     released request with no proof and nobody told. */
  const release=async()=>{
    setReleaseErr("");
-   if(!utr.trim()){setReleaseErr("Enter the UTR number to release the payment.");return}
+   const booking=closeAs==="book";
+   if(booking&&!voucher.trim()){setReleaseErr("Enter the voucher number to book the expense.");return}
+   if(!booking&&!utr.trim()){setReleaseErr("Enter the UTR number to release the payment.");return}
    if(releaseFile){
      try{const r=await fetch("/api/attachments",{method:"POST",headers:{"content-type":"application/json"},
        body:JSON.stringify({entityType:"payment",entityId:String(p.id),kind:"Bank/payment proof",
          fileName:releaseFile.name,dataUrl:await asDataUrl(releaseFile)})});
        if(!r.ok){const b=await r.json().catch(()=>({})) as {error?:string};throw new Error(b.error||"upload refused")}}
-     catch(e){setReleaseErr(`The proof did not upload (${e instanceof Error?e.message:"error"}). Try again, or release without it.`);return}
+     catch(e){setReleaseErr(`The proof did not upload (${e instanceof Error?e.message:"error"}). Try again, or go ahead without it.`);return}
    }
-   onAction("Payment Released",withNote(),{utrNumber:utr.trim()})};
+   if(booking)onAction(EXPENSES_BOOKED,withNote(),{voucherNumber:voucher.trim()});
+   else onAction("Payment Released",withNote(),{utrNumber:utr.trim()})};
 
  /* TDS is an accounts determination, not something a requestor asserts, which is why it
     left the request form and arrives here instead. Whatever the requestor answered before
@@ -252,15 +258,23 @@ export default function PaymentDetail({payment:p,busy=false,role,onClose,onActio
     payment proof - it used to be read for its name alone, to enable the button, and never
     saved. The UTR is the bank's reference for the payment; remarks go into the trail. */
  if(approved&&(can("Accountant")||can("Finance")))action=<><div className="wf-success"><FileCheck2/><div><b>Approved by Auditor</b>
-   <p>Record the payment: the UTR number (required), the bank proof if you have it, and any remarks.</p></div></div>
-   <label className="wf-note">UTR number <i className="wf-req" aria-hidden="true">*</i><input className="wf-utr" required value={utr} onChange={e=>setUtr(e.target.value)} placeholder="Bank reference for this payment"/></label>
-   <label className="wf-proof"><Paperclip/>{releaseFile?"Release proof":"Upload release proof (optional)"}
+   <p>Release the payment with its UTR number, or book it as an expense with the voucher number. Attach the proof if you have it, and any remarks.</p></div></div>
+   <div className="wf-close-as" role="radiogroup" aria-label="How is this request closed">
+     <label className={closeAs==="release"?"on":""}><input type="radio" name="closeAs" checked={closeAs==="release"} onChange={()=>{setCloseAs("release");setReleaseErr("")}}/>Payment released</label>
+     <label className={closeAs==="book"?"on":""}><input type="radio" name="closeAs" checked={closeAs==="book"} onChange={()=>{setCloseAs("book");setReleaseErr("")}}/>Expenses booked</label>
+   </div>
+   {closeAs==="release"
+     ?<label className="wf-note">UTR number <i className="wf-req" aria-hidden="true">*</i><input className="wf-utr" required value={utr} onChange={e=>setUtr(e.target.value)} placeholder="Bank reference for this payment"/></label>
+     :<label className="wf-note">Voucher No <i className="wf-req" aria-hidden="true">*</i><input className="wf-utr" required value={voucher} onChange={e=>setVoucher(e.target.value)} placeholder="Accounts voucher number for this expense"/></label>}
+   <label className="wf-proof"><Paperclip/>{releaseFile?(closeAs==="book"?"Voucher / proof":"Release proof"):closeAs==="book"?"Upload voucher / proof (optional)":"Upload release proof (optional)"}
      <input type="file" accept="image/*,application/pdf" onChange={e=>setReleaseFile(e.target.files?.[0]||null)}/>
      {releaseFile&&<b>{releaseFile.name}</b>}</label>
    {noteBox("Remarks","Anything worth recording with the release (optional)")}
    {releaseErr&&<p className="wf-release-error">{releaseErr}</p>}
    <div className="wf-actions">{adminReject&&rejectForm(false,["reject"])}
-   {!sendBack&&<button className="wf-primary" disabled={!utr.trim()} title={utr.trim()?"":"Enter the UTR number first"} onClick={release}>Mark as Released</button>}</div></>;
+   {!sendBack&&(closeAs==="book"
+     ?<button className="wf-primary" disabled={!voucher.trim()} title={voucher.trim()?"":"Enter the voucher number first"} onClick={release}>Mark as Expenses Booked</button>
+     :<button className="wf-primary" disabled={!utr.trim()} title={utr.trim()?"":"Enter the UTR number first"} onClick={release}>Mark as Released</button>)}</div></>;
  if(p.status==="Rejected")action=<><div className="wf-observation"><X/><div>
    <small>REQUEST REJECTED</small>
    <b>{p.rejectionNote||"No reason was recorded."}</b>
@@ -342,6 +356,9 @@ export default function PaymentDetail({payment:p,busy=false,role,onClose,onActio
  if(released||p.status==="Reconciliation")action=<><div className="wf-success"><FileCheck2/><div><b>Payment Released</b><p>Release proof and the complete approval history are retained.</p></div></div>
    {adminReject&&<><div className="wf-callout"><AlertTriangle/>Administrator: reject this released payment if it bounced, was paid in error or must be reversed. Give the reason - it is kept on the record with the UTR.</div>
    <div className="wf-actions">{rejectForm(false,["reject"])}</div></>}</>;
+ if(p.status===EXPENSES_BOOKED)action=<><div className="wf-success"><FileCheck2/><div><b>Expenses Booked</b><p>Booked against voucher <b>{p.voucherNumber||"—"}</b>. The proof and the complete approval history are retained.</p></div></div>
+   {adminReject&&<><div className="wf-callout"><AlertTriangle/>Administrator: reject this booked expense if it was booked in error or must be reversed. Give the reason - it is kept on the record with the voucher number.</div>
+   <div className="wf-actions">{rejectForm(false,["reject"])}</div></>}</>;
  /* Waiting at finance release in a stage with no release form: the administrator can still reject it. */
  if(adminReject&&!approved&&FINANCE_STAGES.includes(p.status))action=<><div className="wf-callout"><Clock3/>Waiting for finance release.</div>
    <div className="wf-actions">{rejectForm(false,["reject"])}</div></>;
@@ -349,8 +366,8 @@ export default function PaymentDetail({payment:p,busy=false,role,onClose,onActio
     answer and a rejection is theirs to read, so this notice must not overwrite either. */
  if((role==="Requestor"||role==="Payment Requestor")&&p.status!=="Rejected"&&p.status!=="Query Raised")
    action=<div className="wf-callout"><Clock3/>Status-only access. Accounts and Audit actions are hidden.</div>;
- const title=p.status==="Rejected"?"Rejected - closed":p.status==="Query Raised"?"Query - correct and resubmit":accountQueue?"Accounts acceptance":accountWork?"Accountant verification":auditQueue?"Audit acceptance":auditWork?"Audit verification":correction?"Respond to audit observation":recheck?"Audit reconfirmation":approved?"Upload proof & release":auditQuery?"Answer audit query":mgmtQueue?"Management approval":"Completed";
- return <><button className="overlay" onClick={onClose}/><aside className="detail workflow-detail"><header><div><small>PAYMENT CONTROL · {role.toUpperCase()}</small><h2>{p.requestNo}</h2></div><button onClick={onClose}><X/></button></header><div className="detail-body"><div className="wf-summary"><div><span className={`badge ${statusTone(p.status)}`}>{p.status}</span><h3>{p.vendor}</h3><b className="amount">{p.currency} {p.amount.toLocaleString()}</b></div><dl><div><dt>Company</dt><dd>{p.company}</dd></div><div><dt>Department</dt><dd>{p.department}</dd></div>{p.poNumber&&<div><dt>PO number</dt><dd>{p.poNumber}</dd></div>}{!!p.nature&&<div><dt>Nature</dt><dd>{p.nature}</dd></div>}{!!p.utrNumber&&<div><dt>UTR number</dt><dd>{p.utrNumber}</dd></div>}{!!p.tds&&<div className={p.tds==="Yes"?"wide":""}><dt>TDS</dt><dd>{tdsLine(p)}</dd></div>}{!!p.projectCode&&<div><dt>Project code</dt><dd>{p.projectCode}</dd></div>}
+ const title=p.status==="Rejected"?"Rejected - closed":p.status==="Query Raised"?"Query - correct and resubmit":accountQueue?"Accounts acceptance":accountWork?"Accountant verification":auditQueue?"Audit acceptance":auditWork?"Audit verification":correction?"Respond to audit observation":recheck?"Audit reconfirmation":approved?"Upload proof & release":p.status===EXPENSES_BOOKED?"Expenses booked":auditQuery?"Answer audit query":mgmtQueue?"Management approval":"Completed";
+ return <><button className="overlay" onClick={onClose}/><aside className="detail workflow-detail"><header><div><small>PAYMENT CONTROL · {role.toUpperCase()}</small><h2>{p.requestNo}</h2></div><button onClick={onClose}><X/></button></header><div className="detail-body"><div className="wf-summary"><div><span className={`badge ${statusTone(p.status)}`}>{p.status}</span><h3>{p.vendor}</h3><b className="amount">{p.currency} {p.amount.toLocaleString()}</b></div><dl><div><dt>Company</dt><dd>{p.company}</dd></div><div><dt>Department</dt><dd>{p.department}</dd></div>{p.poNumber&&<div><dt>PO number</dt><dd>{p.poNumber}</dd></div>}{!!p.nature&&<div><dt>Nature</dt><dd>{p.nature}</dd></div>}{!!p.utrNumber&&<div><dt>UTR number</dt><dd>{p.utrNumber}</dd></div>}{!!p.voucherNumber&&<div><dt>Voucher No</dt><dd>{p.voucherNumber}</dd></div>}{!!p.tds&&<div className={p.tds==="Yes"?"wide":""}><dt>TDS</dt><dd>{tdsLine(p)}</dd></div>}{!!p.projectCode&&<div><dt>Project code</dt><dd>{p.projectCode}</dd></div>}
       {!!p.invoiceNumber&&<div><dt>Invoice</dt><dd>{p.invoiceNumber}{p.invoiceDate?` · ${p.invoiceDate}`:""}</dd></div>}
       {!!p.paymentTerms&&<div><dt>Payment terms</dt><dd>{p.paymentTerms}</dd></div>}
       {!!p.period&&<div><dt>Period</dt><dd>{p.period}</dd></div>}{(()=>{try{return(JSON.parse(p.extra||"[]") as {id:string;label:string;value:string}[])

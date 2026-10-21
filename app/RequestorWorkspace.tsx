@@ -20,7 +20,7 @@ type P={deptPriority?:string;deptPriorityBy?:string;id:number;requestNo:string;c
   rejectionNote?:string;resubmitNote?:string};
 
 const statusTone=(s:string)=>s==="Query Raised"||s==="Audit Query"?"amber":/reject|query/i.test(s)?"red"
-  :/released|approved|cleared/i.test(s)?"green"
+  :/released|approved|cleared|booked/i.test(s)?"green"
   :/observation|correction|reconfirm/i.test(s)?"amber":"blue";
 
 const PER_PAGE=10;

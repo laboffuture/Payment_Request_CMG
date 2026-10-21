@@ -13,7 +13,7 @@ export type ReportRow={requestNo:string;status:string;company:string;department:
   amount:number;currency:string;due:string;urgency:string;owner:string;nature?:string;description?:string;
   jbCode?:string;project?:string;jobLocation?:string;jobNo?:string;workType?:string;projectCode?:string;
   poNumber?:string;invoiceNumber?:string;invoiceDate?:string;paymentTerms?:string;period?:string;
-  paymentMode?:string;tds?:string;tdsPercent?:string;tdsValue?:string;utrNumber?:string;raisedBy?:string;
+  paymentMode?:string;tds?:string;tdsPercent?:string;tdsValue?:string;utrNumber?:string;voucherNumber?:string;raisedBy?:string;
   createdAt?:string;lastActionBy?:string;lastActionAt?:string;lastActionNote?:string;latestRemark?:string;
   rejectionNote?:string;rejectedBy?:string;resubmitNote?:string;extra?:string;
   deptPriority?:string;deptPriorityBy?:string;deptPriorityAt?:string};
@@ -67,7 +67,8 @@ const COLUMNS:Column[]=[
   {head:"Remarks",value:p=>p.lastActionNote||p.latestRemark||""},
   {head:"Query / rejection reason",value:p=>p.rejectionNote?`${p.rejectionNote}${p.rejectedBy?` (${p.rejectedBy})`:""}`:""},
   {head:"Resubmission note",value:p=>p.resubmitNote||""},
-  {head:"UTR number",value:p=>p.utrNumber||""}];
+  {head:"UTR number",value:p=>p.utrNumber||""},
+  {head:"Voucher number",value:p=>p.voucherNumber||""}];
 
 /* The extra fields an administrator has added to the request form, stored on each
    request as [{id,label,value}]. Every label any row carries becomes a column. */
