@@ -118,6 +118,8 @@ export async function renderPoHtml(poId: string): Promise<{ html: string; no: st
     return `<tr>
       <td class="c">${index + 1}</td>
       <td><b>${esc(item?.name)}</b>${
+        line.measurement ? `<small class="desc"><b>Size: ${esc(line.measurement)}</b></small>` : ''
+      }${
         line.description && line.description.trim() !== (item?.name ?? '').trim()
           ? `<small class="desc">${esc(line.description)}</small>`
           : ''

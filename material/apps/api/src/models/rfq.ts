@@ -60,6 +60,8 @@ export interface IRfqAlloc {
 export interface IRfqLine extends Timestamped {
   rfqId: Types.ObjectId;
   itemId: Types.ObjectId;
+  /** the size asked for - the same item in another size is another line */
+  measurement: string;
   qty: number;
   allocs: IRfqAlloc[];
 }
@@ -77,6 +79,7 @@ const rfqLineSchema = new Schema<IRfqLine>(
   {
     rfqId: refTo('Rfq'),
     itemId: refTo('Item'),
+    measurement: { type: String, default: '' },
     qty: qtyField(),
     allocs: { type: [rfqAllocSchema], default: [] },
   },

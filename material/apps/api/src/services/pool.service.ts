@@ -123,6 +123,7 @@ export async function listPool(query: PoolQuery): Promise<PoolRowDto[]> {
         itemCode: item.code,
         itemName: item.name,
         mrDescription: mrDescription.get(row.line.id) ?? '',
+        measurement: (answered.get(row.line.id)?.measurement ?? '').trim(),
         unit: item.unit,
         category: item.category,
         openQty: row.calc.poolOpen,

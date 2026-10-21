@@ -284,6 +284,8 @@ export interface PoLineDto {
   itemName: string;
   /** procurement's description for the vendor; empty = the item name */
   description: string;
+  /** the size this line is for; lines of one item differ by it */
+  measurement: string;
   unit: string;
   qty: number;
   rate: number;
@@ -560,6 +562,8 @@ export interface PoolRowDto {
   itemName: string;
   /** what the site engineer wrote on the MR line — a reference for procurement */
   mrDescription: string;
+  /** the size asked for; the same item in another measurement is a separate product */
+  measurement: string;
   unit: string;
   category: string;
   openQty: number;

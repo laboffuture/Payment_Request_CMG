@@ -11,7 +11,7 @@ import {
   poTotals,
   r2,
 } from '@cm/calc';
-import {
+import { measurementKey,
   DEFAULT_CURRENCY,
   DEFAULT_PO_DELIVERY_DAYS,
   MAX_BOQ_FILES,
@@ -268,6 +268,7 @@ export async function getPo(actor: Actor, id: string): Promise<PoDetailDto> {
       itemCode: item.code,
       itemName: item.name,
       description: line.description ?? '',
+      measurement: line.measurement ?? '',
       unit: item.unit,
       qty: num(line.qty),
       rate: num(line.rate),
@@ -545,7 +546,7 @@ async function writePoLines(
   session: ClientSession,
 ): Promise<WriteLinesResult> {
   const mrLines = await MrLine.find({ _id: { $in: rows.map((r) => oid(r.mrLineId)) } })
-    .select('itemId mrId')
+    .select('itemId mrId measurement')
     .session(session)
     .lean();
   const mrs = await Mr.find({ _id: { $in: mrLines.map((l) => l.mrId) } })
@@ -554,6 +555,8 @@ async function writePoLines(
     .lean();
 
   const itemByLine = new Map(mrLines.map((l) => [String(l._id), String(l.itemId)]));
+  // One PO line per item AND measurement: another size is another product, with its own price.
+  const sizeByLine = new Map(mrLines.map((l) => [String(l._id), (l.measurement ?? '').trim()]));
   const projectByLine = new Map(
     mrLines.map((l) => [
       String(l._id),
@@ -567,7 +570,8 @@ async function writePoLines(
   const groups = new Map<string, typeof rows>();
   for (const row of rows) {
     const gst = taxMode === 'NONE' ? 0 : num(row.gstPct);
-    const key = `${itemByLine.get(row.mrLineId)}|${num(row.rate)}|${gst}`;
+    const size = measurementKey(sizeByLine.get(row.mrLineId));
+    const key = `${itemByLine.get(row.mrLineId)}|${size}|${num(row.rate)}|${gst}`;
     groups.set(key, [...(groups.get(key) ?? []), row]);
   }
 
@@ -582,8 +586,9 @@ async function writePoLines(
     const qty = num(group.reduce((s, r) => s + num(r.qty), 0));
     const description = group.find((r) => r.description)?.description ?? '';
 
+    const measurement = sizeByLine.get(first.mrLineId) ?? '';
     const [poLine] = await PoLine.create(
-      [{ poId, itemId, qty, rate, gstPct: gst, description }],
+      [{ poId, itemId, qty, rate, gstPct: gst, description, measurement }],
       { session, ordered: true },
     );
 
@@ -1553,6 +1558,7 @@ export async function poFormRows(id: string): Promise<
     itemName: string;
     description: string;
     mrDescription: string;
+    measurement: string;
     unit: string;
     projectCode: string;
     mrNo: string;
@@ -1592,6 +1598,7 @@ export async function poFormRows(id: string): Promise<
         .map((v) => (v ?? '').trim())
         .filter(Boolean)
         .join(' — '),
+      measurement: (mrLine?.measurement ?? '').trim(),
       unit: item?.unit ?? '',
       projectCode: lookups.projectCode(alloc.projectId),
       mrNo: mr?.no ?? '',

@@ -118,7 +118,7 @@ export async function openPos(
   ]);
 
   const mrLines = await MrLine.find({ _id: { $in: poAllocs.map((a) => a.mrLineId) } })
-    .select('mrId')
+    .select('mrId measurement')
     .lean();
   const mrs = await Mr.find({ _id: { $in: mrLines.map((l) => l.mrId) } })
     .select('no')
@@ -140,7 +140,8 @@ export async function openPos(
       poAllocId: String(alloc._id),
       itemId: item.id,
       itemCode: item.code,
-      itemName: item.name,
+      // the size received matters as much as the item: the same item comes in several
+      itemName: mrLine?.measurement?.trim() ? `${item.name} (${mrLine.measurement.trim()})` : item.name,
       unit: item.unit,
       projectId: String(alloc.projectId),
       projectCode: lookups.projectCode(alloc.projectId),

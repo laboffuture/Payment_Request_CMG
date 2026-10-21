@@ -278,3 +278,15 @@ export const REQUEST_TYPE_LABELS: Record<RequestType, string> = {
   TOOLS: 'Tools',
   SERVICES: 'Services',
 };
+
+/**
+ * The same item in another measurement is another product - it has its own price - so
+ * lines are merged only when item and measurement match. Compared without case, spacing
+ * or the kind of "x": "2400 x 1200" and "2400×1200" are one size.
+ */
+export const measurementKey = (measurement: string | null | undefined): string =>
+  String(measurement ?? '')
+    .trim()
+    .toLowerCase()
+    .replace(/\s*[x×*]\s*/g, '×')
+    .replace(/\s+/g, ' ');

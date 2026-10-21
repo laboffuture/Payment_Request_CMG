@@ -1,6 +1,7 @@
 'use client';
 
 import { create } from 'zustand';
+import { measurementKey } from '@cm/shared';
 
 /**
  * The PO wizard's working copy.
@@ -18,6 +19,8 @@ export interface PoDraftRow {
   description?: string;
   /** what the site engineer wrote on the MR line — reference only */
   mrDescription?: string;
+  /** the size asked for; the same item in another measurement is a separate PO line */
+  measurement?: string;
   unit: string;
   projectCode: string;
   mrNo: string;
@@ -37,7 +40,8 @@ interface PoDraftState {
   removeRow: (mrLineId: string) => void;
   patchRow: (mrLineId: string, patch: Partial<PoDraftRow>) => void;
   /** set the rate and tax for every row carrying this item */
-  patchItem: (itemId: string, patch: Partial<PoDraftRow>) => void;
+  /** key: groupKeyOf(row) - one rate per item and measurement */
+  patchItem: (key: string, patch: Partial<PoDraftRow>) => void;
   clear: () => void;
 }
 
@@ -56,20 +60,28 @@ export const usePoDraft = create<PoDraftState>((set) => ({
     set((state) => ({
       rows: state.rows.map((r) => (r.mrLineId === mrLineId ? { ...r, ...patch } : r)),
     })),
-  // One rate per item across the whole PO (§5), so editing one row edits all.
-  patchItem: (itemId, patch) =>
+  // One rate per item and measurement across the whole PO (§5), so editing one row edits
+  // every row of that product - but not the same item in another size, which is priced apart.
+  patchItem: (key, patch) =>
     set((state) => ({
-      rows: state.rows.map((r) => (r.itemId === itemId ? { ...r, ...patch } : r)),
+      rows: state.rows.map((r) => (groupKeyOf(r) === key ? { ...r, ...patch } : r)),
     })),
   clear: () => set({ rows: [] }),
 }));
 
 /** Rows grouped into the one-line-per-item shape the PO is stored in. */
+/** One product on the PO: the item and its measurement (another size is another line). */
+export const groupKeyOf = (row: { itemId: string; measurement?: string }): string =>
+  `${row.itemId}|${measurementKey(row.measurement)}`;
+
 export function groupRows(rows: PoDraftRow[]) {
-  const groups = new Map<string, { itemId: string; itemCode: string; itemName: string; description: string; mrDescriptions: string[]; unit: string; qty: number; rate: number; gstPct: number; projects: string[]; mrNos: string[] }>();
+  const groups = new Map<string, { key: string; measurement: string; itemId: string; itemCode: string; itemName: string; description: string; mrDescriptions: string[]; unit: string; qty: number; rate: number; gstPct: number; projects: string[]; mrNos: string[] }>();
 
   for (const row of rows) {
-    const entry = groups.get(row.itemId) ?? {
+    const key = groupKeyOf(row);
+    const entry = groups.get(key) ?? {
+      key,
+      measurement: (row.measurement ?? '').trim(),
       itemId: row.itemId,
       itemCode: row.itemCode ?? '',
       itemName: row.itemName,
@@ -90,7 +102,7 @@ export function groupRows(rows: PoDraftRow[]) {
     if (!entry.description && row.description) entry.description = row.description;
     const said = (row.mrDescription ?? '').trim();
     if (said && !entry.mrDescriptions.includes(said)) entry.mrDescriptions.push(said);
-    groups.set(row.itemId, entry);
+    groups.set(key, entry);
   }
 
   return [...groups.values()];

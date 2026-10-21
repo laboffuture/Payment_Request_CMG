@@ -1,6 +1,6 @@
 import { Types } from 'mongoose';
 import { num, r2 } from '@cm/calc';
-import {
+import { measurementKey,
   DEFAULT_PAYMENT_TERMS,
   MSG,
   type AwardRfqInput,
@@ -156,7 +156,8 @@ export async function getRfq(actor: Actor, id: string): Promise<RfqDetailDto> {
       id: String(line._id),
       itemId: item.id,
       itemCode: item.code,
-      itemName: item.name,
+      // the size is part of what is quoted: the same item in another size is another line
+      itemName: line.measurement ? `${item.name} (${line.measurement})` : item.name,
       unit: item.unit,
       qty: num(line.qty),
       lastRate: item.lastRate,
@@ -267,20 +268,23 @@ export async function createRfq(
       { session, ordered: true },
     );
 
-    // One RFQ line per item, carrying every MR-line allocation behind it.
+    // One RFQ line per item and measurement, carrying every MR-line allocation behind it:
+    // another size is another product, and the vendor quotes it separately.
     const byItem = new Map<string, typeof picks>();
     for (const pick of picks) {
-      const key = pick.row.itemId;
+      const key = `${pick.row.itemId}|${measurementKey(pick.row.measurement)}`;
       byItem.set(key, [...(byItem.get(key) ?? []), pick]);
     }
 
     const lines = [];
-    for (const [itemId, group] of byItem) {
+    for (const group of byItem.values()) {
+      const itemId = group[0]!.row.itemId;
       const [line] = await RfqLine.create(
         [
           {
             rfqId: rfq!._id,
             itemId,
+            measurement: group[0]!.row.measurement ?? '',
             qty: num(group.reduce((sum, g) => sum + g.pick.qty, 0)),
             allocs: group.map((g) => ({
               mrLineId: oid(g.pick.mrLineId),
@@ -291,7 +295,8 @@ export async function createRfq(
         ],
         { session, ordered: true },
       );
-      lines.push({ line: line!, itemName: group[0]!.row.itemName, unit: group[0]!.row.unit });
+      const size = group[0]!.row.measurement ? ` (${group[0]!.row.measurement})` : '';
+      lines.push({ line: line!, itemName: group[0]!.row.itemName + size, unit: group[0]!.row.unit });
     }
 
     const body = lines
@@ -496,7 +501,7 @@ export async function getVendorRfq(actor: Actor, id: string): Promise<VendorRfqD
       id: String(line._id),
       sn: index + 1,
       itemCode: item.code,
-      itemName: item.name,
+      itemName: line.measurement ? `${item.name} (${line.measurement})` : item.name,
       unit: item.unit,
       qty: num(line.qty),
       rate,

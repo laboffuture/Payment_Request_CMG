@@ -138,6 +138,8 @@ export interface IPoLine extends Timestamped {
   rate: number;
   gstPct: number;
   description: string;
+  /** the size this line is for - the same item in another size is another line */
+  measurement: string;
 }
 
 const poLineSchema = new Schema<IPoLine>(
@@ -148,6 +150,7 @@ const poLineSchema = new Schema<IPoLine>(
     rate: moneyField(true),
     gstPct: { type: Number, default: 0, min: 0 },
     description: { type: String, default: '', maxlength: 400 },
+    measurement: { type: String, default: '' },
   },
   baseOptions(),
 );

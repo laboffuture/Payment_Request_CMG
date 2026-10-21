@@ -216,6 +216,9 @@ export function PoDocument({ preview }: { preview: PoDocumentData }) {
                   description is left out when it only repeats the name. */}
               <Cell>
                 <b className="block font-semibold">{line.itemName}</b>
+                {line.measurement ? (
+                  <small className="block text-[11px] font-semibold mt-[2px]">Size: {line.measurement}</small>
+                ) : null}
                 {line.description && line.description.trim() !== (line.itemName || '').trim() ? (
                   <small className="block whitespace-pre-line text-[11px] leading-[1.35] mt-[2px] opacity-80">
                     {line.description}

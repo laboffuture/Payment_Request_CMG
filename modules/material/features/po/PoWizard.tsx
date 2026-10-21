@@ -31,7 +31,7 @@ import { useToast } from '@mm/components/Toast';
 import { useAction } from '@mm/lib/hooks';
 import { useReference } from '@mm/lib/reference';
 import { addDays, fmtDate, money, qty } from '@mm/lib/format';
-import { draftTotals, groupRows, usePoDraft, type PoDraftRow } from './draft';
+import { draftTotals, groupKeyOf, groupRows, usePoDraft, type PoDraftRow } from './draft';
 import { PoDocument } from './PoDocument';
 import { PoFilePicker, acceptPoFiles, uploadPoFiles } from './PoAttachments';
 
@@ -396,6 +396,7 @@ function StepPickItems({
     itemCode: r.itemCode,
     itemName: r.itemName,
     mrDescription: r.mrDescription,
+    measurement: r.measurement,
     unit: r.unit,
     projectCode: r.projectCode,
     mrNo: r.mrNo,
@@ -611,7 +612,8 @@ function StepVendorPrices({
   setForm: (updater: (f: PoFormState) => PoFormState) => void;
   grouped: ReturnType<typeof groupRows>;
   rows: PoDraftRow[];
-  onPatchItem: (itemId: string, patch: Partial<PoDraftRow>) => void;
+  /** key: groupKeyOf(row) - the item and its measurement */
+  onPatchItem: (key: string, patch: Partial<PoDraftRow>) => void;
   totals: { subtotal: number; taxTotal: number; total: number; chargesTotal: number };
   currency: string;
   locked: boolean;
@@ -772,8 +774,8 @@ function StepVendorPrices({
             onClick={() => {
               // Prototype: "Use last rates" fills from the item master.
               for (const group of grouped) {
-                const row = rows.find((r) => r.itemId === group.itemId);
-                if (row) onPatchItem(group.itemId, { rate: row.rate });
+                const row = rows.find((r) => groupKeyOf(r) === group.key);
+                if (row) onPatchItem(group.key, { rate: row.rate });
               }
             }}
           >
@@ -830,9 +832,12 @@ function StepVendorPrices({
               const amount = group.qty * group.rate;
               const tax = form.taxMode === 'NONE' ? 0 : (amount * group.gstPct) / 100;
               return (
-                <tr key={group.itemId}>
+                <tr key={group.key}>
                   <td data-label="Item" className="min-w-[280px]">
                     <b>{group.itemName}</b>
+                    {group.measurement ? (
+                      <div className="text-xs font-semibold">Size: {group.measurement}</div>
+                    ) : null}
                     <div className="text-mut text-xs">{group.projects.join(', ')}</div>
                     {group.mrDescriptions.length ? (
                       <div className="text-xs mt-1">
@@ -847,7 +852,7 @@ function StepVendorPrices({
                       aria-label={`Description on the PO for ${group.itemName}`}
                       placeholder="Description on the PO (make, size, specification…) — the item name prints if left empty"
                       value={group.description}
-                      onChange={(e) => onPatchItem(group.itemId, { description: e.target.value })}
+                      onChange={(e) => onPatchItem(group.key, { description: e.target.value })}
                     />
                   </td>
                   <td data-label="Total qty" className="desk:text-right">
@@ -863,7 +868,7 @@ function StepVendorPrices({
                       className="w-24 font-semibold"
                       value={group.rate}
                       onChange={(e) =>
-                        onPatchItem(group.itemId, { rate: Number(e.target.value) || 0 })
+                        onPatchItem(group.key, { rate: Number(e.target.value) || 0 })
                       }
                     />
                   </td>
@@ -878,7 +883,7 @@ function StepVendorPrices({
                       disabled={form.taxMode === 'NONE'}
                       value={group.gstPct}
                       onChange={(e) =>
-                        onPatchItem(group.itemId, { gstPct: Number(e.target.value) || 0 })
+                        onPatchItem(group.key, { gstPct: Number(e.target.value) || 0 })
                       }
                     />
                   </td>
@@ -1048,11 +1053,12 @@ function StepReview({
           verifiedByName: null,
           approvedByName: null,
           lines: groupRows(rows).map((g) => ({
-            id: g.itemId,
+            id: g.key,
             itemId: g.itemId,
             itemCode: g.itemCode,
             itemName: g.itemName,
             description: g.description,
+            measurement: g.measurement,
             mrNos: g.mrNos,
             unit: g.unit,
             qty: g.qty,

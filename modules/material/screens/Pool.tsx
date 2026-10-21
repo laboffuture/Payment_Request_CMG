@@ -5,6 +5,7 @@ import { useRouter } from '@mm/lib/nav';
 import { useQuery } from '@tanstack/react-query';
 import { Download } from 'lucide-react';
 import {
+  measurementKey,
   DEFAULT_RFQ_DUE_HOURS,
   MATERIAL_ST,
   MATERIAL_STATUSES,
@@ -36,6 +37,10 @@ import { AttachmentButton } from '@mm/features/mr/MrAttachments';
  * grouped by item; tick lines, adjust the take quantity, then send one enquiry
  * or raise one PO.
  */
+/** The item and its measurement: the same item in another size is another product. */
+const productKey = (r: { itemId: string; measurement?: string }) =>
+  `${r.itemId}|${measurementKey(r.measurement)}`;
+
 export default function PoolPage() {
   const router = useRouter();
   const toast = useToast();
@@ -78,8 +83,7 @@ export default function PoolPage() {
   // Every word typed must appear somewhere on the line: "cpvc 0003" finds CPVC items on MR ...0003.
   const shown = useMemo(() => {
     const words = search.toLowerCase().split(/\s+/).filter(Boolean);
-    if (!words.length && !from && !to) return rows;
-    return rows.filter((r) => {
+    const filtered = !words.length && !from && !to ? rows : rows.filter((r) => {
       // Dates are YYYY-MM-DD, so they compare as text. A line with no date falls outside any range.
       const due = (r.requiredDate || '').slice(0, 10);
       if (from && (!due || due < from)) return false;
@@ -90,6 +94,17 @@ export default function PoolPage() {
         .toLowerCase();
       return words.every((w) => text.includes(w));
     });
+    // Rows of one product (item and measurement) together, in the order they first appear,
+    // so each size of an item gets its own heading and total.
+    const order = new Map<string, number>();
+    filtered.forEach((r) => {
+      const key = productKey(r);
+      if (!order.has(key)) order.set(key, order.size);
+    });
+    return filtered
+      .map((r, i) => ({ r, i }))
+      .sort((a, b) => order.get(productKey(a.r))! - order.get(productKey(b.r))! || a.i - b.i)
+      .map(({ r }) => r);
   }, [rows, search, from, to]);
 
   // The same search and date range, applied to the status view.
@@ -137,7 +152,7 @@ export default function PoolPage() {
       lines: selection.length,
       mrs: new Set(selection.map((s) => s.row.mrId)).size,
       projects: new Set(selection.map((s) => s.row.projectId)).size,
-      items: new Set(selection.map((s) => s.row.itemId)).size,
+      items: new Set(selection.map((s) => productKey(s.row))).size,
     }),
     [selection],
   );
@@ -319,11 +334,13 @@ export default function PoolPage() {
   ];
 
   /** Prototype: the grouped header row per item. */
+  // One heading per product: the same item in another measurement is priced and bought apart.
   const groupFor = (r: PoolRowDto): string => {
-    const forItem = rows.filter((x) => x.itemId === r.itemId);
+    const forItem = rows.filter((x) => productKey(x) === productKey(r));
     const total = forItem.reduce((sum, x) => sum + x.openQty, 0);
     const projects = new Set(forItem.map((x) => x.projectId)).size;
-    return `${r.itemName}  ${r.itemCode} · ${r.category} — total open ${qty(total)} ${r.unit} · ${projects} project(s)`;
+    const size = r.measurement ? ` · Size: ${r.measurement}` : '';
+    return `${r.itemName}${size}  ${r.itemCode} · ${r.category} — total open ${qty(total)} ${r.unit} · ${projects} project(s)`;
   };
 
   const createPo = () => {
@@ -337,6 +354,7 @@ export default function PoolPage() {
         itemCode: s.row.itemCode,
         itemName: s.row.itemName,
         mrDescription: s.row.mrDescription,
+        measurement: s.row.measurement,
         unit: s.row.unit,
         projectCode: s.row.projectCode,
         mrNo: s.row.mrNo,
