@@ -33,6 +33,7 @@ import { enqueueEmails } from '../jobs/queues.js';
 import { deleteFile, signedUrlFor, uploadBoq } from '../lib/files.js';
 import { knownUnit } from './unit.service.js';
 import { Item, Project } from '../models/masters.js';
+import { toolsProjectId } from '../lib/toolsProject.js';
 import { Mr, MrLine } from '../models/mr.js';
 import { Issue, IssueLine, StockLedger } from '../models/stock.js';
 import { EmailOutbox, Notification } from '../models/system.js';
@@ -483,6 +484,12 @@ async function validateMrInput(
   actor: Actor,
   input: UpsertMrInput,
 ): Promise<void> {
+  // A Tools & Assets request is always for the tools project, whatever was sent.
+  if (input.requestType === 'TOOLS') {
+    const tools = await toolsProjectId();
+    if (!tools) throw badRequest('The TRG TOOLS & ASSET project is not set up yet - ask the administrator');
+    input.projectId = tools;
+  }
   if (!input.projectId) throw badRequest(MSG.mrNoProject);
   if (!canSeeProject(actor, input.projectId)) {
     throw forbidden('You cannot raise a material request for that project');

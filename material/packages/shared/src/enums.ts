@@ -275,9 +275,20 @@ export const REQUEST_TYPES = ['MATERIAL', 'TOOLS', 'SERVICES'] as const;
 export type RequestType = (typeof REQUEST_TYPES)[number];
 export const REQUEST_TYPE_LABELS: Record<RequestType, string> = {
   MATERIAL: 'Material request',
-  TOOLS: 'Tools',
+  TOOLS: 'Tools & Assets',
   SERVICES: 'Services',
 };
+
+/**
+ * A Tools & Assets request always goes to this one project - it is chosen for the
+ * engineer, not picked. Matched without spacing, hyphens or case, so
+ * "TRG- TOOLS & ASSET" and "TRG TOOLS & ASSET" are the same project.
+ */
+export const TOOLS_PROJECT_CODE = 'TRG TOOLS & ASSET';
+export const TOOLS_PROJECT_NAME = 'TRG PROJECT TOOLS & ASSETS';
+export const isToolsProjectCode = (code: string | null | undefined): boolean =>
+  String(code ?? '').toUpperCase().replace(/[\s-]+/g, '') ===
+  TOOLS_PROJECT_CODE.replace(/[\s-]+/g, '');
 
 /**
  * The same item in another measurement is another product - it has its own price - so

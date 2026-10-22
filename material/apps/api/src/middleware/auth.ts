@@ -4,6 +4,7 @@ import { MSG } from '@cm/shared';
 import { forbidden, unauthenticated } from '../lib/errors.js';
 import { ACCESS_COOKIE, verifyAccessToken } from '../lib/tokens.js';
 import { User } from '../models/masters.js';
+import { toolsProjectId } from '../lib/toolsProject.js';
 import { ROLE_HEADER, materialUserFor, paymentActorFor, paymentSessionOf } from '../lib/paymentSso.js';
 
 export interface Actor {
@@ -58,11 +59,19 @@ export async function requireAuth(
     }
     if (!user || !user.active || !role) throw unauthenticated();
 
+    const projectIds = (user.projectIds ?? []).map(String);
+    // Anyone limited to their own projects may still raise (and follow) a
+    // Tools & Assets request, which always belongs to the tools project.
+    if (role === 'SITE' && projectIds.length) {
+      const tools = await toolsProjectId();
+      if (tools && !projectIds.includes(tools)) projectIds.push(tools);
+    }
+
     req.actor = {
       id: String(user._id),
       role,
       vendorId: user.vendorId ? String(user.vendorId) : null,
-      projectIds: (user.projectIds ?? []).map(String),
+      projectIds,
       name: user.name,
       email: user.email ?? '',
     };

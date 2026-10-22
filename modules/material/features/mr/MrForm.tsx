@@ -11,6 +11,7 @@ import {
   MSG,
   REQUEST_TYPES,
   REQUEST_TYPE_LABELS,
+  isToolsProjectCode,
   type BoqFileDto,
   type ItemDto,
   type MrDetailDto,
@@ -253,6 +254,14 @@ export function MrForm({ existing }: { existing?: MrDetailDto }) {
   const byCode = [...reference.projects].sort((a, b) => a.code.localeCompare(b.code));
   const byName = [...reference.projects].sort((a, b) => a.name.localeCompare(b.name));
   const chosenProject = reference.projects.find((p) => p.id === projectId) ?? null;
+  // Tools & Assets always goes to the tools project - chosen here, not picked.
+  const toolsProject = reference.projects.find((p) => isToolsProjectCode(p.code)) ?? null;
+  const toolsRequest = requestType === 'TOOLS';
+  const chooseType = (type: RequestType | '') => {
+    setRequestType(type);
+    if (type === 'TOOLS') setProjectId(toolsProject?.id ?? '');
+    else if (toolsProject && projectId === toolsProject.id) setProjectId('');
+  };
 
   return (
     <div className="w-full">
@@ -278,7 +287,7 @@ export function MrForm({ existing }: { existing?: MrDetailDto }) {
               Type of request *
               <select
                 value={requestType}
-                onChange={(e) => setRequestType(e.target.value as RequestType)}
+                onChange={(e) => chooseType(e.target.value as RequestType | '')}
               >
                 <option value="">Select type</option>
                 {REQUEST_TYPES.map((t) => (
@@ -291,7 +300,11 @@ export function MrForm({ existing }: { existing?: MrDetailDto }) {
 
             <label className="field">
               Project code *
-              <select value={projectId} onChange={(e) => setProjectId(e.target.value)}>
+              <select
+                value={projectId}
+                disabled={toolsRequest}
+                onChange={(e) => setProjectId(e.target.value)}
+              >
                 <option value="">Select code</option>
                 {byCode.map((p) => (
                   <option key={p.id} value={p.id}>
@@ -303,7 +316,11 @@ export function MrForm({ existing }: { existing?: MrDetailDto }) {
 
             <label className="field">
               Project name *
-              <select value={projectId} onChange={(e) => setProjectId(e.target.value)}>
+              <select
+                value={projectId}
+                disabled={toolsRequest}
+                onChange={(e) => setProjectId(e.target.value)}
+              >
                 <option value="">Select name</option>
                 {byName.map((p) => (
                   <option key={p.id} value={p.id}>
