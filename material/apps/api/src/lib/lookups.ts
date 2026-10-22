@@ -15,6 +15,8 @@ export interface Lookups {
   vendorName(id: unknown): string;
   projectCode(id: unknown): string;
   projectName(id: unknown): string;
+  /** the project's name alone, without its code */
+  projectTitle(id: unknown): string;
   item(id: unknown): {
     id: string;
     code: string;
@@ -66,6 +68,7 @@ export async function buildLookups(): Promise<Lookups> {
       const p = projectMap.get(String(id));
       return p ? `${p.code} · ${p.name}` : '—';
     },
+    projectTitle: (id) => projectMap.get(String(id))?.name || '—',
     item: (id) => itemMap.get(String(id)) ?? null,
   };
 }

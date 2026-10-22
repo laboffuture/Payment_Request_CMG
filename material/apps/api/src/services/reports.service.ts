@@ -184,6 +184,7 @@ async function rowsFor(
       return rows.map((r) => ({
         'MR no.': r.mr,
         Project: r.project,
+        'Project name': lookups.projectTitle(r.projectId),
         Category: r.cat,
         Item: r.item,
         Unit: r.unit,
@@ -243,7 +244,8 @@ async function rowsFor(
           const closed = projectLines.filter((l) => l.stage === 'Closed').length;
 
           return {
-            Project: `${project.code} · ${project.name}`,
+            Project: project.code,
+            'Project name': project.name || '—',
             MRs: mrs.length,
             'Open MRs': mrs.filter((m) =>
               ['QS_PENDING', 'APPROVED'].includes(m.status),
@@ -269,6 +271,7 @@ async function rowsFor(
           Item: line.item,
           Unit: line.unit,
           Project: line.project,
+          'Project name': lookups.projectTitle(line.projectId),
           Requested: 0,
           'From store': 0,
           'For PO': 0,
@@ -301,6 +304,7 @@ async function rowsFor(
           ({
             Category: line.cat || '—',
             Project: line.project,
+            'Project name': lookups.projectTitle(line.projectId),
             Lines: 0,
             Closed: 0,
             Overdue: 0,
@@ -346,6 +350,7 @@ async function rowsFor(
           return {
             'MR no.': mr.no,
             Project: lookups.projectCode(mr.projectId),
+            'Project name': lookups.projectTitle(mr.projectId),
             Status: MR_LABEL[mr.status] ?? mr.status,
             Submitted: fmtDate(mr.submittedAt),
             'Days open': days,
@@ -372,9 +377,10 @@ async function rowsFor(
 
       for (const po of pos) {
         const calcPo = world.pos.find((p) => p.id === String(po._id));
-        const projects = world.poAllocs
+        const poProjectIds = world.poAllocs
           .filter((a) => a.poId === String(po._id))
-          .map((a) => lookups.projectCode(a.projectId));
+          .map((a) => a.projectId);
+        const projects = poProjectIds.map((id) => lookups.projectCode(id));
         if (projectId && !projects.includes(lookups.projectCode(projectId))) continue;
 
         out.push({
@@ -382,6 +388,7 @@ async function rowsFor(
           Date: fmtDate(po.createdAt.toISOString()),
           Vendor: lookups.vendorName(po.vendorId),
           Projects: [...new Set(projects)].join(' '),
+          'Project name': [...new Set(poProjectIds.map((id) => lookups.projectTitle(id)))].join(', '),
           Basis: po.rfqId ? 'Compared' : 'Direct',
           Subtotal: money(num(po.subtotal)),
           Tax: money(num(po.taxTotal)),
@@ -397,7 +404,7 @@ async function rowsFor(
 
     // --- 8: PO value by project & vendor -----------------------------------
     case 'povalue': {
-      const grouped = new Map<string, { Vendor: string; Project: string; pos: Set<string>; value: number }>();
+      const grouped = new Map<string, { Vendor: string; Project: string; ProjectName: string; pos: Set<string>; value: number }>();
 
       for (const alloc of world.poAllocs) {
         if (projectId && alloc.projectId !== projectId) continue;
@@ -410,6 +417,7 @@ async function rowsFor(
           {
             Vendor: lookups.vendorName(po.vendorId),
             Project: lookups.projectCode(alloc.projectId),
+            ProjectName: lookups.projectTitle(alloc.projectId),
             pos: new Set<string>(),
             value: 0,
           };
@@ -421,6 +429,7 @@ async function rowsFor(
       return [...grouped.values()].map((e) => ({
         Vendor: e.Vendor,
         Project: e.Project,
+        'Project name': e.ProjectName,
         POs: e.pos.size,
         'PO value incl. tax': money(e.value),
       }));
