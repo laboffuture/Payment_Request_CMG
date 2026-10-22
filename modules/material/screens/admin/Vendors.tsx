@@ -167,7 +167,6 @@ function VendorModal({
   const toast = useToast();
   const queryClient = useQueryClient();
   const [form, setForm] = useState({
-    code: vendor?.code ?? '',
     name: vendor?.name ?? '',
     country: vendor?.country ?? '',
     email: vendor?.email ?? '',
@@ -213,9 +212,10 @@ function VendorModal({
         <label className="field">
           Vendor No
           <input
-            placeholder="Next number if left empty"
-            value={form.code}
-            onChange={set('code')}
+            value={vendor?.code || 'Given automatically on save'}
+            readOnly
+            disabled
+            title="Vendor numbers are system-generated"
           />
         </label>
         <label className="field">

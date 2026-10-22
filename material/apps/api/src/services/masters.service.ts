@@ -66,22 +66,12 @@ export async function createVendor(input: UpsertVendorInput): Promise<VendorDto>
     .select('_id')
     .lean();
   if (clash) throw conflict(MSG.vendorNameExists);
-  await assertVendorCodeFree(input.code);
 
-  const code = input.code || (await nextVendorCode());
+  // Vendor numbers are system-generated only — never typed in.
+  const code = await nextVendorCode();
   const vendor = await Vendor.create({ ...input, code, source: 'LOCAL' });
   await bumpSyncStamp();
   return (await listVendors()).find((v) => v.id === String(vendor._id))!;
-}
-
-/** Two vendors cannot share a vendor number. */
-async function assertVendorCodeFree(code: string, exceptId?: string): Promise<void> {
-  if (!code) return;
-  const taken = await Vendor.findOne({ code, ...(exceptId ? { _id: { $ne: exceptId } } : {}) })
-    .collation(ci)
-    .select('_id')
-    .lean();
-  if (taken) throw conflict(`Vendor number ${code} is already used by another vendor`);
 }
 
 /** Payment-app vendors are read-only here (§10). */
@@ -100,10 +90,9 @@ export async function updateVendor(
     .select('_id')
     .lean();
   if (clash) throw conflict(MSG.vendorNameExists);
-  await assertVendorCodeFree(input.code, id);
 
-  // A vendor saved without a number (one added before numbers existed) gets the next one.
-  Object.assign(vendor, input, { code: input.code || vendor.code || (await nextVendorCode()) });
+  // The number never changes once given; a vendor without one gets the next.
+  Object.assign(vendor, input, { code: vendor.code || (await nextVendorCode()) });
   await vendor.save();
   await bumpSyncStamp();
   return (await listVendors()).find((v) => v.id === id)!;

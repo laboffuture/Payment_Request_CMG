@@ -48,8 +48,8 @@ export type ImportPaymentUsersInput = z.infer<typeof importPaymentUsersInput>;
 // ---------------------------------------------------------------------------
 
 export const upsertVendorInput = z.object({
-  /** vendor number; left empty, the next V-0001… is given */
-  code: z.string().trim().max(30).optional().default(''),
+  // No vendor number here: the server always gives the next V-0001… itself,
+  // and any `code` a client sends is stripped.
   name: z.string().trim().min(1, MSG.vendorNameRequired),
   country: z.string().trim().max(60).optional().default(''),
   email: optionalEmail,
