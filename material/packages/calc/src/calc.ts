@@ -343,6 +343,52 @@ export function lineStage(line: MrLineIn, mr: MrIn, calc: LineCalc): string {
   return stages.join(' · ') || 'In progress';
 }
 
+const PO_HOLDER: Record<string, string> = {
+  DRAFT: 'Procurement',
+  PENDING_APPROVAL: 'Procurement Manager',
+  QS_VALIDATION: 'QS',
+  MGMT_APPROVAL: 'Management',
+  APPROVED: 'Vendor (delivery)',
+  PARTIAL: 'Vendor (delivery)',
+};
+
+const MR_HOLDER: Record<string, string> = {
+  DRAFT: 'Site engineer',
+  SENT_BACK: 'Site engineer',
+  PM_PENDING: 'Project Manager',
+  QS_PENDING: 'QS',
+  PROC_REVIEW: 'Procurement',
+  GRN_PENDING: 'Site engineer',
+  GRN_POSTED: 'Closed',
+  REJECTED: 'Rejected',
+  CLOSED: 'Closed',
+};
+
+/**
+ * Who the line is waiting for right now - the site engineer, PM, QS, procurement,
+ * the store, the PO approvers or the vendor. Several when the line is split
+ * (part from store, part on a PO).
+ */
+export function lineHolder(w: World, line: MrLineIn, mr: MrIn, calc: LineCalc): string {
+  if (line.lineStatus === 'REJECTED') return 'Rejected';
+  if (mr.status !== 'APPROVED') return MR_HOLDER[mr.status] ?? mr.status;
+  if (calc.approved === 0) return 'Not approved by QS';
+  if (calc.closed) return 'Closed';
+  const who: string[] = [];
+  if (calc.pendingIssue > 0) who.push('Site engineer');
+  if (calc.issuable > 0) who.push('Store');
+  if (calc.rfqOpen > 0 || calc.poolOpen > 0) who.push('Procurement');
+  if (calc.poAlloc > calc.received) {
+    for (const alloc of w.poAllocs) {
+      if (!same(alloc.mrLineId, line.id)) continue;
+      const po = byId(w.pos, alloc.poId);
+      const holder = po ? PO_HOLDER[po.status] : undefined;
+      if (holder) who.push(holder);
+    }
+  }
+  return [...new Set(who)].join(' · ') || 'Site engineer';
+}
+
 export interface ReportLine {
   mr: string;
   mrId: string;
@@ -363,6 +409,8 @@ export interface ReportLine {
   site: number;
   balance: number;
   stage: string;
+  /** who the line is waiting for now */
+  holder: string;
   required: string;
   overdue: boolean;
 }
@@ -433,6 +481,7 @@ export function reportLines(
       site: calc.siteAcc,
       balance: post ? calc.balance : num(line.qty),
       stage: lineStage(line, mr, calc),
+      holder: lineHolder(w, line, mr, calc),
       required: mr.requiredDate,
       overdue,
     });

@@ -198,6 +198,7 @@ async function rowsFor(
         'Site acc.': r.site,
         Balance: r.balance,
         Stage: r.stage + (r.overdue ? ' · OVERDUE' : ''),
+        'Currently with': r.holder,
         Required: fmtDate(r.required),
         _id: r.mrId,
         _v: 'mrview',
@@ -336,6 +337,19 @@ async function rowsFor(
     // --- 6: MR ageing ------------------------------------------------------
     case 'ageing': {
       const now = Date.now();
+      // An MR is with everyone any of its open lines is waiting for.
+      const holders = new Map<string, Set<string>>();
+      for (const line of lines()) {
+        const set = holders.get(line.mrId) ?? new Set<string>();
+        set.add(line.holder);
+        holders.set(line.mrId, set);
+      }
+      const holderOf = (mrId: string): string => {
+        const set = holders.get(mrId);
+        if (!set?.size) return '—';
+        const open = [...set].filter((h) => !['Closed', 'Rejected', 'Not approved by QS'].includes(h));
+        return open.length ? open.join(' · ') : [...set].join(' · ');
+      };
       return world.mrs
         .filter((m) => m.status !== 'DRAFT')
         .filter((m) => !projectId || m.projectId === projectId)
@@ -352,6 +366,7 @@ async function rowsFor(
             Project: lookups.projectCode(mr.projectId),
             'Project name': lookups.projectTitle(mr.projectId),
             Status: MR_LABEL[mr.status] ?? mr.status,
+            'Currently with': holderOf(mr.id),
             Submitted: fmtDate(mr.submittedAt),
             'Days open': days,
             Bucket:
