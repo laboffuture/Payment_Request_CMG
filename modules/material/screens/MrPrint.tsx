@@ -79,7 +79,7 @@ function MrDocument({ doc }: { doc: MrPrintDto }) {
             className="max-h-16 max-w-[200px] object-contain"
           />
           <b className="text-[22px] tracking-[.04em]">
-            {{ MATERIAL: 'MATERIAL', TOOLS: 'TOOLS & ASSETS', PETTY_CASH: 'PROJECT PETTY CASH' }[mr.requestType ?? 'MATERIAL']}{' '}
+            {{ MATERIAL: 'MATERIAL', TOOLS: 'TOOLS & ASSETS', SUB_CONTRACTOR: 'SUB-CONTRACTOR', PETTY_CASH: 'PROJECT PETTY CASH' }[mr.requestType ?? 'MATERIAL']}{' '}
             REQUISITION FORM
           </b>
         </div>
