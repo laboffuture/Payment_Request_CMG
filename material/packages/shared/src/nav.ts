@@ -28,6 +28,7 @@ export const COUNT_KEYS = [
   'grn',
   'receive',
   'vendorRfqs',
+  'pettyCash',
 ] as const;
 export type CountKey = (typeof COUNT_KEYS)[number];
 
@@ -41,6 +42,7 @@ export const NAV: Record<Role, readonly NavItem[]> = {
     // Read-only: where a request went once QS approved it.
     { href: '/pos', label: 'Purchase orders' },
     { href: '/receive', label: 'Receive at site', count: 'receive' },
+    { href: '/petty-cash', label: 'Petty cash GRN', count: 'pettyCash' },
     { href: '/reports', label: 'Reports' },
     { href: '/notifications', label: 'Notifications', count: 'notifications' },
   ],
@@ -68,6 +70,7 @@ export const NAV: Record<Role, readonly NavItem[]> = {
   PROC: [
     { href: '/', label: 'Home' },
     { href: '/pool', label: 'Consolidate MRs', count: 'pool' },
+    { href: '/petty-cash', label: 'Petty cash review', count: 'pettyCash' },
     { href: '/pos/new', label: 'Create PO' },
     { href: '/rfqs', label: 'Enquiries' },
     { href: '/pos', label: 'Purchase orders' },
@@ -79,6 +82,7 @@ export const NAV: Record<Role, readonly NavItem[]> = {
     { href: '/', label: 'Home' },
     { href: '/pos/approvals', label: 'PO approvals', count: 'poApprovals' },
     { href: '/pool', label: 'Consolidate MRs', count: 'pool' },
+    { href: '/petty-cash', label: 'Petty cash review', count: 'pettyCash' },
     { href: '/pos/new', label: 'Create PO' },
     { href: '/rfqs', label: 'Enquiries' },
     { href: '/pos', label: 'Purchase orders' },

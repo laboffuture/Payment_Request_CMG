@@ -185,7 +185,7 @@ export async function openPos(
  * Done before the transaction, so a file that is refused stops the receipt rather than
  * leaving one posted without it; `undo` removes them again if the receipt then fails.
  */
-async function storeReceiptFiles(
+export async function storeReceiptFiles(
   files: Express.Multer.File[],
   folder: string,
 ): Promise<{ stored: Awaited<ReturnType<typeof uploadBoq>>[]; undo: () => Promise<void> }> {

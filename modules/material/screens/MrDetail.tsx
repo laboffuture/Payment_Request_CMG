@@ -7,6 +7,7 @@ import { useQuery } from '@tanstack/react-query';
 import {
   BRAND_LOGO_URL,
   REQUEST_TYPE_LABELS,
+  isPettyCash,
   IS_ST,
   MR_ST,
   MSG,
@@ -21,7 +22,8 @@ import {
   type Role,
   type Unit,
 } from '@cm/shared';
-import { del, downloadFile, get, post } from '@mm/lib/api';
+import { del, downloadFile, get, newIdempotencyKey, post, postWithFiles } from '@mm/lib/api';
+import { ReceiptFiles } from '@mm/features/store/ReceiptFiles';
 import { Modal } from '@mm/components/Modal';
 import { DataTable, type Column } from '@mm/components/DataTable';
 import {
@@ -183,6 +185,10 @@ export default function MrDetailPage() {
           <span className="text-mut">MR remarks:</span> {data.remarks}
         </Card>
       ) : null}
+
+      {data.canProcReview ? <PettyReviewPanel mr={data} /> : null}
+      {data.canPostGrn ? <PettyGrnPanel mr={data} /> : null}
+      {data.pettyGrn ? <PettyGrnCard mr={data} /> : null}
 
       {approved ? <ProcurementProgress mr={data} /> : null}
 
@@ -1004,20 +1010,31 @@ function QsPanel({ mr }: { mr: MrDetailDto }) {
     },
     qsActionColumn(mr),
   ];
+  // Petty cash is bought at site with no PO: QS approves the quantity, nothing to split.
+  const petty = isPettyCash(mr.requestType);
+  const shown = petty
+    ? columns.filter((c) => !['avail', 'store', 'po', 'cut'].includes(String(c.key)))
+    : columns;
 
   return (
     <>
+      {petty ? (
+        <div className="warn mb-2">
+          <b>Project petty cash</b> — no PO is raised. Approve the quantities and it goes to
+          procurement for review; the site engineer then buys and posts the GRN.
+        </div>
+      ) : null}
       <DataTable
-        columns={columns}
+        columns={shown}
         rows={active}
         rowKey={(l) => l.id}
         rowClassName={(l) => (review[l.id]?.rejected ? 'opacity-55' : '')}
         emptyText="No lines to split"
       />
       <div className="text-mut text-sm mt-2">
-        Rule: from store + for PO ≤ the quantity you approve, and from store ≤
-        available stock. Changing a quantity, a unit or a measurement here is
-        shown to the site engineer and to the Project Manager.
+        {petty
+          ? 'Changing a quantity, a unit or a measurement here is shown to the site engineer and to the Project Manager.'
+          : 'Rule: from store + for PO ≤ the quantity you approve, and from store ≤ available stock. Changing a quantity, a unit or a measurement here is shown to the site engineer and to the Project Manager.'}
       </div>
       <QsDecisionPanel mr={mr} pending={0} review={{ review, split }} />
     </>
@@ -1092,7 +1109,7 @@ function QsDecisionPanel({
             disabled={!!pending || !review || approve.isPending}
             onClick={() => approve.mutate()}
           >
-            Approve split
+            {isPettyCash(mr.requestType) ? 'Approve — send to procurement' : 'Approve split'}
           </Btn>
         </div>
       </Stack>
@@ -1272,5 +1289,187 @@ function ProcurementNotes({ line }: { line: MrLineDetailDto }) {
         </div>
       ) : null}
     </div>
+  );
+}
+
+/** Project petty cash: procurement reviews it - no PO - and approves, sends back or rejects. */
+function PettyReviewPanel({ mr }: { mr: MrDetailDto }) {
+  const toast = useToast();
+  const [comment, setComment] = useState('');
+  const invalidate = [['mr', mr.id], ['mrs'], ['counts']];
+
+  const approve = useAction(() => post(`/mrs/${mr.id}/petty-approve`, { comment, rv: mr.rv }), {
+    success: `${mr.no} approved — the site engineer can post the GRN`,
+    invalidate,
+  });
+  const sendBack = useAction(() => post(`/mrs/${mr.id}/petty-send-back`, { comment, rv: mr.rv }), {
+    success: 'Sent back to QS',
+    invalidate,
+  });
+  const reject = useAction(() => post(`/mrs/${mr.id}/petty-reject`, { comment, rv: mr.rv }), {
+    success: 'Petty cash request rejected',
+    invalidate,
+  });
+  const withComment = (run: () => void) =>
+    comment.trim() ? run() : toast('Write a comment for Send back / Reject');
+
+  return (
+    <Card className="mt-3">
+      <Stack>
+        <div>
+          <b>Procurement review — project petty cash.</b>{' '}
+          <span className="text-mut">
+            No PO is raised. Once approved, the site engineer buys the items and posts the GRN.
+          </span>
+        </div>
+        <label className="field">
+          Comment (required for Send back / Reject)
+          <textarea rows={2} value={comment} onChange={(e) => setComment(e.target.value)} />
+        </label>
+        <div className="flex flex-wrap justify-end gap-[10px]">
+          <Btn variant="danger" onClick={() => withComment(() => reject.mutate())}>
+            Reject
+          </Btn>
+          <Btn onClick={() => withComment(() => sendBack.mutate())}>Send back to QS</Btn>
+          <Btn variant="primary" disabled={approve.isPending} onClick={() => approve.mutate()}>
+            {approve.isPending ? 'Approving…' : 'Approve'}
+          </Btn>
+        </div>
+      </Stack>
+    </Card>
+  );
+}
+
+/** Project petty cash: the site engineer posts the GRN for what was bought. */
+function PettyGrnPanel({ mr }: { mr: MrDetailDto }) {
+  const toast = useToast();
+  const active = mr.lines.filter((l) => l.lineStatus !== 'REJECTED');
+  const approvedOf = (l: MrLineDetailDto) => l.poQty ?? l.qty;
+  const [got, setGot] = useState<Record<string, string>>(() =>
+    Object.fromEntries(active.map((l) => [l.id, String(approvedOf(l))])),
+  );
+  const [billNo, setBillNo] = useState('');
+  const [remark, setRemark] = useState('');
+  const [files, setFiles] = useState<File[]>([]);
+
+  const postGrn = useAction(
+    () =>
+      postWithFiles<{ no: string }>(
+        `/mrs/${mr.id}/petty-grn`,
+        {
+          billNo,
+          remark,
+          rv: mr.rv,
+          lines: active.map((l) => ({ id: l.id, qty: Number(got[l.id]) || 0 })),
+        },
+        files,
+        newIdempotencyKey(),
+      ),
+    {
+      success: (r) => `${r.no} posted`,
+      invalidate: [['mr', mr.id], ['mrs'], ['counts']],
+    },
+  );
+
+  const submit = () => {
+    if (!billNo.trim()) return toast('Enter the bill / receipt number');
+    if (!files.length) return toast('Attach the bill or a photo of what was bought');
+    if (!active.some((l) => Number(got[l.id]) > 0)) {
+      return toast('Enter the quantity received for at least one item');
+    }
+    postGrn.mutate();
+  };
+
+  const columns: Column<MrLineDetailDto>[] = [
+    { key: 'sn', header: '#', render: (l) => l.sn },
+    {
+      key: 'item',
+      header: 'Item',
+      render: (l) => (
+        <span>
+          {l.name}
+          {l.measurement ? <span className="text-mut text-xs"> · {l.measurement}</span> : null}
+        </span>
+      ),
+    },
+    { key: 'approved', header: 'Approved', align: 'right', render: (l) => `${qty(approvedOf(l))} ${l.unit}` },
+    {
+      key: 'got',
+      header: 'Received',
+      render: (l) => (
+        <input
+          type="number"
+          min={0}
+          max={approvedOf(l)}
+          step="any"
+          aria-label={`Received for ${l.name}`}
+          className="w-24 font-semibold"
+          value={got[l.id] ?? ''}
+          onChange={(e) => setGot((rows) => ({ ...rows, [l.id]: e.target.value }))}
+        />
+      ),
+    },
+  ];
+
+  return (
+    <Card className="mt-3">
+      <Stack>
+        <div>
+          <b>Post GRN — project petty cash.</b>{' '}
+          <span className="text-mut">
+            Procurement approved this request. Enter what you bought and attach the bill.
+          </span>
+        </div>
+        <DataTable columns={columns} rows={active} rowKey={(l) => l.id} emptyText="No items" />
+        <div className="grid gap-3 desk:grid-cols-[1fr_2fr]">
+          <label className="field">
+            Bill / receipt no *
+            <input value={billNo} onChange={(e) => setBillNo(e.target.value)} />
+          </label>
+          <label className="field">
+            Remark
+            <input value={remark} onChange={(e) => setRemark(e.target.value)} />
+          </label>
+        </div>
+        <ReceiptFiles files={files} onChange={setFiles} required label="Bill / photo" />
+        <div className="flex justify-end">
+          <Btn variant="primary" disabled={postGrn.isPending} onClick={submit}>
+            {postGrn.isPending ? 'Posting…' : 'Post GRN'}
+          </Btn>
+        </div>
+      </Stack>
+    </Card>
+  );
+}
+
+/** The GRN posted for a project petty cash request. */
+function PettyGrnCard({ mr }: { mr: MrDetailDto }) {
+  const grn = mr.pettyGrn!;
+  const active = mr.lines.filter((l) => l.lineStatus !== 'REJECTED');
+  return (
+    <Card className="mt-3">
+      <Stack>
+        <div className="flex flex-wrap items-center gap-2">
+          <Tag label="GRN" tone="grn" />
+          <b className="font-mono">{grn.no}</b>
+          <span className="text-mut">
+            · bill {grn.billNo} · posted by {grn.byName} · {fmtDateTime(grn.at)}
+          </span>
+        </div>
+        {grn.remark ? <div>{grn.remark}</div> : null}
+        <DataTable
+          columns={[
+            { key: 'sn', header: '#', render: (l) => l.sn },
+            { key: 'item', header: 'Item', render: (l) => l.name + (l.measurement ? ` · ${l.measurement}` : '') },
+            { key: 'approved', header: 'Approved', align: 'right', render: (l) => `${qty(l.poQty ?? l.qty)} ${l.unit}` },
+            { key: 'got', header: 'Received', align: 'right', render: (l) => qty(l.grnQty ?? 0) },
+          ]}
+          rows={active}
+          rowKey={(l) => l.id}
+          emptyText="No items"
+        />
+        <HoldFiles files={grn.files} />
+      </Stack>
+    </Card>
   );
 }

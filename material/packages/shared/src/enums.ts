@@ -271,13 +271,19 @@ export const PO_ROUND_OFF: PoExtraCharge = 'Round-off';
  * receipt); the type only says what is being asked for. Requests from before the type
  * existed are material requests.
  */
-export const REQUEST_TYPES = ['MATERIAL', 'TOOLS', 'SERVICES'] as const;
+export const REQUEST_TYPES = ['MATERIAL', 'TOOLS', 'PETTY_CASH'] as const;
 export type RequestType = (typeof REQUEST_TYPES)[number];
 export const REQUEST_TYPE_LABELS: Record<RequestType, string> = {
   MATERIAL: 'Material request',
   TOOLS: 'Tools & Assets',
-  SERVICES: 'Services',
+  PETTY_CASH: 'Project Petty Cash',
 };
+
+/**
+ * Project petty cash: site engineer -> PM -> QS -> procurement reviews and approves
+ * (no PO is raised) -> the site engineer posts the GRN for what was bought.
+ */
+export const isPettyCash = (type: string | null | undefined): boolean => type === 'PETTY_CASH';
 
 /**
  * A Tools & Assets request always goes to this one project - it is chosen for the

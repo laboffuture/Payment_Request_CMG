@@ -3,6 +3,8 @@ import { lineCalc, num, shouldCloseMr, stock } from '@cm/calc';
 import {
   MAX_BOQ_FILES,
   earliestRequiredDate,
+  isBuyer,
+  isPettyCash,
   MSG,
   type MapNewItemInput,
   type MrCommentInput,
@@ -34,6 +36,7 @@ import { deleteFile, signedUrlFor, uploadBoq } from '../lib/files.js';
 import { knownUnit } from './unit.service.js';
 import { Item, Project } from '../models/masters.js';
 import { toolsProjectId } from '../lib/toolsProject.js';
+import { canPostPettyGrn } from './petty.service.js';
 import { Mr, MrLine } from '../models/mr.js';
 import { Issue, IssueLine, StockLedger } from '../models/stock.js';
 import { EmailOutbox, Notification } from '../models/system.js';
@@ -135,6 +138,8 @@ export function toMrDto(
   const project = String(mr.projectId);
   const overdue =
     (mr.status === 'APPROVED' ||
+      mr.status === 'PROC_REVIEW' ||
+      mr.status === 'GRN_PENDING' ||
       mr.status === 'QS_PENDING' ||
       mr.status === 'PM_PENDING') &&
     mr.requiredDate < today();
@@ -195,6 +200,9 @@ function listFilterFor(actor: Actor, query: MrListQuery): Record<string, unknown
   } else if (query.queue === 'qs') {
     filter.status = 'QS_PENDING';
     delete filter.createdBy;
+  } else if (query.queue === 'petty') {
+    // Procurement: petty cash to review. A site engineer: their own, waiting for a GRN.
+    filter.status = actor.role === 'SITE' ? 'GRN_PENDING' : 'PROC_REVIEW';
   } else if (query.status) {
     filter.status = query.status;
   }
@@ -330,6 +338,7 @@ export async function getMr(actor: Actor, id: string): Promise<MrDetailDto> {
     return {
       ...toMrLineDto(line, lookups),
       ...procurement,
+      grnQty: line.grnQty ?? null,
       calc: {
         store: calc.store,
         po: calc.po,
@@ -437,6 +446,23 @@ export async function getMr(actor: Actor, id: string): Promise<MrDetailDto> {
     canEdit: canEdit(actor, mr),
     canQs: canQs(actor, mr),
     canPm: canPm(actor, mr),
+    canProcReview: isBuyer(actor.role) && mr.status === 'PROC_REVIEW',
+    canPostGrn: canPostPettyGrn(actor, mr),
+    pettyGrn: mr.pettyGrn?.no
+      ? {
+          no: mr.pettyGrn.no,
+          billNo: mr.pettyGrn.billNo ?? '',
+          remark: mr.pettyGrn.remark ?? '',
+          byName: mr.pettyGrn.by ? lookups.userName(mr.pettyGrn.by) : '',
+          at: mr.pettyGrn.at ? new Date(mr.pettyGrn.at).toISOString() : '',
+          files: (mr.pettyGrn.files ?? []).map((f: Record<string, any>) => ({
+            id: f.publicId,
+            name: f.name ?? '',
+            size: num(f.size),
+            url: signedUrlFor(f.publicId),
+          })),
+        }
+      : null,
     // The requester and both approvers all open the same files.
     boqFiles: boqFilesOf(mr).map(toBoqFileDto),
     companyName: company?.name ?? '',
@@ -1245,6 +1271,13 @@ export async function qsApprove(
       throw badRequest(MSG.qsClearNewItems);
     }
 
+    // Project petty cash is bought at site: nothing from the store, and the whole
+    // approved quantity is what the site may buy. It goes to procurement for review.
+    const petty = isPettyCash(mr.requestType);
+    if (petty) {
+      input.lines = input.lines.map((row) => ({ ...row, storeQty: 0, poQty: num(row.qty) }));
+    }
+
     const active = lines.filter((l) => l.lineStatus !== 'REJECTED');
     const byId = new Map(active.map((l) => [String(l._id), l]));
     const lookups = await buildLookups();
@@ -1311,7 +1344,7 @@ export async function qsApprove(
       await line.save({ session });
     }
 
-    mr.status = 'APPROVED';
+    mr.status = petty ? 'PROC_REVIEW' : 'APPROVED';
     mr.qsBy = oid(actor.id) as never;
     mr.qsAt = new Date();
     mr.lastComment = input.comment;
@@ -1327,9 +1360,9 @@ export async function qsApprove(
       session,
       'MR',
       mr._id,
-      AUDIT.MR_QS_APPROVED,
+      petty ? 'QS approved petty cash - sent to procurement for review' : AUDIT.MR_QS_APPROVED,
       actor.id,
-      `store ${storeTotal} · PO ${poTotal}`,
+      petty ? `qty ${poTotal}` : `store ${storeTotal} · PO ${poTotal}`,
     );
     if (changed || rejected.length) {
       await writeAudit(
@@ -1344,7 +1377,20 @@ export async function qsApprove(
 
     const note = changeNote(changed, rejected, 'QS', input.comment);
 
-    const outbox = await emit(session, 'MR_APPROVED', {
+    const outbox = petty
+      ? await emit(session, 'PETTY_CASH_REVIEW', {
+          title: `${mr.no} petty cash approved by QS — procurement to review (${lookups.projectCode(mr.projectId)})`,
+          body: note,
+          link: `mr:${String(mr._id)}`,
+          to: [
+            { role: 'PROC' },
+            { role: 'PROC_MGR' },
+            { userId: mr.createdBy },
+            mr.pmBy ? { userId: mr.pmBy } : null,
+          ],
+          actorId: actor.id,
+        })
+      : await emit(session, 'MR_APPROVED', {
       title: `${mr.no} approved by QS — ${lookups.projectCode(mr.projectId)}`,
       body:
         `From store: ${storeTotal} · For PO: ${poTotal}` +

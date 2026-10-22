@@ -40,6 +40,11 @@ export async function countsFor(actor: Actor): Promise<Counts> {
     counts.docs = await VendorDoc.countDocuments({ status: 'SUBMITTED' });
   }
 
+  if (isBuyer(role)) {
+    // Project petty cash waiting for procurement's review.
+    counts.pettyCash = await Mr.countDocuments({ status: 'PROC_REVIEW' });
+  }
+
   if (role === 'PROC_MGR') {
     counts.poApprovals = await Po.countDocuments({
       status: 'PENDING_APPROVAL',
@@ -66,6 +71,8 @@ export async function countsFor(actor: Actor): Promise<Counts> {
       countSitePosForActor(actor),
     ]);
     counts.receive = pendingIssues + sitePos;
+    // Their own petty cash, approved by procurement, waiting for the GRN.
+    counts.pettyCash = await Mr.countDocuments({ status: 'GRN_PENDING', createdBy: actor.id });
   }
 
   if (role === 'VENDOR' && actor.vendorId) {

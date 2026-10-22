@@ -106,6 +106,24 @@ export const mrCommentInput = z.object({
 });
 export type MrCommentInput = z.infer<typeof mrCommentInput>;
 
+/** Procurement approving a petty cash request - the comment is optional. */
+export const pettyApproveInput = z.object({
+  comment: z.string().trim().max(2000).optional().default(''),
+  rv: z.number().int().min(0).optional(),
+});
+export type PettyApproveInput = z.infer<typeof pettyApproveInput>;
+
+/** The site engineer's GRN for a petty cash request: what was bought, per item. */
+export const pettyGrnInput = z.object({
+  billNo: z.string().trim().min(1, 'Enter the bill / receipt number').max(60),
+  remark: z.string().trim().max(500).optional().default(''),
+  lines: z
+    .array(z.object({ id: objectId, qty: z.coerce.number().min(0) }))
+    .min(1),
+  rv: z.number().int().min(0).optional(),
+});
+export type PettyGrnInput = z.infer<typeof pettyGrnInput>;
+
 /** QS's questions about particular items: each goes back to the site engineer on its line. */
 export const mrLineQueryInput = z.object({
   queries: z
@@ -141,13 +159,19 @@ export const MR_LIST_TABS = [
   'APPROVED',
   'CLOSED',
   'REJECTED',
+  'PROC_REVIEW',
+  'GRN_PENDING',
+  'GRN_POSTED',
 ] as const;
 
 export const mrListQuery = z.object({
   status: z.enum(MR_LIST_TABS).optional().default(''),
   projectId: objectId.or(z.literal('')).optional().default(''),
-  /** the approval queues: 'pm' waits for the Project Manager, 'qs' for QS */
-  queue: z.enum(['pm', 'qs']).optional(),
+  /**
+   * the approval queues: 'pm' waits for the Project Manager, 'qs' for QS, 'petty' for
+   * procurement's review (or, for a site engineer, their petty cash awaiting a GRN)
+   */
+  queue: z.enum(['pm', 'qs', 'petty']).optional(),
   page: z.coerce.number().int().min(1).default(1),
   limit: z.coerce.number().int().min(1).max(500).default(100),
 });

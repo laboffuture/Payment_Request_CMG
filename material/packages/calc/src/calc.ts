@@ -322,6 +322,9 @@ const MR_STATUS_LABEL: Record<string, string> = {
   REJECTED: 'Rejected',
   APPROVED: 'In progress',
   CLOSED: 'Closed',
+  PROC_REVIEW: 'With procurement',
+  GRN_PENDING: 'Awaiting GRN',
+  GRN_POSTED: 'GRN posted',
 };
 
 /** Prototype: lineStage(l, m, c) */

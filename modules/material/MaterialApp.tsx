@@ -42,6 +42,7 @@ import PoDetail from "./screens/PoDetail";
 import PoEdit from "./screens/PoEdit";
 import PoRevise from "./screens/PoRevise";
 import QsQueue from "./screens/QsQueue";
+import PettyCash from "./screens/PettyCash";
 import Receive from "./screens/Receive";
 import Reports from "./screens/Reports";
 import Rfqs from "./screens/Rfqs";
@@ -70,7 +71,7 @@ const ROUTES:[string,ComponentType][]=[
   ["/docs",Docs],["/grn",Grn],["/inventory",Inventory],["/issue",Issue],
   ["/issues",Issues],["/issues/:id",IssueDetail],
   ["/mrs",Mrs],["/mrs/new",MrNew],["/mrs/print",MrPrint],["/mrs/:id",MrDetail],["/mrs/:id/edit",MrEdit],
-  ["/notifications",Notifications],["/pm",PmQueue],["/pool",Pool],
+  ["/notifications",Notifications],["/petty-cash",PettyCash],["/pm",PmQueue],["/pool",Pool],
   ["/pos",Pos],["/pos/new",PoNew],["/pos/approvals",PoApprovals],["/pos/validate",PoValidate],
   ["/pos/:id",PoDetail],["/pos/:id/edit",PoEdit],["/pos/:id/revise",PoRevise],
   ["/qs",QsQueue],["/receive",Receive],["/reports",Reports],

@@ -29,6 +29,10 @@ export const MR_STATUSES = [
   'REJECTED',
   'APPROVED',
   'CLOSED',
+  // Project petty cash only: procurement reviews, then the site posts the GRN.
+  'PROC_REVIEW',
+  'GRN_PENDING',
+  'GRN_POSTED',
 ] as const;
 export type MrStatus = (typeof MR_STATUSES)[number];
 
@@ -41,6 +45,9 @@ export const MR_ST: Record<MrStatus, ChipSpec> = {
   REJECTED: { label: 'Rejected', tone: 'red' },
   APPROVED: { label: 'In progress', tone: 'ac' },
   CLOSED: { label: 'Closed', tone: 'grn' },
+  PROC_REVIEW: { label: 'With procurement', tone: 'blu' },
+  GRN_PENDING: { label: 'Awaiting GRN', tone: 'amb' },
+  GRN_POSTED: { label: 'GRN posted', tone: 'grn' },
 };
 
 export const MR_LINE_STATUSES = ['ACTIVE', 'REJECTED'] as const;
@@ -226,11 +233,15 @@ export const MR_TRANSITIONS: Record<MrStatus, readonly MrStatus[]> = {
   DRAFT: ['PM_PENDING'],
   // The Project Manager checks it first, then the Quantity Surveyor.
   PM_PENDING: ['QS_PENDING', 'SENT_BACK', 'REJECTED'],
-  QS_PENDING: ['APPROVED', 'SENT_BACK', 'REJECTED'],
+  QS_PENDING: ['APPROVED', 'PROC_REVIEW', 'SENT_BACK', 'REJECTED'],
   SENT_BACK: ['PM_PENDING'],
   REJECTED: [],
   APPROVED: ['CLOSED'],
   CLOSED: [],
+  // Project petty cash: no PO - procurement approves, then the site posts the GRN.
+  PROC_REVIEW: ['GRN_PENDING', 'QS_PENDING', 'REJECTED'],
+  GRN_PENDING: ['GRN_POSTED'],
+  GRN_POSTED: [],
 };
 
 /**

@@ -55,7 +55,32 @@ export interface IMr extends Timestamped {
   /** the single file the first version of this feature stored — read only */
   boq: StoredFileDoc | null;
   closedAt: Date | null;
+  /** project petty cash: procurement's review (no PO is raised) */
+  procReviewBy: Types.ObjectId | null;
+  procReviewAt: Date | null;
+  /** project petty cash: the GRN the site engineer posts for what was bought */
+  pettyGrn: {
+    no: string;
+    billNo: string;
+    remark: string;
+    by: Types.ObjectId | null;
+    at: Date | null;
+    files: StoredFileDoc[];
+  } | null;
 }
+
+/** The GRN a site engineer posts for a project petty cash request. */
+const pettyGrnSchema = new Schema(
+  {
+    no: { type: String, default: '' },
+    billNo: { type: String, default: '' },
+    remark: { type: String, default: '' },
+    by: { type: Schema.Types.ObjectId, ref: 'User', default: null },
+    at: { type: Date, default: null },
+    files: { type: [fileSchema], default: [] },
+  },
+  { _id: false },
+);
 
 const mrSchema = new Schema<IMr>(
   {
@@ -85,6 +110,9 @@ const mrSchema = new Schema<IMr>(
     boqFiles: { type: [fileSchema], default: [] },
     boq: { type: fileSchema, default: null },
     closedAt: { type: Date, default: null },
+    procReviewBy: optionalRefTo('User'),
+    procReviewAt: { type: Date, default: null },
+    pettyGrn: { type: pettyGrnSchema, default: null },
   },
   baseOptions(),
 );
@@ -153,6 +181,8 @@ export interface IMrLine extends Timestamped {
   qsReplyFiles: StoredFileDoc[];
   qsReplyBy: Types.ObjectId | null;
   qsReplyAt: Date | null;
+  /** project petty cash: the quantity received on the site engineer's GRN */
+  grnQty: number | null;
 }
 
 const mrLineSchema = new Schema<IMrLine>(
@@ -189,6 +219,7 @@ const mrLineSchema = new Schema<IMrLine>(
     qsReplyFiles: { type: [fileSchema], default: [] },
     qsReplyBy: optionalRefTo('User'),
     qsReplyAt: { type: Date, default: null },
+    grnQty: { type: Number, default: null, min: 0 },
     lineStatus: {
       type: String,
       enum: MR_LINE_STATUSES,

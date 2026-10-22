@@ -489,9 +489,21 @@ export interface MrLineDetailDto extends MrLineDto {
   procFiles?: BoqFileDto[];
   qsReply?: string;
   qsReplyFiles?: BoqFileDto[];
+  /** project petty cash: the quantity received on the GRN (null until it is posted) */
+  grnQty?: number | null;
   /** store availability, shown on the QS split screen */
   available: number;
   onHand: number;
+}
+
+/** The receipt a site engineer posts for a project petty cash request. */
+export interface PettyGrnDto {
+  no: string;
+  billNo: string;
+  remark: string;
+  byName: string;
+  at: string;
+  files: BoqFileDto[];
 }
 
 /** One purchase order raised against this MR, with its whole approval chain. */
@@ -541,6 +553,12 @@ export interface MrDetailDto extends MrDto {
   canEdit: boolean;
   canPm: boolean;
   canQs: boolean;
+  /** project petty cash: procurement may approve / send back / reject it now */
+  canProcReview: boolean;
+  /** project petty cash: the site engineer may post the GRN now */
+  canPostGrn: boolean;
+  /** project petty cash: the GRN the site posted (no PO is raised for petty cash) */
+  pettyGrn: PettyGrnDto | null;
   /** the BOQ files, with short-lived links, for the requester, the PM and QS */
   boqFiles: BoqFileDto[];
   companyName: string;

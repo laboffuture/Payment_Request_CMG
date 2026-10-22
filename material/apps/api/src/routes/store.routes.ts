@@ -10,6 +10,9 @@ import {
   isReportTab,
   openPosQuery,
   postGrnInput,
+  mrCommentInput,
+  pettyApproveInput,
+  pettyGrnInput,
 } from '@cm/shared';
 import { sendCsv, wrap } from '../lib/http.js';
 import { validateBody } from '../middleware/validate.js';
@@ -30,6 +33,7 @@ import {
   postGrn,
 } from '../services/store.service.js';
 import { report, reportCsvRows } from '../services/reports.service.js';
+import { pettyApprove, pettyReject, pettySendBack, postPettyGrn } from '../services/petty.service.js';
 
 export const storeRouter: Router = Router();
 
@@ -55,6 +59,56 @@ function unwrapPayload(req: Request, _res: Response, next: NextFunction): void {
 }
 const filesOf = (req: Request): Express.Multer.File[] => (req.files ?? []) as Express.Multer.File[];
 
+
+// ---------------------------------------------------------------------------
+// Project petty cash - procurement reviews (no PO), then the site posts the GRN
+
+storeRouter.post(
+  '/mrs/:id/petty-approve',
+  requireAuth,
+  authorize('PROC'),
+  idempotency,
+  validateBody(pettyApproveInput),
+  wrap(async (req, res) => {
+    await pettyApprove(actorOf(req), req.params.id!, req.body);
+    res.json({ ok: true });
+  }),
+);
+
+storeRouter.post(
+  '/mrs/:id/petty-send-back',
+  requireAuth,
+  authorize('PROC'),
+  validateBody(mrCommentInput),
+  wrap(async (req, res) => {
+    await pettySendBack(actorOf(req), req.params.id!, req.body);
+    res.json({ ok: true });
+  }),
+);
+
+storeRouter.post(
+  '/mrs/:id/petty-reject',
+  requireAuth,
+  authorize('PROC'),
+  validateBody(mrCommentInput),
+  wrap(async (req, res) => {
+    await pettyReject(actorOf(req), req.params.id!, req.body);
+    res.json({ ok: true });
+  }),
+);
+
+storeRouter.post(
+  '/mrs/:id/petty-grn',
+  requireAuth,
+  authorize('SITE'),
+  receiptUpload,
+  unwrapPayload,
+  idempotency,
+  validateBody(pettyGrnInput),
+  wrap(async (req, res) => {
+    res.status(201).json(await postPettyGrn(actorOf(req), req.params.id!, req.body, filesOf(req)));
+  }),
+);
 
 // ---------------------------------------------------------------------------
 // GRN — prototype VIEWS.grn / grnSection()

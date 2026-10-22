@@ -15,6 +15,8 @@ export const EVENT_CODES = [
   'MR_SENT_BACK',
   'MR_REJECTED',
   'MR_CLOSED',
+  'PETTY_CASH_REVIEW',
+  'PETTY_CASH_APPROVED',
   'PROC_LINE_SENT_BACK',
   'PROC_LINE_ANSWERED',
   'RFQ_SENT',
@@ -67,6 +69,14 @@ export const EVENTS: Record<EventCode, EventSpec> = {
   MR_SENT_BACK: ev('MR sent back', 'Requester'),
   MR_REJECTED: ev('MR rejected by QS', 'Requester · Project Manager'),
   MR_CLOSED: ev('MR closed — all received at site', 'Requester · QS'),
+  PETTY_CASH_REVIEW: ev(
+    'Project petty cash approved by QS — waiting for procurement review',
+    'Procurement · Requester',
+  ),
+  PETTY_CASH_APPROVED: ev(
+    'Project petty cash approved by procurement — site to post the GRN',
+    'Requester · QS',
+  ),
   PROC_LINE_SENT_BACK: ev('Procurement sent a material back to QS (query or rejection)', 'QS'),
   PROC_LINE_ANSWERED: ev('QS answered procurement on a material', 'Procurement · Requester'),
   // Prototype rule(): vendor_email defaults to 1 for RFQ_SENT only.
