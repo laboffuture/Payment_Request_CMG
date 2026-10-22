@@ -496,6 +496,23 @@ export interface MrLineDetailDto extends MrLineDto {
   onHand: number;
 }
 
+/** One PO still to be received, as listed on the receive screens. */
+export interface OpenPoRowDto {
+  id: string;
+  no: string;
+  vendorName: string;
+  status: string;
+  createdAt: string;
+  deliveryDate: string;
+  projectCodes: string[];
+  /** the MRs on this PO - for a site engineer, only the ones they raised */
+  mrNos: string[];
+  /** who raised those MRs */
+  raisedBy: string[];
+  ordered: number;
+  received: number;
+}
+
 /** The receipt a site engineer posts for a project petty cash request. */
 export interface PettyGrnDto {
   no: string;

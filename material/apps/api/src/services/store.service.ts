@@ -10,6 +10,7 @@ import {
   type IssuableMrDto,
   type IssueDetailDto,
   type IssueDto,
+  type OpenPoRowDto,
   type OpenPosQuery,
   type PostGrnInput,
 } from '@cm/shared';
@@ -54,7 +55,7 @@ const oid = (v: string) => new Types.ObjectId(v);
 export async function openPos(
   actor: Actor,
   query: OpenPosQuery,
-): Promise<{ pos: { id: string; no: string; vendorName: string }[]; selected: GrnOpenPoDto | null }> {
+): Promise<{ pos: OpenPoRowDto[]; selected: GrnOpenPoDto | null }> {
   if (query.location === 'STORE' && actor.role !== 'STORE' && actor.role !== 'ADMIN') {
     throw forbidden();
   }
@@ -88,11 +89,47 @@ export async function openPos(
       .some((a) => scope.includes(String(a.projectId)));
   });
 
-  const list = visible.map((po) => ({
-    id: String(po._id),
-    no: po.no + (num(po.rev) > 0 ? ` Rev ${po.rev}` : ''),
-    vendorName: lookups.vendorName(po.vendorId),
-  }));
+  // Each PO with the MRs it serves and who raised them, so every site engineer sees
+  // a list of the POs that came from their own requests.
+  const visibleIds = new Set(visible.map((po) => String(po._id)));
+  const myAllocs = allocs.filter((a) => visibleIds.has(String(a.poId)));
+  const allocLines = await MrLine.find({ _id: { $in: myAllocs.map((a) => a.mrLineId) } })
+    .select('mrId')
+    .lean();
+  const lineMr = new Map(allocLines.map((l) => [String(l._id), String(l.mrId)]));
+  const allocMrs = await Mr.find({ _id: { $in: [...new Set(lineMr.values())] } })
+    .select('no createdBy')
+    .lean();
+  const mrById = new Map(allocMrs.map((m) => [String(m._id), m]));
+  const site = actor.role === 'SITE';
+
+  const list: OpenPoRowDto[] = visible.map((po) => {
+    const mine = myAllocs.filter((a) => String(a.poId) === String(po._id));
+    const mrs = [
+      ...new Map(
+        mine
+          .map((a) => mrById.get(lineMr.get(String(a.mrLineId)) ?? ''))
+          .filter((m): m is NonNullable<typeof m> => !!m)
+          .filter((m) => !site || String(m.createdBy) === actor.id)
+          .map((m) => [String(m._id), m]),
+      ).values(),
+    ];
+    return {
+      id: String(po._id),
+      no: po.no + (num(po.rev) > 0 ? ` Rev ${po.rev}` : ''),
+      vendorName: lookups.vendorName(po.vendorId),
+      status: po.status,
+      createdAt: po.createdAt.toISOString(),
+      deliveryDate: po.deliveryDate ?? '',
+      projectCodes: [...new Set(mine.map((a) => lookups.projectCode(a.projectId)))],
+      mrNos: mrs.map((m) => m.no).filter(Boolean),
+      raisedBy: [...new Set(mrs.map((m) => lookups.userName(m.createdBy)))],
+      ordered: num(mine.reduce((sum, a) => sum + num(a.qty), 0)),
+      received: num(
+        mine.reduce((sum, a) => sum + Math.min(num(a.qty), allocReceived(world, String(a._id))), 0),
+      ),
+    };
+  });
 
   if (!query.no) return { pos: list, selected: null };
 

@@ -2,12 +2,13 @@
 
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { MSG, type GrnOpenPoDto } from '@cm/shared';
+import { MSG, PO_ST, chipFor, type GrnOpenPoDto, type OpenPoRowDto, type PoStatus } from '@cm/shared';
 import { get, newIdempotencyKey, post, postWithFiles } from '@mm/lib/api';
-import { Btn, Card, Stack, Tag } from '@mm/components/ui';
+import { Btn, Card, Chip, Stack, Tag } from '@mm/components/ui';
 import { useToast } from '@mm/components/Toast';
 import { useAction } from '@mm/lib/hooks';
-import { qty } from '@mm/lib/format';
+import { fmtDate, qty } from '@mm/lib/format';
+import { useSession } from '@mm/lib/session';
 import { ReceiptFiles } from './ReceiptFiles';
 
 /**
@@ -33,7 +34,7 @@ export function GrnSection({ location }: { location: 'STORE' | 'SITE' }) {
   const data = useQuery({
     queryKey: ['grn-open', location, selectedNo],
     queryFn: () =>
-      get<{ pos: { id: string; no: string; vendorName: string }[]; selected: GrnOpenPoDto | null }>(
+      get<{ pos: OpenPoRowDto[]; selected: GrnOpenPoDto | null }>(
         `/grn/open-pos?${params}`,
       ),
     retry: false,
@@ -128,20 +129,12 @@ export function GrnSection({ location }: { location: 'STORE' | 'SITE' }) {
             </Btn>
           </div>
 
-          <div className="text-mut text-sm">
-            Open POs for {location === 'STORE' ? 'store' : 'site'} delivery:{' '}
-            {(data.data?.pos ?? []).length
-              ? (data.data?.pos ?? []).map((po) => (
-                  <button
-                    key={po.id}
-                    className="text-ac underline font-semibold font-mono mr-2"
-                    onClick={() => pick(po.no)}
-                  >
-                    {po.no}
-                  </button>
-                ))
-              : 'none'}
-          </div>
+          <OpenPoList
+            location={location}
+            rows={data.data?.pos ?? []}
+            loading={data.isLoading}
+            onPick={pick}
+          />
 
           {data.isError ? (
             <div className="errb">
@@ -297,5 +290,107 @@ export function GrnSection({ location }: { location: 'STORE' | 'SITE' }) {
         </Card>
       ) : null}
     </>
+  );
+}
+
+/**
+ * The POs still to be received. A site engineer sees only the POs raised from their own
+ * MRs; anyone who sees every engineer's POs gets them grouped by who raised the MR.
+ */
+function OpenPoList({
+  location,
+  rows,
+  loading,
+  onPick,
+}: {
+  location: 'STORE' | 'SITE';
+  rows: OpenPoRowDto[];
+  loading: boolean;
+  onPick: (no: string) => void;
+}) {
+  const { me } = useSession();
+  const where = location === 'STORE' ? 'store' : 'site';
+  if (loading) return <div className="text-mut text-sm">Loading open POs…</div>;
+  if (!rows.length) {
+    return (
+      <div className="text-mut text-sm">
+        {me.role === 'SITE'
+          ? `No open POs for ${where} delivery from the MRs you raised. A PO shows here once it is approved.`
+          : `No open POs for ${where} delivery.`}
+      </div>
+    );
+  }
+
+  // One group per site engineer, unless the viewer is that engineer.
+  const grouped = me.role !== 'SITE' && location === 'SITE';
+  const groups = new Map<string, OpenPoRowDto[]>();
+  for (const row of rows) {
+    const key = grouped ? row.raisedBy.join(', ') || '—' : '';
+    groups.set(key, [...(groups.get(key) ?? []), row]);
+  }
+
+  return (
+    <div className="flex flex-col gap-3">
+      <b>
+        Open POs for {where} delivery ({rows.length})
+      </b>
+      {[...groups.entries()]
+        .sort(([a], [b]) => a.localeCompare(b))
+        .map(([who, list]) => (
+          <div key={who || 'all'}>
+            {grouped ? (
+              <div className="font-semibold mb-1">
+                {who} <span className="text-mut font-normal">· {list.length} PO(s)</span>
+              </div>
+            ) : null}
+            <div className="overflow-x-auto">
+              <table className="t">
+                <thead>
+                  <tr>
+                    <th>PO</th>
+                    <th>Vendor</th>
+                    <th>Project</th>
+                    <th>MR</th>
+                    {grouped ? null : <th>Raised by</th>}
+                    <th>PO date</th>
+                    <th>Delivery</th>
+                    <th className="text-right">Received</th>
+                    <th>Status</th>
+                    <th />
+                  </tr>
+                </thead>
+                <tbody>
+                  {list.map((po) => (
+                    <tr key={po.id}>
+                      <td data-label="PO" className="font-mono font-semibold">
+                        {po.no}
+                      </td>
+                      <td data-label="Vendor">{po.vendorName}</td>
+                      <td data-label="Project">{po.projectCodes.join(', ')}</td>
+                      <td data-label="MR" className="font-mono text-xs">
+                        {po.mrNos.join(', ') || '—'}
+                      </td>
+                      {grouped ? null : <td data-label="Raised by">{po.raisedBy.join(', ') || '—'}</td>}
+                      <td data-label="PO date">{fmtDate(po.createdAt)}</td>
+                      <td data-label="Delivery">{po.deliveryDate ? fmtDate(po.deliveryDate) : '—'}</td>
+                      <td data-label="Received" className="desk:text-right">
+                        {qty(po.received)} / {qty(po.ordered)}
+                      </td>
+                      <td data-label="Status">
+                        <Chip spec={chipFor(PO_ST, po.status as PoStatus)} />
+                      </td>
+                      <td>
+                        <Btn small variant="primary" onClick={() => onPick(po.no)}>
+                          Receive
+                        </Btn>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        ))}
+    </div>
   );
 }
