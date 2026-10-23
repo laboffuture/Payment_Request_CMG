@@ -158,7 +158,7 @@ export async function getRfq(actor: Actor, id: string): Promise<RfqDetailDto> {
       itemCode: item.code,
       // the size is part of what is quoted: the same item in another size is another line
       itemName: line.measurement ? `${item.name} (${line.measurement})` : item.name,
-      unit: item.unit,
+      unit: line.unit || item.unit,
       qty: num(line.qty),
       lastRate: item.lastRate,
       allocs: (line.allocs ?? []).map((a) => {
@@ -272,7 +272,8 @@ export async function createRfq(
     // another size is another product, and the vendor quotes it separately.
     const byItem = new Map<string, typeof picks>();
     for (const pick of picks) {
-      const key = `${pick.row.itemId}|${measurementKey(pick.row.measurement)}`;
+      // ... and per unit: 30 Nos and 30 Cft are not one quantity
+      const key = `${pick.row.itemId}|${measurementKey(pick.row.measurement)}|${pick.row.unit.toLowerCase()}`;
       byItem.set(key, [...(byItem.get(key) ?? []), pick]);
     }
 
@@ -285,6 +286,7 @@ export async function createRfq(
             rfqId: rfq!._id,
             itemId,
             measurement: group[0]!.row.measurement ?? '',
+            unit: group[0]!.row.unit,
             qty: num(group.reduce((sum, g) => sum + g.pick.qty, 0)),
             allocs: group.map((g) => ({
               mrLineId: oid(g.pick.mrLineId),
@@ -502,7 +504,7 @@ export async function getVendorRfq(actor: Actor, id: string): Promise<VendorRfqD
       sn: index + 1,
       itemCode: item.code,
       itemName: line.measurement ? `${item.name} (${line.measurement})` : item.name,
-      unit: item.unit,
+      unit: line.unit || item.unit,
       qty: num(line.qty),
       rate,
       remark: quote?.remark ?? '',

@@ -70,9 +70,9 @@ export const usePoDraft = create<PoDraftState>((set) => ({
 }));
 
 /** Rows grouped into the one-line-per-item shape the PO is stored in. */
-/** One product on the PO: the item and its measurement (another size is another line). */
-export const groupKeyOf = (row: { itemId: string; measurement?: string }): string =>
-  `${row.itemId}|${measurementKey(row.measurement)}`;
+/** One product on the PO: the item, its measurement and its unit (another size or unit is another line). */
+export const groupKeyOf = (row: { itemId: string; measurement?: string; unit?: string }): string =>
+  `${row.itemId}|${measurementKey(row.measurement)}|${(row.unit ?? '').toLowerCase()}`;
 
 export function groupRows(rows: PoDraftRow[]) {
   const groups = new Map<string, { key: string; measurement: string; itemId: string; itemCode: string; itemName: string; description: string; mrDescriptions: string[]; unit: string; qty: number; rate: number; gstPct: number; projects: string[]; mrNos: string[] }>();

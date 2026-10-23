@@ -37,6 +37,8 @@ export interface MrLineIn {
   itemId: string | null;
   newItemName?: string;
   newUnit?: string;
+  /** the unit the line is ordered in - set when it differs from the item's own */
+  unit?: string;
   newCategory?: string;
   newStatus?: string;
   qty: number;

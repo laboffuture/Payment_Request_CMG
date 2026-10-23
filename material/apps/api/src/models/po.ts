@@ -140,6 +140,8 @@ export interface IPoLine extends Timestamped {
   description: string;
   /** the size this line is for - the same item in another size is another line */
   measurement: string;
+  /** the unit the MR lines were raised in; blank on older POs = the item's unit */
+  unit: string;
 }
 
 const poLineSchema = new Schema<IPoLine>(
@@ -151,6 +153,7 @@ const poLineSchema = new Schema<IPoLine>(
     gstPct: { type: Number, default: 0, min: 0 },
     description: { type: String, default: '', maxlength: 400 },
     measurement: { type: String, default: '' },
+    unit: { type: String, default: '' },
   },
   baseOptions(),
 );

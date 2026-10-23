@@ -422,8 +422,9 @@ export const displayPoNo = (po: PoIn | undefined): string =>
 const lineName = (w: World, l: MrLineIn, item?: ItemIn): string =>
   item ? item.name : l.newItemName || '—';
 
-const lineUnit = (l: MrLineIn, item?: ItemIn): string =>
-  item ? item.unit : l.newUnit || '';
+/** The unit the MR line was raised (or approved) in; the item's own unit otherwise. */
+export const lineUnit = (l: Pick<MrLineIn, 'unit' | 'newUnit'>, item?: Pick<ItemIn, 'unit'> | null): string =>
+  l.unit || item?.unit || l.newUnit || '';
 
 /**
  * Prototype: reportLines(pj)

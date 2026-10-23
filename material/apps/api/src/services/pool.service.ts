@@ -1,5 +1,5 @@
 import { Types } from 'mongoose';
-import { clampMin0, lineCalc, num, poolRows, r2 } from '@cm/calc';
+import { clampMin0, lineCalc, lineUnit, num, poolRows, r2 } from '@cm/calc';
 import type {
   MaterialStatusRowDto,
   PoolAnalysisDto,
@@ -124,7 +124,7 @@ export async function listPool(query: PoolQuery): Promise<PoolRowDto[]> {
         itemName: item.name,
         mrDescription: mrDescription.get(row.line.id) ?? '',
         measurement: (answered.get(row.line.id)?.measurement ?? '').trim(),
-        unit: item.unit,
+        unit: lineUnit(row.line, item),
         category: item.category,
         openQty: row.calc.poolOpen,
         lastRate: item.lastRate,
@@ -217,7 +217,7 @@ export async function listMaterialStatus(query: PoolQuery): Promise<MaterialStat
           .map((v) => (v ?? '').trim())
           .filter(Boolean)
           .join(' — '),
-        unit: item.unit,
+        unit: lineUnit(line, item),
         category: item.category,
         status: materialStatusOf({
           hold: line.procHold,
@@ -279,15 +279,18 @@ export async function poolAnalysis(
     : all.map((r) => ({ ...r, take: r.openQty }));
 
   const projectIds = [...new Set(rows.map((r) => r.projectId))];
-  const itemIds = [...new Set(rows.map((r) => r.itemId))];
+  // One row per item and unit: 30 Nos and 30 Cft of the same item are not one quantity.
+  const keyOf = (r: { itemId: string; unit: string }) => `${r.itemId}|${r.unit.toLowerCase()}`;
+  const keys = [...new Set(rows.map(keyOf))];
 
   const valueByProject: Record<string, number> = {};
   for (const id of projectIds) valueByProject[id] = 0;
 
   let grandTotal = 0;
-  const analysed = itemIds.map((itemId) => {
-    const forItem = rows.filter((r) => r.itemId === itemId);
+  const analysed = keys.map((key) => {
+    const forItem = rows.filter((r) => keyOf(r) === key);
     const first = forItem[0]!;
+    const itemId = first.itemId;
 
     const perProject: Record<string, number> = {};
     for (const id of projectIds) {
@@ -443,7 +446,7 @@ export async function listProcHolds(): Promise<ProcHoldDto[]> {
         itemCode: item.code,
         itemName: item.name,
         mrDescription: mrDescriptionOf(l),
-        unit: item.unit,
+        unit: lineUnit(lineIn, item),
         openQty: lineCalc(world, lineIn).poolOpen,
         action: l.procHold as 'QUERY' | 'REJECT',
         remark: l.procRemark ?? '',
@@ -507,7 +510,7 @@ export async function answerProcHold(
       cancel ? AUDIT.MR_PROC_CANCELLED : AUDIT.MR_PROC_RETURNED,
       actor.id,
       cancel
-        ? `${label}: ${cancelled} ${item?.unit ?? ''} cancelled — ${input.remark}`
+        ? `${label}: ${cancelled} ${lineUnit(line, item)} cancelled — ${input.remark}`
         : `${label}: ${input.remark}`,
     );
 

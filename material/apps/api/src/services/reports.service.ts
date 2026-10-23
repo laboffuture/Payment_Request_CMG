@@ -267,7 +267,7 @@ async function rowsFor(
     case 'itemproj': {
       const grouped = new Map<string, ReportRow>();
       for (const line of lines()) {
-        const key = `${line.item}|${line.project}`;
+        const key = `${line.item}|${line.unit}|${line.project}`;
         const row = grouped.get(key) ?? {
           Item: line.item,
           Unit: line.unit,

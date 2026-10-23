@@ -98,6 +98,7 @@ export async function loadWorld(opts: WorldOptions = {}): Promise<World> {
     itemId: l.itemId ? String(l.itemId) : null,
     newItemName: l.newItemName ?? '',
     newUnit: l.newUnit ?? '',
+    unit: l.unit ?? '',
     newCategory: l.newCategory ?? '',
     newStatus: l.newStatus ?? 'NONE',
     qty: l.qty,

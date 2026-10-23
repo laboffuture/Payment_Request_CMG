@@ -37,9 +37,9 @@ import { AttachmentButton } from '@mm/features/mr/MrAttachments';
  * grouped by item; tick lines, adjust the take quantity, then send one enquiry
  * or raise one PO.
  */
-/** The item and its measurement: the same item in another size is another product. */
-const productKey = (r: { itemId: string; measurement?: string }) =>
-  `${r.itemId}|${measurementKey(r.measurement)}`;
+/** The item, its measurement and its unit: another size, or another unit, is another product. */
+const productKey = (r: { itemId: string; measurement?: string; unit?: string }) =>
+  `${r.itemId}|${measurementKey(r.measurement)}|${(r.unit ?? '').toLowerCase()}`;
 
 export default function PoolPage() {
   const router = useRouter();

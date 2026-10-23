@@ -262,6 +262,9 @@ export async function getPo(actor: Actor, id: string): Promise<PoDetailDto> {
 
   const lineDtos: PoLineDto[] = lines.map((line) => {
     const item = lookups.item(line.itemId)!;
+    // the MR's unit; older POs did not store it on the line, so take it from the MR line
+    const firstAlloc = allocs.find((a) => String(a.poLineId) === String(line._id));
+    const mrLine = firstAlloc ? mrLineById.get(String(firstAlloc.mrLineId)) : undefined;
     return {
       id: String(line._id),
       itemId: item.id,
@@ -269,7 +272,7 @@ export async function getPo(actor: Actor, id: string): Promise<PoDetailDto> {
       itemName: item.name,
       description: line.description ?? '',
       measurement: line.measurement ?? '',
-      unit: item.unit,
+      unit: line.unit || mrLine?.unit || item.unit,
       qty: num(line.qty),
       rate: num(line.rate),
       gstPct: num(line.gstPct),
@@ -546,7 +549,7 @@ async function writePoLines(
   session: ClientSession,
 ): Promise<WriteLinesResult> {
   const mrLines = await MrLine.find({ _id: { $in: rows.map((r) => oid(r.mrLineId)) } })
-    .select('itemId mrId measurement')
+    .select('itemId mrId measurement unit')
     .session(session)
     .lean();
   const mrs = await Mr.find({ _id: { $in: mrLines.map((l) => l.mrId) } })
@@ -557,6 +560,8 @@ async function writePoLines(
   const itemByLine = new Map(mrLines.map((l) => [String(l._id), String(l.itemId)]));
   // One PO line per item AND measurement: another size is another product, with its own price.
   const sizeByLine = new Map(mrLines.map((l) => [String(l._id), (l.measurement ?? '').trim()]));
+  // ... and per unit: 30 Nos and 30 Cft are not one quantity. Blank = the item's own unit.
+  const unitByLine = new Map(mrLines.map((l) => [String(l._id), (l.unit ?? '').trim()]));
   const projectByLine = new Map(
     mrLines.map((l) => [
       String(l._id),
@@ -571,7 +576,8 @@ async function writePoLines(
   for (const row of rows) {
     const gst = taxMode === 'NONE' ? 0 : num(row.gstPct);
     const size = measurementKey(sizeByLine.get(row.mrLineId));
-    const key = `${itemByLine.get(row.mrLineId)}|${size}|${num(row.rate)}|${gst}`;
+    const unit = (unitByLine.get(row.mrLineId) ?? '').toLowerCase();
+    const key = `${itemByLine.get(row.mrLineId)}|${size}|${unit}|${num(row.rate)}|${gst}`;
     groups.set(key, [...(groups.get(key) ?? []), row]);
   }
 
@@ -587,8 +593,9 @@ async function writePoLines(
     const description = group.find((r) => r.description)?.description ?? '';
 
     const measurement = sizeByLine.get(first.mrLineId) ?? '';
+    const unit = unitByLine.get(first.mrLineId) ?? '';
     const [poLine] = await PoLine.create(
-      [{ poId, itemId, qty, rate, gstPct: gst, description, measurement }],
+      [{ poId, itemId, qty, rate, gstPct: gst, description, measurement, unit }],
       { session, ordered: true },
     );
 
@@ -1576,7 +1583,7 @@ export async function poFormRows(id: string): Promise<
   ]);
 
   const mrLines = await MrLine.find({ _id: { $in: allocs.map((a) => a.mrLineId) } })
-    .select('mrId itemId description measurement')
+    .select('mrId itemId description measurement unit')
     .lean();
   const mrs = await Mr.find({ _id: { $in: mrLines.map((l) => l.mrId) } })
     .select('no')
@@ -1599,7 +1606,7 @@ export async function poFormRows(id: string): Promise<
         .filter(Boolean)
         .join(' — '),
       measurement: (mrLine?.measurement ?? '').trim(),
-      unit: item?.unit ?? '',
+      unit: line?.unit || mrLine?.unit || item?.unit || '',
       projectCode: lookups.projectCode(alloc.projectId),
       mrNo: mr?.no ?? '',
       qty: num(alloc.qty),

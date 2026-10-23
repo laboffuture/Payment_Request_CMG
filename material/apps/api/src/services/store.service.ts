@@ -1,5 +1,5 @@
 import { Types } from 'mongoose';
-import { allocReceived, issueRows, lineCalc, num, stock } from '@cm/calc';
+import { allocReceived, issueRows, lineCalc, lineUnit, num, stock } from '@cm/calc';
 import {
   MSG,
   type AcceptIssueInput,
@@ -155,7 +155,7 @@ export async function openPos(
   ]);
 
   const mrLines = await MrLine.find({ _id: { $in: poAllocs.map((a) => a.mrLineId) } })
-    .select('mrId measurement')
+    .select('mrId measurement unit')
     .lean();
   const mrs = await Mr.find({ _id: { $in: mrLines.map((l) => l.mrId) } })
     .select('no')
@@ -179,7 +179,7 @@ export async function openPos(
       itemCode: item.code,
       // the size received matters as much as the item: the same item comes in several
       itemName: mrLine?.measurement?.trim() ? `${item.name} (${mrLine.measurement.trim()})` : item.name,
-      unit: item.unit,
+      unit: poLine?.unit || mrLine?.unit || item.unit,
       projectId: String(alloc.projectId),
       projectCode: lookups.projectCode(alloc.projectId),
       mrNo: mr?.no ?? '',
@@ -535,7 +535,7 @@ export async function issuableMrs(): Promise<IssuableMrDto[]> {
       mrLineId: row.line.id,
       itemId: row.line.itemId ?? '',
       itemName: item?.name ?? row.line.newItemName ?? '—',
-      unit: item?.unit ?? row.line.newUnit ?? '',
+      unit: lineUnit(row.line, item),
       issuable: row.calc.issuable,
       onHand,
       // Prototype: the input defaults to min(issuable, on hand).
@@ -723,7 +723,7 @@ export async function getIssue(actor: Actor, id: string): Promise<IssueDetailDto
   ]);
 
   const mrLines = await MrLine.find({ _id: { $in: lines.map((l) => l.mrLineId) } })
-    .select('itemId newItemName newUnit')
+    .select('itemId newItemName newUnit unit')
     .lean();
   const mr = await Mr.findById(issue.mrId).select('no').lean();
   const lineCount = lines.length;
@@ -753,7 +753,7 @@ export async function getIssue(actor: Actor, id: string): Promise<IssueDetailDto
         id: String(line._id),
         mrLineId: String(line.mrLineId),
         itemName: item?.name ?? mrLine?.newItemName ?? '—',
-        unit: item?.unit ?? mrLine?.newUnit ?? '',
+        unit: mrLine ? lineUnit(mrLine, item) : '',
         qtyIssued: num(line.qtyIssued),
         qtyAccepted: num(line.qtyAccepted),
       };

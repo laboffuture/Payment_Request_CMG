@@ -62,6 +62,8 @@ export interface IRfqLine extends Timestamped {
   itemId: Types.ObjectId;
   /** the size asked for - the same item in another size is another line */
   measurement: string;
+  /** the unit the MR lines were raised in; blank on older enquiries = the item's unit */
+  unit: string;
   qty: number;
   allocs: IRfqAlloc[];
 }
@@ -80,6 +82,7 @@ const rfqLineSchema = new Schema<IRfqLine>(
     rfqId: refTo('Rfq'),
     itemId: refTo('Item'),
     measurement: { type: String, default: '' },
+    unit: { type: String, default: '' },
     qty: qtyField(),
     allocs: { type: [rfqAllocSchema], default: [] },
   },
