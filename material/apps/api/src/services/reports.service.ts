@@ -181,6 +181,15 @@ async function rowsFor(
     case 'lines':
     case 'overdue': {
       const rows = tab === 'overdue' ? lines().filter((l) => l.overdue) : lines();
+      // Who raised each PO and its value, read once for every line that names it.
+      const poFacts = new Map(
+        (await Po.find({}).select('createdBy total currency').lean()).map((po) => [
+          String(po._id),
+          { by: lookups.userName(po.createdBy), amount: `${po.currency ?? ''} ${money(num(po.total))}`.trim() },
+        ]),
+      );
+      const ofPos = (ids: string[], pick: 'by' | 'amount') =>
+        ids.map((id) => poFacts.get(id)?.[pick] ?? '—').join(' / ');
       return rows.map((r) => ({
         'MR no.': r.mr,
         Project: r.project,
@@ -193,6 +202,8 @@ async function rowsFor(
         PO: r.po,
         Cut: r.cut,
         'PO no.': r.poNo,
+        'PO created by': ofPos(r.poIds, 'by'),
+        'PO amount': ofPos(r.poIds, 'amount'),
         Received: r.received,
         Issued: r.issued,
         'Site acc.': r.site,
@@ -401,6 +412,7 @@ async function rowsFor(
         out.push({
           'PO no.': po.no + (num(po.rev) > 0 ? ` Rev ${po.rev}` : ''),
           Date: fmtDate(po.createdAt.toISOString()),
+          'Created by': lookups.userName(po.createdBy),
           Vendor: lookups.vendorName(po.vendorId),
           Projects: [...new Set(projects)].join(' '),
           'Project name': [...new Set(poProjectIds.map((id) => lookups.projectTitle(id)))].join(', '),

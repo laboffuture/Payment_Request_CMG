@@ -403,6 +403,8 @@ export interface ReportLine {
   po: number;
   cut: number;
   poNo: string;
+  /** the live POs the line is on, in the order of `poNo` */
+  poIds: string[];
   onPo: number;
   received: number;
   issued: number;
@@ -448,13 +450,14 @@ export function reportLines(
     const item = line.itemId ? byId(w.items, line.itemId) : undefined;
     const project = byId(w.projects, mr.projectId);
 
-    const poNos = [
+    const poIds = [
       ...new Set(
         w.poAllocs
           .filter((a) => same(a.mrLineId, line.id) && livePo(w, a.poId))
-          .map((a) => displayPoNo(byId(w.pos, a.poId))),
+          .map((a) => a.poId),
       ),
     ];
+    const poNos = [...new Set(poIds.map((id) => displayPoNo(byId(w.pos, id))))];
 
     const overdue =
       (mr.status === 'APPROVED' || mr.status === 'QS_PENDING') &&
@@ -476,6 +479,7 @@ export function reportLines(
       po: calc.po,
       cut: post ? calc.cut : 0,
       poNo: poNos.join(' '),
+      poIds,
       onPo: calc.poAlloc,
       received: calc.received,
       issued: calc.issuedGross,
