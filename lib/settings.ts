@@ -29,6 +29,8 @@ export const OPTION_LISTS=[
   {id:"receivable.projectType",label:"Project type",  where:"CRM job creation form"},
   {id:"planning.materialCategory",label:"Material category",where:"Detailed BOM form"},
   {id:"planning.unit",    label:"Unit",              where:"Detailed BOM form"},
+  {id:"vendor.category",  label:"Vendor category",   where:"Vendor master"},
+  {id:"vendor.tdsSection",label:"TDS section",       where:"Vendor master"},
 ] as const;
 
 export const isKnownList=(id:string)=>OPTION_LISTS.some(l=>l.id===id);

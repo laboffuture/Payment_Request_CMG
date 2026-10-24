@@ -35,3 +35,16 @@ export async function findVendors(q:string,limit=12){
       const bs=b.name.toLowerCase().startsWith(term)?0:1;
       return as-bs||a.name.localeCompare(b.name)});
   }catch{return[]}}
+
+/* Vendor Master decides whether a registered vendor is offered: activated, it is added
+   to (or brought back into) the register above; suspended, blocked, made inactive or
+   expired, it is taken out of the suggestions until it is reactivated. */
+export async function setVendorOffered(name:string,offered:boolean,byEmail?:string|null){
+  try{
+    const clean=(name||"").trim().replace(/\s+/g," ");
+    if(!clean)return;
+    if(offered)await rememberVendor(clean,byEmail);
+    const db=await getDb();
+    await db.update(wfVendors).set({active:offered?1:0})
+      .where(sql`lower(${wfVendors.name}) = ${clean.toLowerCase()}`);
+  }catch(e){console.error("could not update the vendor register",e)}}

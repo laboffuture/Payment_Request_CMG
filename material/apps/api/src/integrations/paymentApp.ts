@@ -22,6 +22,11 @@ export interface ExtVendor {
   phone?: string;
   taxNo?: string;
   address?: string;
+  code?: string;
+  contactPerson?: string;
+  category?: string;
+  city?: string;
+  country?: string;
 }
 
 export interface ExtProject {
@@ -59,8 +64,9 @@ export class StubExternalMasters implements ExternalMasters {
 /**
  * The Payment app, reached server to server with the shared INTEGRATION_TOKEN
  * (PAYMENT_APP_TOKEN here). It publishes its staff list for the "Import from
- * Payment app" screen. It has no project register and its vendors are payees,
- * not Material suppliers, so those two stay local and return nothing.
+ * Payment app" screen, its job register as the projects, and the active
+ * vendors of its Vendor Master - registered, verified and approved there - as
+ * suppliers.
  */
 export class HttpExternalMasters implements ExternalMasters {
   constructor(
@@ -76,7 +82,12 @@ export class HttpExternalMasters implements ExternalMasters {
     return (await res.json()) as T[];
   }
 
-  listVendors = async (): Promise<ExtVendor[]> => [];
+  // A failure here must not hold up the projects synced beside it.
+  listVendors = (): Promise<ExtVendor[]> =>
+    this.get<ExtVendor>('/api/integration/vendors').catch((err) => {
+      logger.warn({ err }, 'payment app vendors could not be read');
+      return [];
+    });
 
   /**
    * The Payment app's job register: JB code, project and site. One project per
@@ -132,8 +143,16 @@ export async function syncExternalMasters(): Promise<SyncResult> {
 
   let vendorCount = 0;
   for (const v of vendors) {
+    // Already here by its external id, or entered by hand under the same name - the
+    // supplier's POs stay with it, and from now on the Vendor Master keeps it.
+    const known =
+      (await Vendor.findOne({ source: 'PAYMENT_APP', externalId: v.id }).select('_id code').lean()) ??
+      (await Vendor.findOne({ name: v.name })
+        .collation({ locale: 'en', strength: 2 })
+        .select('_id code')
+        .lean());
     const res = await Vendor.updateOne(
-      { source: 'PAYMENT_APP', externalId: v.id },
+      known ? { _id: known._id } : { source: 'PAYMENT_APP', externalId: v.id },
       {
         $set: {
           name: v.name,
@@ -141,6 +160,11 @@ export async function syncExternalMasters(): Promise<SyncResult> {
           phone: v.phone ?? '',
           taxNo: v.taxNo ?? '',
           address: v.address ?? '',
+          contactPerson: v.contactPerson ?? '',
+          category: v.category ?? '',
+          city: v.city ?? '',
+          country: v.country ?? '',
+          ...(known?.code ? {} : { code: v.code ?? '' }),
           source: 'PAYMENT_APP',
           externalId: v.id,
         },
