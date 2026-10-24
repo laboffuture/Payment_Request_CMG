@@ -43,9 +43,10 @@ export default function VendorMaster({flash}:{flash?:(m:string)=>void}){
   const rows=useMemo(()=>vendors.filter(v=>(!status||v.status===status)&&(!term||[v.vendorCode,v.legalName,v.tradeName,v.companyName,
     v.vendorType,v.vendorCategory,v.city,v.contactPerson,v.mobile,v.gstin,v.pan].join(" ").toLowerCase().includes(term))),[vendors,status,term]);
 
-  return <div className="recv-module vm">
-    <div className="recv-subhead"><p>Every vendor is registered by procurement, verified by procurement and accounts, and approved
-      before activation. Only an <b>Active</b> vendor is offered in POs and payment requests.</p>
+  return <div className="page recv"><div className="recv-module vm">
+    <div className="intro"><div><small>PROCUREMENT · ACCOUNTS</small><h2>Vendor Master</h2>
+      <p>Every vendor is registered by procurement, verified by procurement and accounts, and approved before activation.
+        Only an <b>Active</b> vendor is offered in POs and payment requests.</p></div>
       {data?.canCreate&&<button className="primary" onClick={()=>setAdding(true)}><Plus/>Register vendor</button>}</div>
 
     <div className="recv-flow">
@@ -85,7 +86,7 @@ export default function VendorMaster({flash}:{flash?:(m:string)=>void}){
     {(open||adding)&&data&&<VendorDrawer id={open} lists={data.choices} close={()=>{setOpen(null);setAdding(false)}}
       changed={(msg,id)=>{reload();flash?.(msg);if(id){setAdding(false);setOpen(id)}}}
       removed={msg=>{setOpen(null);reload();flash?.(msg)}}/>}
-  </div>}
+  </div></div>}
 
 const lbl=(f:Field,v:Record<string,string>)=><span className="recv-lbl">{f.label}{isRequired(f,v)&&<i className="recv-req" aria-hidden="true">*</i>}</span>;
 
