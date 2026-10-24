@@ -95,6 +95,7 @@ export function toMrLineDto(line: Record<string, any>, lookups: Lookups): MrLine
     itemId: line.itemId ? String(line.itemId) : null,
     itemCode: item?.code ?? null,
     name: lineName(line, lookups),
+    brand: item?.brand ?? '',
     unit: lineUnit(line, lookups),
     category: item?.category ?? line.newCategory ?? '',
     newStatus: line.newStatus ?? 'NONE',

@@ -159,6 +159,8 @@ export interface MrLineDto {
   itemId: string | null;
   itemCode: string | null;
   name: string;
+  /** the item master's brand, printed on the MR form; blank for a new item */
+  brand: string;
   unit: string;
   category: string;
   newStatus: NewItemStatus;

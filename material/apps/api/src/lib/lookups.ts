@@ -21,6 +21,7 @@ export interface Lookups {
     id: string;
     code: string;
     name: string;
+    brand: string;
     unit: string;
     category: string;
     subCategory: string;
@@ -35,7 +36,7 @@ export async function buildLookups(): Promise<Lookups> {
     User.find({}).select('name').lean(),
     Vendor.find({}).select('name').lean(),
     Project.find({}).select('code name').lean(),
-    Item.find({}).select('code name unit category subCategory gstRate lastRate lastVendorId').lean(),
+    Item.find({}).select('code name brand unit category subCategory gstRate lastRate lastVendorId').lean(),
   ]);
 
   const userMap = new Map(users.map((u) => [String(u._id), u.name]));
@@ -50,6 +51,7 @@ export async function buildLookups(): Promise<Lookups> {
         id: String(i._id),
         code: i.code,
         name: i.name,
+        brand: (i.brand ?? '').trim(),
         unit: i.unit as string,
         category: i.category,
         subCategory: i.subCategory ?? '',

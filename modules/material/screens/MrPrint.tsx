@@ -156,6 +156,7 @@ function MrDocument({ doc }: { doc: MrPrintDto }) {
                 <Td>
                   <b>{line.name}</b>
                   {line.newStatus === 'PENDING' ? ' (new item)' : ''}
+                  {line.brand ? <div>Brand: {line.brand}</div> : null}
                   {line.description ? (
                     <div style={{ whiteSpace: 'pre-line' }}>{line.description}</div>
                   ) : null}
