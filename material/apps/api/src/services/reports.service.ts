@@ -181,14 +181,18 @@ async function rowsFor(
     case 'lines':
     case 'overdue': {
       const rows = tab === 'overdue' ? lines().filter((l) => l.overdue) : lines();
-      // Who raised each PO and its value, read once for every line that names it.
+      // Who raised each PO, when, and its value, read once for every line that names it.
       const poFacts = new Map(
-        (await Po.find({}).select('createdBy total currency').lean()).map((po) => [
+        (await Po.find({}).select('createdBy createdAt total currency').lean()).map((po) => [
           String(po._id),
-          { by: lookups.userName(po.createdBy), amount: `${po.currency ?? ''} ${money(num(po.total))}`.trim() },
+          {
+            by: lookups.userName(po.createdBy),
+            on: fmtDate(po.createdAt?.toISOString()),
+            amount: `${po.currency ?? ''} ${money(num(po.total))}`.trim(),
+          },
         ]),
       );
-      const ofPos = (ids: string[], pick: 'by' | 'amount') =>
+      const ofPos = (ids: string[], pick: 'by' | 'on' | 'amount') =>
         ids.map((id) => poFacts.get(id)?.[pick] ?? '—').join(' / ');
       return rows.map((r) => ({
         'MR no.': r.mr,
@@ -203,6 +207,7 @@ async function rowsFor(
         Cut: r.cut,
         'PO no.': r.poNo,
         'PO created by': ofPos(r.poIds, 'by'),
+        'PO generated date': ofPos(r.poIds, 'on'),
         'PO amount': ofPos(r.poIds, 'amount'),
         Received: r.received,
         Issued: r.issued,
