@@ -103,7 +103,7 @@ mrRouter.get(
 mrRouter.post(
   '/mrs',
   requireAuth,
-  authorize('SITE'),
+  authorize('SITE', 'PM'),
   idempotency,
   validateBody(upsertMrInput),
   wrap(async (req, res) => {
@@ -114,7 +114,7 @@ mrRouter.post(
 mrRouter.put(
   '/mrs/:id',
   requireAuth,
-  authorize('SITE'),
+  authorize('SITE', 'PM'),
   validateBody(upsertMrInput),
   wrap(async (req, res) => {
     res.json(await updateMr(actorOf(req), req.params.id!, req.body));
@@ -124,7 +124,7 @@ mrRouter.put(
 mrRouter.delete(
   '/mrs/:id',
   requireAuth,
-  authorize('SITE'),
+  authorize('SITE', 'PM'),
   wrap(async (req, res) => {
     await deleteMr(actorOf(req), req.params.id!);
     res.json({ ok: true });
@@ -137,7 +137,7 @@ mrRouter.delete(
 mrRouter.post(
   '/mrs/:id/boq',
   requireAuth,
-  authorize('SITE'),
+  authorize('SITE', 'PM'),
   boqUpload.array('files', MAX_BOQ_FILES),
   wrap(async (req, res) => {
     const files = (req.files ?? []) as Express.Multer.File[];
@@ -149,7 +149,7 @@ mrRouter.post(
 mrRouter.delete(
   '/mrs/:id/boq/:fileId(*)',
   requireAuth,
-  authorize('SITE'),
+  authorize('SITE', 'PM'),
   wrap(async (req, res) => {
     res.json(await removeBoqFile(actorOf(req), req.params.id!, req.params.fileId!));
   }),

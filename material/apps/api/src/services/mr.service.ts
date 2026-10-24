@@ -191,6 +191,9 @@ function listFilterFor(actor: Actor, query: MrListQuery): Record<string, unknown
 
   if (actor.role === 'SITE') {
     filter.createdBy = oid(actor.id);
+  } else if (actor.role === 'PM') {
+    // A Project Manager raises requests too: every submitted MR, and his own drafts.
+    filter.$or = [{ status: { $ne: 'DRAFT' } }, { createdBy: oid(actor.id) }];
   } else {
     filter.status = { $ne: 'DRAFT' };
   }
@@ -206,7 +209,10 @@ function listFilterFor(actor: Actor, query: MrListQuery): Record<string, unknown
     filter.status = actor.role === 'SITE' ? 'GRN_PENDING' : 'PROC_REVIEW';
   } else if (query.status) {
     filter.status = query.status;
+    if (query.status === 'DRAFT') filter.createdBy = oid(actor.id);
   }
+  // A queue or a status tab names the status itself; the PM's draft rule no longer applies.
+  if (filter.$or && (query.queue || query.status)) delete filter.$or;
 
   if (query.projectId) filter.projectId = oid(query.projectId);
 
@@ -222,6 +228,10 @@ function assertCanRead(actor: Actor, mr: Record<string, any>): void {
   if (mr.status === 'DRAFT' && String(mr.createdBy) !== actor.id) throw forbidden();
   if (!canSeeProject(actor, String(mr.projectId))) throw forbidden();
 }
+
+/** Where a submitted MR goes: to the Project Manager - or, when he raised it, to QS. */
+const submittedStatus = (actor: Actor): 'PM_PENDING' | 'QS_PENDING' =>
+  actor.role === 'PM' ? 'QS_PENDING' : 'PM_PENDING';
 
 /** Prototype: canEdit — the creator, while the MR is a draft or sent back. */
 const canEdit = (actor: Actor, mr: Record<string, any>): boolean =>
@@ -577,9 +587,10 @@ async function newMrDocument(
         requiredDate: input.requiredDate,
         remarks: input.remarks,
         requestType: input.requestType,
-        status: input.submit ? 'PM_PENDING' : 'DRAFT',
+        status: input.submit ? submittedStatus(actor) : 'DRAFT',
         createdBy: actor.id,
         submittedAt: input.submit ? new Date() : null,
+        ...(input.submit && actor.role === 'PM' ? { pmBy: actor.id, pmAt: new Date() } : {}),
       },
     ],
     { session, ordered: true },
@@ -605,7 +616,7 @@ async function writeLines(
     // Site engineers pick from the item master only: free-typed "new items" were creating
     // duplicates of what is already there. A new-item line already on this MR (from before
     // the rule) can stay while the MR is edited; a fresh one is refused.
-    if (isNewItem && actor.role === 'SITE') {
+    if (isNewItem && (actor.role === 'SITE' || actor.role === 'PM')) {
       const already = line.id
         ? await MrLine.exists({ _id: line.id, mrId: mr._id, itemId: null }).session(session)
         : null;
@@ -677,6 +688,20 @@ async function writeLines(
   if (!input.submit) return [];
 
   const lookups = await buildLookups();
+  if (actor.role === 'PM') {
+    // The Project Manager's own request: there is no one above him to review it, so it
+    // goes straight to QS, as if he had raised and approved it in one step.
+    await writeAudit(session, 'MR', mr._id, AUDIT.MR_PM_APPROVED, actor.id, 'Raised by the Project Manager');
+    return emit(session, 'MR_PM_APPROVED', {
+      title: `${mr.no} ${wasSentBack ? 'resubmitted' : 'raised'} by the Project Manager — now with QS (${lookups.projectCode(
+        mr.projectId,
+      )}), need by ${mr.requiredDate}`,
+      body: `${input.lines.length} item(s) raised by ${actor.name}`,
+      link: `mr:${String(mr._id)}`,
+      to: [{ role: 'QS' }],
+      actorId: actor.id,
+    });
+  }
   return emit(session, 'MR_SUBMITTED', {
     title: `${mr.no} ${wasSentBack ? 'resubmitted' : 'submitted'} — ${lookups.projectCode(
       mr.projectId,
@@ -718,8 +743,12 @@ export async function updateMr(
           .lean();
         mr.no = await nextMrNo(project!.code, session);
       }
-      mr.status = 'PM_PENDING';
+      mr.status = submittedStatus(actor);
       mr.submittedAt = new Date();
+      if (actor.role === 'PM') {
+        mr.pmBy = oid(actor.id) as never;
+        mr.pmAt = new Date();
+      }
     }
 
     await mr.save({ session });

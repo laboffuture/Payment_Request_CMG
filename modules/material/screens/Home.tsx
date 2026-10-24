@@ -51,7 +51,7 @@ export default function HomePage() {
         title={`Hello, ${me.name}`}
         subtitle={`${ROLE_NAMES[me.role]} · your queue`}
         actions={
-          me.role === 'SITE' ? (
+          (me.role === 'SITE' || me.role === 'PM') ? (
             <Btn variant="primary" onClick={() => router.push('/mrs/new')}>
               + New request
             </Btn>

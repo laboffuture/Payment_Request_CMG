@@ -26,6 +26,7 @@ import { useAction } from '@mm/lib/hooks';
 import { useReference } from '@mm/lib/reference';
 import { UnitOptions } from '@mm/components/UnitOptions';
 import { fmtDate } from '@mm/lib/format';
+import { useSession } from '@mm/lib/session';
 
 /**
  * The material request form — mobile first, because site engineers fill it in
@@ -78,6 +79,9 @@ export function MrForm({ existing }: { existing?: MrDetailDto }) {
   const router = useRouter();
   const toast = useToast();
   const reference = useReference();
+  // A Project Manager's own request skips the PM step and goes straight to QS.
+  const { me } = useSession();
+  const byPm = me.role === 'PM';
 
   // What the request is for - chosen first; the process is the same for each.
   const [requestType, setRequestType] = useState<RequestType | ''>(existing?.requestType ?? '');
@@ -168,7 +172,7 @@ export function MrForm({ existing }: { existing?: MrDetailDto }) {
     {
       invalidate: [['mrs'], ['pool']],
       onDone: (mr) => {
-        toast(mr.no ? `${mr.no} sent to the Project Manager` : 'Draft saved');
+        toast(mr.no ? `${mr.no} sent to ${byPm ? 'QS' : 'the Project Manager'}` : 'Draft saved');
         router.push(`/mrs/${mr.id}`);
       },
     },
@@ -267,7 +271,11 @@ export function MrForm({ existing }: { existing?: MrDetailDto }) {
     <div className="w-full">
       <PageHeader
         title={existing ? `Edit ${existing.no || 'draft'}` : 'New request'}
-        subtitle="One project and one required date per MR. On submit it goes to the Project Manager, and then to QS."
+        subtitle={
+          byPm
+            ? 'One project and one required date per MR. You are the Project Manager, so on submit it goes straight to QS.'
+            : 'One project and one required date per MR. On submit it goes to the Project Manager, and then to QS.'
+        }
       />
 
       {existing?.status === 'SENT_BACK' && existing.lastComment ? (
@@ -440,7 +448,7 @@ export function MrForm({ existing }: { existing?: MrDetailDto }) {
             Save draft
           </Btn>
           <Btn variant="primary" disabled={save.isPending} onClick={() => submit(true)}>
-            Submit to PM
+            {byPm ? 'Submit to QS' : 'Submit to PM'}
           </Btn>
         </div>
       </StickyActionBar>
