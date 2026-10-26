@@ -107,8 +107,10 @@ async function problems(db:Db,v:Record<string,string>,selfId:string){
 const columns=(v:Record<string,string>,companies:{id:string;name:string}[])=>
   ({...v,companyName:companies.find(c=>c.id===v.companyId)?.name||""});
 
+/* Suppliers brought over from Material Management keep their own numbers (V-0200); only VEN- ones count here. */
 async function nextCode(db:Db){
-  const[top]=await db.select({n:sql<string>`max(cast(substr(${wfVendorMaster.vendorCode},5) as integer))`}).from(wfVendorMaster);
+  const[top]=await db.select({n:sql<string>`max(cast(substr(${wfVendorMaster.vendorCode},5) as integer))`}).from(wfVendorMaster)
+    .where(sql`${wfVendorMaster.vendorCode} like 'VEN-%'`);
   return`VEN-${String((Number(top?.n)||0)+1).padStart(6,"0")}`}
 
 /* Who to tell when a vendor arrives at a status. A role nobody holds falls back to the

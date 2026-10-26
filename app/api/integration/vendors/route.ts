@@ -27,7 +27,8 @@ export async function GET(req:Request){
       if(seen.has(key))continue;
       seen.add(key);
       out.push({id:v.id,code:v.vendorCode,name:v.legalName,email:v.email,phone:v.mobile,taxNo:v.gstin||v.pan,
-        address:[v.address,v.city,v.state,v.country].filter(Boolean).join(", "),contactPerson:v.contactPerson,
+        // The address as entered: the city and country travel on their own.
+        address:v.address,contactPerson:v.contactPerson,
         category:v.vendorCategory,city:v.city,country:v.country});
     }
     return Response.json(out);
