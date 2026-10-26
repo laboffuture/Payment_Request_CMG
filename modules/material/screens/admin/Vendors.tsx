@@ -3,19 +3,20 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import type { VendorDto } from '@cm/shared';
-import VendorMaster from '@/app/VendorMaster';
+import VendorMaster, { type KeptVendor } from '@/app/VendorMaster';
 import { get, post, put } from '@mm/lib/api';
 import { useSession } from '@mm/lib/session';
-import { DataTable, type Column } from '@mm/components/DataTable';
-import { Btn, PageHeader } from '@mm/components/ui';
+import { Btn } from '@mm/components/ui';
 import { Modal } from '@mm/components/Modal';
 import { useToast } from '@mm/components/Toast';
 
 /**
  * Prototype: VIEWS.vendors, vendorModalHtml(), A.saveVendor.
- * New vendors are registered and approved in the Vendor Master shown on top; once
- * Active they join the list below. The vendors kept from before stay as they are,
- * and only those can still be corrected here (by the administrator).
+ * One list: the Vendor Master's register, and beside it the suppliers kept from before
+ * it (still in use for POs, marked Existing). Procurement opens one of those to register
+ * it - the form starts from what is known here - and takes it through the same flow; once
+ * approved it replaces the old entry and keeps its vendor no. Until then the administrator
+ * can still correct a kept supplier, and makes portal logins under Users & access.
  */
 /** Logins belong to the application's own Users & access screen. */
 const openUsersAndAccess = () =>
@@ -47,131 +48,59 @@ export default function VendorsPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Every word typed must appear somewhere on the vendor: "plywood coimbatore" narrows to
-  // the plywood suppliers there.
-  const [search, setSearch] = useState('');
-  const shown = useMemo(() => {
-    const all = vendors.data ?? [];
-    const words = search.toLowerCase().split(/\s+/).filter(Boolean);
-    if (!words.length) return all;
-    return all.filter((v) => {
-      const text = [v.code, v.name, v.category, v.contactPerson, v.phone, v.email, v.taxNo, v.city, v.address]
-        .join(' ')
-        .toLowerCase();
-      return words.every((w) => text.includes(w));
-    });
-  }, [vendors.data, search]);
-
-  const columns: Column<VendorDto>[] = [
-    { key: 'code', header: 'Vendor No', render: (v) => <span className="font-mono">{v.code || '—'}</span> },
-    {
-      key: 'name',
-      header: 'Vendor',
-      render: (v) => (
-        <span>
-          <b>{v.name}</b>
-          {v.category ? <span className="block text-mut text-xs">{v.category}</span> : null}
-        </span>
-      ),
-    },
-    {
-      key: 'contact',
-      header: 'Contact',
-      render: (v) =>
-        v.contactPerson || v.phone ? (
-          <span>
-            {v.contactPerson || '—'}
-            {v.phone ? <span className="block text-mut text-xs whitespace-nowrap">{v.phone}</span> : null}
-          </span>
-        ) : (
-          '—'
-        ),
-    },
-    {
-      key: 'email',
-      header: 'Email',
-      render: (v) => <span style={{ overflowWrap: 'anywhere' }}>{v.email || '—'}</span>,
-    },
-    {
-      key: 'taxNo',
-      header: 'GSTIN',
-      render: (v) => <span className="font-mono whitespace-nowrap">{v.taxNo || '—'}</span>,
-    },
-    {
-      key: 'city',
-      header: 'Location',
-      render: (v) => <span title={v.address || undefined}>{v.city || v.country || '—'}</span>,
-    },
-    {
-      key: 'logins',
-      header: 'Portal logins',
-      render: (v) =>
-        v.portalLogins.length ? (
-          <span className="font-mono">{v.portalLogins.join(', ')}</span>
-        ) : (
-          'None'
-        ),
-    },
-    {
-      key: 'actions',
-      header: '',
-      // Logins and corrections are the administrator's.
-      render: (v) =>
-        isAdmin ? (
-          <div className="flex gap-[6px] justify-end">
-            <Btn small title="Create a portal login for this vendor" onClick={() => openUsersAndAccess()}>
-              + Login
-            </Btn>
-            {v.source === 'LOCAL' ? (
-              <Btn small onClick={() => setEditing(v)}>
-                Edit
-              </Btn>
-            ) : null}
-          </div>
-        ) : null,
-    },
-  ];
+  // The Vendor Master's own vendors come across as PAYMENT_APP; the rest are the kept ones.
+  const kept = useMemo<KeptVendor[]>(
+    () =>
+      (vendors.data ?? [])
+        .filter((v) => v.source === 'LOCAL')
+        .map((v) => ({
+          id: v.id,
+          code: v.code ?? '',
+          name: v.name,
+          category: v.category ?? '',
+          contactPerson: v.contactPerson ?? '',
+          phone: v.phone ?? '',
+          email: v.email ?? '',
+          taxNo: v.taxNo ?? '',
+          city: v.city ?? '',
+          country: v.country ?? '',
+          address: v.address ?? '',
+        })),
+    [vendors.data],
+  );
+  const byId = useMemo(() => new Map((vendors.data ?? []).map((v) => [v.id, v])), [vendors.data]);
 
   return (
     <>
       <VendorMaster
         embedded
+        kept={kept}
+        keptActions={
+          isAdmin
+            ? (k) => {
+                const v = byId.get(k.id);
+                return (
+                  <span className="flex gap-[6px]">
+                    <Btn small title="Create a portal login for this vendor" onClick={() => openUsersAndAccess()}>
+                      + Login
+                    </Btn>
+                    {v ? (
+                      <Btn small onClick={() => setEditing(v)}>
+                        Edit as it is
+                      </Btn>
+                    ) : null}
+                  </span>
+                );
+              }
+            : undefined
+        }
         flash={(msg) => {
           toast(msg);
           void refresh();
         }}
       />
 
-      <section className="vm-kept">
-        <PageHeader
-          title="Vendor list"
-          subtitle="Suppliers who receive enquiries and POs: every Active vendor from the Vendor Master above, and the vendors kept from before. A vendor's portal login is made under Users & access, with the Vendor role and this supplier."
-          actions={
-            <input
-              type="search"
-              aria-label="Search vendors"
-              placeholder="Search name, category, city or GSTIN"
-              className="min-w-[250px]"
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-            />
-          }
-        />
-
-        {vendors.isLoading ? (
-          <div className="text-mut">Loading…</div>
-        ) : (
-          <DataTable
-            columns={columns}
-            rows={shown}
-            rowKey={(v) => v.id}
-            emptyText={search.trim() ? 'No vendor matches the search' : 'No vendors yet'}
-          />
-        )}
-      </section>
-
       {editing ? <VendorModal vendor={editing} onClose={() => setEditing(null)} /> : null}
-
     </>
   );
 }

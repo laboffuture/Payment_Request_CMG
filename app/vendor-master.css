@@ -52,4 +52,5 @@
 /* Inside Material Management's Vendors screen: keep the Vendor Master's own look over Material's input and heading rules. */
 .mm .recv .recv-search input:not([type=checkbox]):not([type=radio]):not([type=file]){border:0;border-radius:0;height:100%;padding:0;background:none;box-shadow:none}
 .mm .recv h3{font-size:1.17em;margin:0}
-.mm .vm-kept{margin-top:28px;padding-top:6px;border-top:1px solid var(--line)}
+.vm-kept-row{background:#fcfcfd}
+.vm-kept-note{display:flex;align-items:center;justify-content:space-between;gap:.75rem;flex-wrap:wrap}
