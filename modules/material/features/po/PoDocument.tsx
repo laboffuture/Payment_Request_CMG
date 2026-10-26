@@ -80,9 +80,12 @@ const DOC_CSS = `
 .po-doc-sign>div>em{font-style:normal;font-size:12px;line-height:1.3}
 .po-doc-sign>div>span{border-top:1px solid currentColor;margin-top:24px;padding-top:4px;min-height:22px}
 @media screen and (max-width:700px){.po-doc-info{grid-template-columns:1fr}.po-doc-sign{grid-template-columns:1fr 1fr}}
-/* printed, the whole order (rows, totals, terms, signatures) fits one A4 sheet */
-@page{size:A4;margin:10mm}
+/* printed, the whole order (rows, totals, terms, signatures) fits one A4 sheet. No page margin, so the
+   browser has nowhere to print its own header and footer (the page title, URL and date); the 10mm border
+   is the order's own padding instead */
+@page{size:A4;margin:0}
 @media print{
+.po-doc{padding:10mm!important}
 .po-doc-head{padding-bottom:6px}
 .po-doc-head img{max-height:44px}
 .po-doc-stack,.po-doc-title{font-size:10.5px;gap:1px}
