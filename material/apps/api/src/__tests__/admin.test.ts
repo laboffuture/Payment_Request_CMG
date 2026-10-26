@@ -88,12 +88,11 @@ describe('users', () => {
 });
 
 describe('vendors and projects', () => {
-  it('refuses a duplicate vendor name whatever the casing', async () => {
+  it('takes no new vendor here - they are registered in the Vendor Master', async () => {
     const res = await admin
       .post('/api/admin/vendors')
       .send({ name: 'vendor a (DEMO)' });
-    expect(res.status).toBe(409);
-    expect(res.body.error).toBe(MSG.vendorNameExists);
+    expect(res.status).toBe(404);
   });
 
   it('refuses a duplicate project code', async () => {

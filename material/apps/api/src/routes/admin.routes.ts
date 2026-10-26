@@ -34,7 +34,6 @@ import {
 import {
   createCategory,
   createProject,
-  createVendor,
   listCategories,
   listCompanies,
   listProjects,
@@ -156,6 +155,25 @@ adminRouter.post(
   }),
 );
 
+// ---------------------------------------------------------------------------
+// Vendors - registered and approved in the Vendor Master, which every Active
+// vendor reaches Material from. Procurement, its manager and management see the
+// list too, so these come ahead of the admin-only guard below.
+// ---------------------------------------------------------------------------
+
+const vendorViewers = [requireAuth, authorize('ADMIN', 'PROC', 'PROC_MGR', 'MGMT')] as const;
+
+adminRouter.get('/vendors', ...vendorViewers, wrap(async (_req, res) => res.json(await listVendors())));
+
+/** Pull the Vendor Master now, so a vendor approved a moment ago is listed at once. */
+adminRouter.post(
+  '/vendors/sync',
+  ...vendorViewers,
+  wrap(async (_req, res) => {
+    res.json(await syncExternalMasters());
+  }),
+);
+
 adminRouter.use(requireAuth, authorize('ADMIN'));
 
 // ---------------------------------------------------------------------------
@@ -204,21 +222,8 @@ adminRouter.post(
   }),
 );
 
-// ---------------------------------------------------------------------------
-// Vendors
-// ---------------------------------------------------------------------------
-
-adminRouter.get('/vendors', wrap(async (_req, res) => res.json(await listVendors())));
-
-adminRouter.post(
-  '/vendors',
-  idempotency,
-  validateBody(upsertVendorInput),
-  wrap(async (req, res) => {
-    res.status(201).json(await createVendor(req.body));
-  }),
-);
-
+// A vendor kept from before the Vendor Master can still be corrected here; new
+// vendors are registered in the Vendor Master only.
 adminRouter.put(
   '/vendors/:id',
   validateBody(upsertVendorInput),

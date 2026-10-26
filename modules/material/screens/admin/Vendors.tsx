@@ -1,9 +1,11 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import type { VendorDto } from '@cm/shared';
+import VendorMaster from '@/app/VendorMaster';
 import { get, post, put } from '@mm/lib/api';
+import { useSession } from '@mm/lib/session';
 import { DataTable, type Column } from '@mm/components/DataTable';
 import { Btn, PageHeader } from '@mm/components/ui';
 import { Modal } from '@mm/components/Modal';
@@ -11,21 +13,39 @@ import { useToast } from '@mm/components/Toast';
 
 /**
  * Prototype: VIEWS.vendors, vendorModalHtml(), A.saveVendor.
- * Payment-app vendors are read-only here (§10) — only the portal-login button
- * is offered for them.
+ * New vendors are registered and approved in the Vendor Master shown on top; once
+ * Active they join the list below. The vendors kept from before stay as they are,
+ * and only those can still be corrected here (by the administrator).
  */
 /** Logins belong to the application's own Users & access screen. */
 const openUsersAndAccess = () =>
   window.dispatchEvent(new CustomEvent('cmg:open-module', { detail: 'users' }));
 
 export default function VendorsPage() {
+  const { me } = useSession();
+  const isAdmin = me.role === 'ADMIN';
+  const toast = useToast();
+  const queryClient = useQueryClient();
   const [editing, setEditing] = useState<VendorDto | null>(null);
-  const [adding, setAdding] = useState(false);
 
   const vendors = useQuery({
     queryKey: ['admin', 'vendors'],
     queryFn: () => get<VendorDto[]>('/admin/vendors'),
   });
+
+  // Pull the Vendor Master on opening, and after every step taken in it, so a vendor
+  // approved a moment ago is offered for POs without waiting for the 15-minute sync.
+  const refresh = () =>
+    post('/admin/vendors/sync', {})
+      .then(() => {
+        void queryClient.invalidateQueries({ queryKey: ['admin', 'vendors'] });
+        void queryClient.invalidateQueries({ queryKey: ['reference'] });
+      })
+      .catch(() => undefined);
+  useEffect(() => {
+    void refresh();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // Every word typed must appear somewhere on the vendor: "plywood coimbatore" narrows to
   // the plywood suppliers there.
@@ -95,28 +115,38 @@ export default function VendorsPage() {
     {
       key: 'actions',
       header: '',
-      render: (v) => (
-        <div className="flex gap-[6px] justify-end">
-          <Btn small title="Create a portal login for this vendor" onClick={() => openUsersAndAccess()}>
-            + Login
-          </Btn>
-          {v.source === 'LOCAL' ? (
-            <Btn small onClick={() => setEditing(v)}>
-              Edit
+      // Logins and corrections are the administrator's.
+      render: (v) =>
+        isAdmin ? (
+          <div className="flex gap-[6px] justify-end">
+            <Btn small title="Create a portal login for this vendor" onClick={() => openUsersAndAccess()}>
+              + Login
             </Btn>
-          ) : null}
-        </div>
-      ),
+            {v.source === 'LOCAL' ? (
+              <Btn small onClick={() => setEditing(v)}>
+                Edit
+              </Btn>
+            ) : null}
+          </div>
+        ) : null,
     },
   ];
 
   return (
     <>
-      <PageHeader
-        title="Vendors"
-        subtitle="Suppliers who receive enquiries and POs. A vendor's portal login is made under Users & access, with the Vendor role and this supplier."
-        actions={
-          <>
+      <VendorMaster
+        embedded
+        flash={(msg) => {
+          toast(msg);
+          void refresh();
+        }}
+      />
+
+      <section className="vm-kept">
+        <PageHeader
+          title="Vendor list"
+          subtitle="Suppliers who receive enquiries and POs: every Active vendor from the Vendor Master above, and the vendors kept from before. A vendor's portal login is made under Users & access, with the Vendor role and this supplier."
+          actions={
             <input
               type="search"
               aria-label="Search vendors"
@@ -125,33 +155,22 @@ export default function VendorsPage() {
               value={search}
               onChange={(e) => setSearch(e.target.value)}
             />
-            <Btn variant="primary" onClick={() => setAdding(true)}>
-              + Add vendor
-            </Btn>
-          </>
-        }
-      />
-
-      {vendors.isLoading ? (
-        <div className="text-mut">Loading…</div>
-      ) : (
-        <DataTable
-          columns={columns}
-          rows={shown}
-          rowKey={(v) => v.id}
-          emptyText={search.trim() ? 'No vendor matches the search' : 'No vendors yet'}
+          }
         />
-      )}
 
-      {editing || adding ? (
-        <VendorModal
-          vendor={editing}
-          onClose={() => {
-            setEditing(null);
-            setAdding(false);
-          }}
-        />
-      ) : null}
+        {vendors.isLoading ? (
+          <div className="text-mut">Loading…</div>
+        ) : (
+          <DataTable
+            columns={columns}
+            rows={shown}
+            rowKey={(v) => v.id}
+            emptyText={search.trim() ? 'No vendor matches the search' : 'No vendors yet'}
+          />
+        )}
+      </section>
+
+      {editing ? <VendorModal vendor={editing} onClose={() => setEditing(null)} /> : null}
 
     </>
   );
@@ -161,31 +180,28 @@ function VendorModal({
   vendor,
   onClose,
 }: {
-  vendor: VendorDto | null;
+  vendor: VendorDto;
   onClose: () => void;
 }) {
   const toast = useToast();
   const queryClient = useQueryClient();
   const [form, setForm] = useState({
-    name: vendor?.name ?? '',
-    country: vendor?.country ?? '',
-    email: vendor?.email ?? '',
-    phone: vendor?.phone ?? '',
-    taxNo: vendor?.taxNo ?? '',
-    address: vendor?.address ?? '',
-    contactPerson: vendor?.contactPerson ?? '',
-    category: vendor?.category ?? '',
-    city: vendor?.city ?? '',
+    name: vendor.name ?? '',
+    country: vendor.country ?? '',
+    email: vendor.email ?? '',
+    phone: vendor.phone ?? '',
+    taxNo: vendor.taxNo ?? '',
+    address: vendor.address ?? '',
+    contactPerson: vendor.contactPerson ?? '',
+    category: vendor.category ?? '',
+    city: vendor.city ?? '',
   });
 
   const set = (key: keyof typeof form) => (e: { target: { value: string } }) =>
     setForm((f) => ({ ...f, [key]: e.target.value }));
 
   const save = useMutation({
-    mutationFn: () =>
-      vendor
-        ? put<VendorDto>(`/admin/vendors/${vendor.id}`, form)
-        : post<VendorDto>('/admin/vendors', form),
+    mutationFn: () => put<VendorDto>(`/admin/vendors/${vendor.id}`, form),
     onSuccess: () => {
       toast('Vendor saved');
       void queryClient.invalidateQueries({ queryKey: ['admin', 'vendors'] });
@@ -197,7 +213,7 @@ function VendorModal({
 
   return (
     <Modal
-      title={vendor ? 'Edit vendor' : 'Add vendor'}
+      title="Edit vendor"
       onClose={onClose}
       footer={
         <>
@@ -212,7 +228,7 @@ function VendorModal({
         <label className="field">
           Vendor No
           <input
-            value={vendor?.code || 'Given automatically on save'}
+            value={vendor.code || '—'}
             readOnly
             disabled
             title="Vendor numbers are system-generated"

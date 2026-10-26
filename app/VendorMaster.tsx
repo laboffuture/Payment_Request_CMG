@@ -32,7 +32,8 @@ const tone=(s:string)=>s==="Active"?"ok":["Rejected","Blocked"].includes(s)?"bad
   ["Suspended","Inactive","Expired"].includes(s)?"off":"wait";
 const blank=():Record<string,string>=>Object.fromEntries(FIELDS.map(f=>[f.key,f.key==="country"?"India":""]));
 
-export default function VendorMaster({flash}:{flash?:(m:string)=>void}){
+/** `embedded` drops the page margins - Material Management shows it inside its own Vendors screen. */
+export default function VendorMaster({flash,embedded}:{flash?:(m:string)=>void;embedded?:boolean}){
   const[status,setStatus]=useState<string>(""),[q,setQ]=useState(""),[open,setOpen]=useState<string|null>(null),
     [adding,setAdding]=useState(false),[version,setVersion]=useState(0);
   const reload=()=>setVersion(v=>v+1);
@@ -43,7 +44,7 @@ export default function VendorMaster({flash}:{flash?:(m:string)=>void}){
   const rows=useMemo(()=>vendors.filter(v=>(!status||v.status===status)&&(!term||[v.vendorCode,v.legalName,v.tradeName,v.companyName,
     v.vendorType,v.vendorCategory,v.city,v.contactPerson,v.mobile,v.gstin,v.pan].join(" ").toLowerCase().includes(term))),[vendors,status,term]);
 
-  return <div className="page recv"><div className="recv-module vm">
+  return <div className={embedded?"recv":"page recv"}><div className="recv-module vm">
     <div className="intro"><div><small>PROCUREMENT · ACCOUNTS</small><h2>Vendor Master</h2>
       <p>Every vendor is registered by procurement, verified by procurement and accounts, and approved before activation.
         Only an <b>Active</b> vendor is offered in POs and payment requests.</p></div>
