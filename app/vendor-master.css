@@ -49,8 +49,3 @@
 .vm-actions .ghost.danger{color:#b42318}
 .vm-row{display:flex;flex-wrap:wrap;gap:.5rem}
 @media(max-width:640px){.vm-grid{grid-template-columns:minmax(0,1fr)}}
-/* Inside Material Management's Vendors screen: keep the Vendor Master's own look over Material's input and heading rules. */
-.mm .recv .recv-search input:not([type=checkbox]):not([type=radio]):not([type=file]){border:0;border-radius:0;height:100%;padding:0;background:none;box-shadow:none}
-.mm .recv h3{font-size:1.17em;margin:0}
-.vm-kept-row{background:#fcfcfd}
-.vm-kept-note{display:flex;align-items:center;justify-content:space-between;gap:.75rem;flex-wrap:wrap}

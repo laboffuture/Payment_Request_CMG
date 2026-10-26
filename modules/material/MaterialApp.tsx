@@ -1,7 +1,7 @@
 "use client";
 import {createContext,useContext,useMemo,type ComponentType,type ReactNode} from "react";
 import {QueryClient,QueryClientProvider,useQuery} from "@tanstack/react-query";
-import {Bell,BellRing,Boxes,Building,ClipboardCheck,ClipboardList,FileBarChart,FilePlus2,
+import {Bell,BellRing,Boxes,ClipboardCheck,ClipboardList,FileBarChart,FilePlus2,
   FolderKanban,LayoutDashboard,Layers,ListChecks,Mail,MessagesSquare,Package,PackageCheck,
   PackagePlus,Printer,Receipt,ScrollText,ShoppingCart,Stamp,Tags,Truck,Upload,BadgeCheck} from "lucide-react";
 import {NAV,homeFor,resolveDeepLink,type Role} from "@cm/shared";
@@ -19,7 +19,6 @@ import ImportInventory from "./screens/admin/Import";
 import Items from "./screens/admin/Items";
 import NotificationRules from "./screens/admin/NotificationRules";
 import Projects from "./screens/admin/Projects";
-import Vendors from "./screens/admin/Vendors";
 import Docs from "./screens/Docs";
 import Grn from "./screens/Grn";
 import Inventory from "./screens/Inventory";
@@ -67,7 +66,7 @@ const ROUTES:[string,ComponentType][]=[
   ["/admin/categories",Categories],["/admin/company",Company],["/admin/email",Email],
   ["/admin/import",ImportInventory],["/admin/items",Items],
   ["/admin/notification-rules",NotificationRules],["/admin/projects",Projects],
-  ["/admin/vendors",Vendors],
+
   ["/docs",Docs],["/grn",Grn],["/inventory",Inventory],["/issue",Issue],
   ["/issues",Issues],["/issues/:id",IssueDetail],
   ["/mrs",Mrs],["/mrs/new",MrNew],["/mrs/print",MrPrint],["/mrs/:id",MrDetail],["/mrs/:id/edit",MrEdit],
@@ -96,7 +95,7 @@ const ICONS:Record<string,ComponentType<{className?:string}>>={
   "/receive":PackageCheck,"/reports":FileBarChart,"/notifications":Bell,"/pm":ClipboardCheck,
   "/rfqs":MessagesSquare,"/inventory":Boxes,"/qs":ListChecks,"/pos/validate":BadgeCheck,
   "/pool":Layers,"/pos/new":FilePlus2,"/docs":Receipt,"/pos/approvals":Stamp,"/grn":PackagePlus,
-  "/issue":Truck,"/issues":ScrollText,"/admin/vendors":Building,"/admin/projects":FolderKanban,
+  "/issue":Truck,"/issues":ScrollText,"/admin/projects":FolderKanban,
   "/admin/company":Printer,"/admin/categories":Tags,"/admin/items":Package,"/admin/import":Upload,
   "/admin/notification-rules":BellRing,"/admin/email":Mail,"/vendor":MessagesSquare,
   "/vendor/pos":ShoppingCart,"/vendor/docs":Receipt};

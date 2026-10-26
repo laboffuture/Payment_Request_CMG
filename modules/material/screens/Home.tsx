@@ -203,7 +203,6 @@ function tilesFor(
         href: '/pos',
       },
       { label: 'Users & logins', value: 0, href: '/admin/users' },
-      { label: 'Vendors', value: 0, href: '/admin/vendors' },
       { label: 'Item master', value: 0, href: '/admin/items' },
       { label: 'Emails in outbox', value: 0, href: '/admin/email' },
     );

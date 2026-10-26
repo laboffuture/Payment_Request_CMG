@@ -35,7 +35,6 @@ export const BUILT_ROUTES: readonly string[] = [
   '/notifications',
   '/vendor',
   '/admin/users',
-  '/admin/vendors',
   '/admin/projects',
   '/admin/company',
   '/admin/categories',
