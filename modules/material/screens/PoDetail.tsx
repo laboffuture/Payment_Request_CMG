@@ -150,7 +150,7 @@ export default function PoDetailPage() {
           checkedByName: data.procMgrByName,
           verifiedByName: data.qsByName,
           approvedByName: data.approvedByName,
-          date: data.approvedAt ?? data.createdAt,
+          date: data.createdAt,
           lines: data.lines.map((line) => ({
             ...line,
             mrNos: [

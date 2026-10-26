@@ -183,7 +183,7 @@ export function PoDocument({ preview }: { preview: PoDocumentData }) {
         <InfoRows
           rows={[
             ['Order No', <span key="no" className="font-mono">{preview.displayNo}</span>],
-            ['Order Date', fmtDate(preview.date ?? new Date().toISOString())],
+            ['PO Date', fmtDate(preview.date ?? new Date().toISOString())],
             ['Project No', projectCodes.join(', ')],
             ['Project Name', projectNames.join(', ')],
             ['Delivery Address', deliveryAddress],

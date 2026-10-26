@@ -251,7 +251,7 @@ export async function renderPoHtml(poId: string): Promise<{ html: string; no: st
     ])}
     ${info([
       ['Order No', displayNo],
-      ['Order Date', fmtDate(po.approvedAt ?? po.createdAt)],
+      ['PO Date', fmtDate(po.createdAt)],
       ['Project No', projectCodes],
       ['Project Name', projectNames],
       ['Delivery Address', deliveryAddress],
