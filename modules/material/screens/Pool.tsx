@@ -710,7 +710,7 @@ function AnalysisModal({
     <Modal title="Site-wise analysis" onClose={onClose} wide>
       <div className="text-mut text-sm">
         {picks.length ? 'Selected lines' : 'All open pool lines'} · quantity per project,
-        value at last purchase rate
+        value at last purchase rate, and how many times each item has been purchased (approved POs)
       </div>
 
       {analysis.isLoading || !data ? (
@@ -727,6 +727,7 @@ function AnalysisModal({
                   </th>
                 ))}
                 <th className="text-right">Total qty</th>
+                <th className="text-right">Times purchased</th>
                 <th className="text-right">Last rate</th>
                 <th className="text-right">Est. value</th>
                 <th>Earliest need</th>
@@ -746,6 +747,18 @@ function AnalysisModal({
                   <td data-label="Total" className="desk:text-right">
                     <b>{qty(row.totalQty)}</b>
                   </td>
+                  <td data-label="Times purchased" className="desk:text-right">
+                    {row.timesPurchased ? (
+                      <>
+                        <b>{row.timesPurchased}</b>
+                        <span className="block text-mut text-xs whitespace-nowrap">
+                          last {fmtDate(row.lastPurchased)}
+                        </span>
+                      </>
+                    ) : (
+                      'Never'
+                    )}
+                  </td>
                   <td data-label="Last rate" className="desk:text-right">
                     {row.lastRate ? money(row.lastRate) : '—'}
                   </td>
@@ -764,6 +777,7 @@ function AnalysisModal({
                     <b>{money(data.valueByProject[p.id] ?? 0)}</b>
                   </td>
                 ))}
+                <td />
                 <td />
                 <td />
                 <td data-label="Total" className="desk:text-right">

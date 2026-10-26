@@ -683,6 +683,9 @@ export interface PoolAnalysisDto {
     lastRate: number | null;
     value: number;
     earliestNeed: string;
+    /** approved POs (approved, part- or fully received) that bought this item, and the latest one's date */
+    timesPurchased: number;
+    lastPurchased: string;
   }[];
   valueByProject: Record<string, number>;
   grandTotal: number;

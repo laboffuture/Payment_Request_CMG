@@ -23,6 +23,7 @@ import type { Actor } from '../middleware/auth.js';
 import { buildLookups, today } from '../lib/lookups.js';
 import { loadWorld } from '../lib/world.js';
 import { Mr, MrLine } from '../models/mr.js';
+import { Po, PoLine } from '../models/po.js';
 import { closeMrIfComplete } from './mr.service.js';
 
 /**
@@ -286,6 +287,24 @@ export async function poolAnalysis(
   const valueByProject: Record<string, number> = {};
   for (const id of projectIds) valueByProject[id] = 0;
 
+  // How often each item has been bought: the approved POs (approved, part- or fully received) carrying it.
+  const itemIds = [...new Set(rows.map((r) => String(r.itemId)))];
+  const bought = await Po.find({ status: { $in: ['APPROVED', 'PARTIAL', 'RECEIVED'] } })
+    .select('_id createdAt')
+    .lean();
+  const boughtOn = new Map(bought.map((po) => [String(po._id), po.createdAt.toISOString()]));
+  const purchases = new Map<string, { pos: Set<string>; last: string }>();
+  for (const line of await PoLine.find({ poId: { $in: bought.map((po) => po._id) }, itemId: { $in: itemIds } })
+    .select('poId itemId')
+    .lean()) {
+    const id = String(line.itemId);
+    const on = boughtOn.get(String(line.poId)) ?? '';
+    const seen = purchases.get(id) ?? { pos: new Set<string>(), last: '' };
+    seen.pos.add(String(line.poId));
+    if (on > seen.last) seen.last = on;
+    purchases.set(id, seen);
+  }
+
   let grandTotal = 0;
   const analysed = keys.map((key) => {
     const forItem = rows.filter((r) => keyOf(r) === key);
@@ -318,6 +337,8 @@ export async function poolAnalysis(
       lastRate: first.lastRate,
       value,
       earliestNeed: forItem.map((r) => r.requiredDate).sort()[0] ?? '',
+      timesPurchased: purchases.get(String(itemId))?.pos.size ?? 0,
+      lastPurchased: purchases.get(String(itemId))?.last ?? '',
     };
   });
 
