@@ -95,7 +95,7 @@ function Reports() {
       {!report.isLoading && !data?.rows.length ? <EmptyState text="No data" /> : null}
 
       {data?.rows.length ? (
-        <div className="overflow-x-auto">
+        <div className="overflow-x-auto mm-report-scroll">
           <table className="t">
             <thead>
               <tr>

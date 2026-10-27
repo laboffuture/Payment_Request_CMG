@@ -187,6 +187,13 @@
   .mm .t td.grp::before { content: none; }
 }
 
+/* A report scrolls in its own box, about a screen high, so its column headings stay in view - a
+   sideways-scrolling table cannot pin them to the page itself. */
+.mm .mm-report-scroll { max-height: calc(100vh - 140px); overflow: auto; border: 1px solid var(--mm-line); border-radius: 8px; }
+.mm .mm-report-scroll .t th { position: sticky; top: 0; z-index: 2; box-shadow: inset 0 -1px 0 var(--mm-line); }
+@media (max-width: 760px) { .mm .mm-report-scroll { max-height: none; overflow: visible; border: 0; } }
+@media print { .mm .mm-report-scroll { max-height: none; overflow: visible; border: 0; } .mm .mm-report-scroll .t th { position: static; } }
+
 /* A page header that stays put under the top bar while a long list scrolls. */
 .mm .mm-sticky-head {
   position: sticky; top: 62px; z-index: 12;
