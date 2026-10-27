@@ -664,6 +664,12 @@ export interface ProcHoldDto {
   mrDescription: string;
   unit: string;
   openQty: number;
+  /** what QS may correct while answering: the line as it stands */
+  itemId: string;
+  description: string;
+  measurement: string;
+  /** some of the line is already on a PO or an enquiry - then only the quantity still to buy can change */
+  ordered: boolean;
   action: 'QUERY' | 'REJECT';
   remark: string;
   /** what procurement attached to the query / rejection */

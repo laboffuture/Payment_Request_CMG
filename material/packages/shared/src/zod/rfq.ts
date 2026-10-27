@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { money, objectId, qty } from './common.js';
+import { money, objectId, qty, unitName } from './common.js';
 import { MSG } from '../messages.js';
 
 /**
@@ -32,10 +32,21 @@ export type PoolHoldInput = z.infer<typeof poolHoldInput>;
 /**
  * QS answers: RETURN puts the line back with procurement to buy; CANCEL takes the
  * quantity still to be bought off the MR line.
+ * With RETURN, QS may also correct the material: the quantity still to buy, and - while
+ * none of the line is on a PO or an enquiry - the item, unit, measurement and description.
  */
 export const procHoldAnswerInput = z.object({
   decision: z.enum(['RETURN', 'CANCEL']),
   remark: z.string().trim().min(1, 'Write your remarks').max(500),
+  edit: z
+    .object({
+      qty: qty.refine((v) => v > 0, 'The quantity to buy must be more than 0 - choose Cancel to buy none'),
+      itemId: objectId,
+      unit: unitName,
+      measurement: z.string().trim().max(120).default(''),
+      description: z.string().trim().max(500).default(''),
+    })
+    .optional(),
 });
 export type ProcHoldAnswerInput = z.infer<typeof procHoldAnswerInput>;
 

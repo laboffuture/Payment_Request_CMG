@@ -9,6 +9,8 @@ import { ReceiptFiles } from '@mm/features/store/ReceiptFiles';
 import { DataTable, type Column } from '@mm/components/DataTable';
 import { Btn, Tag } from '@mm/components/ui';
 import { Modal } from '@mm/components/Modal';
+import { ItemSearchSelect } from '@mm/components/ItemSearchSelect';
+import { UnitOptions } from '@mm/components/UnitOptions';
 import { useAction } from '@mm/lib/hooks';
 import { useRouter } from '@mm/lib/nav';
 import { fmtDate, fmtDateTime, qty } from '@mm/lib/format';
@@ -120,11 +122,40 @@ function AnswerModal({ hold, onClose }: { hold: ProcHoldDto; onClose: () => void
   const [remark, setRemark] = useState('');
   const [files, setFiles] = useState<File[]>([]);
 
+  // QS may correct the material as it goes back: the quantity always; the item, unit and
+  // measurement only while none of it is on a PO or an enquiry.
+  const start = {
+    qty: String(hold.openQty),
+    itemId: hold.itemId,
+    unit: hold.unit,
+    measurement: hold.measurement,
+    description: hold.description,
+  };
+  const [material, setMaterial] = useState(start);
+  const [swapTo, setSwapTo] = useState('');
+  const change = (patch: Partial<typeof start>) => setMaterial((m) => ({ ...m, ...patch }));
+  const edited = (Object.keys(start) as (keyof typeof start)[]).some((k) => material[k].trim() !== start[k].trim());
+  const toBuy = Number(material.qty);
+
   const answer = useAction(
     () =>
       postWithFiles(
         `/pool/holds/${hold.mrLineId}/answer`,
-        { decision, remark: remark.trim() },
+        {
+          decision,
+          remark: remark.trim(),
+          ...(decision === 'RETURN' && edited
+            ? {
+                edit: {
+                  qty: toBuy,
+                  itemId: material.itemId,
+                  unit: material.unit,
+                  measurement: material.measurement.trim(),
+                  description: material.description.trim(),
+                },
+              }
+            : {}),
+        },
         files,
       ),
     {
@@ -143,7 +174,11 @@ function AnswerModal({ hold, onClose }: { hold: ProcHoldDto; onClose: () => void
           <Btn onClick={onClose}>Cancel</Btn>
           <Btn
             variant="primary"
-            disabled={answer.isPending || !remark.trim()}
+            disabled={
+              answer.isPending ||
+              !remark.trim() ||
+              (decision === 'RETURN' && !(toBuy > 0))
+            }
             onClick={() => answer.mutate(undefined)}
           >
             {answer.isPending
@@ -178,6 +213,76 @@ function AnswerModal({ hold, onClose }: { hold: ProcHoldDto; onClose: () => void
           </span>
         </span>
       </label>
+      {decision === 'RETURN' ? (
+        <fieldset className="card flex flex-col gap-3">
+          <legend className="font-semibold px-1">
+            Material{edited ? ' — changed' : ''}{' '}
+            <span className="text-mut text-xs font-normal">correct it here if needed</span>
+          </legend>
+          {hold.ordered ? (
+            <div className="text-mut text-xs">
+              Part of this material is already on a PO or an enquiry, so only the quantity still to
+              buy can change.
+            </div>
+          ) : null}
+          <div className="text-sm">
+            Item: <b>{swapTo ? 'changed — see below' : `${hold.itemCode} · ${hold.itemName}`}</b>
+          </div>
+          {!hold.ordered ? (
+            <ItemSearchSelect
+              ariaLabel="Change to another item"
+              placeholder="Change to another item — type its name or code"
+              value={swapTo}
+              onChange={(itemId, item) => {
+                setSwapTo(itemId);
+                change(item ? { itemId, unit: item.unit } : { itemId: start.itemId, unit: start.unit });
+              }}
+            />
+          ) : null}
+          <div className="grid gap-3 desk:grid-cols-3">
+            <label className="field">
+              Quantity to buy *
+              <input
+                type="number"
+                min={0}
+                step="any"
+                value={material.qty}
+                onChange={(e) => change({ qty: e.target.value })}
+              />
+            </label>
+            <label className="field">
+              Unit
+              <select
+                value={material.unit}
+                disabled={hold.ordered}
+                onChange={(e) => change({ unit: e.target.value })}
+              >
+                <UnitOptions current={material.unit} />
+              </select>
+            </label>
+            <label className="field">
+              Measurement
+              <input
+                maxLength={120}
+                placeholder="2400 × 1200 × 12.5 mm"
+                value={material.measurement}
+                disabled={hold.ordered}
+                onChange={(e) => change({ measurement: e.target.value })}
+              />
+            </label>
+          </div>
+          <label className="field">
+            Description
+            <textarea
+              rows={2}
+              maxLength={500}
+              value={material.description}
+              onChange={(e) => change({ description: e.target.value })}
+            />
+          </label>
+        </fieldset>
+      ) : null}
+
       <label className="flex items-start gap-2">
         <input
           type="radio"

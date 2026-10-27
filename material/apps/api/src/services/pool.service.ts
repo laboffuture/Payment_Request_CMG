@@ -469,6 +469,10 @@ export async function listProcHolds(): Promise<ProcHoldDto[]> {
         mrDescription: mrDescriptionOf(l),
         unit: lineUnit(lineIn, item),
         openQty: lineCalc(world, lineIn).poolOpen,
+        itemId: String(item.id),
+        description: l.description ?? '',
+        measurement: l.measurement ?? '',
+        ordered: lineCalc(world, lineIn).poAlloc + lineCalc(world, lineIn).rfqOpen > 0,
         action: l.procHold as 'QUERY' | 'REJECT',
         remark: l.procRemark ?? '',
         files: linksOf(l.procFiles),
@@ -517,6 +521,46 @@ export async function answerProcHold(
       line.poQty = clampMin0(num((line.poQty ?? 0) - cancelled));
     }
 
+    // QS's corrections to the material, sent back with the answer.
+    const changes: string[] = [];
+    if (!cancel && input.edit) {
+      const lineIn = world.mrLines.find((x) => x.id === lineId);
+      const calc = lineIn ? lineCalc(world, lineIn) : null;
+      if (!calc) throw notFound();
+      const ordered = calc.poAlloc + calc.rfqOpen > 0;
+      const unitNow = lineUnit(line, item);
+      const swapped = input.edit.itemId !== String(line.itemId);
+      if (ordered && (swapped || input.edit.unit !== unitNow || input.edit.measurement !== (line.measurement ?? ''))) {
+        throw conflict(
+          'Part of this material is already on a PO or an enquiry - only the quantity still to buy can be changed',
+        );
+      }
+      const nextItem = swapped ? lookups.item(input.edit.itemId) : item;
+      if (!nextItem) throw badRequest('Choose an item from the item master');
+      if (input.edit.qty !== calc.poolOpen) {
+        line.poQty = num((line.poQty ?? 0) - calc.poolOpen + input.edit.qty);
+        // Asking for more than the engineer did raises the request to match.
+        line.qty = Math.max(num(line.qty), num((line.storeQty ?? 0) + line.poQty));
+        changes.push(`to buy ${calc.poolOpen} → ${input.edit.qty} ${input.edit.unit}`);
+      }
+      if (swapped) {
+        changes.push(`item ${item ? `${item.code} ${item.name}` : '—'} → ${nextItem.code} ${nextItem.name}`);
+        line.itemId = new Types.ObjectId(input.edit.itemId) as never;
+      }
+      if (input.edit.unit !== unitNow) {
+        changes.push(`unit ${unitNow} → ${input.edit.unit}`);
+        line.unit = input.edit.unit;
+      }
+      if (input.edit.measurement !== (line.measurement ?? '')) {
+        changes.push(`measurement "${line.measurement ?? ''}" → "${input.edit.measurement}"`);
+        line.measurement = input.edit.measurement;
+      }
+      if (input.edit.description !== (line.description ?? '')) {
+        changes.push(`description "${line.description ?? ''}" → "${input.edit.description}"`);
+        line.description = input.edit.description;
+      }
+    }
+
     line.procHold = 'NONE';
     line.qsReply = input.remark;
     line.qsReplyFiles = stored as never;
@@ -532,14 +576,14 @@ export async function answerProcHold(
       actor.id,
       cancel
         ? `${label}: ${cancelled} ${lineUnit(line, item)} cancelled — ${input.remark}`
-        : `${label}: ${input.remark}`,
+        : `${label}: ${input.remark}${changes.length ? ` (changed: ${changes.join('; ')})` : ''}`,
     );
 
     const outbox = await emit(session, 'PROC_LINE_ANSWERED', {
       title: cancel
         ? `${mr.no}: QS cancelled the purchase of ${item?.name ?? 'a material'}`
         : `${mr.no}: QS answered on ${item?.name ?? 'a material'} — back in Consolidate MRs`,
-      body: input.remark,
+      body: changes.length ? `${input.remark} (changed: ${changes.join('; ')})` : input.remark,
       link: cancel ? `mr:${String(mr._id)}` : 'pool:answered',
       to: [
         { role: 'PROC' },
