@@ -162,6 +162,12 @@ export default function MrDetailPage() {
         }
       />
 
+      {data.splitFrom ? (
+        <div className="card mb-3 text-sm">
+          These items were queried by QS out of <b className="font-mono">{data.splitFrom}</b>; the rest
+          of that MR was approved.
+        </div>
+      ) : null}
       <ApprovalBanner mr={data} />
       <BoqBanner mr={data} />
 
@@ -428,11 +434,15 @@ function LinesTable({
 
 /**
  * QS's actions on one item while the MR is with QS:
- *   Query  - a question about the item goes back to the site engineer, who changes it and
- *            resubmits. Several items can be queried together; the MR goes back once.
+ *   Query  - a question about the item goes back to the site engineer. From the approval
+ *            table (`approveRest` given) the queried items move to a new MR for the site
+ *            engineer and the rest of this one is approved with the split on screen; without
+ *            it (new items still to clear) the whole MR goes back.
  *   Delete - the item is not wanted; it is removed straight away, with an optional reason.
  */
-function qsActionColumn(mr: MrDetailDto): Column<MrLineDetailDto> {
+type ApproveRest = (queriedIds: string[]) => Record<string, unknown>[];
+
+function qsActionColumn(mr: MrDetailDto, approveRest?: ApproveRest): Column<MrLineDetailDto> {
   return {
     key: 'qsActions',
     header: 'Action',
@@ -440,12 +450,20 @@ function qsActionColumn(mr: MrDetailDto): Column<MrLineDetailDto> {
       l.lineStatus === 'REJECTED' ? (
         <span className="text-mut text-xs">Removed{l.qsRemark ? ` — ${l.qsRemark}` : ''}</span>
       ) : (
-        <QsLineActions mr={mr} line={l} />
+        <QsLineActions mr={mr} line={l} approveRest={approveRest} />
       ),
   };
 }
 
-function QsLineActions({ mr, line }: { mr: MrDetailDto; line: MrLineDetailDto }) {
+function QsLineActions({
+  mr,
+  line,
+  approveRest,
+}: {
+  mr: MrDetailDto;
+  line: MrLineDetailDto;
+  approveRest?: ApproveRest;
+}) {
   const [open, setOpen] = useState<'query' | 'delete' | null>(null);
   return (
     <>
@@ -457,7 +475,9 @@ function QsLineActions({ mr, line }: { mr: MrDetailDto; line: MrLineDetailDto })
           Delete
         </Btn>
       </span>
-      {open === 'query' ? <QueryItemsModal mr={mr} first={line} onClose={() => setOpen(null)} /> : null}
+      {open === 'query' ? (
+        <QueryItemsModal mr={mr} first={line} approveRest={approveRest} onClose={() => setOpen(null)} />
+      ) : null}
       {open === 'delete' ? <DeleteItemModal mr={mr} line={line} onClose={() => setOpen(null)} /> : null}
     </>
   );
@@ -466,24 +486,37 @@ function QsLineActions({ mr, line }: { mr: MrDetailDto; line: MrLineDetailDto })
 function QueryItemsModal({
   mr,
   first,
+  approveRest,
   onClose,
 }: {
   mr: MrDetailDto;
   first: MrLineDetailDto;
+  approveRest?: ApproveRest;
   onClose: () => void;
 }) {
   const toast = useToast();
   const lines = mr.lines.filter((l) => l.lineStatus !== 'REJECTED');
   const [asked, setAsked] = useState<Record<string, string>>({ [first.id]: '' });
+  const queries = () =>
+    Object.entries(asked).map(([lineId, remark]) => ({ lineId, remark: remark.trim() }));
+  const count = Object.keys(asked).length;
+  // Querying only some items approves the others now; querying all of them sends the MR back.
+  const splits = !!approveRest && count < lines.length;
   const send = useAction(
     () =>
-      post(`/mrs/${mr.id}/line-queries`, {
-        rv: mr.rv,
-        queries: Object.entries(asked).map(([lineId, remark]) => ({ lineId, remark: remark.trim() })),
-      }),
+      splits
+        ? post(`/mrs/${mr.id}/qs-approve`, {
+            rv: mr.rv,
+            comment: '',
+            lines: approveRest!(Object.keys(asked)),
+            queries: queries(),
+          })
+        : post(`/mrs/${mr.id}/line-queries`, { rv: mr.rv, queries: queries() }),
     {
-      success: 'Query sent to the site engineer',
-      invalidate: [['mr', mr.id], ['mrs'], ['counts']],
+      success: splits
+        ? `Queried item(s) sent to the site engineer on a new MR; the rest of ${mr.no} is approved`
+        : 'Query sent to the site engineer',
+      invalidate: [['mr', mr.id], ['mrs'], ['pool'], ['inventory'], ['counts']],
       onDone: onClose,
     },
   );
@@ -492,7 +525,6 @@ function QueryItemsModal({
     if (blank) return toast('Write the question for each item you have ticked');
     send.mutate(undefined);
   };
-  const count = Object.keys(asked).length;
 
   return (
     <Modal
@@ -502,15 +534,28 @@ function QueryItemsModal({
         <>
           <Btn onClick={onClose}>Cancel</Btn>
           <Btn variant="primary" disabled={send.isPending || !count} onClick={submit}>
-            {send.isPending ? 'Sending…' : `Send query (${count} item${count === 1 ? '' : 's'})`}
+            {send.isPending
+              ? 'Sending…'
+              : splits
+                ? `Send query (${count}) and approve the other ${lines.length - count}`
+                : `Send query (${count} item${count === 1 ? '' : 's'})`}
           </Btn>
         </>
       }
     >
-      <p className="mt-0 text-sm">
-        The MR goes back to <b>{mr.createdByName}</b> with your question on each ticked item. They
-        change the item and resubmit. Tick more items to ask about them in the same go.
-      </p>
+      {splits ? (
+        <p className="mt-0 text-sm">
+          The ticked item(s) move to a <b>new MR</b> that goes back to <b>{mr.createdByName}</b> with
+          your question on each; they change them and resubmit it. The other{' '}
+          {lines.length - count} item(s) of {mr.no} are <b>approved now</b>, with the quantities and
+          the store / PO split on screen, and go on to the next step.
+        </p>
+      ) : (
+        <p className="mt-0 text-sm">
+          The MR goes back to <b>{mr.createdByName}</b> with your question on each ticked item. They
+          change the item and resubmit. Tick more items to ask about them in the same go.
+        </p>
+      )}
       <div className="flex flex-col gap-2">
         {lines.map((l) => {
           const on = asked[l.id] !== undefined;
@@ -1008,7 +1053,16 @@ function QsPanel({ mr }: { mr: MrDetailDto }) {
         />
       ),
     },
-    qsActionColumn(mr),
+    qsActionColumn(mr, (queriedIds) =>
+      reviewPayload(review)
+        .filter((line) => !queriedIds.includes(line.id))
+        .map((line) => ({
+          ...line,
+          storeQty: Number(split[line.id]?.storeQty) || 0,
+          poQty: Number(split[line.id]?.poQty) || 0,
+          qsRemark: split[line.id]?.qsRemark ?? '',
+        })),
+    ),
   ];
   // Petty cash is bought at site with no PO: QS approves the quantity, nothing to split.
   const petty = isPettyCash(mr.requestType);

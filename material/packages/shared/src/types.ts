@@ -212,6 +212,8 @@ export interface MrDto extends Doc {
   /** who left the last comment, so the UI can say who rejected or changed it */
   lastCommentByName: string;
   lastCommentRole: string;
+  /** the MR this one's items were queried out of by QS, '' if none */
+  splitFrom: string;
   /** how many bill-of-quantities files are attached, if any */
   boqFileCount: number;
   closedAt: string | null;

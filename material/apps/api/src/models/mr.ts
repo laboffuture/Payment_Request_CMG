@@ -55,6 +55,8 @@ export interface IMr extends Timestamped {
   /** the single file the first version of this feature stored — read only */
   boq: StoredFileDoc | null;
   closedAt: Date | null;
+  /** the MR whose queried items QS moved to this one, while approving the rest there */
+  splitFrom: string;
   /** project petty cash: procurement's review (no PO is raised) */
   procReviewBy: Types.ObjectId | null;
   procReviewAt: Date | null;
@@ -110,6 +112,7 @@ const mrSchema = new Schema<IMr>(
     boqFiles: { type: [fileSchema], default: [] },
     boq: { type: fileSchema, default: null },
     closedAt: { type: Date, default: null },
+    splitFrom: { type: String, default: '' },
     procReviewBy: optionalRefTo('User'),
     procReviewAt: { type: Date, default: null },
     pettyGrn: { type: pettyGrnSchema, default: null },

@@ -170,6 +170,7 @@ export function toMrDto(
     pmAt: mr.pmAt ? mr.pmAt.toISOString() : null,
     lastCommentByName: mr.lastCommentBy ? lookups.userName(mr.lastCommentBy) : '',
     lastCommentRole: mr.lastCommentRole ?? '',
+    splitFrom: mr.splitFrom ?? '',
     boqFileCount: boqFilesOf(mr).length,
     closedAt: mr.closedAt ? mr.closedAt.toISOString() : null,
     lineCount: counts.lines,
@@ -1268,6 +1269,76 @@ export async function removeBoqFile(
 }
 
 /**
+ * QS approving an MR while querying some of its items: the queried items move to a new MR
+ * of their own - same project, requester and required date - which goes back to the site
+ * engineer with QS's question on each, and returns through the usual flow once answered.
+ * The rest of the MR is approved there and then. At least one item must stay to approve.
+ */
+async function splitQueriedLines(
+  actor: Actor,
+  mr: InstanceType<typeof Mr>,
+  input: QsApproveInput,
+  session: ClientSession,
+): Promise<{ no: string; outbox: string[] }> {
+  const lookups = await buildLookups();
+  const active = await MrLine.find({ mrId: mr._id, lineStatus: { $ne: 'REJECTED' } }).sort({ sn: 1 }).session(session);
+  const asked = new Map(input.queries.map((q) => [q.lineId, q.remark]));
+  const queried = active.filter((l) => asked.has(String(l._id)));
+  if (queried.length !== asked.size) throw badRequest('One of those items is no longer on the MR');
+  if (queried.length === active.length) {
+    throw badRequest('Every item is queried - send the query without approving, and the whole MR goes back');
+  }
+
+  const project = await Project.findById(mr.projectId).select('code').session(session).lean();
+  const said = queried.map((l) => `${lineName(l.toObject(), lookups)}: ${asked.get(String(l._id))}`);
+  const comment = `Queried by QS from ${mr.no} — ${said.join(' · ')}`.slice(0, 2000);
+  const [child] = await Mr.create(
+    [
+      {
+        no: await nextMrNo(project!.code, session),
+        projectId: mr.projectId,
+        requiredDate: mr.requiredDate,
+        remarks: mr.remarks,
+        requestType: mr.requestType,
+        status: 'SENT_BACK',
+        createdBy: mr.createdBy,
+        submittedAt: mr.submittedAt,
+        pmBy: mr.pmBy,
+        pmAt: mr.pmAt,
+        lastComment: comment,
+        lastCommentBy: oid(actor.id),
+        lastCommentRole: 'QS',
+        splitFrom: mr.no,
+      },
+    ],
+    { session, ordered: true },
+  );
+
+  for (const [index, line] of queried.entries()) {
+    line.mrId = child!._id as never;
+    line.sn = index + 1;
+    line.qsQuery = asked.get(String(line._id))!;
+    line.qsQueryBy = oid(actor.id) as never;
+    line.qsQueryAt = new Date();
+    await line.save({ session });
+  }
+  // Their split is not part of this approval.
+  input.lines = input.lines.filter((row) => !asked.has(row.id));
+
+  const moved = `${queried.length} queried item(s) moved to ${child!.no}: ${said.join(' · ')}`.slice(0, 2000);
+  await writeAudit(session, 'MR', mr._id, AUDIT.MR_QS_LINE_QUERY(queried.length), actor.id, moved);
+  await writeAudit(session, 'MR', child!._id, AUDIT.MR_QS_LINE_QUERY(queried.length), actor.id, comment);
+  const outbox = await emit(session, 'MR_SENT_BACK', {
+    title: `${child!.no}: QS has a query on ${queried.length} item(s) taken out of ${mr.no}`,
+    body: comment,
+    link: `mr:${String(child!._id)}`,
+    to: [{ userId: mr.createdBy }, mr.pmBy ? { userId: mr.pmBy } : null],
+    actorId: actor.id,
+  });
+  return { no: child!.no, outbox };
+}
+
+/**
  * Fresh signed links to every BOQ file, for whoever may read the MR — the
  * requester, the Project Manager and QS all need them.
  */
@@ -1294,6 +1365,9 @@ export async function qsApprove(
       throw conflict('This MR is no longer waiting for QS');
     }
     if (input.rv !== undefined && input.rv !== (mr.rv ?? 0)) throw stale();
+
+    // Queried items leave for a new MR, back with the site engineer; the rest is approved here.
+    const split = input.queries.length ? await splitQueriedLines(actor, mr, input, session) : null;
 
     const lines = await MrLine.find({ mrId: mr._id }).session(session);
 
@@ -1437,7 +1511,7 @@ export async function qsApprove(
     });
 
     await bumpSyncStamp(session);
-    return outbox;
+    return [...(split?.outbox ?? []), ...outbox];
   });
 
   await enqueueEmails(outboxIds);

@@ -96,6 +96,19 @@ export const qsApproveInput = z.object({
     .min(1),
   comment: z.string().trim().max(2000).optional().default(''),
   rv: z.number().int().min(0).optional(),
+  /**
+   * Items QS has a question about. They move to a new MR that goes back to the site
+   * engineer with the questions; the rest of this one is approved now.
+   */
+  queries: z
+    .array(
+      z.object({
+        lineId: objectId,
+        remark: z.string().trim().min(1, 'Write the question for each item you are querying').max(500),
+      }),
+    )
+    .optional()
+    .default([]),
 });
 export type QsApproveInput = z.infer<typeof qsApproveInput>;
 
