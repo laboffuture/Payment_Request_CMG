@@ -188,11 +188,12 @@ async function rowsFor(
           {
             by: lookups.userName(po.createdBy),
             on: fmtDate(po.createdAt?.toISOString()),
-            amount: `${po.currency ?? ''} ${money(num(po.total))}`.trim(),
+            currency: po.currency || '—',
+            amount: money(num(po.total)),
           },
         ]),
       );
-      const ofPos = (ids: string[], pick: 'by' | 'on' | 'amount') =>
+      const ofPos = (ids: string[], pick: 'by' | 'on' | 'currency' | 'amount') =>
         ids.map((id) => poFacts.get(id)?.[pick] ?? '—').join(' / ');
       const mrCreated = new Map(
         (await Mr.find({}).select('createdAt').lean()).map((mr) => [String(mr._id), fmtDate(mr.createdAt?.toISOString())]),
@@ -212,6 +213,7 @@ async function rowsFor(
         'PO no.': r.poNo,
         'PO created by': ofPos(r.poIds, 'by'),
         'PO generated date': ofPos(r.poIds, 'on'),
+        'PO currency': ofPos(r.poIds, 'currency'),
         'PO amount': ofPos(r.poIds, 'amount'),
         Received: r.received,
         Issued: r.issued,
