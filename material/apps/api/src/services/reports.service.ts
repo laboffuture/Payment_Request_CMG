@@ -194,8 +194,12 @@ async function rowsFor(
       );
       const ofPos = (ids: string[], pick: 'by' | 'on' | 'amount') =>
         ids.map((id) => poFacts.get(id)?.[pick] ?? '—').join(' / ');
+      const mrCreated = new Map(
+        (await Mr.find({}).select('createdAt').lean()).map((mr) => [String(mr._id), fmtDate(mr.createdAt?.toISOString())]),
+      );
       return rows.map((r) => ({
         'MR no.': r.mr,
+        'MR created date': mrCreated.get(r.mrId) ?? '—',
         Project: r.project,
         'Project name': lookups.projectTitle(r.projectId),
         Category: r.cat,
