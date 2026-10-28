@@ -1,51 +1,51 @@
 /* Vendor Master - builds on the Accounts Receivable layout (receivables.css). */
-.vm .recv-stage .vm-who{font-size:.68rem;color:var(--muted,#98a2b3)}
+.vm .recv-stage .vm-who{font-size:.68rem;color:var(--muted,var(--text-muted))}
 .vm-holds{display:flex;flex-wrap:wrap;gap:.4rem;margin:-.25rem 0 1rem}
 .vm-chip{display:inline-flex;align-items:center;gap:.4rem;height:30px;padding:0 .7rem;border-radius:999px;font-size:12px;
-  border:1px solid var(--line,#e4e7ec);background:var(--card,#fff);color:var(--ink,#344054);cursor:pointer}
-.vm-chip b{font-size:11px;min-width:1.2rem;padding:0 .3rem;border-radius:999px;background:#f2f4f7;text-align:center}
-.vm-chip.on{border-color:var(--accent,#2563eb);box-shadow:0 0 0 1px var(--accent,#2563eb) inset}
+  border:1px solid var(--line,var(--border));background:var(--card,#fff);color:var(--ink,var(--text-2));cursor:pointer}
+.vm-chip b{font-size:11px;min-width:1.2rem;padding:0 .3rem;border-radius:999px;background:var(--bg-muted);text-align:center}
+.vm-chip.on{border-color:var(--accent,var(--tone-accounts-bar));box-shadow:0 0 0 1px var(--accent,var(--tone-accounts-bar)) inset}
 .vm-tag{justify-self:end;display:inline-flex;align-items:center;gap:.3rem;padding:.2rem .55rem;border-radius:999px;
   font-size:11px;font-weight:600;white-space:nowrap}
 .vm-tag svg{width:.85rem;height:.85rem}
 .vm-tag.big{justify-self:start;font-size:12px;margin:.25rem 0 .75rem}
-.vm-tag.ok,.vm-chip.ok b{background:#ecfdf3;color:#027a48}
-.vm-tag.bad,.vm-chip.bad b{background:#fef3f2;color:#b42318}
-.vm-tag.warn,.vm-chip.warn b{background:#fffaeb;color:#b54708}
-.vm-tag.off,.vm-chip.off b{background:#f2f4f7;color:#475467}
-.vm-tag.wait{background:#eff4ff;color:#175cd3}
+.vm-tag.ok,.vm-chip.ok b{background:var(--tone-released-bg);color:var(--tone-released)}
+.vm-tag.bad,.vm-chip.bad b{background:var(--danger-soft);color:var(--danger)}
+.vm-tag.warn,.vm-chip.warn b{background:var(--tone-correction-bg);color:var(--tone-correction)}
+.vm-tag.off,.vm-chip.off b{background:var(--bg-muted);color:var(--text-2)}
+.vm-tag.wait{background:var(--tone-accounts-bg);color:var(--tone-accounts)}
 .vm-steps{display:flex;flex-wrap:wrap;gap:.35rem;list-style:none;margin:0 0 1rem;padding:0}
-.vm-steps li{display:flex;align-items:center;gap:.35rem;font-size:11px;color:var(--muted,#667085);
-  padding:.25rem .5rem;border:1px solid var(--line,#e4e7ec);border-radius:.5rem}
-.vm-steps li b{display:inline-grid;place-items:center;width:1.1rem;height:1.1rem;border-radius:50%;background:#f2f4f7;font-size:10px}
-.vm-steps li.done{color:#027a48;border-color:#abefc6}
-.vm-steps li.done b{background:#027a48;color:#fff}
-.vm-steps li.now{color:#175cd3;border-color:#175cd3;font-weight:600}
-.vm-steps li.now b{background:#175cd3;color:#fff}
+.vm-steps li{display:flex;align-items:center;gap:.35rem;font-size:11px;color:var(--muted,var(--text-muted));
+  padding:.25rem .5rem;border:1px solid var(--line,var(--border));border-radius:.5rem}
+.vm-steps li b{display:inline-grid;place-items:center;width:1.1rem;height:1.1rem;border-radius:50%;background:var(--bg-muted);font-size:12px}
+.vm-steps li.done{color:var(--tone-released);border-color:#abefc6}
+.vm-steps li.done b{background:var(--primary);color:#fff}
+.vm-steps li.now{color:var(--tone-accounts);border-color:var(--tone-accounts-bar);font-weight:600}
+.vm-steps li.now b{background:var(--tone-accounts-bar);color:#fff}
 .vm-form{gap:.9rem}
-.vm-sec{border:1px solid var(--line,#e4e7ec);border-radius:.7rem;padding:.6rem .85rem .85rem;margin:0;min-width:0}
+.vm-sec{border:1px solid var(--line,var(--border));border-radius:.7rem;padding:.6rem .85rem .85rem;margin:0;min-width:0}
 .vm-sec legend{font-size:12px;font-weight:700;padding:0 .35rem;display:flex;gap:.5rem;align-items:center}
-.vm-sec legend i{font-style:normal;font-weight:500;font-size:10px;color:#027a48;background:#ecfdf3;border-radius:999px;padding:.05rem .45rem}
+.vm-sec legend i{font-style:normal;font-weight:500;font-size:12px;color:var(--tone-released);background:var(--tone-released-bg);border-radius:999px;padding:.05rem .45rem}
 .vm-grid{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:.6rem .8rem}
 .vm-grid label{display:flex;flex-direction:column;gap:.25rem;min-width:0}
 .vm-grid .vm-wide{grid-column:1/-1}
-.vm-hint{font-size:10.5px;color:var(--muted,#98a2b3)}
-.vm-docs{margin:1rem 0;border:1px solid var(--line,#e4e7ec);border-radius:.7rem;padding:.75rem .85rem}
+.vm-hint{font-size:12px;color:var(--muted,var(--text-muted))}
+.vm-docs{margin:1rem 0;border:1px solid var(--line,var(--border));border-radius:.7rem;padding:.75rem .85rem}
 .vm-docs h4{display:flex;align-items:center;gap:.4rem;margin:0 0 .5rem;font-size:13px}
 .vm-docs h4 svg{width:1rem;height:1rem}
 .vm-docs ul{list-style:none;margin:0 0 .6rem;padding:0;display:grid;gap:.35rem}
 .vm-docs li{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:0 .5rem;align-items:center;font-size:12.5px}
 .vm-docs li a{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.vm-docs li span{grid-column:1;font-size:11px;color:var(--muted,#667085)}
+.vm-docs li span{grid-column:1;font-size:11px;color:var(--muted,var(--text-muted))}
 .vm-docs li button{grid-row:1/3;grid-column:2;height:30px;width:30px;display:grid;place-items:center;padding:0}
 .vm-docs li button svg{width:.9rem;height:.9rem}
 .vm-upload{display:flex;flex-wrap:wrap;gap:.5rem;align-items:center}
 .vm-upload select{min-width:0;flex:1 1 12rem}
-.vm-file{position:relative;display:inline-flex;align-items:center;gap:.35rem;height:36px;padding:0 .8rem;border:1px dashed var(--line,#d0d5dd);
+.vm-file{position:relative;display:inline-flex;align-items:center;gap:.35rem;height:36px;padding:0 .8rem;border:1px dashed var(--line,var(--border-strong));
   border-radius:.5rem;cursor:pointer;font-size:12.5px}
 .vm-file svg{width:.95rem;height:.95rem}
 .vm-file input{position:absolute;inset:0;opacity:0;cursor:pointer}
 .vm-actions{display:flex;flex-direction:column;gap:.6rem}
-.vm-actions .ghost.danger{color:#b42318}
+.vm-actions .ghost.danger{color:var(--danger)}
 .vm-row{display:flex;flex-wrap:wrap;gap:.5rem}
 @media(max-width:640px){.vm-grid{grid-template-columns:minmax(0,1fr)}}

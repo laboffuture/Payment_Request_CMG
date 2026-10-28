@@ -115,8 +115,8 @@ function WorkTable({title,kind,rows,open}:{title:string;kind:Frequency;rows:Task
   const label=(t:Task)=>kind==="Daily"?dayLabel(t.due):kind==="Weekly"?t.period:kind==="Monthly"?monthLabel(t.due):dayLabel(t.due);
   return <section><h4>{title}</h4>
     <div className="table-wrap wf-table"><table><thead><tr>
-      <th>TASK</th><th>{kind==="Weekly"?"WEEK":kind==="Monthly"?"MONTH":"DATE"}</th>
-      <th>STATUS</th><th>TIMELINESS</th><th>%</th><th>REMARKS</th></tr></thead>
+      <th>Task</th><th>{kind==="Weekly"?"WEEK":kind==="Monthly"?"MONTH":"DATE"}</th>
+      <th>Status</th><th>Timeliness</th><th>%</th><th>Remarks</th></tr></thead>
       <tbody>{rows.map(t=>{const s=liveStatus(t);const tl=timeliness(t);return <tr key={t.id} onClick={()=>open(t)}>
         <td><b>{t.name}</b></td><td>{label(t)}</td>
         <td><span className={`badge ${statusTone(s)}`}>{s}</span></td>
@@ -128,7 +128,7 @@ function QueryTable({rows,open}:{rows:Query[];open:(q:Query)=>void}){
   if(!rows.length)return <Empty label="No queries raised against this employee."/>;
   return <section><h4>Query register</h4>
     <div className="table-wrap wf-table"><table><thead><tr>
-      <th>REF</th><th>QUERY</th><th>RAISED</th><th>FOLLOW-UPS</th><th>STATUS</th><th>RESOLUTION</th></tr></thead>
+      <th>Ref</th><th>Query</th><th>Raised</th><th>Follow-ups</th><th>Status</th><th>Resolution</th></tr></thead>
       <tbody>{rows.map(q=><tr key={q.id} onClick={()=>open(q)}>
         <td><b>{q.ref}</b></td><td>{q.title}</td><td>{stamp(q.raisedAt)}</td>
         <td>{q.followUps}{q.lastFollowUpAt&&<small>last {stamp(q.lastFollowUpAt)}</small>}</td>
@@ -145,7 +145,7 @@ function TokenTable({rows,stats}:{rows:Token[];stats:{tokens:number;qty:number;d
     </div>
     {!rows.length?<Empty label="No tokens issued to this employee."/>
     :<div className="table-wrap wf-table"><table><thead><tr>
-      <th>TOKEN</th><th>TYPE</th><th>QTY</th><th>DONE</th><th>PENDING</th><th>STATUS</th></tr></thead>
+      <th>Token</th><th>Type</th><th>Qty</th><th>Done</th><th>Pending</th><th>Status</th></tr></thead>
       <tbody>{rows.map(t=><tr key={t.id}><td><b>{t.number}</b></td><td>{t.taskType}</td>
         <td>{t.qty}</td><td>{t.done}</td><td>{Math.max(t.qty-t.done,0)}</td>
         <td><span className={`badge ${statusTone(t.status)}`}>{t.status}</span></td></tr>)}</tbody></table></div>}

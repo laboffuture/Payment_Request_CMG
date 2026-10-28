@@ -73,8 +73,8 @@ export default function RequestorWorkspace({rows,open,create,scope="own"}:{rows:
         {q&&<button className="rq-clear" onClick={()=>{setTerm("");setOffset(0)}}>
           Clear · {found.length} of {rows.length}</button>}</div>
       <div className="table-wrap"><table><thead><tr>
-        <th>REQUEST</th><th>COMPANY / DEPT</th><th>VENDOR</th><th>AMOUNT</th><th>DUE</th>
-        <th>VERIFIED BY</th><th>REMARKS</th><th>CURRENT STEP</th><th>STATUS TRACKER</th>
+        <th>Request</th><th>Company / dept</th><th>Vendor</th><th>Amount</th><th>Due</th>
+        <th>Verified by</th><th>Remarks</th><th>Current step</th><th>Status tracker</th>
       </tr></thead>
       <tbody>{mine.map(p=><tr key={p.id} onClick={()=>open(p)}>
         <td><b>{p.requestNo}</b>{p.deptPriority?<small><span className={`badge ${p.deptPriority.toLowerCase()}`} title={`Priority set by the department head${p.deptPriorityBy?` (${p.deptPriorityBy})`:""}`}>{p.deptPriority}</span></small>:<small>{p.urgency} priority</small>}{p.createdAt&&<small className="req-when" title="Requested on">{stamp(p.createdAt)}</small>}</td>

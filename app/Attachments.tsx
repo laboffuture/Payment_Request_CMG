@@ -114,7 +114,7 @@ export default function Attachments({entityType,entityId,flash:hostFlash,readOnl
     {loading?<p className="wf-empty">Loading attachments…</p>
     :!rows.length?<p className="wf-empty">Nothing attached yet.</p>
     :<div className="table-wrap wf-table"><table><thead><tr>
-      <th>TYPE</th><th>FILE</th><th>SIZE</th><th>ADDED BY</th><th>WHEN</th><th></th></tr></thead>
+      <th>Type</th><th>File</th><th>Size</th><th>Added by</th><th>When</th><th></th></tr></thead>
       <tbody>{rows.map(a=><tr key={a.id}>
         <td><span className="badge">{a.kind}</span></td>
         <td><a className="wf-attach-link" href={`/api/attachments?id=${encodeURIComponent(a.id)}`}

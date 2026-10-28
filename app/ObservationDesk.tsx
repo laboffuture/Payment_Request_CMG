@@ -62,8 +62,8 @@ export default function ObservationDesk({openProfile,flash,canManage=true}:{open
       :loading&&!rows.length?<Loading/>
       :!rows.length?<Empty label="No observations match this filter."/>
       :<><div className="table-wrap"><table className="wf-wide"><thead><tr>
-        <th>REF</th><th>OBSERVATION</th><th>TAGGED TO</th><th>RISK</th><th>TARGET</th>
-        <th>REPLIES</th><th>STATUS</th><th>ACTION</th></tr></thead>
+        <th>Ref</th><th>Observation</th><th>Tagged to</th><th>Risk</th><th>Target</th>
+        <th>Replies</th><th>Status</th><th>Action</th></tr></thead>
         <tbody>{rows.map(o=><tr key={o.id} onClick={()=>setOpen(o.id)}>
           <td><b>{o.ref}</b></td>
           <td>{o.title}{o.detail&&o.detail!==o.title&&<small>{o.detail}</small>}

@@ -151,13 +151,13 @@ export default function ScheduledPayments({
           <table>
             <thead>
               <tr>
-                <th>REQUEST</th>
-                <th>VENDOR</th>
-                <th>REQUESTED</th>
-                <th>APPROVED</th>
-                <th>FILES</th>
-                <th>STATUS</th>
-                <th>ACTION</th>
+                <th>Request</th>
+                <th>Vendor</th>
+                <th>Requested</th>
+                <th>Approved</th>
+                <th>Files</th>
+                <th>Status</th>
+                <th>Action</th>
               </tr>
             </thead>
             <tbody>

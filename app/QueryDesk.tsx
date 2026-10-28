@@ -49,8 +49,8 @@ export default function QueryDesk({openProfile,flash}:{openProfile:(id:string)=>
       :loading&&!rows.length?<Loading/>
       :!rows.length?<Empty label="No queries match this filter."/>
       :<><div className="table-wrap"><table className="wf-wide"><thead><tr>
-        <th>REF</th><th>QUERY</th><th>AGAINST</th><th>PRIORITY</th><th>RAISED</th>
-        <th>FOLLOW-UPS</th><th>STATUS</th><th>RESOLUTION</th><th>ACTION</th></tr></thead>
+        <th>Ref</th><th>Query</th><th>Against</th><th>Priority</th><th>Raised</th>
+        <th>Follow-ups</th><th>Status</th><th>Resolution</th><th>Action</th></tr></thead>
         <tbody>{rows.map(x=><tr key={x.id} onClick={()=>setEdit({query:x,isNew:false})}>
           <td><b>{x.ref}</b></td>
           <td>{x.title}{x.detail&&<small>{x.detail}</small>}</td>
