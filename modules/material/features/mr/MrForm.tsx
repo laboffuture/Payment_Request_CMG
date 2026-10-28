@@ -82,6 +82,9 @@ export function MrForm({ existing }: { existing?: MrDetailDto }) {
   // A Project Manager's own request skips the PM step and goes straight to QS.
   const { me } = useSession();
   const byPm = me.role === 'PM';
+  // The material administrator correcting a submitted MR before QS verifies it: saved in
+  // place, never submitted - the MR stays where it is in the flow.
+  const adminEdit = me.role === 'ADMIN' && !!existing && existing.status !== 'DRAFT';
 
   // What the request is for - chosen first; the process is the same for each.
   const [requestType, setRequestType] = useState<RequestType | ''>(existing?.requestType ?? '');
@@ -172,7 +175,13 @@ export function MrForm({ existing }: { existing?: MrDetailDto }) {
     {
       invalidate: [['mrs'], ['pool']],
       onDone: (mr) => {
-        toast(mr.no ? `${mr.no} sent to ${byPm ? 'QS' : 'the Project Manager'}` : 'Draft saved');
+        toast(
+          adminEdit
+            ? `${existing?.no} saved`
+            : mr.no
+              ? `${mr.no} sent to ${byPm ? 'QS' : 'the Project Manager'}`
+              : 'Draft saved',
+        );
         router.push(`/mrs/${mr.id}`);
       },
     },
@@ -227,9 +236,9 @@ export function MrForm({ existing }: { existing?: MrDetailDto }) {
     // Checked here for a fast answer; the API enforces the same rules (§8).
     if (!requestType) return toast('Choose the type of request first');
     if (!projectId) return toast(MSG.mrNoProject);
-    if (isSubmit) {
+    if (isSubmit || adminEdit) {
       if (!requiredDate) return toast(MSG.mrNoDate);
-      if (requiredDate < earliestRequiredDate()) {
+      if (!adminEdit && requiredDate < earliestRequiredDate()) {
         return toast(MSG.mrDateTooSoon(earliestRequiredDate()));
       }
       const active = lines.filter((l) => !l.rejected);
@@ -245,7 +254,7 @@ export function MrForm({ existing }: { existing?: MrDetailDto }) {
         );
       }
     }
-    save.mutate(isSubmit);
+    save.mutate(adminEdit ? false : isSubmit);
   };
 
   const setLine = (index: number, patch: Partial<FormLine>) =>
@@ -423,16 +432,19 @@ export function MrForm({ existing }: { existing?: MrDetailDto }) {
           </label>
         </Card>
 
-        <Card>
-          <BoqUpload
-            pending={pending}
-            attached={attached}
-            onPick={pickBoq}
-            onDropPending={dropPending}
-            onDropAttached={(fileId) => dropAttached.mutate(fileId)}
-            busy={dropAttached.isPending}
-          />
-        </Card>
+        {/* The bill of quantities stays the site engineer's to change. */}
+        {adminEdit ? null : (
+          <Card>
+            <BoqUpload
+              pending={pending}
+              attached={attached}
+              onPick={pickBoq}
+              onDropPending={dropPending}
+              onDropAttached={(fileId) => dropAttached.mutate(fileId)}
+              busy={dropAttached.isPending}
+            />
+          </Card>
+        )}
       </div>
 
       <StickyActionBar>
@@ -443,14 +455,23 @@ export function MrForm({ existing }: { existing?: MrDetailDto }) {
             </Btn>
           ) : null}
         </div>
-        <div className="flex gap-[10px]">
-          <Btn disabled={save.isPending} onClick={() => submit(false)}>
-            Save draft
-          </Btn>
-          <Btn variant="primary" disabled={save.isPending} onClick={() => submit(true)}>
-            {byPm ? 'Submit to QS' : 'Submit to PM'}
-          </Btn>
-        </div>
+        {adminEdit ? (
+          <div className="flex gap-[10px] items-center">
+            <span className="text-mut text-sm">Saved in place — the MR stays where it is.</span>
+            <Btn variant="primary" disabled={save.isPending} onClick={() => submit(false)}>
+              {save.isPending ? 'Saving…' : 'Save changes'}
+            </Btn>
+          </div>
+        ) : (
+          <div className="flex gap-[10px]">
+            <Btn disabled={save.isPending} onClick={() => submit(false)}>
+              Save draft
+            </Btn>
+            <Btn variant="primary" disabled={save.isPending} onClick={() => submit(true)}>
+              {byPm ? 'Submit to QS' : 'Submit to PM'}
+            </Btn>
+          </div>
+        )}
       </StickyActionBar>
 
       {pickerOpen ? (

@@ -114,7 +114,8 @@ mrRouter.post(
 mrRouter.put(
   '/mrs/:id',
   requireAuth,
-  authorize('SITE', 'PM'),
+  // ADMIN: correcting a submitted MR before QS verifies it (the service holds the rule).
+  authorize('SITE', 'PM', 'ADMIN'),
   validateBody(upsertMrInput),
   wrap(async (req, res) => {
     res.json(await updateMr(actorOf(req), req.params.id!, req.body));

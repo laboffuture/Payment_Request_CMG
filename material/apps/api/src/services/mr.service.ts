@@ -239,6 +239,15 @@ const canEdit = (actor: Actor, mr: Record<string, any>): boolean =>
   String(mr.createdBy) === actor.id &&
   (mr.status === 'DRAFT' || mr.status === 'SENT_BACK');
 
+/**
+ * The material administrator may correct a submitted MR - project, date, items, quantities,
+ * anything - until QS has verified it: while it is with the PM, waiting for QS, or sent back.
+ * The MR stays where it is in the flow; the change is on its history.
+ */
+const ADMIN_EDITABLE = ['PM_PENDING', 'QS_PENDING', 'SENT_BACK'];
+const canAdminEdit = (actor: Actor, mr: Record<string, any>): boolean =>
+  actor.role === 'ADMIN' && ADMIN_EDITABLE.includes(mr.status);
+
 const canQs = (actor: Actor, mr: Record<string, any>): boolean =>
   actor.role === 'QS' && mr.status === 'QS_PENDING';
 
@@ -455,7 +464,7 @@ export async function getMr(actor: Actor, id: string): Promise<MrDetailDto> {
       no: i.no,
       status: i.status,
     })),
-    canEdit: canEdit(actor, mr),
+    canEdit: canEdit(actor, mr) || canAdminEdit(actor, mr),
     canQs: canQs(actor, mr),
     canPm: canPm(actor, mr),
     canProcReview: isBuyer(actor.role) && mr.status === 'PROC_REVIEW',
@@ -609,6 +618,8 @@ async function writeLines(
   actor: Actor,
   session: ClientSession,
   isNew: boolean,
+  /** the material administrator correcting a submitted MR: lines QS removed stay on record */
+  adminEdit = false,
 ): Promise<string[]> {
   const keep: Types.ObjectId[] = [];
 
@@ -641,7 +652,7 @@ async function writeLines(
 
     // On submit we freeze what the site engineer asked for. Every later change
     // by the PM or QS is then visibly a change, not a silent rewrite.
-    const asRequested = input.submit
+    const asRequested = input.submit || (adminEdit && !line.id)
       ? {
           // Resubmitting answers QS's questions on the lines.
           qsQuery: '',
@@ -676,7 +687,15 @@ async function writeLines(
     keep.push(created!._id);
   }
 
-  await MrLine.deleteMany({ mrId: mr._id, _id: { $nin: keep } }, { session });
+  await MrLine.deleteMany(
+    { mrId: mr._id, _id: { $nin: keep }, ...(adminEdit ? { lineStatus: { $ne: 'REJECTED' } } : {}) },
+    { session },
+  );
+
+  if (adminEdit) {
+    await writeAudit(session, 'MR', mr._id, 'Edited by the material admin', actor.id, `${input.lines.length} item(s)`);
+    return [];
+  }
 
   const wasSentBack = mr.status === 'SENT_BACK';
   const action = input.submit
@@ -725,8 +744,18 @@ export async function updateMr(
   const outboxIds = await inTransaction(async (session) => {
     const mr = await Mr.findById(id).session(session);
     if (!mr) throw notFound();
-    if (!canEdit(actor, mr)) throw forbidden(MSG.mrEditNotAllowed);
+    const adminEdit = !canEdit(actor, mr) && canAdminEdit(actor, mr);
+    if (!canEdit(actor, mr) && !adminEdit) throw forbidden(MSG.mrEditNotAllowed);
     if (input.rv !== undefined && input.rv !== (mr.rv ?? 0)) throw stale();
+    if (adminEdit) {
+      // A correction, not a submission: the MR keeps its place in the flow, and it must
+      // still be a complete request.
+      input.submit = false;
+      if (!input.requiredDate) throw badRequest(MSG.mrNoDate);
+      if (!input.lines.length) throw badRequest(MSG.mrNoLines);
+      if (input.lines.some((l) => num(l.qty) <= 0)) throw badRequest(MSG.mrQtyRequired);
+      if (input.lines.some((l) => !l.description?.trim())) throw badRequest(MSG.mrDescriptionRequired);
+    }
 
     const wasSentBack = mr.status === 'SENT_BACK';
     const before = { status: mr.status, no: mr.no };
@@ -760,6 +789,7 @@ export async function updateMr(
       actor,
       session,
       false,
+      adminEdit,
     );
 
     await bumpSyncStamp(session);
