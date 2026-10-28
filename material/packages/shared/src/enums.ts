@@ -261,6 +261,8 @@ export const PO_EXTRA_CHARGES = [
   'Logo Charge',
   'Cutting Charge',
   'Loading Charge',
+  'Installation Charge',
+  'Holes Charge',
   'Round-off',
 ] as const;
 export type PoExtraCharge = (typeof PO_EXTRA_CHARGES)[number];
