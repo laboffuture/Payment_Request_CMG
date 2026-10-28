@@ -15,7 +15,7 @@ export function MaterialSideNav({active,heading,onOpen}:{active:boolean;heading:
   if(!items.length)return null;
   const current=items.filter(i=>path===i.href||(i.href!=="/"&&path.startsWith(`${i.href}/`)))
     .sort((a,b)=>b.href.length-a.href.length)[0]?.href??(path==="/"?"/":"");
-  return <>{heading&&<small className="nav-section">MATERIAL MANAGEMENT</small>}
+  return <>{heading&&<small className="nav-head">Material</small>}
     {items.map(i=><button key={i.href} className={active&&current===i.href?"active":""}
       onClick={()=>{go(i.href);onOpen()}}><i.icon/>{i.label}{i.count>0&&<i>{i.count>99?"99+":i.count}</i>}</button>)}</>}
 

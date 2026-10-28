@@ -1,7 +1,8 @@
 import type { Metadata, Viewport } from "next";
 import "./globals.css";
+/* Ledger design tokens: every colour below this line comes from here. */
+import "./tokens.css";
 import "./flow.css";
-import "./reference-theme.css";
 import "./workflow.css";
 import "./workbench.css";
 import "./access.css";
@@ -29,6 +30,8 @@ import "./typography.css";
 // last: the phone layout adjusts every screen above
 import "./mobile.css";
 import "./polish.css";
+/* The look itself - shell and shared components - with the final word. */
+import "./ledger.css";
 /* There was no viewport tag at all, so phones laid the page out at about 980px and then
    zoomed out: the 49 media queries in these stylesheets were mostly never reaching the
    breakpoints they were written for. This is the one line that makes the mobile work
@@ -45,7 +48,7 @@ import "./polish.css";
    When this is wrapped for the stores, viewport-fit=cover will have to be added as a raw
    meta tag so the app can paint under the notch and the home indicator. */
 export const viewport:Viewport={
-  width:"device-width",initialScale:1,themeColor:"#102f2a"};
+  width:"device-width",initialScale:1,themeColor:"#0F1A2A"};
 
 export const metadata:Metadata={
   title:"CMG Payment Request",
