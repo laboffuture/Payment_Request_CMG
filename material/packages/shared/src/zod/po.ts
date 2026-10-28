@@ -31,12 +31,17 @@ export const poRowInput = z.object({
 });
 export type PoRowInput = z.infer<typeof poRowInput>;
 
-/** One extra charge on a PO. Round-off may be negative; every other charge is an amount above zero. */
+/**
+ * One extra charge on a PO: its amount, and the tax on it as entered by procurement.
+ * Round-off may be negative and carries no tax; every other charge is an amount above zero.
+ */
 export const poChargeInput = z
   .object({
     type: z.enum(PO_EXTRA_CHARGES),
     amount: z.number().finite().min(-10_000_000).max(10_000_000),
+    tax: z.number().finite().min(0, 'The tax on a charge cannot be negative').max(10_000_000).optional().default(0),
   })
+  .refine((c) => c.type !== PO_ROUND_OFF || !c.tax, { message: 'Round-off carries no tax' })
   .refine((c) => c.amount !== 0, { message: 'Enter an amount for the charge, or remove it' })
   .refine((c) => c.type === PO_ROUND_OFF || c.amount > 0, {
     message: 'A charge is an amount above zero (only Round-off can be negative)',

@@ -127,9 +127,10 @@ async function toPoDto(
     vendorAckAt: po.vendorAckAt ? po.vendorAckAt.toISOString() : null,
     projectCodes: extra.projectCodes,
     fileCount: (po.files ?? []).length,
-    charges: ((po.charges ?? []) as { type: string; amount: number }[]).map((c) => ({
+    charges: ((po.charges ?? []) as { type: string; amount: number; tax?: number }[]).map((c) => ({
       type: c.type,
       amount: num(c.amount),
+      tax: num(c.tax ?? 0),
     })),
     chargesTotal: num(po.chargesTotal),
     receivedPct: extra.receivedPct,
@@ -525,17 +526,17 @@ async function assertRowsAvailable(
  * `poAlloc` per row — exactly as the prototype's savePOCore does.
  */
 /**
- * Puts the optional extra charges on the PO and folds them into its total. They are flat
- * amounts: no tax is worked out on them, and the line subtotal and the tax stay what the
- * material lines make them.
+ * Puts the optional extra charges on the PO and folds them into its total: each charge's
+ * amount and the tax procurement entered on it. Nothing is worked out on them, and the line
+ * subtotal and the tax stay what the material lines make them.
  */
 function applyCharges(
   po: { charges: unknown; chargesTotal: number; total: number },
   totals: { subtotal: number; taxTotal: number },
-  charges: { type: string; amount: number }[] | undefined,
+  charges: { type: string; amount: number; tax?: number }[] | undefined,
 ): void {
-  const kept = (charges ?? []).map((c) => ({ type: c.type, amount: r2(num(c.amount)) }));
-  const chargesTotal = r2(kept.reduce((sum, c) => sum + c.amount, 0));
+  const kept = (charges ?? []).map((c) => ({ type: c.type, amount: r2(num(c.amount)), tax: r2(num(c.tax ?? 0)) }));
+  const chargesTotal = r2(kept.reduce((sum, c) => sum + c.amount + c.tax, 0));
   po.charges = kept;
   po.chargesTotal = chargesTotal;
   po.total = r2(totals.subtotal + totals.taxTotal + chargesTotal);

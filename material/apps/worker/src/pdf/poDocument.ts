@@ -132,15 +132,21 @@ export async function renderPoHtml(poId: string): Promise<{ html: string; no: st
     </tr>`;
   });
 
-  // Optional extra charges (transport, cutting, round-off…): flat amounts, already in po.total.
-  const chargeRows = ((po.charges ?? []) as { type: string; amount: number }[])
+  // Optional extra charges (transport, cutting, round-off…) and the tax entered on each,
+  // already in po.total.
+  const chargeRows = ((po.charges ?? []) as { type: string; amount: number; tax?: number }[])
     .filter((c) => num(c.amount))
-    .map(
-      (c) =>
-        `<tr><td colspan="6" class="r">${esc(c.type)}</td><td class="r">${money(r2(num(c.amount)))}</td></tr>`,
-    );
+    .flatMap((c) => [
+      `<tr><td colspan="6" class="r">${esc(c.type)}</td><td class="r">${money(r2(num(c.amount)))}</td></tr>`,
+      ...(num(c.tax ?? 0)
+        ? [`<tr><td colspan="6" class="r">Tax on ${esc(c.type)}</td><td class="r">${money(r2(num(c.tax ?? 0)))}</td></tr>`]
+        : []),
+    ]);
 
-  const chargesTotal = ((po.charges ?? []) as { amount: number }[]).reduce((sum, c) => sum + num(c.amount), 0);
+  const chargesTotal = ((po.charges ?? []) as { amount: number; tax?: number }[]).reduce(
+    (sum, c) => sum + num(c.amount) + num(c.tax ?? 0),
+    0,
+  );
 
   const taxRows = [...byRate.entries()]
     .sort((a, b) => a[0] - b[0])

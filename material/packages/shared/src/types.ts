@@ -391,7 +391,8 @@ export interface PoDto extends Doc {
   /** how many files are attached to the PO */
   fileCount: number;
   /** extra charges procurement added (transport, cutting, round-off…), in the PO's currency */
-  charges: { type: string; amount: number }[];
+  /** each with the tax procurement entered on it (0 = none) */
+  charges: { type: string; amount: number; tax: number }[];
   /** their sum; already inside `total` */
   chargesTotal: number;
   receivedPct: number;

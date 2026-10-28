@@ -58,7 +58,7 @@ export interface PoDocumentData {
   lines: PoDocumentLine[];
   totals: { subtotal: number; taxTotal: number; total: number };
   /** optional extra charges, printed between the tax and the total; already inside totals.total */
-  charges?: { type: string; amount: number }[];
+  charges?: { type: string; amount: number; tax?: number }[];
 }
 
 /*
@@ -274,14 +274,24 @@ export function PoDocument({ preview }: { preview: PoDocumentData }) {
                   ],
             )}
 
-          {charges.map((charge) => (
+          {charges.flatMap((charge) => [
             <tr key={charge.type}>
               <Cell colSpan={span} right>
                 {charge.type}
               </Cell>
               <Cell right>{money(charge.amount)}</Cell>
-            </tr>
-          ))}
+            </tr>,
+            ...(charge.tax
+              ? [
+                  <tr key={`${charge.type}-tax`}>
+                    <Cell colSpan={span} right>
+                      Tax on {charge.type}
+                    </Cell>
+                    <Cell right>{money(charge.tax)}</Cell>
+                  </tr>,
+                ]
+              : []),
+          ])}
 
           <tr>
             <Cell colSpan={span} right>

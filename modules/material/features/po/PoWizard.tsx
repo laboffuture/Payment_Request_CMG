@@ -60,8 +60,8 @@ interface PoFormState {
   taxMode: TaxMode;
   reason: string;
   revisionReason: string;
-  /** optional extra charges; the amount is kept as typed until it is saved */
-  charges: { type: string; amount: string }[];
+  /** optional extra charges; the amount and its tax are kept as typed until saved */
+  charges: ChargeDraft[];
 }
 
 export function PoWizard({
@@ -97,7 +97,11 @@ export function PoWizard({
     taxMode: (existing?.taxMode ?? defaultCompany?.taxMode ?? 'VAT') as TaxMode,
     reason: existing?.reason || PO_DIRECT_REASONS[0],
     revisionReason: '',
-    charges: (existing?.charges ?? []).map((c) => ({ type: c.type, amount: String(c.amount) })),
+    charges: (existing?.charges ?? []).map((c) => ({
+      type: c.type,
+      amount: String(c.amount),
+      tax: c.tax ? String(c.tax) : '',
+    })),
   });
 
   // Loading an existing PO replaces whatever the pool put in the draft.
@@ -121,11 +125,9 @@ export function PoWizard({
     }
   }, [defaultCompany, form.companyId]);
 
-  // Extra charges are flat amounts on top of the lines and their tax.
-  const charges = form.charges
-    .map((c) => ({ type: c.type, amount: Number(c.amount) }))
-    .filter((c) => Number.isFinite(c.amount) && c.amount !== 0);
-  const chargesTotal = Math.round(charges.reduce((sum, c) => sum + c.amount, 0) * 100) / 100;
+  // Extra charges: each amount and the tax entered on it, on top of the lines and their tax.
+  const charges = chargesOf(form.charges);
+  const chargesTotal = Math.round(charges.reduce((sum, c) => sum + c.amount + c.tax, 0) * 100) / 100;
   const lineTotals = draftTotals(rows, form.taxMode);
   const totals = {
     ...lineTotals,
@@ -248,6 +250,8 @@ export function PoWizard({
         if (amount < 0 && charge.type !== PO_ROUND_OFF) {
           return toast(`${charge.type} must be above zero — only Round-off can be negative`);
         }
+        const tax = Number(charge.tax || 0);
+        if (!Number.isFinite(tax) || tax < 0) return toast(`The tax on ${charge.type} cannot be negative`);
       }
       const projects = new Set(rows.map((r) => r.projectCode));
       if (form.deliverTo === 'SITE' && projects.size > 1) {
@@ -930,7 +934,7 @@ function StepVendorPrices({
           )}
           {totals.chargesTotal ? (
             <div>
-              <dt>Extra charges</dt>
+              <dt>Extra charges (with their tax)</dt>
               <dd>{money(totals.chargesTotal)}</dd>
             </div>
           ) : null}
@@ -1066,9 +1070,7 @@ function StepReview({
             gstPct: form.taxMode === 'NONE' ? 0 : g.gstPct,
           })),
           totals,
-          charges: form.charges
-            .map((c) => ({ type: c.type, amount: Number(c.amount) }))
-            .filter((c) => Number.isFinite(c.amount) && c.amount !== 0),
+          charges: chargesOf(form.charges),
         }}
       />
 
@@ -1112,6 +1114,19 @@ function StepReview({
 }
 
 
+/** An extra charge as typed: its amount and the tax on it ('' = none). */
+type ChargeDraft = { type: string; amount: string; tax: string };
+
+/** The charges worth saving - an amount given - as numbers, Round-off without tax. */
+const chargesOf = (drafts: ChargeDraft[]) =>
+  drafts
+    .map((c) => ({
+      type: c.type,
+      amount: Number(c.amount),
+      tax: c.type === PO_ROUND_OFF ? 0 : Math.max(0, Number(c.tax) || 0),
+    }))
+    .filter((c) => Number.isFinite(c.amount) && c.amount !== 0);
+
 /**
  * Optional extra charges on the PO - transport, cutting, round-off and the like. Pick one
  * from the list, give it an amount, and it is added to the total and printed on the PO.
@@ -1122,12 +1137,14 @@ function ExtraCharges({
   currency,
   onChange,
 }: {
-  charges: { type: string; amount: string }[];
+  charges: ChargeDraft[];
   currency: string;
-  onChange: (next: { type: string; amount: string }[]) => void;
+  onChange: (next: ChargeDraft[]) => void;
 }) {
   const left = PO_EXTRA_CHARGES.filter((type) => !charges.some((c) => c.type === type));
-  const sum = charges.reduce((total, c) => total + (Number(c.amount) || 0), 0);
+  const sum = charges.reduce((total, c) => total + (Number(c.amount) || 0) + (Number(c.tax) || 0), 0);
+  const set = (index: number, patch: Partial<ChargeDraft>) =>
+    onChange(charges.map((c, i) => (i === index ? { ...c, ...patch } : c)));
 
   return (
     <Card className="mt-[10px]">
@@ -1137,9 +1154,9 @@ function ExtraCharges({
         {charges.length ? <Tag label={`${charges.length} ADDED`} tone="ac" /> : null}
       </div>
       <p className="text-mut text-sm mt-0 mb-3">
-        Add a charge only if the vendor bills it on this order. The amount is added to the PO
-        total exactly as entered — put in what is payable, including any tax on it. Round-off
-        can be a minus figure.
+        Add a charge only if the vendor bills it on this order. Enter its amount and the tax on
+        it (leave the tax empty if there is none); both are added to the PO total exactly as
+        entered and printed on the PO. Round-off can be a minus figure and has no tax.
       </p>
 
       {charges.length ? (
@@ -1148,7 +1165,7 @@ function ExtraCharges({
             <div
               key={charge.type}
               className="grid items-center gap-2"
-              style={{ gridTemplateColumns: 'minmax(0,1fr) minmax(110px,180px) auto' }}
+              style={{ gridTemplateColumns: 'minmax(0,1fr) minmax(100px,160px) minmax(100px,160px) auto' }}
             >
               <span className="font-semibold">{charge.type}</span>
               <input
@@ -1158,14 +1175,27 @@ function ExtraCharges({
                 min={charge.type === PO_ROUND_OFF ? undefined : 0}
                 aria-label={`${charge.type} amount in ${currency}`}
                 placeholder={`Amount (${currency})`}
+                title="Amount"
                 className="text-right"
                 value={charge.amount}
-                onChange={(e) =>
-                  onChange(
-                    charges.map((c, i) => (i === index ? { ...c, amount: e.target.value } : c)),
-                  )
-                }
+                onChange={(e) => set(index, { amount: e.target.value })}
               />
+              {charge.type === PO_ROUND_OFF ? (
+                <span className="text-mut text-xs">no tax</span>
+              ) : (
+                <input
+                  type="number"
+                  inputMode="decimal"
+                  step="0.01"
+                  min={0}
+                  aria-label={`Tax on ${charge.type} in ${currency}`}
+                  placeholder={`Tax (${currency})`}
+                  title="Tax"
+                  className="text-right"
+                  value={charge.tax}
+                  onChange={(e) => set(index, { tax: e.target.value })}
+                />
+              )}
               <Btn small variant="danger" onClick={() => onChange(charges.filter((_, i) => i !== index))}>
                 Remove
               </Btn>
@@ -1185,7 +1215,7 @@ function ExtraCharges({
           aria-label="Add an extra charge"
           value=""
           onChange={(e) => {
-            if (e.target.value) onChange([...charges, { type: e.target.value, amount: '' }]);
+            if (e.target.value) onChange([...charges, { type: e.target.value, amount: '', tax: '' }]);
           }}
           style={{ maxWidth: 280 }}
         >
