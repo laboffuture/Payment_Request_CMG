@@ -110,3 +110,43 @@
 .panel.risk .legend span{padding:10px 0;border-top:1px solid var(--pc-line);font-size:12.5px;font-weight:600;color:var(--pc-ink)}
 .panel.risk .legend i{width:9px;height:9px;border-radius:3px}
 .panel.risk .legend b{font:700 15px/1 var(--font-numbers);letter-spacing:-.02em;color:var(--pc-ink);font-variant-numeric:tabular-nums}
+
+/* "Position by entity" and "By due date", in the same style. */
+.panel:has(>.company),.panel.upcoming{--pc-line:#E3E8F0;--pc-ink:#1F2A40;--pc-muted:#5B6577;--pc-track:#E6EAF1;
+  border:1px solid var(--pc-line);border-radius:12px;padding:0;overflow:hidden;font-variant-numeric:tabular-nums}
+.panel:has(>.company)>.panel-head,.panel.upcoming>.panel-head{margin:0;padding:16px 20px;border-bottom:1px solid var(--pc-line)}
+.panel:has(>.company)>.panel-head small,.panel.upcoming>.panel-head small{font-size:11px;font-weight:600;letter-spacing:.16em;color:var(--pc-muted)}
+.panel:has(>.company)>.panel-head h2,.panel.upcoming>.panel-head h2{margin:4px 0 0;font:700 17px/1.25 var(--font-sans);letter-spacing:-.01em;
+  color:var(--pc-ink);text-transform:none}
+/* entity rows: name, released bar with its share, position, flagged count */
+.panel>.company{display:grid;grid-template-columns:minmax(0,1.25fr) minmax(0,1.6fr) minmax(0,.8fr) auto;align-items:center;gap:16px;
+  padding:12px 20px;border-top:1px solid var(--pc-line);font-size:12.5px}
+.panel-head+.company{border-top:0}
+.panel>.company>b{font-size:13px;font-weight:600;color:var(--pc-ink);min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.panel>.company>span{display:flex;align-items:center;gap:10px;font:700 14px/1 var(--font-numbers);letter-spacing:-.02em;color:var(--pc-ink)}
+.panel>.company progress{flex:1;width:auto;height:7px;border:0;border-radius:999px;background:var(--pc-track);overflow:hidden;
+  appearance:none;-webkit-appearance:none;accent-color:#0E8A5F}
+.panel>.company progress::-webkit-progress-bar{background:var(--pc-track);border-radius:999px}
+.panel>.company progress::-webkit-progress-value{background:#0E8A5F;border-radius:999px}
+.panel>.company progress::-moz-progress-bar{background:#0E8A5F;border-radius:999px}
+.panel>.company>em{font-style:normal;font-size:12px;font-weight:600;color:var(--pc-ink)}
+.panel>.company>small{font-size:11.5px;font-weight:500;color:var(--pc-muted);white-space:nowrap}
+/* due rows: date tile, vendor and company, amount */
+.panel.upcoming>div:not(.panel-head){display:grid;grid-template-columns:46px minmax(0,1fr) auto;align-items:center;gap:14px;
+  padding:12px 20px;border-top:1px solid var(--pc-line)}
+.panel.upcoming>.panel-head+div{border-top:0}
+.panel.upcoming time{width:46px;padding:7px 0 6px;border:1px solid var(--pc-line);border-radius:9px;background:#F8FAFC;color:var(--pc-ink);
+  text-align:center;font:800 18px/1 var(--font-numbers);letter-spacing:-.02em}
+.panel.upcoming time small{display:block;margin-top:4px;font:600 11px/1 var(--font-sans);letter-spacing:.06em;color:var(--pc-muted)}
+.panel.upcoming time.today{background:#FDF3E2;border-color:#F4D9A8;color:#B45309}
+.panel.upcoming time.today small{color:#B45309}
+.panel.upcoming span b{font-size:13px;font-weight:600;color:var(--pc-ink)}
+.panel.upcoming span small{margin-top:3px;font:500 11.5px/1.3 var(--font-sans);color:var(--pc-muted)}
+.panel.upcoming em{font:700 15px/1.2 var(--font-numbers);letter-spacing:-.02em;color:var(--pc-ink);font-style:normal;white-space:nowrap}
+.panel.upcoming .upcoming-late{margin:0;padding:12px 20px 14px;border-top:1px solid var(--pc-line);font-size:12px;font-weight:600;color:#B42318}
+@media (max-width:640px){
+  .panel>.company{grid-template-columns:minmax(0,1fr) auto;row-gap:6px;padding:12px 16px}
+  .panel>.company>span{grid-column:1/-1;grid-row:2}
+  .panel>.company>small{display:block;grid-column:1/-1;grid-row:3}
+  .panel.upcoming>div:not(.panel-head){padding:12px 16px}
+}
