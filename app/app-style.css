@@ -101,3 +101,8 @@ td .badge:before{width:7px;height:7px}
   .payment-workbench .wb-panel table.wb-cols11{min-width:0}
   .payment-workbench .wb-panel thead th{position:sticky;top:calc(146px + var(--wb-pin-h,140px));z-index:13;box-shadow:0 1px 0 var(--as-line)}
 }
+
+/* ------------------------------------------------------------------ the CMG mark in the sidebar */
+.brand>b.brand-mark{display:grid;place-items:center;padding:0;overflow:hidden;background:#fff;
+  box-shadow:0 0 0 1px rgba(255,255,255,.18)}
+.brand>b.brand-mark img{display:block;width:78%;height:78%;object-fit:contain}
