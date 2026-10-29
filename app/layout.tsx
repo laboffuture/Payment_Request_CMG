@@ -52,12 +52,12 @@ export const viewport:Viewport={
   width:"device-width",initialScale:1,themeColor:"#102f2a"};
 
 export const metadata:Metadata={
-  title:"CMG Payment Request",
+  title:"CMG Control",
   description:"Every audit task, observation, document, and decision in one controlled system.",
-  applicationName:"CMG Payment",
+  applicationName:"CMG Control",
   manifest:"/manifest.webmanifest",
-  appleWebApp:{capable:true,title:"CMG Payment",statusBarStyle:"black-translucent"},
-  icons:{icon:[{url:"/favicon.svg",type:"image/svg+xml"},
+  appleWebApp:{capable:true,title:"CMG Control",statusBarStyle:"black-translucent"},
+  icons:{icon:[{url:"/favicon.ico",sizes:"any"},{url:"/favicon-32.png",sizes:"32x32",type:"image/png"},{url:"/favicon-48.png",sizes:"48x48",type:"image/png"},
       {url:"/icon-192.png",sizes:"192x192",type:"image/png"},
       {url:"/icon-512.png",sizes:"512x512",type:"image/png"}],
     apple:[{url:"/icon-192.png",sizes:"192x192"}]}};
