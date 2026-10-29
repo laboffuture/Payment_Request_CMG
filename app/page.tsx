@@ -1,7 +1,7 @@
 "use client";
 import MultiSelect from"./MultiSelect";
 import {useCallback,useEffect,useMemo,useRef,useState} from "react";
-import {ArrowLeft,Check,Store,Bell,AlertTriangle,Building2,CalendarClock,CalendarDays,CheckCircle2,ChevronDown,CircleDollarSign,ClipboardCheck,FileBarChart,FileText,History,Import,LayoutDashboard,LogOut,Menu,MessageSquareText,Plus,ReceiptText,Search,Settings,ShieldCheck,SlidersHorizontal,Users,X,GraduationCap,Upload} from "lucide-react";
+import {Store,Bell,AlertTriangle,Building2,CalendarClock,CalendarDays,CheckCircle2,ChevronDown,CircleDollarSign,ClipboardCheck,FileBarChart,FileText,History,Import,LayoutDashboard,LogOut,Menu,MessageSquareText,Plus,ReceiptText,Search,Settings,ShieldCheck,SlidersHorizontal,Users,X,GraduationCap,Upload} from "lucide-react";
 import PaymentDetail from "./PaymentDetail";
 import{matchesPayment}from"../lib/payment-search";
 import FilePicker from "./FilePicker";
@@ -22,7 +22,7 @@ import SettingsDesk from "./SettingsDesk";
 import{ExtraFields,packExtra,refreshFields,useExtraFields}from"./ExtraFields";
 import{FIELD_ORDER,labelFor,ruleFor}from"../lib/payment-fields";
 import{distinct,jobFor,parseJobs}from"../lib/jobs";
-import{defaultCurrencyFor,needsManagementApproval}from"../lib/payment-stages";
+import{defaultCurrencyFor}from"../lib/payment-stages";
 import type{Job}from"../lib/jobs";
 import{refreshOptions}from"./options-store";
 import ReportsCentre from "./ReportsCentre";
@@ -36,8 +36,6 @@ import {MaterialProvider,MaterialScreen} from "../modules/material/MaterialApp";
 import {MaterialLanding,MaterialSideNav,MaterialTitle} from "../modules/material/ShellParts";
 import {hasPaymentAccess,isPaymentRole,materialCodeFor} from "../lib/roles";
 import ResponsiveTables from "./ResponsiveTables";
-import{pillClass,toneOf}from"../lib/status-tone";
-import{stageIndex}from"../lib/payment-stages";
 type Payment={deptPriority?:string;deptPriorityBy?:string;deptPriorityAt?:string;createdAt?:string;tds?:string;nature?:string;poNumber?:string;resubmitNote?:string;resubmittedAt?:string;rejectionNote?:string;rejectedBy?:string;rejectedAt?:string;raisedBy?:string;id:number;requestNo:string;company:string;vendor:string;amount:number;currency:string;due:string;urgency:string;status:string;owner:string;department:string};
 export type AuditTask={ref?:string;remarks?:string;category?:string;entity?:string;dueRule?:string;frequency?:string;recurDay?:string;recurUntil?:string;seriesId?:string;attendees?:string;id:string;title:string;company:string;department:string;kind:"Pre-Audit"|"Post-Audit"|"Meeting"|"Special Audit"|"Task"|"Token"|"Training";status:"Available"|"Accepted"|"In Progress"|"Observation Submitted"|"Response Received"|"Completed";due?:string;assignedTo?:string;plannedStart?:string;plannedEnd?:string;notes?:string;dataProvider?:string};
 type Module="material"|"dashboard"|"requests"|"payments"|"scheduled"|"accountsreceived"|"preaudit"|"postaudit"|"specialaudit"|"observations"|"meetings"|"reports"|"companies"|"settings"|"users"|"imports"|"organisation"|"employees"|"vendors";
@@ -77,12 +75,6 @@ const nav:{id:Module;label:string;icon:any}[]=([
    modules" rather than a list, so the group is still named even though the menu no
    longer keeps them together. */
 const workforceIds:Module[]=["organisation","employees","reports"];
-/* The menu's groups. The order inside each is still the order of `nav`, and a role still
-   sees only what `access` gives it - a heading whose group is empty is not drawn. */
-const NAV_GROUP:Record<Module,"Payments"|"Audit"|"Administration">={dashboard:"Payments",requests:"Payments",payments:"Payments",
-  scheduled:"Payments",accountsreceived:"Payments",vendors:"Payments",preaudit:"Audit",postaudit:"Audit",specialaudit:"Audit",
-  meetings:"Audit",observations:"Audit",reports:"Administration",companies:"Administration",users:"Administration",
-  imports:"Administration",organisation:"Administration",employees:"Administration",settings:"Administration",material:"Payments"};
 const tone:Record<string,string>={"Rejected":"red","Query Raised":"amber","Requested":"blue","Accountant Review":"amber","Pre-Audit Queue":"blue","Management Approval":"amber","Management Approval: Yes":"green","Management Approval: No":"red","Audit Rejected":"red","Audit Query":"amber","Finance Queue":"violet","Approved by Auditor – Ready to Release":"green","Payment Released":"green","Expenses Booked":"green","Reconciliation":"green","Audit Accepted":"blue","Audit Cleared":"green"};
 const access:Record<string,Module[]>={"Cost Control":["dashboard","accountsreceived","reports","organisation","employees"],Administrator:nav.map(x=>x.id),Requestor:["dashboard","requests","organisation","employees","meetings","reports"],"Department Head":["dashboard","requests","organisation","employees","meetings","reports"],Accountant:["dashboard","requests","payments","scheduled","organisation","employees","meetings","reports","observations","accountsreceived","vendors"],Auditor:["dashboard","requests","payments","scheduled","organisation","employees","preaudit","postaudit","specialaudit","meetings","reports","observations","accountsreceived","vendors"],Finance:["meetings","dashboard","payments","organisation","employees","reports","vendors"],Management:["meetings","dashboard","payments","accountsreceived","vendors",...workforceIds],
   /* Material roles that work the Vendor Master: procurement registers and verifies, and
@@ -300,22 +292,12 @@ export default function Home(){
 
  const signOut=async()=>{setProfileOpen(false);await fetch("/api/auth/session",{method:"DELETE"}).catch(()=>{});setUserName("");setUserEmail("");setAllowedRoles([]);setPayments(seed);setRole("Audit Head");setActive("dashboard")};
  /* A procurement-side login works in Material first; its own screens (Vendor master) follow the Material menu. */
- const link=(n:typeof nav[number])=><button key={n.id} className={active===n.id?"active":""} onClick={()=>{setActive(n.id);setMobile(false)}}><n.icon/>{n.label}</button>;
- const group=(g:"Payments"|"Audit"|"Administration")=>{const items=visible.filter(n=>NAV_GROUP[n.id]===g);
-   return items.length?[<small key={`h-${g}`} className="nav-head">{g}</small>,...items.map(link)]:[]};
- const links=[...group("Payments"),...group("Audit")];
- const adminLinks=group("Administration");
- /* Ctrl+K (or Cmd+K) puts the cursor in the search box at the top. */
- const searchBox=useRef<HTMLInputElement>(null);
- useEffect(()=>{const key=(e:KeyboardEvent)=>{if((e.ctrlKey||e.metaKey)&&e.key.toLowerCase()==="k"){e.preventDefault();searchBox.current?.focus()}};
-   window.addEventListener("keydown",key);return()=>window.removeEventListener("keydown",key)},[]);
- const initials=userName?userName.split(" ").map(x=>x[0]).join("").slice(0,2).toUpperCase():"CM";
- const screenGroup=active==="material"?"Material":NAV_GROUP[active];
- return <WorkforceProvider actor={payUser?userName:""}><MaterialProvider role={userName?matCode:null} person={userEmail}><ResponsiveTables/><div className={drawer&&active==="payments"?"shell docked":"shell"}>{!userName&&!booting&&<LoginOverlay onLogin={login} note={expired?"Your session has ended. Please sign in again.":""}/>} {mobile&&<button className="scrim" onClick={()=>setMobile(false)}/>}<aside className={mobile?"side open":"side"}><div className="brand"><b>CMG</b><div><strong>CMG Control</strong><span>Payments · Audit · Material</span></div><button aria-label="Close menu" onClick={()=>setMobile(false)}><X/></button></div>{userName&&allowedRoles.length>1&&<div className="mobile-controls"><label>ROLE<select value={role} onChange={e=>{const next=e.target.value;setRole(next);setActive(landingFor(next));setMobile(false)}}>{allowedRoles.map(x=><option key={x}>{x}</option>)}</select></label></div>}<nav>{!materialOnly&&links}{userName&&<MaterialSideNav active={active==="material"} heading onOpen={()=>{setActive("material");setMobile(false)}}/>}{materialOnly&&links}{adminLinks}</nav>{userName&&<div className="side-user"><b>{initials}</b><div><strong>{userName}</strong><small>{role}</small></div></div>}<footer className="side-credit"><small>Developed By</small><img src="/developed-by-lof-light.png" alt="LOF - Lab of Future"/></footer></aside><main><header><div className="heading"><button className="hamb" aria-label="Open menu" onClick={()=>setMobile(true)}><Menu/></button><div><small className="top-crumb" title={todayLabel||undefined}>{screenGroup} / {active==="material"?<MaterialTitle/>:nav.find(n=>n.id===active)?.label}</small><h1>{active==="material"?<MaterialTitle/>:nav.find(n=>n.id===active)?.label}</h1></div>{payUser&&active!=="material"&&<label className="top-search"><Search/><input ref={searchBox} value={search} onChange={e=>setSearch(e.target.value)} placeholder="Search request no., vendor, PO or invoice" aria-label="Search payment requests"/><kbd>Ctrl K</kbd></label>}</div><div className="head-actions">{active!=="material"&&<div className="head-co"><Building2/><MultiSelect options={companies.map(c=>c.name)} value={companyPicks} onChange={setCompanyPicks} allLabel="All companies" noun="companies"/></div>}<label className="role-pill"><span>Role</span><select aria-label="Role" value={role} onChange={e=>{const next=e.target.value;setRole(next);setActive(landingFor(next))}}>{allowedRoles.map(x=><option key={x}>{x}</option>)}</select></label>{payUser&&<div className="note-menu"><button className="bell" aria-label={unread?`Notifications, ${unread} unread`:"Notifications"} onClick={()=>{setNoteOpen(v=>!v);setProfileOpen(false)}}><Bell/>{unread>0&&<i>{unread>99?"99+":unread}</i>}</button>{noteOpen&&<><button className="profile-scrim" aria-label="Close notifications" onClick={()=>setNoteOpen(false)}/><div className="note-panel" role="menu"><header><b>Notifications</b>{unread>0&&<button onClick={readAll}>Mark all read</button>}</header>{notes.length?notes.map(n=><button key={n.id} className={n.readAt?"":"unread"} onClick={()=>openNote(n)}><b>{n.title}</b>{n.body&&<small>{n.body}</small>}<time>{new Date(n.createdAt).toLocaleString("en-GB",{day:"numeric",month:"short",hour:"2-digit",minute:"2-digit"})}</time></button>):<p className="note-empty">Nothing yet. Requests and updates meant for you will appear here.</p>}</div></>}</div>}<div className="profile-menu"><button className="avatar" title={userName||"Profile"} aria-label="Profile menu" aria-haspopup="menu" aria-expanded={profileOpen} onClick={()=>setProfileOpen(v=>!v)}>{initials}</button>{profileOpen&&<><button className="profile-scrim" aria-label="Close profile menu" onClick={()=>setProfileOpen(false)}/><div className="profile-dropdown" role="menu"><div className="profile-who"><b>{userName||"Signed in"}</b><small>{userEmail}</small>{!!role&&<i>{role}</i>}</div><button role="menuitem" onClick={()=>{setProfileOpen(false);setPasswordOpen(true)}}><Settings/>Change password</button>{userName&&<button role="menuitem" className="profile-signout" onClick={()=>{setProfileOpen(false);signOut()}}><LogOut/>Sign out</button>}</div></>}</div></div></header>{userName&&<>
+ const links=visible.map(n=><button key={n.id} className={active===n.id?"active":""} onClick={()=>{setActive(n.id);setMobile(false)}}><n.icon/>{n.label}</button>);
+ return <WorkforceProvider actor={payUser?userName:""}><MaterialProvider role={userName?matCode:null} person={userEmail}><ResponsiveTables/><div className="shell">{!userName&&!booting&&<LoginOverlay onLogin={login} note={expired?"Your session has ended. Please sign in again.":""}/>} {mobile&&<button className="scrim" onClick={()=>setMobile(false)}/>}<aside className={mobile?"side open":"side"}><div className="brand"><b>CMG</b><div><strong>PAYMENT</strong><span>REQUEST</span></div><button onClick={()=>setMobile(false)}><X/></button></div>{userName&&allowedRoles.length>1&&<div className="mobile-controls"><label>ROLE<select value={role} onChange={e=>{const next=e.target.value;setRole(next);setActive(landingFor(next));setMobile(false)}}>{allowedRoles.map(x=><option key={x}>{x}</option>)}</select></label></div>}<nav>{!materialOnly&&links}{userName&&<MaterialSideNav active={active==="material"} heading={!materialOnly} onOpen={()=>{setActive("material");setMobile(false)}}/>}{materialOnly&&links}</nav><footer className="side-credit"><small>Developed By</small><img src="/developed-by-lof-light.png" alt="LOF - Lab of Future"/></footer></aside><main><header><div className="heading"><button className="hamb" onClick={()=>setMobile(true)}><Menu/></button><div><small>{todayLabel||"\u00a0"}</small><h1>{active==="material"?<MaterialTitle/>:nav.find(n=>n.id===active)?.label}</h1></div></div><div className="head-actions">{active!=="material"&&<div className="head-co"><Building2/><MultiSelect options={companies.map(c=>c.name)} value={companyPicks} onChange={setCompanyPicks} allLabel="All companies" noun="companies"/></div>}<select value={role} onChange={e=>{const next=e.target.value;setRole(next);setActive(landingFor(next))}}>{allowedRoles.map(x=><option key={x}>{x}</option>)}</select>{payUser&&<div className="note-menu"><button className="bell" aria-label={unread?`Notifications, ${unread} unread`:"Notifications"} onClick={()=>{setNoteOpen(v=>!v);setProfileOpen(false)}}><Bell/>{unread>0&&<i>{unread>99?"99+":unread}</i>}</button>{noteOpen&&<><button className="profile-scrim" aria-label="Close notifications" onClick={()=>setNoteOpen(false)}/><div className="note-panel" role="menu"><header><b>Notifications</b>{unread>0&&<button onClick={readAll}>Mark all read</button>}</header>{notes.length?notes.map(n=><button key={n.id} className={n.readAt?"":"unread"} onClick={()=>openNote(n)}><b>{n.title}</b>{n.body&&<small>{n.body}</small>}<time>{new Date(n.createdAt).toLocaleString("en-GB",{day:"numeric",month:"short",hour:"2-digit",minute:"2-digit"})}</time></button>):<p className="note-empty">Nothing yet. Requests and updates meant for you will appear here.</p>}</div></>}</div>}<div className="profile-menu"><button className="avatar" title={userName||"Profile"} aria-haspopup="menu" aria-expanded={profileOpen} onClick={()=>setProfileOpen(v=>!v)}>{userName?userName.split(" ").map(x=>x[0]).join("").slice(0,2):"CM"}</button>{profileOpen&&<><button className="profile-scrim" aria-label="Close profile menu" onClick={()=>setProfileOpen(false)}/><div className="profile-dropdown" role="menu"><div className="profile-who"><b>{userName||"Signed in"}</b><small>{userEmail}</small>{!!role&&<i>{role}</i>}</div><button role="menuitem" onClick={()=>{setProfileOpen(false);setPasswordOpen(true)}}><Settings/>Change password</button>{userName&&<button role="menuitem" className="profile-signout" onClick={()=>{setProfileOpen(false);signOut()}}><LogOut/>Sign out</button>}</div></>}</div></div></header>{userName&&<>
  <MaterialLanding code={matCode} active={active==="material"} onOpen={openMaterial} onLeave={leaveMaterial}/>
  {active==="material"&&<MaterialScreen/>}
  
- {active==="dashboard"&&(role==="Requestor"?<RequestorDashboard rows={mine} open={openRequest} create={()=>setForm(true)} go={setActive}/>:role==="Accountant"||role==="Auditor"?<RoleDashboard role={role} payments={filtered} auditTasks={auditTasks} open={openRequest} go={setActive}/>:<Dashboard payments={filtered} go={setActive} open={openRequest}/>)}
+ {active==="dashboard"&&(role==="Requestor"?<RequestorDashboard rows={mine} open={openRequest} create={()=>setForm(true)} go={setActive}/>:role==="Accountant"||role==="Auditor"?<RoleDashboard role={role} payments={filtered} auditTasks={auditTasks} open={openRequest} go={setActive}/>:<Dashboard payments={filtered} go={setActive}/>)}
  {active==="dashboard"&&visible.some(n=>n.id==="organisation")&&<div className="page wf-dash-wrap"><WorkforceOverview openProfile={setProfile} go={()=>setActive("organisation")}/></div>}
  {active==="requests"&&<RequestorWorkspace rows={role==="Requestor"?mine:filtered} open={openRequest} create={()=>setForm(true)} scope={role==="Department Head"?"department":"own"}/>}
  {active==="payments"&&<PaymentWorkbench departments={departments} companies={companies.map(c=>c.name)} onDelete={removeRequest} rows={filtered} role={role} search={search} setSearch={setSearch} open={openRequest} create={()=>setForm(true)}/>}
@@ -365,21 +347,16 @@ function RequestorDashboard({rows,open,create,go}:{rows:Payment[];open:(p:Paymen
    <div className="panel-head"><div><small>MY REQUESTS</small><h2>Latest first</h2></div>
      <button onClick={()=>go("requests")}>View all</button></div>
    {!rows.length&&<p className="queue-empty">You have not raised a payment request yet.</p>}
-   {!!rows.length&&<div className="table-wrap"><table><thead><tr><th>Request</th><th>Vendor</th>
-     <th className="num">Amount</th><th>Due</th><th>Status</th></tr></thead><tbody>
+   {!!rows.length&&<div className="table-wrap"><table><thead><tr><th>REQUEST</th><th>VENDOR</th>
+     <th>AMOUNT</th><th>DUE</th><th>STATUS</th></tr></thead><tbody>
      {rows.slice(0,8).map(r=><tr key={r.id} onClick={()=>open(r)}><td><b>{r.requestNo}</b></td>
        <td>{r.vendor}</td><td><b>{r.currency} {r.amount.toLocaleString()}</b></td><td>{r.due}</td>
-       <td><span className={pillClass(r.status)}>{r.status}</span></td></tr>)}
+       <td><span className={`badge ${tone[r.status]||"blue"}`}>{r.status}</span></td></tr>)}
      </tbody></table></div>}
   </section></div>;
 }
 function Intro({eyebrow,title,sub,action}:{eyebrow:string;title:string;sub:string;action?:React.ReactNode}){return <div className="intro"><div><small>{eyebrow}</small><h2>{title}</h2><p>{sub}</p></div>{action}</div>}
-/* Overdue by how many days, from a YYYY-MM-DD due date; 0 when not overdue. */
-const overdueDays=(due:string|undefined,today:string)=>{const d=String(due||"").slice(0,10);
-  if(!/^\d{4}-\d{2}-\d{2}$/.test(d)||d>=today)return 0;
-  return Math.round((Date.parse(today)-Date.parse(d))/86400000)};
-const STAGE_TONE=["neutral","accounts","audit","correction","audit","released"];
-function Dashboard({payments,go,open:openRequest}:{payments:Payment[];go:(m:Module)=>void;open:(p:Payment)=>void}){
+function Dashboard({payments,go}:{payments:Payment[];go:(m:Module)=>void}){
  /* Every figure here is counted from the payment requests actually in the database.
     This panel used to show a fixed 82/100 with invented metrics, which on a live
     system reads as real reporting rather than placeholder art. */
@@ -391,76 +368,67 @@ function Dashboard({payments,go,open:openRequest}:{payments:Payment[];go:(m:Modu
  const rejected=payments.filter(p=>/Audit Rejected|Query|Observation/.test(p.status));
  const value=(rows:Payment[])=>rows.reduce((n,p)=>n+(Number(p.amount)||0),0);
  const money=(n:number)=>n>=1000000?`${(n/1000000).toFixed(2)}M`:n>=1000?`${Math.round(n/1000)}K`:String(n);
- const companiesIn=(rows:Payment[])=>new Set(rows.map(p=>p.company)).size;
- const across=(rows:Payment[])=>{const n=companiesIn(rows);return n>1?` across ${n} companies`:""};
  const settled=released.length+closed.length;
- const pct=(n:number)=>payments.length?Math.round(n/payments.length*100):0;
- const health=pct(released.length);
- const today=new Date().toISOString().slice(0,10);
- const MONTHS=["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+ const health=payments.length?Math.round(released.length/payments.length*100):0;
  const byCompany=Array.from(new Set(payments.map(p=>p.company))).map(c=>{
    const rows=payments.filter(p=>p.company===c);
    const done=rows.filter(p=>p.status==="Payment Released"||p.status==="Expenses Booked").length;
-   const live=open.filter(p=>p.company===c);
-   return{name:c,pct:rows.length?Math.round(done/rows.length*100):0,open:live.length,openValue:value(live),
+   return{name:c,pct:rows.length?Math.round(done/rows.length*100):0,
      stuck:rows.filter(p=>/Audit Rejected|Query|Observation/.test(p.status)).length}});
- /* The six stages of lib/payment-stages, each with what sits in it now. Rejected requests
-    are closed and belong to no stage. */
- const live=payments.filter(p=>p.status!=="Rejected"&&p.status!=="Audit Rejected");
- const stagesNow=["Requested","Accounts","Audit","Correction","Recheck","Release"].map((label,i)=>{
-   const rows=live.filter(p=>stageIndex(p.status)===i);return{label,n:rows.length,v:value(rows)}});
- const kpis:[string,Payment[],string,string,string][]=[
-   ["Awaiting approval",needsApproval,"Approval","neutral",needsApproval.length?`AED ${money(value(needsApproval))}${across(needsApproval)}`:"Nothing waiting"],
-   ["Needs attention",rejected,"Action","correction",rejected.length?"Query or observation raised":"None"],
-   ["Pre-audit queue",available,"Audit","audit",available.length?"Available to accept":"Queue is clear"],
-   ["Open requests",open,"Open","accounts",open.length?`AED ${money(value(open))}${across(open)}`:"All settled"],
-   ["Released",released,"Done","released",released.length?`AED ${money(value(released))}`:"None yet"]];
- const dated=open.filter(p=>/^\d{4}-\d{2}-\d{2}/.test(String(p.due||"")));
- const coming=dated.filter(p=>String(p.due).slice(0,10)>=today).sort((a,b)=>String(a.due).localeCompare(String(b.due))).slice(0,5);
- const late=dated.filter(p=>String(p.due).slice(0,10)<today).length;
- return <div className="page dash">
-  <div className="metrics">{kpis.map(([label,rows,tag,tone,sub])=><article className="kpi" key={label}>
-    <span className="kpi-label">{label}</span><i className={`pill tone-${tone}`}>{tag}</i>
-    <b className="kpi-value">{rows.length}</b><small className="kpi-sub">{sub}</small></article>)}</div>
-  <div className="dash-grid">
-   <section className="panel span-2"><div className="card-head"><div><h2>Request pipeline</h2><p>Where every live request sits right now</p></div>
-     {!!payments.length&&<button className="secondary" onClick={()=>go("payments")}>Open queues →</button>}</div>
-    <div className="pipeline">{stagesNow.map((st,i)=><div key={st.label}>
-      <i style={{background:STAGE_TONE[i]==="neutral"?"var(--tone-neutral-bar)":`var(--tone-${STAGE_TONE[i]}-bar)`}}/>
-      <span>{i+1} · {st.label}</span><b>{st.n}</b><small>{st.n?`AED ${money(st.v)}`:"—"}</small></div>)}</div></section>
-   <section className="panel"><div className="card-head"><div><h2>Completion</h2><p>Released or booked, of everything raised</p></div></div>
-    <div className="completion"><b>{health}%</b>
-     <p>{payments.length?`${released.length} of ${payments.length} requests released or booked${rejected.length?` · ${rejected.length} needing attention`:""}`:"No payment requests raised yet"}</p>
-     {([["Released",pct(released.length)],["Settled",pct(settled)],["In progress",pct(open.length)]] as [string,number][])
-       .map(([label,n])=><label key={label}><span>{label}<b>{n}%</b></span><div className="bar"><i style={{width:`${n}%`}}/></div></label>)}</div></section>
-  </div>
-  <div className="dash-grid">
-   <section className="panel span-2"><div className="card-head"><div><h2>Needs attention now</h2><p>The newest open requests</p></div>
-     {!!payments.length&&<button className="secondary" onClick={()=>go("payments")}>View all</button>}</div>
-    {!open.length?<p className="queue-empty">Nothing in the queue. Raise a payment request to begin.</p>
-    :<div className="table-wrap"><table><thead><tr><th>Request</th><th>Vendor</th><th className="num">Amount</th><th>Stage</th><th>Due</th></tr></thead>
-      <tbody>{open.slice(0,6).map(p=>{const late=overdueDays(p.due,today);
-        return <tr key={p.id} className="clickable" onClick={()=>openRequest(p)}>
-        <td><span className="ref">{p.requestNo}</span><small>{p.company}</small></td>
-        <td><b>{p.vendor}</b><small>{p.nature||p.department}</small></td>
-        <td className="num"><b>{p.currency} {Number(p.amount).toLocaleString()}</b></td>
-        <td><span className={pillClass(p.status)}>{p.status}</span></td>
-        <td className="nowrap">{late?<span className="overdue">Overdue {late}d</span>:(p.due||"—")}</td></tr>})}</tbody></table></div>}</section>
-   <section className="panel"><div className="card-head"><div><h2>Falling due</h2><p>Soonest first, from today</p></div></div>
-    <div className="due-list">{coming.map(p=>{const due=String(p.due).slice(0,10);
-      return <div key={p.id} className="clickable" onClick={()=>openRequest(p)} title={due===today?`Due today (${due})`:`Due ${due}`}>
-        <time><small>{MONTHS[Number(due.slice(5,7))-1]||"Due"}</small><b>{due.slice(8,10)}</b></time>
-        <span><b>{p.vendor}</b><small>{p.company}{due===today?" · due today":""}</small></span>
-        <em>{p.currency} {Number(p.amount).toLocaleString()}</em></div>})}</div>
-    {!coming.length&&<p className="queue-empty">{open.length?"Nothing falls due from today onward.":"Nothing scheduled."}</p>}
-    {late>0&&<p className="due-note">{late} open {late===1?"request is":"requests are"} already past the due date.</p>}</section>
-  </div>
-  <div className="section-title"><h2>Position by entity</h2><p>Released share of each company's requests</p></div>
-  {!byCompany.length?<section className="panel"><p className="queue-empty">No requests raised yet.</p></section>
-  :<div className="entities">{byCompany.map(r=><article className="entity" key={r.name}>
-    <div><b title={r.name}>{r.name}</b><span>{r.pct}%</span></div><div className="bar"><i style={{width:`${r.pct}%`}}/></div>
-    <p>{r.open} open · {r.stuck} flagged{r.open?` · AED ${money(r.openValue)} open`:""}</p></article>)}</div>}
- </div>}
+ return <div className="page">
+  <section className="health"><div><small>PAYMENT COMPLETION</small><b>{health}</b><span>/100</span>
+    <p>{payments.length?`● ${released.length} of ${payments.length} released${rejected.length?`, ${rejected.length} needing attention`:""}`:"● No payment requests raised yet"}</p></div>
+   {[["Released",payments.length?Math.round(released.length/payments.length*100):0],
+     ["Settled",payments.length?Math.round(settled/payments.length*100):0],
+     ["In progress",payments.length?Math.round(open.length/payments.length*100):0]]
+     .map(x=><label key={x[0] as string}><span>{x[0]} <b>{x[1]}%</b></span><progress value={x[1] as number} max="100"/></label>)}</section>
+  <div className="metrics">{[
+    ["Needs approval",String(needsApproval.length),needsApproval.length?`AED ${money(value(needsApproval))}`:"Nothing waiting","amber"],
+    ["Needs attention",String(rejected.length),rejected.length?"Query or observation raised":"None","red"],
+    ["Available to accept",String(available.length),available.length?"In the pre-audit queue":"Queue is clear","blue"],
+    ["Open requests",String(open.length),open.length?`AED ${money(value(open))}`:"All settled","violet"],
+    ["Released",String(released.length),released.length?`AED ${money(value(released))}`:"None yet","green"]]
+    .map(x=><article className={x[3]} key={x[0]}><span>{x[0]}</span><b>{x[1]}</b><small>{x[2]}</small></article>)}</div>
+  <div className="grid">
+   <section className="panel"><div className="panel-head"><div><small>LIVE CONTROL QUEUE</small><h2>What needs attention now</h2></div>
+     {!!payments.length&&<button onClick={()=>go("payments")}>View all</button>}</div>
+    {open.slice(0,6).map(p=><button className="queue-row" key={p.id} onClick={()=>go("payments")}>
+      <i className={tone[p.status]}/><span><b>{p.vendor}</b><small>{p.requestNo} · {p.company}</small></span>
+      <b>{p.currency} {Number(p.amount).toLocaleString()}</b><em>{p.status}</em></button>)}
+    {!open.length&&<p className="queue-empty">Nothing in the queue. Raise a payment request to begin.</p>}</section>
+   <section className="panel risk"><div className="panel-head"><div><small>POSITION</small><h2>Open requests</h2></div></div>
+    {(()=>{
+      /* The ring is drawn from the same four figures the legend lists, so the two agree. */
+      const parts=[{label:"Attention",n:rejected.length,color:"#d64545"},{label:"Approval",n:needsApproval.length,color:"#e08a1e"},
+        {label:"Available",n:available.length,color:"#e3b84f"},{label:"Released",n:released.length,color:"#3f9b6f"}];
+      const total=parts.reduce((t,x)=>t+x.n,0);let at=0;
+      const stops=parts.map(x=>{const from=at;at+=total?x.n/total*100:0;return`${x.color} ${from}% ${at}%`}).join(",");
+      return <><div className="ring" style={{background:total?`conic-gradient(${stops})`:"#e4e7ec"}}><span><b>{open.length}</b>open</span></div>
+        <div className="legend">{parts.map(x=><span key={x.label}><i style={{background:x.color}}/>{x.label}<b>{x.n}</b></span>)}</div></>})()}</section>
+   <section className="panel"><div className="panel-head"><div><small>COMPANY VIEW</small><h2>Position by entity</h2></div></div>
+    {byCompany.map(r=><div className="company" key={r.name}><b>{r.name}</b>
+      <span><progress value={r.pct} max="100"/>{r.pct}%</span>
+      <em>{r.stuck?"Needs attention":r.pct===100?"Clear":"In progress"}</em><small>{r.stuck} flagged</small></div>)}
+    {!byCompany.length&&<p className="queue-empty">No requests raised yet.</p>}</section>
+   <section className="panel upcoming"><div className="panel-head"><div><small>UPCOMING</small><h2>By due date</h2></div></div>
+    {(()=>{
+      /* What falls due from today on, soonest first - the heading says "upcoming". It used to
+         list the five newest requests in the order they were raised. Requests already past
+         their date are counted in a line underneath rather than crowding the list out. */
+      const today=new Date().toISOString().slice(0,10);
+      const MONTHS=["JAN","FEB","MAR","APR","MAY","JUN","JUL","AUG","SEP","OCT","NOV","DEC"];
+      const dated=open.filter(p=>/^\d{4}-\d{2}-\d{2}/.test(String(p.due||"")));
+      const coming=dated.filter(p=>String(p.due).slice(0,10)>=today)
+        .sort((a,b)=>String(a.due).localeCompare(String(b.due))).slice(0,5);
+      const late=dated.filter(p=>String(p.due).slice(0,10)<today).length;
+      return <>{coming.map(p=>{const due=String(p.due).slice(0,10);
+        return <div key={p.id}><time className={due===today?"today":""} title={due===today?`Due today (${due})`:`Due ${due}`}>
+            {due.slice(8,10)}<small>{MONTHS[Number(due.slice(5,7))-1]||"DUE"}</small></time>
+          <span><b title={p.vendor}>{p.vendor}</b><small>{p.company}{due===today?" · due today":""}</small></span>
+          <em>{p.currency} {Number(p.amount).toLocaleString()}</em></div>})}
+        {!coming.length&&!!open.length&&<p className="queue-empty">Nothing falls due from today onward.</p>}
+        {late>0&&<p className="upcoming-late">{late} open {late===1?"request is":"requests are"} already past the due date.</p>}</>})()}
+    {!open.length&&<p className="queue-empty">Nothing scheduled.</p>}</section></div></div>}
 
 function Payments({rows,search,setSearch,open,create}:any){return <div className="page"><div className="toolbar"><label><Search/><input value={search} onChange={e=>setSearch(e.target.value)} placeholder="Search payment, vendor or status"/></label><button>Status: All <ChevronDown/></button><button className="primary" onClick={create}><Plus/>New payment request</button></div><section className="panel table-panel"><div className="panel-head"><div><small>PAYMENT CONTROL</small><h2>All requests</h2></div><span>{rows.length} records</span></div><div className="table-wrap"><table><thead><tr><th>REQUEST</th><th>COMPANY / DEPARTMENT</th><th>VENDOR</th><th>AMOUNT</th><th>DUE</th><th>STATUS</th><th>OWNER</th></tr></thead><tbody>{rows.map((p:Payment)=><tr key={p.id} onClick={()=>open(p)}><td><b>{p.requestNo}</b></td><td>{p.company}<small>{p.department}</small></td><td>{p.vendor}</td><td><b>{p.currency} {p.amount.toLocaleString()}</b></td><td>{p.due}<small>{p.urgency}</small></td><td><span className={`badge ${tone[p.status]||"blue"}`}>{p.status}</span></td><td>{p.owner}</td></tr>)}</tbody></table></div></section></div>}
 function Queue({tasks,accept,role,go}:{tasks:AuditTask[];accept:(id:string)=>void;role:string;go:(m:Module)=>void}){const[dept,setDept]=useState("All departments");const rows=tasks.filter(t=>t.kind==="Pre-Audit"&&(dept==="All departments"||t.department===dept)),available=rows.filter(t=>t.status==="Available"),mine=rows.filter(t=>t.status!=="Available");return <div className="page"><Intro eyebrow="AUDITOR WORKSPACE" title="Pre-audit tasks by department" sub="Accept available work; accepted items leave the queue and appear in My Tasks." action={<div className="audit-actions">{role==="Audit Head"&&<button className="primary" onClick={()=>go("imports")}><Import/>Import Excel</button>}<select value={dept} onChange={e=>setDept(e.target.value)}><option>All departments</option>{Array.from(new Set(tasks.filter(t=>t.kind==="Pre-Audit").map(t=>t.department))).map(x=><option key={x}>{x}</option>)}</select></div>}/><AuditTaskCards title="Available pre-audit queue" rows={available} accept={accept}/><AuditTaskCards title="My accepted pre-audit tasks" rows={mine}/></div>}
@@ -486,15 +454,7 @@ function PaymentForm({close,added,companies,departments,natures,currencies,tdsCh
      any field by key, so these worked without being here - but only at runtime, and the
      type then disagreed with what the form actually holds. paymentMode was in that state
      too. */
-  paymentMode:"",jbCode:"",project:"",jobLocation:""});const[extra,setExtra]=useState<Record<string,string>>({});const[vendorHints,setVendorHints]=useState<string[]>([]);const[failed,setFailed]=useState("");const[vendorOpen,setVendorOpen]=useState(false);const[files,setFiles]=useState<File[]>([]);const[saving,setSaving]=useState(false);
- /* Whether this company goes to management first. The setting is an administrator's to
-    read; anybody else gets no answer, and the form then says the step may apply rather
-    than guessing. The server decides the route either way. */
- const[mgmtSetting,setMgmtSetting]=useState<{enabled:boolean;companies:string[]}|null>(null);
- useEffect(()=>{fetch("/api/settings/workflow").then(r=>r.ok?r.json():null)
-   .then((d:any)=>{if(d?.managementApproval)setMgmtSetting(d.managementApproval)}).catch(()=>{})},[]);
- const mgmtFirst:boolean|null=mgmtSetting?needsManagementApproval(v.company,mgmtSetting):null;
- useEffect(()=>{if(natures.length&&!natures.includes(v.nature))
+  paymentMode:"",jbCode:"",project:"",jobLocation:""});const[extra,setExtra]=useState<Record<string,string>>({});const[vendorHints,setVendorHints]=useState<string[]>([]);const[failed,setFailed]=useState("");const[vendorOpen,setVendorOpen]=useState(false);const[files,setFiles]=useState<File[]>([]);const[saving,setSaving]=useState(false);useEffect(()=>{if(natures.length&&!natures.includes(v.nature))
   setV(c=>({...c,nature:natures[0]}))},[natures,v.nature]);
  useEffect(()=>{if(currencies.length&&!currencies.includes(v.currency))
   setV(c=>({...c,currency:defaultCurrencyFor(c.company,currencies)||currencies[0]}))},[currencies,v.currency]);
@@ -538,13 +498,8 @@ function PaymentForm({close,added,companies,departments,natures,currencies,tdsCh
    ever reached the server and Accounts and Audit opened the request to find it empty.
    They upload here, once the request exists and has the id they hang off, so everyone
    who opens it afterwards sees the same list. */
-for(const file of files){try{const dataUrl=await asDataUrl(file);await fetch("/api/attachments",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({entityType:"payment",entityId:String(p.id),kind:"Other",fileName:file.name,dataUrl})});}catch{}}setSaving(false);added(p)};
- /* Which section of the form each field sits in. Anything not named here - a field added
-    to FIELD_ORDER later - falls into "Project & payment", so nothing can go missing. */
- const SECTION:Record<string,1|2|3>={company:1,department:1,nature:1,currency:1,
-   vendor:2,invoiceNumber:2,invoiceDate:2,poNumber:2,amount:2};
- const HELP:Record<string,string>={nature:"Changes which fields below are required",currency:"Set from the company"};
- const field=(key:typeof FIELD_ORDER[number])=>{
+for(const file of files){try{const dataUrl=await asDataUrl(file);await fetch("/api/attachments",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({entityType:"payment",entityId:String(p.id),kind:"Other",fileName:file.name,dataUrl})});}catch{}}setSaving(false);added(p)};return <><button className="overlay" onClick={close}/><form className="modal" onSubmit={submit}><header><div><small>NEW REQUEST</small><h2>Create payment request</h2></div><button type="button" onClick={close}><X/></button></header><div className="form">
+ {FIELD_ORDER.map(key=>{
    const need=ruleFor(v.nature,key);
    if(need==="H"||key==="description")return null;
    const must=need==="M";
@@ -559,7 +514,7 @@ for(const file of files){try{const dataUrl=await asDataUrl(file);await fetch("/a
      :key==="project"?distinct(jobs,"project")
      :key==="jobLocation"?distinct(jobs,"location"):null;
    return <label className={key==="vendor"?"wide vendor-field":""} key={key}>
-     <span className="field-label">{labelFor(v.nature,key)}{must?<i className="req-star" aria-hidden="true">*</i>:<i className="field-optional">optional</i>}</span>
+     {labelFor(v.nature,key)}{!must&&<i className="field-optional">optional</i>}
      {choices
        ?<select required={must} value={(v as any)[key]}
           onChange={e=>{
@@ -576,16 +531,12 @@ for(const file of files){try{const dataUrl=await asDataUrl(file);await fetch("/a
              :{...v,[key]:picked,...(key==="company"?{currency}:{})})}}>
           {(!must||!(v as any)[key])&&<option value="">— choose —</option>}
           {choices.map(o=><option key={o}>{o}</option>)}</select>
-       :key==="amount"
-         ?<span className="amount-input"><b>{v.currency||"—"}</b><input required={must} type="number" value={v.amount}
-            onChange={e=>setV({...v,amount:e.target.value})}/></span>
-         :<input required={must} value={(v as any)[key]}
+       :<input required={must} value={(v as any)[key]}
           autoComplete={key==="vendor"?"off":undefined}
           onFocus={key==="vendor"?()=>setVendorOpen(true):undefined}
           onBlur={key==="vendor"?()=>setTimeout(()=>setVendorOpen(false),120):undefined}
-          type={key==="due"||key==="invoiceDate"?"date":"text"}
+          type={key==="amount"?"number":key==="due"||key==="invoiceDate"?"date":"text"}
           onChange={e=>{setV({...v,[key]:e.target.value});if(key==="vendor")setVendorOpen(true)}}/>}
-     {HELP[key]&&<small className="field-help">{HELP[key]}</small>}
      {/* Drawn here rather than left to the browser's own suggestion box, which filters
          the list again by its own rules and is inconsistent about capitals. Whatever the
          register matched is what is offered. */}
@@ -594,45 +545,14 @@ for(const file of files){try{const dataUrl=await asDataUrl(file);await fetch("/a
          <button type="button" key={n}
            onMouseDown={e=>{e.preventDefault();setV({...v,vendor:n});setVendorOpen(false)}}>
            <b>{n}</b></button>)}</div>}
-   </label>};
- const inSection=(n:1|2|3)=>FIELD_ORDER.filter(k=>(SECTION[k]||3)===n).map(field);
- const section=(n:number,title:string,sub:string,body:React.ReactNode)=><section className="form-section">
-   <header><i>{n}</i><div><h2>{title}</h2><p>{sub}</p></div></header><div className="form">{body}</div></section>;
- const route=[...(mgmtFirst!==false?[{label:"Management approval",note:mgmtFirst===null?"If the company needs it":""}]:[]),
-   {label:"Accounts review",note:""},{label:"Pre-audit",note:""},{label:"Finance release",note:""}];
- const checks:[string,boolean][]=[["Vendor",!!v.vendor.trim()],["Amount",Number(v.amount)>0],
-   ["Invoice no. & date",ruleFor(v.nature,"invoiceNumber")==="H"||(!!v.invoiceNumber.trim()&&(ruleFor(v.nature,"invoiceDate")==="H"||!!v.invoiceDate))],
-   ["Documents",ruleFor(v.nature,"documents")!=="M"||files.length>0]];
- return <div className="sheet" role="dialog" aria-label="New payment request"><form className="sheet-inner" onSubmit={submit}>
-  <div className="sheet-head"><button type="button" className="icon-btn" aria-label="Back" onClick={close}><ArrowLeft/></button>
-   <div><small className="top-crumb">Payments / New payment request</small><h1>New payment request</h1></div>
-   <div className="sheet-actions"><button type="button" className="secondary" onClick={close}>Cancel</button></div></div>
-  <div className="sheet-body">
-   <div className="sheet-main">
-    {section(1,"Request basics","Who is paying, and for what",inSection(1))}
-    {section(2,"Vendor & invoice","Who is being paid, against which invoice",inSection(2))}
-    {section(3,"Project & payment","Where it is booked and how it is paid",<>{inSection(3)}
-      <ExtraFields form="payment" values={extra} onChange={setExtra}/>
-      <label className="wide"><span className="field-label">{labelFor(v.nature,"description")}{ruleFor(v.nature,"description")==="M"?<i className="req-star" aria-hidden="true">*</i>:<i className="field-optional">optional</i>}</span>
-        <textarea required={ruleFor(v.nature,"description")==="M"} value={v.description}
-          onChange={e=>setV({...v,description:e.target.value})}/></label></>)}
-    {section(4,"Supporting documents","Invoice, PO and anything accounts will need",
-      <FilePicker className="wide" files={files} onChange={setFiles} label={labelFor(v.nature,"documents")}
-        required={ruleFor(v.nature,"documents")==="M"}/>)}
-   </div>
-   <aside className="sheet-side">
-    <section className="card summary-card"><small className="eyebrow">Summary</small>
-     <b className="summary-amount">{v.currency} {v.amount?Number(v.amount).toLocaleString():"0"}</b>
-     <p>{v.vendor||"No vendor yet"} · {v.company||"No company"}</p>
-     <hr/><small className="eyebrow">Approval route</small>
-     <ol className="route">{route.map((r,i)=><li key={r.label} className={i===0?"on":""}><i/><span>{r.label}{r.note&&<small>{r.note}</small>}</span></li>)}</ol></section>
-    <section className="card summary-card"><h2>Before you submit</h2>
-     <ul className="checklist">{checks.map(([label,ok])=><li key={label} className={ok?"ok":""}><i>{ok?<Check/>:null}</i>{label}</li>)}</ul>
-     {!!failed&&<p className="form-error">{failed}</p>}
-     <button className="primary submit-btn" disabled={saving}>{saving?"Submitting…":mgmtFirst===true?"Submit to management":mgmtFirst===false?"Submit to accountant":"Submit request"}</button>
-     <p className="summary-note">A request number is issued when it is saved.</p></section>
-   </aside>
-  </div></form></div>}
+   </label>})}
+ <ExtraFields form="payment" values={extra} onChange={setExtra}/>
+ <label className="wide">{labelFor(v.nature,"description")}
+   <textarea required={ruleFor(v.nature,"description")==="M"} value={v.description}
+     onChange={e=>setV({...v,description:e.target.value})}/></label>
+ {!!failed&&<p className="wide form-error">{failed}</p>}
+ <FilePicker className="wide" files={files} onChange={setFiles} label={labelFor(v.nature,"documents")}
+   required={ruleFor(v.nature,"documents")==="M"}/></div><footer><button type="button" onClick={close}>Cancel</button><button className="primary" disabled={saving}>{saving?"Submitting…":"Submit to accountant"}</button></footer></form></>}
 
 /* Report centre: the payment and audit report, and the workforce report, under one
    menu entry.

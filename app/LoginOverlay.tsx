@@ -53,21 +53,15 @@ export default function LoginOverlay({onLogin,note=""}:{onLogin:(actor:Actor)=>v
 
   return <div className="login-screen">
     <section className="login-story">
-      <div className="login-brand"><b>CMG</b><div><strong>CMG Control</strong><span>Payments · Audit · Material</span></div></div>
-      <div className="login-pitch">
-        <h1>Every payment, audit and material request — in one controlled system.</h1>
-        <p className="login-lead">Request, accounts verification, audit approval, observations and payment release,
-          with material requests, POs and receipts beside them.</p>
-      </div>
-      <div className="login-strip">
-        <div><b>Payments</b><span>Request to release</span></div>
-        <div><b>Audit</b><span>Pre, post &amp; special</span></div>
-        <div><b>Material</b><span>MR, PO, GRN, issue</span></div>
-      </div>
-      <footer className="login-credit"><span>Developed By</span><img src="/developed-by-lof-light.png" alt="LOF"/></footer>
+      <div className="login-mark"><img src="/logo.png" alt="Chandramani Group"/></div>
+      <p>CMG PAYMENT REQUEST</p>
+      <h1>One payment journey.<br/>Clear ownership at every step.</h1>
+      <p className="login-lead">Request, accounts verification, audit approval, observations
+        and payment release connected in one controlled workspace.</p>
+      <div className="login-flow"><b>Request</b><i/><b>Accounts</b><i/><b>Audit</b><i/><b>Release</b></div>
+      <footer className="login-credit"><span>Developed By</span><img src="/developed-by-lof.png" alt="LOF"/></footer>
     </section>
-    <section className="login-card"><div className="login-form">
-      <img className="login-logo" src="/logo.png" alt="Chandramari Group"/>
+    <section className="login-card">
       {mustChange?<>
         <h2>Choose your password</h2>
         <p>This account was opened with a temporary password. Set your own to continue.</p>
@@ -86,12 +80,12 @@ export default function LoginOverlay({onLogin,note=""}:{onLogin:(actor:Actor)=>v
             <LockKeyhole/>{busy?"Saving…":"Set password and continue"}</button>
         </form>
       </>:<>
-        <h2>Sign in</h2>
-        <p>Your dashboard and the actions your role allows open automatically.</p>
+        <h2>WELCOME BACK</h2>
+        <p>Sign in once. Your dashboard and permitted actions will open automatically.</p>
         <form onSubmit={submit}>
-          <label>Work email<input required aria-label="Work email" value={email}
+          <label>WORK EMAIL<input required aria-label="Work email" value={email}
             onChange={e=>setEmail(e.target.value)} type="email" autoComplete="username"/></label>
-          <label>Password<div className="password">
+          <label>PASSWORD<div className="password">
             <input required aria-label="Password" value={password} onChange={e=>setPassword(e.target.value)}
               type={show?"text":"password"} autoComplete="current-password"/>
             <button type="button" aria-label="Show password" onClick={()=>setShow(!show)}>
@@ -99,9 +93,8 @@ export default function LoginOverlay({onLogin,note=""}:{onLogin:(actor:Actor)=>v
           {!!note&&!error&&<div className="login-note">{note}</div>}
           {error&&<div className="login-error">{error}</div>}
           <button className="login-submit" disabled={busy}>
-            <LockKeyhole/>{busy?"Signing in…":"Sign in"}</button>
+            <LockKeyhole/>{busy?"SIGNING IN…":"SIGN IN"}</button>
         </form>
-        <p className="login-foot">No account yet, or forgotten your password? Ask an administrator.</p>
       </>}
-    </div></section>
+    </section>
   </div>}
