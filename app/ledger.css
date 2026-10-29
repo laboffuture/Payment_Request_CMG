@@ -17,8 +17,7 @@ svg.lucide{stroke-width:1.8}
 
 /* ------------------------------------------------------------------ shell */
 .shell{display:flex;min-height:100vh;background:var(--bg-app)}
-/* The menu stays put while the page scrolls: fixed to the window, the page set beside it. */
-.shell>.side{position:fixed;top:0;left:0;bottom:0;flex:none;width:272px;height:100vh;padding:20px 14px 16px;
+.side{position:sticky;top:0;inset:auto;flex:0 0 248px;width:248px;height:100vh;padding:20px 14px 16px;
   background:var(--side-bg);color:var(--side-text);display:flex;flex-direction:column;z-index:30;box-shadow:none}
 .brand{display:flex;align-items:center;gap:11px;padding:0 6px 18px;margin:0;border-bottom:1px solid var(--side-border)}
 .brand>b{flex:none;width:36px;height:36px;border:0;border-radius:9px;background:var(--primary);color:#fff;
@@ -57,7 +56,7 @@ svg.lucide{stroke-width:1.8}
 .mobile-controls select{width:100%;margin-top:6px;height:40px;border-radius:var(--r-ctl);border:1px solid var(--side-border);
   background:var(--side-active);color:#fff;padding:0 12px}
 
-.shell>main{flex:1 1 auto;min-width:0;margin:0 0 0 272px;width:auto}
+.shell>main{flex:1 1 auto;min-width:0;margin:0;width:auto}
 .shell>main>header{position:sticky;top:0;z-index:20;display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;
   gap:12px 18px;height:auto;min-height:68px;padding:14px 32px;background:var(--bg-surface);border-bottom:1px solid var(--border)}
 .heading{display:flex;align-items:center;gap:14px;min-width:0;flex:1 1 420px}
@@ -285,9 +284,7 @@ progress::-moz-progress-bar{background:var(--primary);border-radius:3px}
   .pipeline{grid-template-columns:repeat(3,minmax(0,1fr))}
 }
 @media (max-width:760px){
-  .shell>.side{position:fixed;inset:0 auto 0 0;height:auto;transform:translateX(-100%);transition:transform .2s;width:280px;flex:none}
-  .shell>.side.open{transform:none}
-  .shell>main{margin-left:0}
+  .side{position:fixed;inset:0 auto 0 0;height:auto;transform:translateX(-100%);transition:transform .2s;width:280px;flex:none}
   .side.open{transform:none}
   .brand button{display:grid}
   .hamb{display:grid}
