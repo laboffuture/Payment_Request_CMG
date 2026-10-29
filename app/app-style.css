@@ -101,3 +101,18 @@ td .badge:before{width:7px;height:7px}
   .payment-workbench .wb-panel table.wb-cols11{min-width:0}
   .payment-workbench .wb-panel thead th{position:sticky;top:calc(146px + var(--wb-pin-h,140px));z-index:13;box-shadow:0 1px 0 var(--as-line)}
 }
+
+/* ------------------------------------------------------------------ scheduled payment figures
+   The four figures on Scheduled payment, in the dashboard's style: a coloured square beside
+   the label, the figure in Manrope. */
+.schedule-metrics{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px;margin:0 0 16px}
+.schedule-metrics>article{--kpi-color:var(--as-blue);display:flex;flex-direction:column;gap:8px;padding:16px 20px;background:#fff;
+  border:1px solid var(--as-line);border-radius:12px;box-shadow:none;font-variant-numeric:tabular-nums}
+.schedule-metrics>article:nth-child(2){--kpi-color:var(--as-violet)}
+.schedule-metrics>article:nth-child(3){--kpi-color:var(--as-red)}
+.schedule-metrics>article:nth-child(4){--kpi-color:var(--as-green)}
+.schedule-metrics>article>span{display:flex;align-items:center;gap:7px;margin:0;font-size:12.5px;font-weight:600;letter-spacing:0;
+  text-transform:none;color:var(--as-ink)}
+.schedule-metrics>article>span:before{content:"";flex:none;width:9px;height:9px;border-radius:3px;background:var(--kpi-color)}
+.schedule-metrics>article>b{display:block;margin:0;font:800 30px/1 var(--font-numbers);letter-spacing:-.045em;color:var(--as-ink)}
+@media (max-width:760px){.schedule-metrics{grid-template-columns:repeat(2,minmax(0,1fr))}}
