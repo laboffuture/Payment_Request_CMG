@@ -421,8 +421,8 @@ function Dashboard({payments,go}:{payments:Payment[];go:(m:Module)=>void}){
    <section className="panel risk"><div className="panel-head"><div><small>POSITION</small><h2>Open requests</h2></div></div>
     {(()=>{
       /* The ring is drawn from the same four figures the legend lists, so the two agree. */
-      const parts=[{label:"Attention",n:rejected.length,color:"#d64545"},{label:"Approval",n:needsApproval.length,color:"#e08a1e"},
-        {label:"Available",n:available.length,color:"#e3b84f"},{label:"Released",n:released.length,color:"#3f9b6f"}];
+      const parts=[{label:"Attention",n:rejected.length,color:"#B42318"},{label:"Approval",n:needsApproval.length,color:"#B45309"},
+        {label:"Available",n:available.length,color:"#2563EB"},{label:"Released",n:released.length,color:"#0E8A5F"}];
       const total=parts.reduce((t,x)=>t+x.n,0);let at=0;
       const stops=parts.map(x=>{const from=at;at+=total?x.n/total*100:0;return`${x.color} ${from}% ${at}%`}).join(",");
       return <><div className="ring" style={{background:total?`conic-gradient(${stops})`:"#e4e7ec"}}><span><b>{open.length}</b>open</span></div>
