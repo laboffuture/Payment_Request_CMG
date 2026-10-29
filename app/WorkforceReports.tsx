@@ -72,8 +72,8 @@ export function WorkforceReports({openProfile,flash}:{openProfile:(id:string)=>v
       :loading&&!rows.length?<Loading/>
       :!rows.length?<Empty label="No tasks match these filters."/>
       :<div className="table-wrap"><table className="wf-wide"><thead><tr>
-        <th>Employee</th><th>Task</th><th>Frequency</th><th>Due</th><th>Status</th>
-        <th>Timeliness</th><th>%</th><th>Blocker</th><th>Next action</th></tr></thead>
+        <th>EMPLOYEE</th><th>TASK</th><th>FREQUENCY</th><th>DUE</th><th>STATUS</th>
+        <th>TIMELINESS</th><th>%</th><th>BLOCKER</th><th>NEXT ACTION</th></tr></thead>
         <tbody>{rows.map(t=><tr key={t.id}>
           <td><button className="wf-link" onClick={()=>openProfile(t.employeeId)}>{t.employeeId}</button></td>
           <td>{t.name}</td><td>{t.frequency}</td><td>{t.due}</td>
@@ -124,7 +124,7 @@ export function WorkforceOverview({openProfile,go}:{openProfile:(id:string)=>voi
         <span>{(s.watchlist||[]).length}</span></div>
       {!(s.watchlist||[]).length?<Empty label="Nothing overdue."/>
       :<div className="table-wrap"><table><thead><tr>
-        <th>Employee</th><th>ID</th><th>Tasks</th><th>On time</th><th>Overdue</th></tr></thead>
+        <th>EMPLOYEE</th><th>ID</th><th>TASKS</th><th>ON TIME</th><th>OVERDUE</th></tr></thead>
         <tbody>{(s.watchlist||[]).map(r=><tr key={String(r.id)}>
           <td><button className="wf-link" onClick={()=>openProfile(String(r.id))}>{String(r.name)}</button></td>
           <td>{String(r.code)}</td><td>{n(r.tasks)}</td><td>{n(r.onTime)}</td>
@@ -137,7 +137,7 @@ function PerfTable({title,head,rows}:{title:string;head:string;rows:Record<strin
     <div className="panel-head"><div><small>{title.toUpperCase()}</small><h2>{title}</h2></div><span>{rows.length}</span></div>
     {!rows.length?<Empty label="Nothing mapped yet."/>
     :<div className="table-wrap"><table><thead><tr>
-      <th>{head}</th><th>Employees</th><th>Tasks</th><th>Completed</th><th>Overdue</th><th>%</th></tr></thead>
+      <th>{head}</th><th>EMPLOYEES</th><th>TASKS</th><th>COMPLETED</th><th>OVERDUE</th><th>%</th></tr></thead>
       <tbody>{rows.map(r=>{const tasks=n(r.tasks);const done=n(r.completed);
         const pct=tasks?Math.round(done/tasks*100):0;const color=String(r.color||"#0b725d");
         return <tr key={String(r.id)}>

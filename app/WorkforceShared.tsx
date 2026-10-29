@@ -245,7 +245,7 @@ export function EmployeeEditor({employee,close,flash}:{employee:Partial<Employee
             {selectedCompanies.map(id=>{
               const c=companies.find(x=>x.id===id);
               return(
-                <span key={id} className="wf-tag on" style={{fontSize:"11px",padding:"2px 7px"}}>
+                <span key={id} className="wf-tag on" style={{fontSize:"9px",padding:"2px 7px"}}>
                   {c?c.name:id}
                   <button type="button" onClick={x=>{x.stopPropagation();removeCompany(id);}} title="Remove">×</button>
                 </span>

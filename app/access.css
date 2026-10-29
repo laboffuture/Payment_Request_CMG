@@ -1,11 +1,11 @@
-.rq-head,.access-head{display:flex;justify-content:space-between;align-items:flex-end;margin-bottom:16px}.rq-head small,.access-head small{font-size:11.5px;letter-spacing:.1em;color:var(--text-muted);font-weight:800}.rq-head h2,.access-head h2{font:600 22px var(--font-sans);margin:4px 0}.rq-head p,.access-head p{font-size:11px;color:var(--text-muted);margin:0}.rq-metrics{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:14px}.rq-metrics article{background:#fff;border:1px solid var(--border);border-radius:9px;padding:14px;display:grid;grid-template-columns:30px 1fr;align-items:center}.rq-metrics svg{width:20px;color:var(--tone-accounts);grid-row:span 2}.rq-metrics b{font:600 22px var(--font-sans)}.rq-metrics span{font-size:11.5px;color:var(--text-muted)}.rq-list{padding:0}.rq-list>button{width:100%;border:0;border-top:1px solid var(--divider);background:#fff;padding:12px 16px;display:grid;grid-template-columns:1.4fr .7fr 1.2fr 80px;align-items:center;text-align:left}.rq-list>button:hover{background:var(--bg-subtle)}.rq-list button div:first-child b,.rq-list button div:first-child span{display:block}.rq-list button div:first-child b{font-size:11px}.rq-list button div:first-child span{font-size:11.5px;color:var(--text-muted)}.rq-list strong{font-size:12px}.rq-list em{font-style:normal;font-size:11.5px;color:var(--primary);font-weight:800}.rq-status>span{font-size:11.5px}.rq-status>div{display:flex;gap:3px;margin-top:5px}.rq-status i{height:3px;flex:1;background:var(--border);border-radius:4px}.rq-status i.on{background:var(--primary)}.access-tabs{display:flex;border-bottom:1px solid #dfe3e8;margin-bottom:12px}
+.rq-head,.access-head{display:flex;justify-content:space-between;align-items:flex-end;margin-bottom:16px}.rq-head small,.access-head small{font-size:9px;letter-spacing:.1em;color:#8a93a3;font-weight:800}.rq-head h2,.access-head h2{font:600 22px var(--font-sans);margin:4px 0}.rq-head p,.access-head p{font-size:11px;color:#667085;margin:0}.rq-metrics{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:14px}.rq-metrics article{background:#fff;border:1px solid #e4e7ec;border-radius:9px;padding:14px;display:grid;grid-template-columns:30px 1fr;align-items:center}.rq-metrics svg{width:20px;color:#26497f;grid-row:span 2}.rq-metrics b{font:600 22px var(--font-sans)}.rq-metrics span{font-size:9px;color:#667085}.rq-list{padding:0}.rq-list>button{width:100%;border:0;border-top:1px solid #eef0f4;background:#fff;padding:12px 16px;display:grid;grid-template-columns:1.4fr .7fr 1.2fr 80px;align-items:center;text-align:left}.rq-list>button:hover{background:#fafbfc}.rq-list button div:first-child b,.rq-list button div:first-child span{display:block}.rq-list button div:first-child b{font-size:11px}.rq-list button div:first-child span{font-size:9px;color:#667085}.rq-list strong{font-size:10px}.rq-list em{font-style:normal;font-size:9px;color:#1b3a66;font-weight:800}.rq-status>span{font-size:9px}.rq-status>div{display:flex;gap:3px;margin-top:5px}.rq-status i{height:3px;flex:1;background:#e4e7ec;border-radius:4px}.rq-status i.on{background:#c9a227}.access-tabs{display:flex;border-bottom:1px solid #dfe3e8;margin-bottom:12px}
 /* The search strip above the users table. Sixty-two logins against a page of fifty meant
    the list was already cut short without saying so; this says how many there are. */
 .access-tools{display:flex;align-items:center;gap:10px;margin-bottom:10px}
 .access-tools .recv-search{flex:1;max-width:420px;margin:0}
-.access-tools .recv-search input{font-size:12px;padding:9px}
-.access-count{font-size:11.5px;font-weight:700;color:var(--text-muted);white-space:nowrap}
-@media(max-width:700px){.access-tools{flex-wrap:wrap}.access-tools .recv-search{max-width:100%}}.access-tabs button{border:0;background:none;padding:10px 3px;margin-right:20px;font-size:12px;font-weight:700;color:var(--text-muted);border-bottom:2px solid transparent}.access-tabs button.active{color:var(--text);border-color:var(--primary)}.user-table{padding:0;overflow:auto}.user-table table{min-width:980px}.user-cell{display:flex;align-items:center;gap:8px}.user-cell i{width:28px;height:28px;border-radius:50%;background:var(--tone-accounts-bg);color:var(--tone-accounts);display:grid;place-items:center}.user-cell svg{width:14px}.user-cell span b,.user-cell span small{display:block}.mini-pill{display:inline-block;padding:3px 6px;background:var(--tone-accounts-bg);color:var(--primary);border-radius:5px;font-size:11px;font-weight:700;margin:2px}.user-table td>button{border:1px solid var(--border-strong);background:#fff;border-radius:6px;padding:6px 8px;font-size:11px;display:inline-flex;align-items:center;gap:4px}.user-table td>button svg{width:12px}.user-table td>button.delete{color:var(--danger);margin-left:6px}.access-editor{position:fixed;right:0;top:0;bottom:0;width:540px;background:#fff;z-index:45;display:flex;flex-direction:column;box-shadow:-15px 0 40px #0b1d3a30}.access-editor header{height:66px;padding:0 20px;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center}.access-editor header small{font-size:11px;letter-spacing:.1em;color:var(--text-muted)}.access-editor h2{font:600 17px var(--font-sans);margin:3px 0}.access-editor header button{border:0;background:none}.access-editor header svg{width:17px}.access-editor>div{padding:18px 20px;overflow:auto}.access-editor>div>label{display:block;font-size:11.5px;font-weight:700;color:var(--text-muted);margin-bottom:12px}.access-editor input{display:block;width:100%;border:1px solid var(--border-strong);border-radius:6px;padding:9px;margin-top:5px}.access-editor fieldset{border:1px solid var(--border);border-radius:8px;margin:13px 0;padding:11px}.access-editor legend{font-size:11.5px;font-weight:800;color:var(--text-muted);padding:0 5px}.access-editor fieldset div{display:flex;flex-wrap:wrap;gap:6px}.access-editor fieldset button{border:1px solid var(--border-strong);background:#fff;border-radius:6px;padding:6px 8px;font-size:11px;display:flex;align-items:center;gap:3px}.access-editor fieldset button.selected{background:var(--tone-accounts-bg);border-color:#8ea5c7;color:var(--primary)}.access-editor fieldset svg{width:10px}.access-editor footer{margin-top:auto;padding:14px 20px;border-top:1px solid var(--border);display:flex;justify-content:flex-end;gap:7px}.access-editor footer>button{border:1px solid var(--border-strong);background:#fff;border-radius:7px;padding:9px 11px}.matrix td{font-size:12px}
+.access-tools .recv-search input{font-size:10px;padding:9px}
+.access-count{font-size:9px;font-weight:700;color:#667085;white-space:nowrap}
+@media(max-width:700px){.access-tools{flex-wrap:wrap}.access-tools .recv-search{max-width:100%}}.access-tabs button{border:0;background:none;padding:10px 3px;margin-right:20px;font-size:10px;font-weight:700;color:#667085;border-bottom:2px solid transparent}.access-tabs button.active{color:#0b1d3a;border-color:#c9a227}.user-table{padding:0;overflow:auto}.user-table table{min-width:980px}.user-cell{display:flex;align-items:center;gap:8px}.user-cell i{width:28px;height:28px;border-radius:50%;background:#eef3fa;color:#26497f;display:grid;place-items:center}.user-cell svg{width:14px}.user-cell span b,.user-cell span small{display:block}.mini-pill{display:inline-block;padding:3px 6px;background:#eef3fa;color:#1b3a66;border-radius:5px;font-size:8px;font-weight:700;margin:2px}.user-table td>button{border:1px solid #d0d5dd;background:#fff;border-radius:6px;padding:6px 8px;font-size:8px;display:inline-flex;align-items:center;gap:4px}.user-table td>button svg{width:12px}.user-table td>button.delete{color:#b3372a;margin-left:6px}.access-editor{position:fixed;right:0;top:0;bottom:0;width:540px;background:#fff;z-index:45;display:flex;flex-direction:column;box-shadow:-15px 0 40px #0b1d3a30}.access-editor header{height:66px;padding:0 20px;border-bottom:1px solid #e4e7ec;display:flex;justify-content:space-between;align-items:center}.access-editor header small{font-size:8px;letter-spacing:.1em;color:#8a93a3}.access-editor h2{font:600 17px var(--font-sans);margin:3px 0}.access-editor header button{border:0;background:none}.access-editor header svg{width:17px}.access-editor>div{padding:18px 20px;overflow:auto}.access-editor>div>label{display:block;font-size:9px;font-weight:700;color:#667085;margin-bottom:12px}.access-editor input{display:block;width:100%;border:1px solid #d0d5dd;border-radius:6px;padding:9px;margin-top:5px}.access-editor fieldset{border:1px solid #e4e7ec;border-radius:8px;margin:13px 0;padding:11px}.access-editor legend{font-size:9px;font-weight:800;color:#667085;padding:0 5px}.access-editor fieldset div{display:flex;flex-wrap:wrap;gap:6px}.access-editor fieldset button{border:1px solid #d0d5dd;background:#fff;border-radius:6px;padding:6px 8px;font-size:8px;display:flex;align-items:center;gap:3px}.access-editor fieldset button.selected{background:#eef3fa;border-color:#8ea5c7;color:#1b3a66}.access-editor fieldset svg{width:10px}.access-editor footer{margin-top:auto;padding:14px 20px;border-top:1px solid #e4e7ec;display:flex;justify-content:flex-end;gap:7px}.access-editor footer>button{border:1px solid #d0d5dd;background:#fff;border-radius:7px;padding:9px 11px}.matrix td{font-size:10px}
 /* .access-head is space-between with two children, so a second button beside "Add user"
    would have been pushed to the far side rather than grouped with it - hence the wrapper.
    .wf-small declares no display of its own, which leaves the icon sitting on the text
@@ -16,16 +16,16 @@
 .access-raisers{display:flex;flex-direction:column;gap:4px;max-height:260px;overflow-y:auto;
   margin-top:8px;padding-right:2px}
 .access-raisers button{display:flex;align-items:center;gap:7px;width:100%;text-align:left;
-  border:1px solid var(--border-strong);background:#fff;border-radius:6px;padding:7px 9px;font:inherit;cursor:pointer}
-.access-raisers button.selected{background:var(--tone-accounts-bg);border-color:#8ea5c7;color:var(--primary)}
+  border:1px solid #d0d5dd;background:#fff;border-radius:6px;padding:7px 9px;font:inherit;cursor:pointer}
+.access-raisers button.selected{background:#eef3fa;border-color:#8ea5c7;color:#1b3a66}
 .access-raisers button svg{width:12px;height:12px;flex:none}
 /* The count sits at the far end of the row, so the names and addresses stay aligned
    down the left however long the number is. "none yet" is deliberately quiet - it is
    the common case and should read as information, not as a warning. */
 .access-raisers button>span{flex:1;min-width:0}
-.raiser-count{margin-left:auto;flex:none;font-style:normal;font-size:11px;font-weight:700;
-  color:var(--text-muted);background:var(--bg-muted);border-radius:20px;padding:3px 7px;white-space:nowrap}
-.raiser-count.has{color:var(--primary);background:var(--tone-accounts-bg)}
+.raiser-count{margin-left:auto;flex:none;font-style:normal;font-size:8px;font-weight:700;
+  color:#98a2b3;background:#f2f4f7;border-radius:20px;padding:3px 7px;white-space:nowrap}
+.raiser-count.has{color:#1b3a66;background:#eef3fa}
 
 /* The rules above were written as if this list were the only thing styling it. It is not:
    the drawer already dresses every div and button inside a fieldset for the role chips,
@@ -47,26 +47,26 @@
   gap:4px;max-height:280px;overflow-y:auto;margin-top:8px;padding-right:3px}
 .access-editor fieldset .access-raisers button{display:grid;
   grid-template-columns:14px minmax(0,1fr) auto;align-items:center;gap:10px;width:100%;
-  text-align:left;border:1px solid var(--border-strong);background:#fff;border-radius:7px;
-  padding:8px 10px;font-family:inherit;font-size:12px;cursor:pointer}
-.access-editor fieldset .access-raisers button:hover{border-color:#8ea5c7;background:var(--bg-subtle)}
-.access-editor fieldset .access-raisers button.selected{background:var(--tone-accounts-bg);border-color:#8ea5c7;color:var(--primary)}
+  text-align:left;border:1px solid #d0d5dd;background:#fff;border-radius:7px;
+  padding:8px 10px;font-family:inherit;font-size:10px;cursor:pointer}
+.access-editor fieldset .access-raisers button:hover{border-color:#8ea5c7;background:#fafbfc}
+.access-editor fieldset .access-raisers button.selected{background:#eef3fa;border-color:#8ea5c7;color:#1b3a66}
 .access-editor fieldset .access-raisers button svg{width:13px;height:13px;flex:none}
 .raiser-tick{display:grid;place-items:center;width:14px;height:14px;font-style:normal}
 .access-raisers b,.access-raisers small{display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.access-raisers b{font-size:12px;font-weight:700;line-height:1.3}
-.access-raisers small{font-size:11px;color:var(--text-muted);line-height:1.3;margin-top:1px}
+.access-raisers b{font-size:10px;font-weight:700;line-height:1.3}
+.access-raisers small{font-size:8px;color:#667085;line-height:1.3;margin-top:1px}
 .access-editor fieldset .access-raisers .raiser-count{justify-self:end;margin:0;
   min-width:74px;text-align:center;padding:4px 8px}
 .access-raisers b,.access-raisers small{display:block}
-.access-raisers b{font-size:12px}
-.access-raisers small{font-size:11px;color:var(--text-muted)}
+.access-raisers b{font-size:10px}
+.access-raisers small{font-size:8px;color:#667085}
 .access-editor .recv-search{margin-top:8px}
 
 .access-head-actions{display:flex;align-items:center;gap:8px}
 .access-head-actions .wf-small{display:inline-flex;align-items:center;gap:6px;
   border:1px solid #bad8cf;background:#eef8f5;color:var(--green);border-radius:6px;
-  padding:8px 12px;font-size:11.5px;font-weight:700;line-height:1.2;white-space:nowrap;cursor:pointer}
+  padding:8px 12px;font-size:9px;font-weight:700;line-height:1.2;white-space:nowrap;cursor:pointer}
 .access-head-actions .wf-small svg{width:13px;height:13px;flex:none}
 .access-head-actions .wf-small:hover:not(:disabled){background:#e3f3ee;border-color:#9ecabd}
 .access-head-actions .wf-small:disabled{opacity:.45;cursor:not-allowed}
@@ -78,7 +78,7 @@
    takes the buttons' metrics with a transparent border - same box height, no chrome. */
 .user-table .you-marker{display:inline-flex;align-items:center;gap:4px;
   border:1px solid transparent;border-radius:6px;padding:6px 8px;
-  font-size:11px;font-weight:700;color:var(--text-muted);margin-left:6px;vertical-align:middle}
+  font-size:8px;font-weight:700;color:#667085;margin-left:6px;vertical-align:middle}
 .user-table .you-marker svg{width:12px;flex:none}
 /* keep both controls on one line and vertically centred with each other */
 .user-table td>button{vertical-align:middle}
@@ -97,40 +97,40 @@
 /* The person picker on a new login: a search rather than a dropdown of everybody */
 .access-editor .wf-picker{margin-top:6px;max-height:210px}
 .access-picked{display:flex;align-items:center;gap:10px;border:1px solid var(--line);
-  background:var(--bg-subtle);border-radius:8px;padding:9px 11px;margin-top:5px}
+  background:#fafbfc;border-radius:8px;padding:9px 11px;margin-top:5px}
 .access-picked b{font-size:12px;font-weight:600}
-.access-picked small{flex:1;font-size:12px;color:var(--muted)}
+.access-picked small{flex:1;font-size:10px;color:var(--muted)}
 .access-picked button{border:1px solid var(--line);background:#fff;border-radius:6px;
-  padding:5px 9px;font-size:12px;cursor:pointer}
-.access-picked button:hover{border-color:var(--primary)}
+  padding:5px 9px;font-size:10px;cursor:pointer}
+.access-picked button:hover{border-color:#0b1d3a}
 
 /* The search boxes in Users & access. The editor gives every input its own border,
    padding and margin, so the one inside the search frame drew a second box within the
    first - 62px tall, 16px text, a tiny icon - and it stopped short of the list under it.
    One frame now, full width, the height and type of the rest of the panel. */
 .access-editor .recv-search,.access-tools .recv-search{display:flex;align-items:center;gap:8px;height:38px;padding:0 12px;
-  border:1px solid var(--line,var(--border));border-radius:8px;background:#fff;box-sizing:border-box}
+  border:1px solid var(--line,#e4e7ec);border-radius:8px;background:#fff;box-sizing:border-box}
 .access-editor .recv-search{width:100%;max-width:none;margin:4px 0 10px}
-.access-editor .recv-search:focus-within,.access-tools .recv-search:focus-within{border-color:#84adff;box-shadow:0 0 0 3px var(--tone-accounts-bg)}
-.access-editor .recv-search svg,.access-tools .recv-search svg{width:15px;height:15px;flex:none;color:var(--text-muted)}
+.access-editor .recv-search:focus-within,.access-tools .recv-search:focus-within{border-color:#84adff;box-shadow:0 0 0 3px #eff4ff}
+.access-editor .recv-search svg,.access-tools .recv-search svg{width:15px;height:15px;flex:none;color:#98a2b3}
 .access-editor .recv-search input,.access-tools .recv-search input{display:block;width:100%;min-width:0;height:100%;margin:0;padding:0;
-  border:0;border-radius:0;background:none;box-shadow:none;outline:0;font:inherit;font-size:12.5px;color:var(--text)}
-.access-editor .recv-search input::placeholder,.access-tools .recv-search input::placeholder{color:var(--text-muted)}
+  border:0;border-radius:0;background:none;box-shadow:none;outline:0;font:inherit;font-size:12.5px;color:#1d2939}
+.access-editor .recv-search input::placeholder,.access-tools .recv-search input::placeholder{color:#98a2b3}
 .access-tools{align-items:center;gap:12px}
 
 /* The editor's footer: Cancel and Save the same height and type, at the right. */
-.access-editor footer{display:flex;justify-content:flex-end;align-items:center;gap:8px;padding:14px 20px;border-top:1px solid var(--line,var(--border))}
+.access-editor footer{display:flex;justify-content:flex-end;align-items:center;gap:8px;padding:14px 20px;border-top:1px solid var(--line,#e4e7ec)}
 .access-editor footer button{display:inline-flex;align-items:center;justify-content:center;gap:6px;height:38px;margin:0;padding:0 16px;
   border-radius:8px;font:inherit;font-size:12px;font-weight:600;line-height:1;cursor:pointer}
-.access-editor footer button:not(.primary){border:1px solid var(--line,var(--border));background:#fff;color:var(--text-2)}
-.access-editor footer button:not(.primary):hover{background:var(--bg-subtle)}
+.access-editor footer button:not(.primary){border:1px solid var(--line,#e4e7ec);background:#fff;color:#344054}
+.access-editor footer button:not(.primary):hover{background:#f9fafb}
 
 /* The notes inside the editor - the account's email, the hint above the requestors - sit
    with the form, not centred like an empty list. */
-.access-editor .queue-empty{text-align:left;padding:0;margin:0 0 10px;font-size:12px;color:var(--text-muted)}
+.access-editor .queue-empty{text-align:left;padding:0;margin:0 0 10px;font-size:12px;color:#667085}
 
 /* "Not on the organisation chart" switch in the add-user drawer */
 .access-offchart{display:flex!important;flex-direction:row!important;align-items:center;gap:8px}
 .access-offchart input{width:auto!important;margin:0!important}
 /* the supplier picker for a Vendor login, drawn like the drawer's other fields */
-.access-editor select{display:block;width:100%;border:1px solid var(--border-strong);border-radius:6px;padding:9px;margin-top:5px;background:#fff;font-size:12px}
+.access-editor select{display:block;width:100%;border:1px solid #d0d5dd;border-radius:6px;padding:9px;margin-top:5px;background:#fff;font-size:12px}

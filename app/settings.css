@@ -1,24 +1,24 @@
 /* Settings: master data for an administrator */
 .settings-tabs{display:flex;gap:6px;margin-bottom:14px}
 .settings-tabs button{border:1px solid var(--line);background:#fff;border-radius:8px;
-  padding:8px 13px;font-size:11px;cursor:pointer;color:var(--text-muted)}
-.settings-tabs button.active{background:var(--primary);border-color:var(--primary);color:#fff;font-weight:600}
+  padding:8px 13px;font-size:11px;cursor:pointer;color:#667085}
+.settings-tabs button.active{background:#0b1d3a;border-color:#0b1d3a;color:#fff;font-weight:600}
 .settings-body{display:grid;grid-template-columns:230px 1fr;gap:14px;align-items:start}
 .settings-side{display:flex;flex-direction:column;gap:6px}
 .settings-side button{text-align:left;border:1px solid var(--line);background:#fff;
   border-radius:9px;padding:10px 12px;cursor:pointer}
-.settings-side button.active{border-color:var(--primary);box-shadow:inset 3px 0 var(--primary)}
+.settings-side button.active{border-color:#0b1d3a;box-shadow:inset 3px 0 #c9a227}
 .settings-side b{display:block;font-size:12px;font-weight:600}
-.settings-side small{display:block;font-size:12px;color:var(--muted);margin-top:2px}
+.settings-side small{display:block;font-size:10px;color:var(--muted);margin-top:2px}
 .settings-main{padding:0;overflow:hidden}
 .settings-main .panel-head{padding:14px 17px;margin:0}
-.settings-note{margin:0;padding:0 17px 12px;font-size:11px;color:var(--text-muted);max-width:60ch}
+.settings-note{margin:0;padding:0 17px 12px;font-size:11px;color:#667085;max-width:60ch}
 .settings-add{display:flex;gap:8px;padding:0 17px 14px}
 .settings-add input{flex:1;max-width:360px;border:1px solid var(--line);border-radius:7px;
   padding:9px 11px;font-size:11px;background:#fff}
 .settings-field-add{display:grid;grid-template-columns:1fr 160px;gap:10px;padding:0 17px 15px;
   align-items:end}
-.settings-field-add label{font-size:12px;color:var(--muted)}
+.settings-field-add label{font-size:10px;color:var(--muted)}
 .settings-field-add .wide{grid-column:span 2}
 .settings-field-add input[type=text],.settings-field-add input:not([type]),
 .settings-field-add select{display:block;width:100%;border:1px solid var(--line);
@@ -30,12 +30,12 @@
 .settings-error{margin:0;padding:0 17px 12px;font-size:11px;color:var(--red)}
 .settings-list{list-style:none;margin:0;padding:0;border-top:1px solid var(--line)}
 .settings-list li{display:flex;align-items:center;gap:10px;padding:11px 17px;
-  border-bottom:1px solid var(--divider);font-size:12px}
+  border-bottom:1px solid #edf1ef;font-size:12px}
 .settings-list li>span{flex:1}
-.settings-list li>span small{display:block;font-size:12px;color:var(--muted);margin-top:2px}
-.settings-req{font-style:normal;font-size:11.5px;color:#b86b08;margin-left:6px}
+.settings-list li>span small{display:block;font-size:10px;color:var(--muted);margin-top:2px}
+.settings-req{font-style:normal;font-size:9px;color:#b86b08;margin-left:6px}
 .settings-list li>button{border:1px solid var(--line);background:#fff;border-radius:6px;
-  padding:6px 9px;font-size:12px;cursor:pointer;display:flex;align-items:center;gap:5px}
+  padding:6px 9px;font-size:10px;cursor:pointer;display:flex;align-items:center;gap:5px}
 .settings-list li>button svg{width:12px;height:12px}
 .settings-list li>button:disabled{opacity:.5;cursor:not-allowed}
 .settings-list li>button.settings-delete:hover{border-color:var(--red);color:var(--red)}
@@ -48,7 +48,7 @@
 /* Extra field values shown back on a record */
 .extra-values{list-style:none;margin:10px 0 0;padding:0;display:grid;gap:6px}
 .extra-values li{display:flex;justify-content:space-between;gap:12px;font-size:11px;
-  border-top:1px solid var(--divider);padding-top:6px}
+  border-top:1px solid #edf1ef;padding-top:6px}
 .extra-values span{color:var(--muted)}
 .extra-values b{font-weight:600}
 
@@ -59,9 +59,9 @@
 @media(max-width:900px){.report-centre-tabs{padding:18px 16px 0}}
 
 /* Payment request form: which fields are optional, and where a type is usually raised */
-.form label>.field-optional{font-style:normal;font-size:11.5px;font-weight:700;color:var(--text-muted);
+.form label>.field-optional{font-style:normal;font-size:9px;font-weight:700;color:#98a2b3;
   margin-left:6px;letter-spacing:.04em;text-transform:uppercase}
-.form label>.field-hint{display:block;font-size:12px;color:var(--text-muted);margin-top:4px}
+.form label>.field-hint{display:block;font-size:10px;color:#98a2b3;margin-top:4px}
 
 /* Vendor suggestions, drawn under the field rather than by the browser */
 .form label.vendor-field{position:relative}
@@ -73,21 +73,21 @@
 /* A module that exists but is waiting on its format */
 .awaiting-format{padding:22px 24px;max-width:70ch}
 .awaiting-format h3{margin:0 0 8px;font:600 15px var(--font-sans)}
-.awaiting-format p{margin:0 0 10px;font-size:12px;line-height:1.55;color:var(--text-muted)}
+.awaiting-format p{margin:0 0 10px;font-size:12px;line-height:1.55;color:#667085}
 .awaiting-format .awaiting-note{margin:0;padding-top:10px;border-top:1px solid var(--line);
-  font-size:11px;color:var(--text-muted)}
+  font-size:11px;color:#98a2b3}
 
 /* A form that could not be saved says so, where it was filled in */
 .form .form-error{margin:0;padding:10px 12px;border-radius:7px;background:#fdf0ef;
-  border:1px solid #f0c4c0;color:var(--danger);font-size:11.5px;line-height:1.5}
+  border:1px solid #f0c4c0;color:#b3372a;font-size:11.5px;line-height:1.5}
 
 /* How far a request has travelled, shown the same way in the queue and in the
    requestor's own list. Six pips, filled to the stage reached, with the stage named
    beneath so the row reads without counting them. */
 .stage-track{display:flex;flex-wrap:wrap;gap:3px;align-items:center}
-.stage-track i{width:12px;height:4px;border-radius:2px;background:var(--border);flex:none}
-.stage-track i.on{background:var(--primary)}
-.stage-track small{flex-basis:100%;font-size:11.5px;color:var(--muted);margin-top:3px}
+.stage-track i{width:12px;height:4px;border-radius:2px;background:#e4e7ec;flex:none}
+.stage-track i.on{background:#1e7a52}
+.stage-track small{flex-basis:100%;font-size:9px;color:var(--muted);margin-top:3px}
 
 /* The requestor's list, in the same shape as the queue */
 .rq-table table{min-width:1120px;table-layout:fixed}
@@ -102,28 +102,28 @@
 .rq-table th:nth-child(8),.rq-table td:nth-child(8){width:14%}
 .rq-table th:nth-child(9),.rq-table td:nth-child(9){width:10%}
 .rq-table td:nth-child(3),.rq-table td:nth-child(7){overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.rq-actor small{display:block;font-size:11.5px;color:var(--text-muted);margin-top:2px}
+.rq-actor small{display:block;font-size:9px;color:#98a2b3;margin-top:2px}
 
 /* The search strip, shaped like the one on the audit lists so the two screens read the
    same way. Sits inside the panel between the heading and the table. */
 .rq-tools{display:flex;gap:9px;align-items:center;padding:11px 16px;background:#f9fafc;
-  border-bottom:1px solid var(--border);border-top:1px solid var(--divider)}
+  border-bottom:1px solid #e4e7ec;border-top:1px solid #eef0f4}
 .rq-tools label{display:flex;align-items:center;flex:1;max-width:520px;border:1px solid #d0d7e0;
   background:#fff;border-radius:7px;padding:0 10px}
 .rq-tools label svg{width:15px;height:15px;flex:none;color:#8b96a5}
-.rq-tools input{width:100%;border:0;outline:0;padding:10px;font-size:12px;font-family:inherit}
+.rq-tools input{width:100%;border:0;outline:0;padding:10px;font-size:10px;font-family:inherit}
 .rq-clear{border:1px solid #d0d7e0;background:#fff;border-radius:7px;padding:8px 11px;
-  font-size:11.5px;font-weight:700;color:var(--primary);white-space:nowrap;cursor:pointer;font-family:inherit}
+  font-size:9px;font-weight:700;color:#1b3a66;white-space:nowrap;cursor:pointer;font-family:inherit}
 .rq-clear:hover{border-color:#9ecabd;background:#f2f9f7}
 
 /* The correction form inside the returned-request drawer. Two columns like the request
    form it mirrors, collapsing on a narrow drawer. */
 .wf-fix-fields{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px}
-.wf-fix-fields label{display:block;font-size:11.5px;color:var(--text-muted);font-weight:700}
+.wf-fix-fields label{display:block;font-size:9px;color:#667085;font-weight:700}
 .wf-fix-fields label.wide{grid-column:span 2}
 .wf-fix-fields input,.wf-fix-fields select{display:block;width:100%;border:1px solid #d0d7e0;
   border-radius:6px;padding:8px;margin-top:4px;font-size:11px;font-family:inherit;background:#fff}
-.wf-fix-fields .field-optional{font-style:normal;font-weight:600;color:var(--text-muted);margin-left:5px}
+.wf-fix-fields .field-optional{font-style:normal;font-weight:600;color:#98a2b3;margin-left:5px}
 @media(max-width:560px){.wf-fix-fields{grid-template-columns:1fr}.wf-fix-fields label.wide{grid-column:auto}}
 @media(max-width:700px){.rq-tools{flex-wrap:wrap}.rq-tools label{min-width:100%}}
 
@@ -136,7 +136,7 @@
    width="24" height="24" - setting width alone leaves a 24px-tall icon stretching the button. */
 .rq-table .panel-head .wf-small{display:inline-flex;align-items:center;gap:6px;
   border:1px solid #bad8cf;background:#eef8f5;color:var(--green);border-radius:6px;
-  padding:7px 11px;font-size:11.5px;font-weight:700;line-height:1.2;white-space:nowrap;cursor:pointer}
+  padding:7px 11px;font-size:9px;font-weight:700;line-height:1.2;white-space:nowrap;cursor:pointer}
 .rq-table .panel-head .wf-small svg{width:13px;height:13px;flex:none}
 .rq-table .panel-head .wf-small:hover:not(:disabled){background:#e3f3ee;border-color:#9ecabd}
 .rq-table .panel-head .wf-small:disabled{opacity:.45;cursor:not-allowed}
@@ -147,27 +147,27 @@
 .sa-row p{margin:4px 0 0;font-size:12px;color:var(--muted);max-width:560px;line-height:1.5}
 .sa-switch{display:inline-flex;align-items:center;gap:8px;flex:none;border:1px solid var(--line);background:#fff;border-radius:999px;
   padding:4px 12px 4px 4px;font:inherit;font-size:12px;font-weight:700;color:var(--muted);cursor:pointer}
-.sa-switch i{width:34px;height:20px;border-radius:999px;background:var(--border-strong);position:relative;transition:background .15s}
+.sa-switch i{width:34px;height:20px;border-radius:999px;background:#d0d5dd;position:relative;transition:background .15s}
 .sa-switch i::after{content:"";position:absolute;top:2px;left:2px;width:16px;height:16px;border-radius:50%;background:#fff;transition:left .15s}
 .sa-switch.on{color:var(--green);border-color:#b7dccf}
 .sa-switch.on i{background:var(--green)}
 .sa-switch.on i::after{left:16px}
-.sa-companies small{font-size:12px;font-weight:700;letter-spacing:.08em;color:var(--muted)}
+.sa-companies small{font-size:10px;font-weight:700;letter-spacing:.08em;color:var(--muted)}
 .sa-companies.off{opacity:.5}
 .sa-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:8px;margin-top:8px}
 .sa-co{display:flex;align-items:center;gap:9px;border:1px solid var(--line);background:#fff;border-radius:8px;padding:9px 11px;
   font:inherit;font-size:12px;text-align:left;cursor:pointer;color:var(--ink)}
 .sa-co.on{border-color:var(--green);background:#eff8f4;font-weight:600}
 .sa-co:disabled{cursor:not-allowed}
-.sa-box{display:grid;place-items:center;width:16px;height:16px;border:1px solid var(--border-strong);border-radius:4px;flex:none;font-size:11px;color:#fff;background:#fff}
+.sa-box{display:grid;place-items:center;width:16px;height:16px;border:1px solid #d0d5dd;border-radius:4px;flex:none;font-size:11px;color:#fff;background:#fff}
 .sa-co.on .sa-box{background:var(--green);border-color:var(--green)}
-.sa-note{margin:0;padding:10px 12px;border-radius:8px;background:var(--tone-correction-bg);color:#93370d;font-size:12px}
+.sa-note{margin:0;padding:10px 12px;border-radius:8px;background:#fffaeb;color:#93370d;font-size:12px}
 .sa-actions{display:flex;justify-content:flex-end;gap:8px}
 .sa-actions button{height:36px;padding:0 16px;border-radius:8px;border:1px solid var(--line);background:#fff;font:inherit;font-size:12px;font-weight:600;cursor:pointer}
 .sa-actions button.primary{background:var(--green);border-color:var(--green);color:#fff}
 .sa-actions button:disabled{opacity:.5;cursor:not-allowed}
 @media(max-width:640px){.sa-row{flex-direction:column}}
-.sa-approvers small{font-size:12px;font-weight:700;letter-spacing:.08em;color:var(--muted)}
+.sa-approvers small{font-size:10px;font-weight:700;letter-spacing:.08em;color:var(--muted)}
 .sa-approver{display:flex;align-items:center;justify-content:space-between;gap:16px;padding:10px 12px;margin-top:8px;border:1px solid var(--line);border-radius:8px;background:#fff}
 .sa-approver b{font-size:12px}
 .sa-approver .ms-btn{height:34px;min-width:220px;max-width:320px;font-size:12px}

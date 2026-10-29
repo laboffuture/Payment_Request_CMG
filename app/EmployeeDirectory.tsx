@@ -61,7 +61,7 @@ export default function EmployeeDirectory({openProfile,flash,readOnly}:{readOnly
       :loading&&!rows.length?<Loading/>
       :!rows.length?<Empty label="No employees match this filter."/>
       :<><div className="table-wrap"><table><thead><tr>
-        <th>Employee</th><th>Designation</th><th>Department</th><th>Email</th><th>Phone</th><th>Status</th><th>Actions</th></tr></thead>
+        <th>EMPLOYEE</th><th>DESIGNATION</th><th>DEPARTMENT</th><th>EMAIL</th><th>PHONE</th><th>STATUS</th><th>ACTIONS</th></tr></thead>
         <tbody>{rows.map(e=>{const r=wf.roleById(e.roleId);return <tr key={e.id}>
           <td><button className="wf-link" onClick={()=>openProfile(e.id)}>
             <Avatar employee={e} size={28} color={r?.color}/>{e.name}</button></td>

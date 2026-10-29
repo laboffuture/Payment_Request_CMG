@@ -30,7 +30,7 @@ select:disabled{cursor:not-allowed;opacity:.6}
 }
 .mm table select{height:32px!important}
 .head-actions>select{height:38px!important;font-size:12px!important;font-weight:500;border-radius:var(--ui-r)!important;
-  border:1px solid var(--border)!important;background-color:#fff!important;padding-left:12px!important}
+  border:1px solid #e4e7ec!important;background-color:#fff!important;padding-left:12px!important}
 
 /* ---------------------------------------------------------------- text boxes */
 .mm input:not([type=checkbox]):not([type=radio]):not([type=file]),.mm textarea{
@@ -45,23 +45,23 @@ select:disabled{cursor:not-allowed;opacity:.6}
 
 select:hover:not(:disabled),.mm input:hover:not(:disabled):not(:focus),.mm textarea:hover:not(:disabled):not(:focus){border-color:var(--ui-line-hover)}
 select:focus-visible,.form input:focus,.form select:focus,.form textarea:focus{
-  outline:0;border-color:var(--primary)!important;box-shadow:var(--ui-ring);
+  outline:0;border-color:#1b3a66!important;box-shadow:var(--ui-ring);
 }
 .audit-list-tools label:focus-within,.wb-tools label:focus-within,.rq-tools label:focus-within,.toolbar label:focus-within,
-.recv-search:focus-within{border-color:var(--primary)!important;box-shadow:var(--ui-ring)}
-::placeholder{color:var(--text-muted);opacity:1}
+.recv-search:focus-within{border-color:#1b3a66!important;box-shadow:var(--ui-ring)}
+::placeholder{color:#98a2b3;opacity:1}
 
 /* ---------------------------------------------------------------- buttons */
 button{cursor:pointer;transition:background-color .12s,border-color .12s,box-shadow .12s,color .12s}
 button:disabled{cursor:not-allowed}
-button:focus-visible,a:focus-visible{outline:2px solid var(--primary);outline-offset:2px}
+button:focus-visible,a:focus-visible{outline:2px solid #1b3a66;outline-offset:2px}
 
 /* The main action at the top of a page: one height everywhere. */
 .intro .primary,.rq-head .primary,.access-head .primary,.recv-subhead .primary,.audit-list-actions .primary,.wf-head-tools .primary{
   height:40px;padding:0 16px!important;font-size:12px!important;font-weight:600!important;border-radius:var(--ui-r)!important;
   box-shadow:0 1px 2px rgba(16,24,40,.12);white-space:nowrap;
 }
-.primary:hover:not(:disabled){background:var(--primary-hover)!important}
+.primary:hover:not(:disabled){background:#132c55!important}
 .primary:active:not(:disabled){background:#081630!important}
 
 /* Secondary buttons beside it - "Download report" used to come in three colours. */
@@ -70,14 +70,14 @@ button:focus-visible,a:focus-visible{outline:2px solid var(--primary);outline-of
   border:1px solid var(--ui-line)!important;background:#fff!important;color:var(--ui-ink)!important;
   display:inline-flex;align-items:center;gap:7px;white-space:nowrap;box-shadow:0 1px 2px rgba(16,24,40,.05);
 }
-.wf-small:hover:not(:disabled),.wb-export:hover:not(:disabled),.audit-list-actions>button:not(.primary):hover{background:var(--bg-subtle)!important;border-color:var(--ui-line-hover)!important}
+.wf-small:hover:not(:disabled),.wb-export:hover:not(:disabled),.audit-list-actions>button:not(.primary):hover{background:#f5f7fa!important;border-color:var(--ui-line-hover)!important}
 .intro .primary+.wf-small,.access-head-actions>.wf-small,.audit-list-actions>button:not(.primary){height:40px}
 .wb-tools .wb-export{height:var(--ui-h)}
 
 /* Material buttons */
 .mm .mm-btn:not(.link){height:var(--ui-h);border-radius:var(--ui-r);border-color:var(--ui-line);font-size:12px;font-weight:600;
   white-space:nowrap;box-shadow:0 1px 2px rgba(16,24,40,.05)}
-.mm .mm-btn:hover:not(:disabled):not(.primary):not(.danger){background:var(--bg-subtle);border-color:var(--ui-line-hover)}
+.mm .mm-btn:hover:not(:disabled):not(.primary):not(.danger){background:#f5f7fa;border-color:var(--ui-line-hover)}
 .mm .mm-btn.small{height:30px;font-size:11.5px;padding:0 11px}
 .mm .mm-btn.primary{box-shadow:0 1px 2px rgba(16,24,40,.12)}
 .mm .mm-tabs button,.settings-tabs button,.schedule-tabs button{height:34px;font-size:12px;border-radius:var(--ui-r)}
@@ -145,7 +145,7 @@ table.wf-wide th,table.wf-wide td{padding-left:10px;padding-right:10px}
 table.wf-wide th:first-child,table.wf-wide td:first-child{padding-left:16px}
 table.wf-wide th:last-child,table.wf-wide td:last-child{padding-right:16px}
 .toolbar>button,.intro>button:not(.primary){font-size:12px;font-weight:500;border-color:var(--ui-line);white-space:nowrap}
-.toolbar>button:hover,.intro>button:not(.primary):hover{background:var(--bg-subtle);border-color:var(--ui-line-hover)}
+.toolbar>button:hover,.intro>button:not(.primary):hover{background:#f5f7fa;border-color:var(--ui-line-hover)}
 
 /* ---------------------------------------------------------------- Material */
 /* Headings and tile figures in the same clean face as the rest of the portal (were Georgia). */
@@ -167,23 +167,23 @@ table.wf-wide th:last-child,table.wf-wide td:last-child{padding-right:16px}
 .mm .field input:not([type=checkbox]):not([type=radio]),.mm .field textarea,.mm .field select{font-weight:400!important;color:var(--ui-text)}
 
 /* File pickers: a proper button instead of the browser's grey "Browse". */
-input[type=file]{font-size:12px;color:var(--text-2)}
+input[type=file]{font-size:12px;color:#475467}
 input[type=file]::file-selector-button{
   height:32px;margin-right:10px;padding:0 12px;border:1px solid var(--ui-line);border-radius:7px;background:#fff;
   color:var(--ui-ink);font:600 11.5px inherit;font-family:inherit;cursor:pointer;
 }
-input[type=file]::file-selector-button:hover{background:var(--bg-subtle);border-color:var(--ui-line-hover)}
+input[type=file]::file-selector-button:hover{background:#f5f7fa;border-color:var(--ui-line-hover)}
 
 /* ---------------------------------------------------------------- forms and drawers */
 /* Labels and fields at a readable size, every field the same height. */
-.form label,.access-editor>div>label,.access-editor legend{font-size:11px;font-weight:600;color:var(--text-2)}
+.form label,.access-editor>div>label,.access-editor legend{font-size:11px;font-weight:600;color:#475467}
 .form input:not([type=checkbox]):not([type=radio]):not([type=file]),.form select,
 .access-editor input:not([type=checkbox]):not([type=radio]){
   height:38px;padding-top:0;padding-bottom:0;padding-left:11px;font-size:12.5px;border-radius:var(--ui-r);border-color:var(--ui-line);color:var(--ui-text);
 }
 .form textarea{font-size:12.5px;border-radius:var(--ui-r);border-color:var(--ui-line);color:var(--ui-text);padding:9px 11px}
 .form input:hover:not(:focus):not(:disabled),.form textarea:hover:not(:focus):not(:disabled),.access-editor input:hover:not(:focus){border-color:var(--ui-line-hover)}
-.access-editor input:focus{outline:0;border-color:var(--primary);box-shadow:var(--ui-ring)}
+.access-editor input:focus{outline:0;border-color:#1b3a66;box-shadow:var(--ui-ring)}
 .access-editor fieldset button{font-size:11px;padding:7px 10px;border-radius:7px}
 .access-editor fieldset svg{width:12px}
 .access-offchart{font-size:11.5px!important;font-weight:500!important}
@@ -192,7 +192,7 @@ input[type=file]::file-selector-button:hover{background:var(--bg-subtle);border-
 .modal footer button,.detail>footer button,.access-editor footer>button{
   height:38px;padding:0 16px!important;font-size:12.5px!important;font-weight:600;border-radius:var(--ui-r)!important;border-color:var(--ui-line);
 }
-.modal footer button:not(.primary):hover,.detail>footer button:not(.primary):hover,.access-editor footer>button:not(.primary):hover{background:var(--bg-subtle)}
+.modal footer button:not(.primary):hover,.detail>footer button:not(.primary):hover,.access-editor footer>button:not(.primary):hover{background:#f5f7fa}
 .form input,.form select,.form textarea{font-weight:400}
 .form select{font-size:12.5px!important}
 
@@ -203,20 +203,20 @@ input[type=file]::file-selector-button:hover{background:var(--bg-subtle);border-
 
 /* ---------------------------------------------------------------- department head priority */
 .wf-priority{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:10px 14px;
-  margin:14px 22px 0;padding:12px 14px;border:1px solid var(--border);border-radius:10px;background:var(--bg-subtle)}
-.wf-priority small{display:block;font-size:11.5px;font-weight:800;letter-spacing:.1em;color:var(--text-muted);margin-bottom:5px}
+  margin:14px 22px 0;padding:12px 14px;border:1px solid #e4e7ec;border-radius:10px;background:#fafbfc}
+.wf-priority small{display:block;font-size:9px;font-weight:800;letter-spacing:.1em;color:#8a93a3;margin-bottom:5px}
 .wf-priority p{margin:0;display:flex;flex-wrap:wrap;align-items:center;gap:8px;font-size:11.5px}
-.wf-priority em{font-style:normal;color:var(--text-muted);font-size:11px}
+.wf-priority em{font-style:normal;color:#667085;font-size:11px}
 .wf-priority-pick{display:flex;flex-wrap:wrap;gap:6px}
 .wf-priority-pick button{height:32px;padding:0 13px;border:1px solid var(--ui-line);border-radius:var(--ui-r);background:#fff;
   color:var(--ui-ink);font-size:11.5px;font-weight:600}
-.wf-priority-pick button:hover:not(:disabled){background:var(--bg-subtle);border-color:var(--ui-line-hover)}
+.wf-priority-pick button:hover:not(:disabled){background:#f5f7fa;border-color:var(--ui-line-hover)}
 .wf-priority-pick button:disabled{opacity:.55}
 .wf-priority-pick button.on.critical{background:#fde9e8;border-color:#e3a59e;color:#b43e3c}
 .wf-priority-pick button.on.high{background:#fff0dd;border-color:#e6bf85;color:#b86b08}
 .wf-priority-pick button.on.medium{background:#fff8d9;border-color:#e0cf80;color:#8e7314}
-.wf-priority-pick button.clear{border-color:transparent;background:none;color:var(--text-muted);font-weight:500;padding:0 8px}
-.wf-priority-error{flex-basis:100%;margin:0;color:var(--danger);font-size:11.5px}
+.wf-priority-pick button.clear{border-color:transparent;background:none;color:#667085;font-weight:500;padding:0 8px}
+.wf-priority-error{flex-basis:100%;margin:0;color:#b3372a;font-size:11.5px}
 td small .badge{vertical-align:middle}
 
 /* ---------------------------------------------------------------- workbench: eleven columns
@@ -260,29 +260,29 @@ td small .badge{vertical-align:middle}
 .panel.risk .ring{width:136px;height:136px;margin:auto;flex:none}
 .panel.risk .panel-head{margin-bottom:24px}
 .panel.risk .ring:before{width:94px;height:94px}
-.panel.risk .ring span{font-size:12px;line-height:1.3}
+.panel.risk .ring span{font-size:10.5px;line-height:1.3}
 .panel.risk .ring b{font-size:26px;line-height:1.1}
 .panel.risk .legend{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:0 26px;padding:0 22px 18px;margin-top:24px}
-.panel.risk .legend span{display:flex;align-items:center;gap:8px;min-width:0;padding:10px 0;border-top:1px solid var(--divider);font-size:12px;color:var(--text-2)}
+.panel.risk .legend span{display:flex;align-items:center;gap:8px;min-width:0;padding:10px 0;border-top:1px solid #eef0f4;font-size:12px;color:#475467}
 .panel.risk .legend i{width:9px;height:9px;border-radius:50%;flex:none}
-.panel.risk .legend b{float:none;margin-left:auto;padding-left:8px;font-size:13px;font-weight:600;color:var(--text);font-variant-numeric:tabular-nums}
+.panel.risk .legend b{float:none;margin-left:auto;padding-left:8px;font-size:13px;font-weight:600;color:#101828;font-variant-numeric:tabular-nums}
 @media screen and (max-width:420px){.panel.risk .legend{grid-template-columns:1fr}}
 /* Dashboard: the "PAYMENT COMPLETION" heading in bold black. */
-.health>div>small{color:var(--text);font-weight:800}
+.health>div>small{color:#101828;font-weight:800}
 
 /* ---------------------------------------------------------------- dashboard: by due date
    One grid for every row: a date tile, the vendor and company, the amount on the right. */
 .panel.upcoming>div:not(.panel-head){display:grid;grid-template-columns:46px minmax(0,1fr) auto;align-items:center;gap:14px;padding:12px 20px}
-.panel.upcoming time{width:46px;padding:7px 0 6px;border-radius:9px;background:#f2f5f9;color:var(--text);text-align:center;
+.panel.upcoming time{width:46px;padding:7px 0 6px;border-radius:9px;background:#f2f5f9;color:#0b1d3a;text-align:center;
   font:700 17px/1 var(--font-sans,Inter,sans-serif);letter-spacing:-.01em}
-.panel.upcoming time small{display:block;margin-top:4px;font:700 11px/1 var(--font-sans,Inter,sans-serif);letter-spacing:.09em;color:var(--text-muted)}
+.panel.upcoming time small{display:block;margin-top:4px;font:700 8.5px/1 var(--font-sans,Inter,sans-serif);letter-spacing:.09em;color:#667085}
 .panel.upcoming time.today{background:#fff0dd;color:#9b5a06}
 .panel.upcoming time.today small{color:#9b5a06}
-.panel.upcoming .upcoming-late{margin:0;padding:11px 20px 14px;border-top:1px solid var(--divider);font-size:11.5px;color:var(--danger)}
+.panel.upcoming .upcoming-late{margin:0;padding:11px 20px 14px;border-top:1px solid #edf1ef;font-size:11.5px;color:#b3372a}
 .panel.upcoming span{min-width:0}
-.panel.upcoming span b{display:block;font-size:12.5px;font-weight:600;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.panel.upcoming span small{display:block;margin-top:3px;font:400 12px/1.3 var(--font-sans,Inter,sans-serif);color:var(--text-muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.panel.upcoming em{font-style:normal;font-size:12.5px;font-weight:600;color:var(--text);white-space:nowrap;font-variant-numeric:tabular-nums}
+.panel.upcoming span b{display:block;font-size:12.5px;font-weight:600;color:#101828;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.panel.upcoming span small{display:block;margin-top:3px;font:400 10.5px/1.3 var(--font-sans,Inter,sans-serif);color:#667085;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.panel.upcoming em{font-style:normal;font-size:12.5px;font-weight:600;color:#101828;white-space:nowrap;font-variant-numeric:tabular-nums}
 /* Workbench queue tabs in capitals. Ten of them are wider than one row in capitals, so on a
    desktop they wrap to a second row rather than sliding out of sight; phones keep the swipe. */
 .wb-tabs button{text-transform:uppercase;letter-spacing:.03em}
@@ -304,13 +304,13 @@ td small .badge{vertical-align:middle}
 /* ---------------------------------------------------------------- PO wizard: totals
    A right-hand ledger - labels on the left, figures aligned in one column, total beneath. */
 .mm .po-totals{display:flex;flex-direction:column;gap:7px;width:100%;max-width:340px;margin:0 0 0 auto}
-.mm .po-totals>div{display:flex;justify-content:space-between;align-items:baseline;gap:24px;font-size:12.5px;color:var(--text-2)}
+.mm .po-totals>div{display:flex;justify-content:space-between;align-items:baseline;gap:24px;font-size:12.5px;color:#475467}
 .mm .po-totals dt{margin:0}
-.mm .po-totals dd{margin:0;font-weight:600;color:var(--text);font-variant-numeric:tabular-nums;white-space:nowrap}
-.mm .po-totals .total{margin-top:5px;padding-top:11px;border-top:1px solid var(--mm-line);font-size:15px;color:var(--text)}
+.mm .po-totals dd{margin:0;font-weight:600;color:#101828;font-variant-numeric:tabular-nums;white-space:nowrap}
+.mm .po-totals .total{margin-top:5px;padding-top:11px;border-top:1px solid var(--mm-line);font-size:15px;color:#101828}
 .mm .po-totals .total dt{font-weight:600}
 .mm .po-totals .total dd{font-size:18px;font-weight:700}
-.mm .po-totals .total small{font-size:11px;font-weight:600;color:var(--text-muted);letter-spacing:.04em;margin-right:2px}
+.mm .po-totals .total small{font-size:11px;font-weight:600;color:#667085;letter-spacing:.04em;margin-right:2px}
 
 /* Vendors: the e-mail column wide enough to read an address on one or two lines. */
 .mm .t td:has(> span[style*="overflow-wrap"]){min-width:150px}
@@ -319,21 +319,21 @@ td small .badge{vertical-align:middle}
    "Required  [from] to [to]" as one control, the same height as the filters beside it. */
 .mm .mm-range{display:inline-flex;align-items:center;gap:6px;height:var(--ui-h);padding:0 4px 0 11px;
   border:1px solid var(--ui-line);border-radius:var(--ui-r);background:#fff}
-.mm .mm-range>span{font-size:11.5px;font-weight:800;letter-spacing:.07em;text-transform:uppercase;color:var(--text-muted)}
-.mm .mm-range>i{font-style:normal;font-size:11px;color:var(--text-muted)}
+.mm .mm-range>span{font-size:9.5px;font-weight:800;letter-spacing:.07em;text-transform:uppercase;color:#8a93a3}
+.mm .mm-range>i{font-style:normal;font-size:11px;color:#98a2b3}
 .mm .mm-range input[type=date]{height:28px!important;border:0!important;padding:0 2px!important;background:none;font-size:12px;width:auto;min-width:0;box-shadow:none!important}
 .mm .mm-range input[type=date]:focus{outline:0}
-.mm .mm-range:focus-within{border-color:var(--primary);box-shadow:var(--ui-ring)}
-.mm .mm-range>button{width:24px;height:24px;border:0;border-radius:6px;background:none;color:var(--text-muted);font-size:16px;line-height:1}
-.mm .mm-range>button:hover{background:var(--bg-muted);color:var(--danger)}
+.mm .mm-range:focus-within{border-color:#1b3a66;box-shadow:var(--ui-ring)}
+.mm .mm-range>button{width:24px;height:24px;border:0;border-radius:6px;background:none;color:#667085;font-size:16px;line-height:1}
+.mm .mm-range>button:hover{background:#f2f4f7;color:#b3372a}
 
 /* ---------------------------------------------------------------- Consolidate MRs: status chips
    One per status with its count; the chosen one is filled. */
 .mm .mm-status-pick{display:inline-flex;align-items:center;gap:7px;height:32px;padding:0 12px;border:1px solid var(--ui-line);
-  border-radius:20px;background:#fff;color:var(--text-2);font-size:11.5px;font-weight:500;white-space:nowrap}
-.mm .mm-status-pick b{font-weight:700;color:var(--text);font-variant-numeric:tabular-nums}
-.mm .mm-status-pick:hover{background:var(--bg-subtle);border-color:var(--ui-line-hover)}
-.mm .mm-status-pick.on{background:var(--primary);border-color:var(--primary);color:#fff}
+  border-radius:20px;background:#fff;color:#344054;font-size:11.5px;font-weight:500;white-space:nowrap}
+.mm .mm-status-pick b{font-weight:700;color:#101828;font-variant-numeric:tabular-nums}
+.mm .mm-status-pick:hover{background:#f5f7fa;border-color:var(--ui-line-hover)}
+.mm .mm-status-pick.on{background:#0b1d3a;border-color:#0b1d3a;color:#fff}
 .mm .mm-status-pick.on b{color:#fff}
 /* two columns on a wide screen (MR items) */
 @media(min-width:1280px){.mm .grid.xl\:grid-cols-2{grid-template-columns:repeat(2,minmax(0,1fr))}}
