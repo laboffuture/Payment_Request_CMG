@@ -117,7 +117,7 @@ async function nextCode(db:Db){
    administrators, so a vendor never waits on an empty inbox. */
 async function inbox(status:VendorStatus,v:Vendor){
   const roles:Partial<Record<VendorStatus,string[]>>={"Procurement Verification":["Procurement","Procurement Manager"],
-    "Accounts Verification":["Accountant"],"Pending Approval":["Management","Management (Material)"]};
+    "Accounts Verification":["Accountant"],"Pending Approval":["Accountant"]};
   const named=roles[status];
   if(named){const to=await emailsForRoles(named);return to.length?to:await emailsForRoles(["Administrator"])}
   return v.createdByEmail?[v.createdByEmail]:[]}

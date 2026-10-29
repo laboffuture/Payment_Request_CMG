@@ -227,7 +227,7 @@ function VendorDrawer({id,lists,close,changed,removed}:{id:string|null;lists:Lis
         {!!forward.length&&!!missing.length&&<p className="recv-hint">Still to fill in before it moves on: {missing.join(", ")}.</p>}
         {forward.map(m=><button key={m} className="primary" disabled={busy} onClick={()=>move(m)}>{MOVE[m].label}<ArrowRight/></button>)}
         {status==="Pending Approval"&&!forward.length&&withNote.length>0&&<p className="recv-hint">You registered this vendor, so
-          another authorised approver must approve it.</p>}
+          someone else in accounts must approve it.</p>}
         {!!withNote.length&&<div className="recv-return"><b><RotateCcw/>Reason</b>
           <textarea rows={2} value={note} onChange={e=>setNote(e.target.value)} placeholder="Required for the actions below"/>
           <div className="vm-row">{withNote.map(m=><button key={m} className={["reject","block"].includes(m)?"ghost danger":"ghost"}

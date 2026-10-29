@@ -6,7 +6,7 @@
      2 Document Upload           Procurement           Submitted                -> Procurement Verification
      3 Procurement Verification  Procurement           Procurement Verification -> Accounts Verification
      4 Accounts Verification     Accounts              Accounts Verification    -> Final Approval
-     5 Final Approval            Authorised approver   Pending Approval         -> Active
+     5 Final Approval            Accounts              Pending Approval         -> Active
      6 Vendor Activation         System                Active                   -> PO / Payment Request
 
    A status is the step a vendor is waiting at. Held in one place so the API route and the
@@ -23,7 +23,7 @@ export const FLOW:{status:VendorStatus;step:string;who:string}[]=[
   {status:"Submitted",step:"Document upload",who:"Procurement"},
   {status:"Procurement Verification",step:"Procurement verification",who:"Procurement"},
   {status:"Accounts Verification",step:"Accounts verification",who:"Accounts"},
-  {status:"Pending Approval",step:"Final approval",who:"Authorised approver"},
+  {status:"Pending Approval",step:"Final approval",who:"Accounts"},
   {status:"Active",step:"Vendor activation",who:"System"}];
 
 /* After Active, the states a vendor may be put in, and back again. */
@@ -217,7 +217,8 @@ export function movesFor(status:string,roles:string[]=[],isCreator=false):Move[]
     case"Submitted":return p?["toVerification"]:[];
     case"Procurement Verification":return p?["procVerify","return",...reject]:[];
     case"Accounts Verification":return a?["accVerify","return",...reject]:[];
-    case"Pending Approval":return m?[...(isCreator?[]:["approve" as Move]),"return",...reject]:[];
+    // Final approval is the accounts team's - still never the person who registered the vendor.
+    case"Pending Approval":return a?[...(isCreator?[]:["approve" as Move]),"return",...reject]:[];
     case"Active":return[...(m?["suspend","block","inactivate","expire"] as Move[]:[]),...(p||a?["revise" as Move]:[])];
     case"Suspended":case"Blocked":case"Inactive":case"Expired":return m?["reactivate"]:[];
     default:return[]}}
@@ -235,7 +236,7 @@ export const MOVE_FROM:Record<Move,VendorStatus[]>={
 /* Who a vendor waits on, for the list. */
 export const WAITING_ON:Partial<Record<VendorStatus,string>>={
   "Draft":"Procurement","Returned":"Procurement","Submitted":"Procurement","Procurement Verification":"Procurement",
-  "Accounts Verification":"Accounts","Pending Approval":"Authorised approver"};
+  "Accounts Verification":"Accounts","Pending Approval":"Accounts"};
 
 export const maskAccount=(n:string)=>{const s=(n||"").replace(/\s/g,"");return s.length>4?`${"•".repeat(Math.min(8,s.length-4))}${s.slice(-4)}`:s};
 
