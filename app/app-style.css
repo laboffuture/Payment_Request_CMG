@@ -80,3 +80,17 @@
 /* A chip inside a narrow table column: a little tighter, and words are never split. */
 td .badge{gap:5px;padding:3px 8px;font-size:11px;word-break:keep-all;overflow-wrap:normal;hyphens:none}
 td .badge:before{width:7px;height:7px}
+
+/* ------------------------------------------------------------------ queue: steps and tabs stay in view
+   On the Accounts / Audit queue the step strip and the queue tabs stay pinned under the page
+   header while the list scrolls beneath them. Desktop pins both; a tablet pins the tabs; a
+   phone scrolls them as before. */
+@media (min-width:761px){
+  .payment-workbench .wb-panel{overflow:visible}
+  .payment-workbench .wb-tabs{position:sticky;top:62px;z-index:14;background:#fff;border-radius:12px 12px 0 0;
+    box-shadow:0 1px 0 var(--as-line)}
+}
+@media (min-width:1025px){
+  .payment-workbench .wb-flow{position:sticky;top:62px;z-index:15;height:84px;box-shadow:0 -12px 0 #f3f5f8}
+  .payment-workbench .wb-tabs{top:146px}
+}
