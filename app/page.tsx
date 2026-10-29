@@ -376,12 +376,34 @@ function Dashboard({payments,go}:{payments:Payment[];go:(m:Module)=>void}){
    return{name:c,pct:rows.length?Math.round(done/rows.length*100):0,
      stuck:rows.filter(p=>/Audit Rejected|Query|Observation/.test(p.status)).length}});
  return <div className="page">
-  <section className="health"><div><small>PAYMENT COMPLETION</small><b>{health}</b><span>/100</span>
-    <p>{payments.length?`● ${released.length} of ${payments.length} released${rejected.length?`, ${rejected.length} needing attention`:""}`:"● No payment requests raised yet"}</p></div>
-   {[["Released",payments.length?Math.round(released.length/payments.length*100):0],
-     ["Settled",payments.length?Math.round(settled/payments.length*100):0],
-     ["In progress",payments.length?Math.round(open.length/payments.length*100):0]]
-     .map(x=><label key={x[0] as string}><span>{x[0]} <b>{x[1]}%</b></span><progress value={x[1] as number} max="100"/></label>)}</section>
+  {(()=>{
+   /* Payment completion: the score on the left, the three shares beside it. Same figures as
+      before - released, settled and still open, each as a share of every request raised. */
+   const share=(n:number)=>payments.length?Math.round(n/payments.length*100):0;
+   const metrics:[string,string,number,string][]=[
+     ["Released","released",share(released.length),`${released.length} of ${payments.length} payments`],
+     ["Settled","settled",share(settled),"of total payments"],
+     ["In progress","progress",share(open.length),"of total payments"]];
+   return <section className="pc-card" aria-label="Payment completion">
+    <div className="pc-score">
+     <small>PAYMENT COMPLETION</small>
+     <div>
+      <p className="pc-number"><b>{health}</b><span>/100</span></p>
+      <div className="pc-bar pc-bar-dark" role="progressbar" aria-valuenow={health} aria-valuemin={0} aria-valuemax={100}
+        aria-label={`Payment completion ${health} out of 100`}><i style={{width:`${health}%`}}/></div>
+     </div>
+     <footer>
+      <span>{payments.length?`${released.length} of ${payments.length} released`:"No payment requests raised yet"}</span>
+      {rejected.length>0&&<em className="pc-attention"><AlertTriangle aria-hidden="true"/>{rejected.length} need attention</em>}
+     </footer>
+    </div>
+    <div className="pc-metrics">{metrics.map(([label,key,pct,caption])=><div key={key} className={`pc-metric pc-${key}`}>
+      <span className="pc-label"><i aria-hidden="true"/>{label}</span>
+      <b className="pc-pct">{pct}<small>%</small></b>
+      <div><div className="pc-bar" role="progressbar" aria-valuenow={pct} aria-valuemin={0} aria-valuemax={100}
+        aria-label={`${label} ${pct}%`}><i style={{width:`${pct}%`}}/></div>
+       <p className="pc-caption">{caption}</p></div></div>)}</div>
+   </section>})()}
   <div className="metrics">{[
     ["Needs approval",String(needsApproval.length),needsApproval.length?`AED ${money(value(needsApproval))}`:"Nothing waiting","amber"],
     ["Needs attention",String(rejected.length),rejected.length?"Query or observation raised":"None","red"],
