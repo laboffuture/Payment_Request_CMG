@@ -24,8 +24,6 @@
 .side>.brand.has-lockup>.brand-lockup{flex:1;min-width:0;max-width:none;height:96px;padding:0 20px}
 .side>.brand.has-lockup>button{flex:none;margin-right:12px}
 
-/* On the sign-in page: the lockup sits at the top of the story panel. */
-.login-story>.brand-lockup{margin:0 0 28px}
 
 /* The older sidebar rules space out every ".brand span"; the lockup sets its own. */
 .brand-lockup .brand-lockup-text strong,.brand-lockup .brand-lockup-modules,.brand-lockup .brand-lockup-modules>span{letter-spacing:normal;text-transform:none;margin:0}
