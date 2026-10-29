@@ -106,3 +106,8 @@ td .badge:before{width:7px;height:7px}
 .brand>b.brand-mark{display:grid;place-items:center;padding:0;overflow:hidden;background:#fff;
   box-shadow:0 0 0 1px rgba(255,255,255,.18)}
 .brand>b.brand-mark img{display:block;width:78%;height:78%;object-fit:contain}
+/* the name beside the mark: two lines, centred on the mark */
+.brand{align-items:center}
+.brand>.brand-name{display:flex;flex-direction:column;justify-content:center;gap:3px;min-width:0}
+.brand>.brand-name strong{font:700 17px/1.15 var(--font-sans);letter-spacing:-.01em;color:#fff;white-space:nowrap}
+.brand>.brand-name span{margin:0;font-size:11.5px;font-weight:500;line-height:1.2;letter-spacing:.01em;text-transform:none;color:#A9B6D0;white-space:nowrap}
