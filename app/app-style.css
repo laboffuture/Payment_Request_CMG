@@ -1,0 +1,82 @@
+/* The dashboard's card style, carried across the application.
+
+   The Payment Completion card and the dashboard cards under it set the look: white cards
+   with 12px corners and a thin #E3E8F0 border, a small widely-spaced label over a bold title,
+   figures in Manrope, a coloured square beside a label instead of a coloured edge, statuses
+   as chips. This sheet gives the same treatment to the shared pieces every other screen is
+   built from. Layout, colours of the shell and every behaviour stay as they are. */
+
+:root{
+  --as-line:#E3E8F0;--as-ink:#1F2A40;--as-muted:#5B6577;--as-head:#F8FAFC;--as-hover:#F8FAFC;
+  --as-blue:#2563EB;--as-blue-bg:#EAF1FE;--as-amber:#B45309;--as-amber-bg:#FDF3E2;--as-red:#B42318;--as-red-bg:#FDECEC;
+  --as-green:#0E8A5F;--as-green-bg:#E6F4EE;--as-violet:#6D28D9;--as-violet-bg:#F1EDFC;--as-grey:#475467;--as-grey-bg:#EEF0F3;
+}
+
+/* ------------------------------------------------------------------ cards */
+.panel,.mm .card{border:1px solid var(--as-line);border-radius:12px}
+.panel>.panel-head{border-bottom-color:var(--as-line)}
+.panel-head small{font-size:11px;font-weight:600;letter-spacing:.16em;color:var(--as-muted)}
+.panel-head h2{font:700 17px/1.25 var(--font-sans);letter-spacing:-.01em;color:var(--as-ink);text-transform:none}
+.panel-head>button{height:32px;padding:0 12px;border:1px solid var(--as-line);border-radius:8px;background:#fff;
+  color:var(--as-ink);font-size:12px;font-weight:600}
+.panel-head>button:hover{background:#F5F7FA}
+
+/* page titles over each screen */
+.intro small,.wb-head small,.rd-head small,.rq-head small,.access-head small{font-size:11px;font-weight:600;letter-spacing:.16em;color:var(--as-muted)}
+.intro h2,.wb-head h2,.rd-head h2,.rq-head h2,.access-head h2{font:700 22px/1.25 var(--font-sans);letter-spacing:-.015em;color:var(--as-ink)}
+.intro p,.wb-head p,.rd-head p,.rq-head p{font-size:12.5px;color:var(--as-muted)}
+
+/* ------------------------------------------------------------------ figure tiles */
+.wb-kpis>article,.rd-kpis>article,.rq-metrics>article,.report-kpis>article,.mm .mm-tile{
+  background:#fff;border:1px solid var(--as-line);border-radius:12px;box-shadow:none;font-variant-numeric:tabular-nums}
+.wb-kpis>article,.rd-kpis>article,.rq-metrics>article,.report-kpis>article,
+.wb-kpis>article.danger,.rd-kpis>article.danger,.rd-kpis>article.success{border:1px solid var(--as-line)}
+.wb-kpis>article b,.rd-kpis>article>b,.rq-metrics>article>b,.report-kpis>article>b,.mm .mm-tile b{
+  font:800 28px/1.05 var(--font-numbers);letter-spacing:-.045em;color:var(--as-ink)}
+.wb-kpis>article small,.rd-kpis>article>span,.rq-metrics>article>span,.report-kpis>article>span,.mm .mm-tile span{
+  font-size:12.5px;font-weight:600;color:var(--as-ink)}
+.wb-kpis>article>svg,.rd-kpis>article>svg,.rq-metrics>article>svg{color:var(--as-muted)}
+.wb-kpis>article.danger>svg,.rd-kpis>article.danger>svg{color:var(--as-red)}
+.rd-kpis>article.success>svg{color:var(--as-green)}
+
+/* ------------------------------------------------------------------ status chips */
+.badge{display:inline-flex;align-items:center;gap:6px;padding:4px 10px;border-radius:999px;background:var(--as-blue-bg);color:var(--as-blue);
+  font-size:11.5px;font-weight:600;font-style:normal;letter-spacing:0;text-transform:none;line-height:1.25}
+.badge:before{content:"";flex:none;width:8px;height:8px;border-radius:3px;background:currentColor}
+.badge.blue{background:var(--as-blue-bg);color:var(--as-blue)}
+.badge.amber,.badge.high,.badge.medium{background:var(--as-amber-bg);color:var(--as-amber)}
+.badge.red,.badge.critical{background:var(--as-red-bg);color:var(--as-red)}
+.badge.green,.badge.low{background:var(--as-green-bg);color:var(--as-green)}
+.badge.violet{background:var(--as-violet-bg);color:var(--as-violet)}
+
+/* ------------------------------------------------------------------ tables */
+.panel th{background:var(--as-head);color:var(--as-muted);font-size:11px;font-weight:600;letter-spacing:.06em;border-bottom:1px solid var(--as-line)}
+.panel td{border-top:1px solid var(--as-line);color:var(--as-ink)}
+.panel td small{color:var(--as-muted)}
+.panel tbody tr:hover{background:var(--as-hover)}
+.mm .t th{background:var(--as-head);color:var(--as-muted);font-size:11px;font-weight:600;letter-spacing:.06em}
+.mm .t td{border-top-color:var(--as-line);color:var(--as-ink)}
+
+/* ------------------------------------------------------------------ tabs and filters */
+.wb-tabs,.audit-list-tabs,.mm .mm-tabs{border-bottom-color:var(--as-line)}
+.wb-tools,.audit-list-tools,.rq-tools{border-bottom-color:var(--as-line)}
+
+/* ------------------------------------------------------------------ role dashboards and queues */
+.rd-panel .panel-head h2{font-size:15px}
+.rd-row{border-top-color:var(--as-line);padding:12px 18px;font-variant-numeric:tabular-nums}
+.rd-row:hover{background:var(--as-hover)}
+.rd-row span b{font-size:12.5px;font-weight:600;color:var(--as-ink)}
+.rd-row span small{margin-top:3px;font-size:11.5px;font-weight:500;color:var(--as-muted)}
+.rd-row strong{font:700 14px/1.2 var(--font-numbers);letter-spacing:-.02em;color:var(--as-ink);white-space:nowrap}
+.rd-row em{padding:7px 10px;border:1px solid var(--as-line);border-radius:8px;background:#fff;color:var(--as-ink);font-size:11.5px;font-weight:600}
+.rd-row:hover em{background:#F5F7FA}
+.rd-empty{font-size:12.5px;color:var(--as-muted)}
+.rd-all{height:36px;padding:0 14px;border:1px solid var(--as-line);border-radius:8px;background:#fff;color:var(--as-ink);font-size:12.5px;font-weight:600}
+.rd-all:hover{background:#F5F7FA}
+.wb-role{border:1px solid var(--as-line);background:#fff;color:var(--as-ink);border-radius:999px;font-size:11.5px;font-weight:600}
+.wb-next{border:1px solid var(--as-line);background:#fff;color:var(--as-ink);border-radius:8px;font-size:11.5px;font-weight:600}
+.wb-next:hover{background:#F5F7FA}
+
+/* A chip inside a narrow table column: a little tighter, and words are never split. */
+td .badge{gap:5px;padding:3px 8px;font-size:11px;word-break:keep-all;overflow-wrap:normal;hyphens:none}
+td .badge:before{width:7px;height:7px}
