@@ -45,3 +45,22 @@
   .pc-metric:first-child{border-top:0}
   .pc-pct{font-size:28px}
 }
+
+/* The dashboard figures under the completion card, in the same style: a coloured square
+   beside the label in place of the coloured edge, the figure in Manrope. */
+.metrics{gap:12px;margin:0 0 16px}
+.metrics>article{
+  --pc-line:#E3E8F0;--pc-ink:#1F2A40;--pc-muted:#5B6577;--kpi-color:#2563EB;
+  display:flex;flex-direction:column;gap:8px;padding:16px 20px;background:#fff;border:1px solid var(--pc-line);
+  border-radius:12px;font-variant-numeric:tabular-nums}
+.metrics>article.amber{--kpi-color:#B45309}
+.metrics>article.red{--kpi-color:#B42318}
+.metrics>article.blue{--kpi-color:#2563EB}
+.metrics>article.violet{--kpi-color:#6D28D9}
+.metrics>article.green{--kpi-color:#0E8A5F}
+.metrics>article,.metrics>article.amber,.metrics>article.red,.metrics>article.blue,.metrics>article.violet,.metrics>article.green{
+  border:1px solid var(--pc-line);border-left:1px solid var(--pc-line);border-top:1px solid var(--pc-line)}
+.metrics>article>span{display:flex;align-items:center;gap:7px;font-size:12.5px;font-weight:600;color:var(--pc-ink)}
+.metrics>article>span:before{content:"";flex:none;width:9px;height:9px;border-radius:3px;background:var(--kpi-color)}
+.metrics>article>b{margin:0;font:800 30px/1 var(--font-numbers);letter-spacing:-.045em;color:var(--pc-ink)}
+.metrics>article>small{font-size:11.5px;font-weight:500;color:var(--pc-muted)}
