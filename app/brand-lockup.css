@@ -1,0 +1,54 @@
+/* CMG Control name block (BrandLockup). */
+:root{--brand-navy:#0B1B3A;--brand-tile:#16305F;--brand-tile-line:#28477F;--brand-muted:#A9B6D0;--brand-mint:#4ADE9F}
+.brand-lockup{display:flex;align-items:center;gap:16px;width:100%;max-width:340px;height:112px;padding:0 24px;
+  background:var(--brand-navy);border-radius:20px;color:#fff;box-sizing:border-box}
+.brand-lockup.sidebar{background:transparent;border-radius:0}
+.brand-lockup .brand-lockup-tile{flex:none;display:grid;place-items:center;width:56px;height:56px;border-radius:16px;
+  background:var(--brand-tile);border:1px solid var(--brand-tile-line);box-sizing:border-box}
+.brand-lockup .brand-lockup-tile img{display:block;width:34px;height:34px;object-fit:contain}
+.brand-lockup .brand-lockup-text{display:flex;flex-direction:column;gap:8px;min-width:0}
+.brand-lockup .brand-lockup-text strong{font:800 24px/1 var(--font-numbers,"Manrope",sans-serif);letter-spacing:-.025em;color:#fff;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.brand-lockup .brand-lockup-modules{display:flex;align-items:center;gap:8px;min-width:0;overflow:hidden;
+  font:500 13px/1.2 var(--font-sans,"Inter",sans-serif);color:var(--brand-muted);white-space:nowrap}
+.brand-lockup .brand-lockup-modules>span{overflow:hidden;text-overflow:ellipsis}
+.brand-lockup .brand-lockup-modules>i{flex:none;width:3px;height:3px;border-radius:50%;background:var(--brand-mint)}
+@media (max-width:360px){
+  .brand-lockup .brand-lockup-text strong{font-size:20px}
+  .brand-lockup .brand-lockup-tile{width:48px;height:48px;border-radius:14px}
+  .brand-lockup .brand-lockup-tile img{width:30px;height:30px}
+}
+
+/* In the sidebar header: the lockup takes the brand row; the phone close button stays beside it. */
+.side>.brand.has-lockup{display:flex;align-items:center;gap:8px;padding:0;margin:0 -14px 0 -14px;border-bottom:1px solid #ffffff18}
+.side>.brand.has-lockup>.brand-lockup{flex:1;min-width:0;max-width:none;height:96px;padding:0 20px}
+.side>.brand.has-lockup>button{flex:none;margin-right:12px}
+
+/* On the sign-in page: the lockup sits at the top of the story panel. */
+.login-story>.brand-lockup{margin:0 0 28px}
+
+/* The older sidebar rules space out every ".brand span"; the lockup sets its own. */
+.brand-lockup .brand-lockup-text strong,.brand-lockup .brand-lockup-modules,.brand-lockup .brand-lockup-modules>span{letter-spacing:normal;text-transform:none;margin:0}
+.brand-lockup .brand-lockup-text strong{letter-spacing:-.025em}
+.brand-lockup .brand-lockup-modules>span{display:inline;font:inherit;color:inherit}
+/* the phone menu is narrower, with the close button beside the lockup */
+@media (max-width:760px){
+  .side>.brand.has-lockup>.brand-lockup{height:84px;padding:0 4px 0 18px;gap:12px}
+  .side>.brand.has-lockup .brand-lockup-tile{width:48px;height:48px;border-radius:14px}
+  .side>.brand.has-lockup .brand-lockup-tile img{width:30px;height:30px}
+  .side>.brand.has-lockup .brand-lockup-text strong{font-size:20px}
+  .side>.brand.has-lockup .brand-lockup-modules{gap:6px;font-size:12px}
+}
+
+/* The sidebar is narrower than the 340px card: a little less side space, and the three
+   words keep their full width - the whole line truncates only if it truly cannot fit. */
+.brand-lockup .brand-lockup-modules>span{flex:none;overflow:visible}
+.side>.brand.has-lockup>.brand-lockup{padding:0 14px 0 16px;gap:12px}
+.side>.brand.has-lockup .brand-lockup-modules{gap:6px;font-size:12.5px}
+@media (max-width:760px){
+  .side>.brand.has-lockup>.brand-lockup{padding:0 2px 0 14px;gap:10px}
+  .side>.brand.has-lockup .brand-lockup-tile{width:44px;height:44px;border-radius:13px}
+  .side>.brand.has-lockup .brand-lockup-tile img{width:28px;height:28px}
+  .side>.brand.has-lockup .brand-lockup-modules{gap:5px;font-size:12px}
+  .side>.brand.has-lockup>button{margin-right:8px}
+}

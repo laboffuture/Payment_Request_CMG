@@ -27,10 +27,10 @@
 .login-mark img{display:block;height:clamp(110px,14vh,150px);width:auto;max-width:100%}
 
 /* Eyebrow, centred under the logo with a rule either side. */
-.login-story>p:first-of-type{display:flex;align-items:center;justify-content:center;gap:12px;
+.login-story>p:first-of-type:not(.login-lead){display:flex;align-items:center;justify-content:center;gap:12px;
   align-self:center;letter-spacing:.2em;font-size:11px;font-weight:800;margin:26px 0 24px;
   color:#2f5f93;text-align:center}
-.login-story>p:first-of-type::before,.login-story>p:first-of-type::after{content:"";
+.login-story>p:first-of-type:not(.login-lead)::before,.login-story>p:first-of-type:not(.login-lead)::after{content:"";
   width:28px;height:2px;border-radius:2px;background:#2f6fb7;flex:none}
 .login-story h1{font-size:clamp(34px,3.8vw,58px);line-height:1.05;letter-spacing:-.04em;
   max-width:720px;margin:0;color:#0b1f38;font-weight:800}
