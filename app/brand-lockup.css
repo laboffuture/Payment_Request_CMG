@@ -50,3 +50,10 @@
   .side>.brand.has-lockup .brand-lockup-modules{gap:5px;font-size:12px}
   .side>.brand.has-lockup>button{margin-right:8px}
 }
+
+/* Centred in its row: the sidebar's own top padding is cancelled here, so the space above
+   the tile equals the space below it, down to the dividing line. */
+.side>.brand.has-lockup{margin-top:-20px}
+.side>.brand.has-lockup>.brand-lockup{height:88px}
+.brand-lockup .brand-lockup-tile,.brand-lockup .brand-lockup-text{margin:0}
+@media (max-width:760px){.side>.brand.has-lockup>.brand-lockup{height:80px}}
