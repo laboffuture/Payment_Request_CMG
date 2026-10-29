@@ -116,3 +116,40 @@ td .badge:before{width:7px;height:7px}
 .schedule-metrics>article>span:before{content:"";flex:none;width:9px;height:9px;border-radius:3px;background:var(--kpi-color)}
 .schedule-metrics>article>b{display:block;margin:0;font:800 30px/1 var(--font-numbers);letter-spacing:-.045em;color:var(--as-ink)}
 @media (max-width:760px){.schedule-metrics{grid-template-columns:repeat(2,minmax(0,1fr))}}
+
+/* ------------------------------------------------------------------ Accounts Receivable (and the Vendor Master,
+   which is built from the same pieces): stage counters, the list card and its rows, in the
+   dashboard's style. */
+.recv-stage{--kpi-color:var(--as-blue);display:flex;flex-direction:column;align-items:flex-start;gap:8px;
+  padding:14px 18px;background:#fff;border:1px solid var(--as-line);border-radius:12px;text-align:left;font-variant-numeric:tabular-nums}
+.recv-flow>.recv-stage:nth-child(2){--kpi-color:var(--as-violet)}
+.recv-flow>.recv-stage:nth-child(3){--kpi-color:var(--as-amber)}
+.recv-flow>.recv-stage:nth-child(4){--kpi-color:var(--as-grey)}
+.recv-flow>.recv-stage:nth-child(5){--kpi-color:var(--as-violet)}
+.recv-flow>.recv-stage:last-child{--kpi-color:var(--as-green)}
+/* label first, the figure under it - figures line up along the bottom whatever the label's length */
+.recv-stage>span{order:1}
+.recv-stage>b{order:2;margin-top:auto}
+.recv-stage>.vm-who{order:3}
+.recv-stage>span{display:flex;align-items:center;gap:7px;font-size:12.5px;font-weight:600;color:var(--as-ink);line-height:1.25}
+.recv-stage>span:before{content:"";flex:none;width:9px;height:9px;border-radius:3px;background:var(--kpi-color)}
+.recv-stage>b{font:800 28px/1 var(--font-numbers);letter-spacing:-.045em;color:var(--as-ink)}
+.recv-stage .vm-who{font-size:11.5px;font-weight:500;color:var(--as-muted)}
+.recv-stage:hover{border-color:#C9D2E0}
+.recv-stage.on{border-color:var(--as-ink);box-shadow:0 0 0 1px var(--as-ink) inset}
+.recv-stage .recv-arrow{color:#B6C0CF}
+/* the list card */
+.recv .panel,.recv-module .panel{border:1px solid var(--as-line);border-radius:12px}
+.recv-head h3{font:700 17px/1.25 var(--font-sans);letter-spacing:-.01em;color:var(--as-ink)}
+.recv-head h3 i{font:700 11.5px/1 var(--font-sans);font-style:normal;padding:3px 8px;border-radius:999px;background:var(--as-grey-bg);color:var(--as-grey)}
+.recv-cols{font-size:11px;font-weight:600;letter-spacing:.06em;color:var(--as-muted)}
+/* rows */
+.recv-row{border-color:var(--as-line);border-radius:10px;font-variant-numeric:tabular-nums}
+.recv-row:hover{background:var(--as-hover)}
+.recv-ref b{font-size:13px;font-weight:600;color:var(--as-ink)}
+.recv-ref small,.recv-desc small,.recv-amt small{font-size:11.5px;font-weight:500;color:var(--as-muted)}
+.recv-desc{color:var(--as-ink)}
+.recv-amt{font:700 15px/1.2 var(--font-numbers);letter-spacing:-.02em;color:var(--as-ink)}
+.recv-tag{display:inline-flex;align-items:center;gap:6px;padding:4px 10px;border-radius:999px;font-size:11.5px;font-weight:600;line-height:1.25}
+/* the module tabs */
+.recv-modules button{border-color:var(--as-line);border-radius:12px;color:var(--as-ink);font-weight:600}
