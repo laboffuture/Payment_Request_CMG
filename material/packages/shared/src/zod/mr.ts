@@ -39,6 +39,8 @@ export const mrLineInput = z
     unit: unitName.optional(),
     boqRef: z.string().trim().max(30).optional().default(''),
     remarks: z.string().trim().max(250).optional().default(''),
+    /** sub-contract work: the rate the site puts on it, per unit (0 = none given) */
+    rate: z.coerce.number().finite().min(0, 'The rate cannot be negative').max(1_000_000_000).optional().default(0),
   })
   .refine((l) => !!l.itemId || !!l.newItemName, {
     message: MSG.mrItemNameAndCategory,

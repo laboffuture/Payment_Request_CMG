@@ -113,6 +113,7 @@ export function toMrLineDto(line: Record<string, any>, lookups: Lookups): MrLine
     changed: approverChanged(line),
     boqRef: line.boqRef ?? '',
     remarks: line.remarks ?? '',
+    rate: num(line.rate ?? 0),
     storeQty: line.storeQty ?? null,
     poQty: line.poQty ?? null,
     qsRemark: line.qsRemark ?? '',
@@ -628,7 +629,9 @@ async function writeLines(
     // Site engineers pick from the item master only: free-typed "new items" were creating
     // duplicates of what is already there. A new-item line already on this MR (from before
     // the rule) can stay while the MR is edited; a fresh one is refused.
-    if (isNewItem && (actor.role === 'SITE' || actor.role === 'PM')) {
+    // Sub-contract work is typed in line by line (heading, description, quantity, rate, per):
+    // it is not in the item master, so each line arrives as a new item for QS to clear.
+    if (isNewItem && (actor.role === 'SITE' || actor.role === 'PM') && input.requestType !== 'SUB_CONTRACTOR') {
       const already = line.id
         ? await MrLine.exists({ _id: line.id, mrId: mr._id, itemId: null }).session(session)
         : null;
@@ -648,6 +651,7 @@ async function writeLines(
       unit: line.unit ? await knownUnit(line.unit) : '',
       boqRef: line.boqRef,
       remarks: line.remarks,
+      rate: num(line.rate ?? 0),
     };
 
     // On submit we freeze what the site engineer asked for. Every later change

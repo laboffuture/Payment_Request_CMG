@@ -6,7 +6,7 @@ import { useQuery } from '@tanstack/react-query';
 import { BRAND_LOGO_URL, MR_ST, chipFor, type MrPrintDto } from '@cm/shared';
 import { get } from '@mm/lib/api';
 import { Btn, EmptyState, PageHeader } from '@mm/components/ui';
-import { fmtDate, fmtDateTime, qty } from '@mm/lib/format';
+import { fmtDate, fmtDateTime, money, qty } from '@mm/lib/format';
 
 /**
  * The paper material requisition form.
@@ -157,6 +157,11 @@ function MrDocument({ doc }: { doc: MrPrintDto }) {
                   <b>{line.name}</b>
                   {line.newStatus === 'PENDING' ? ' (new item)' : ''}
                   {line.brand ? <div>Brand: {line.brand}</div> : null}
+                  {line.rate ? (
+                    <div>
+                      Rate {money(line.rate)} per {line.unit} · Amount {money(line.rate * line.qty)}
+                    </div>
+                  ) : null}
                   {line.description ? (
                     <div style={{ whiteSpace: 'pre-line' }}>{line.description}</div>
                   ) : null}

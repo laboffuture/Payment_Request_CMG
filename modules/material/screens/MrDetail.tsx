@@ -329,6 +329,11 @@ function LinesTable({
       render: (l) => (
         <span className="whitespace-pre-line">
           {l.description || '—'}
+          {l.rate ? (
+            <span className="block text-xs text-mut mt-1">
+              Rate {money(l.rate)} per {l.unit} · Amount {money(l.rate * l.qty)}
+            </span>
+          ) : null}
           {l.qsQuery ? (
             <span className="block text-xs text-[#b42318] mt-1">QS asks: {l.qsQuery}</span>
           ) : null}

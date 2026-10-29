@@ -181,6 +181,8 @@ export interface MrLineDto {
   changed: boolean;
   boqRef: string;
   remarks: string;
+  /** sub-contract work: the site's rate per unit, 0 when none was given */
+  rate: number;
   storeQty: number | null;
   poQty: number | null;
   qsRemark: string;

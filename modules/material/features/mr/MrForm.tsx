@@ -25,7 +25,7 @@ import { useToast } from '@mm/components/Toast';
 import { useAction } from '@mm/lib/hooks';
 import { useReference } from '@mm/lib/reference';
 import { UnitOptions } from '@mm/components/UnitOptions';
-import { fmtDate } from '@mm/lib/format';
+import { fmtDate, money } from '@mm/lib/format';
 import { useSession } from '@mm/lib/session';
 
 /**
@@ -55,6 +55,8 @@ interface FormLine {
   rejected?: boolean;
   /** QS's open question about this item — answered by changing it and resubmitting */
   qsQuery?: string;
+  /** sub-contract work: the rate per unit, as typed */
+  rate: string;
 }
 
 /** A line starts with the item's own unit; the engineer may override it. */
@@ -72,8 +74,14 @@ const blankLine = (over: Partial<FormLine>): FormLine => ({
   measurement: '',
   boqRef: '',
   remarks: '',
+  rate: '',
   ...over,
 });
+
+/* A line of sub-contract work, typed in rather than picked from the item master: heading,
+   description, quantity, rate and per. It reaches QS as a new item to clear. */
+const SUB_CONTRACT_CATEGORY = 'Sub-Contract';
+const blankWork = (): FormLine => blankLine({ newCategory: SUB_CONTRACT_CATEGORY, newUnit: 'Nos' as Unit, unit: 'Nos' });
 
 export function MrForm({ existing }: { existing?: MrDetailDto }) {
   const router = useRouter();
@@ -110,9 +118,13 @@ export function MrForm({ existing }: { existing?: MrDetailDto }) {
       remarks: l.remarks,
       rejected: l.lineStatus === 'REJECTED',
       qsQuery: l.qsQuery ?? '',
+      rate: l.rate ? String(l.rate) : '',
     })) ?? [],
   );
   const [pickerOpen, setPickerOpen] = useState(false);
+  // Sub-contract work is typed in, line by line; every other request picks from the item master.
+  const subContract = requestType === 'SUB_CONTRACTOR';
+  const addItem = () => (subContract ? setLines((rows) => [...rows, blankWork()]) : setPickerOpen(true));
   // Which line the picker is replacing (QS queried it), or null to add a new line.
   const [replaceAt, setReplaceAt] = useState<number | null>(null);
   // The bill of quantities is optional — the MR is raised with or without it.
@@ -142,6 +154,7 @@ export function MrForm({ existing }: { existing?: MrDetailDto }) {
         unit: (l.itemId ? l.unit : l.newUnit) as Unit,
         boqRef: l.boqRef,
         remarks: l.remarks,
+        rate: Number(l.rate) || 0,
       })),
   });
 
@@ -244,6 +257,9 @@ export function MrForm({ existing }: { existing?: MrDetailDto }) {
       const active = lines.filter((l) => !l.rejected);
       if (!active.length) return toast(MSG.mrNoLines);
       if (active.some((l) => !(Number(l.qty) > 0))) return toast(MSG.mrQtyRequired);
+      if (subContract && active.some((l) => !l.itemId && !l.newItemName.trim())) {
+        return toast('Give every line of work a heading');
+      }
 
       const undescribed = active.find((l) => !l.description.trim());
       if (undescribed) {
@@ -379,7 +395,7 @@ export function MrForm({ existing }: { existing?: MrDetailDto }) {
 
       <div className="flex items-center justify-between gap-3 flex-wrap mt-[22px] mb-3">
         <h2 className="!m-0">Items ({active.length})</h2>
-        <Btn variant="primary" onClick={() => setPickerOpen(true)}>
+        <Btn variant="primary" onClick={addItem}>
           + Add item
         </Btn>
       </div>
@@ -390,6 +406,7 @@ export function MrForm({ existing }: { existing?: MrDetailDto }) {
             <LineCard
               key={line.id ?? `new-${index}`}
               line={line}
+              work={subContract && !line.itemId}
               onChange={(patch) => setLine(index, patch)}
               onRemove={() => setLines((rows) => rows.filter((_, i) => i !== index))}
               onChangeItem={() => {
@@ -401,7 +418,11 @@ export function MrForm({ existing }: { existing?: MrDetailDto }) {
         )}
         {!active.length ? (
           <div className="text-mut text-center rounded-card border border-dashed border-line bg-white py-6 xl:col-span-2">
-            No items yet — use <b>+ Add item</b> to pick from the item master.
+            {subContract ? (
+              <>No work yet — use <b>+ Add item</b> to add a line of work.</>
+            ) : (
+              <>No items yet — use <b>+ Add item</b> to pick from the item master.</>
+            )}
           </div>
         ) : null}
       </div>
@@ -409,7 +430,7 @@ export function MrForm({ existing }: { existing?: MrDetailDto }) {
       {active.length ? (
         <Btn
           className="w-full my-3 border-[1.5px] border-ac text-ac"
-          onClick={() => setPickerOpen(true)}
+          onClick={addItem}
         >
           + Add another item
         </Btn>
@@ -669,17 +690,21 @@ const fileSize = (bytes: number): string =>
 /** Prototype: lineCard(l, i) — a card per line, not a table row. */
 function LineCard({
   line,
+  work = false,
   onChange,
   onRemove,
   onChangeItem,
 }: {
   line: FormLine;
+  /** a line of sub-contract work: heading, description, quantity, rate, per and amount */
+  work?: boolean;
   onChange: (patch: Partial<FormLine>) => void;
   onRemove: () => void;
   /** pick a different item for this line, keeping the quantity and description */
   onChangeItem: () => void;
 }) {
   const isNew = !line.itemId;
+  if (work) return <WorkCard line={line} onChange={onChange} onRemove={onRemove} />;
 
   return (
     <div
@@ -901,5 +926,97 @@ function ItemPicker({
         ask QS to add it to the item master — then pick it here.
       </div>
     </Modal>
+  );
+}
+
+/** One line of sub-contract work. The amount is quantity × rate, worked out as you type. */
+function WorkCard({
+  line,
+  onChange,
+  onRemove,
+}: {
+  line: FormLine;
+  onChange: (patch: Partial<FormLine>) => void;
+  onRemove: () => void;
+}) {
+  const amount = (Number(line.qty) || 0) * (Number(line.rate) || 0);
+  return (
+    <div className="bg-white border border-line rounded-card p-[14px] flex flex-col gap-[10px]">
+      <div className="flex justify-between items-center gap-3">
+        <Tag label="SUB-CONTRACT WORK" tone="ac" />
+        <Btn small variant="danger" onClick={onRemove}>
+          Remove
+        </Btn>
+      </div>
+
+      {line.qsQuery ? (
+        <div className="errb">
+          <b>QS query:</b> {line.qsQuery}
+          <span className="block text-xs opacity-80">Change this line and resubmit the MR.</span>
+        </div>
+      ) : null}
+
+      <label className="field">
+        Heading *
+        <input
+          maxLength={160}
+          placeholder="e.g. False ceiling work"
+          value={line.newItemName}
+          onChange={(e) => onChange({ newItemName: e.target.value })}
+        />
+      </label>
+      <label className="field">
+        <span className="flex items-center gap-2">
+          Description *
+          {line.description.trim() ? null : <Tag label="REQUIRED TO SUBMIT" tone="amb" />}
+        </span>
+        <textarea
+          rows={2}
+          maxLength={400}
+          placeholder="Scope of the work - material, finish, where it goes"
+          className={line.description.trim() ? '' : 'border-[#C98A3E]'}
+          value={line.description}
+          onChange={(e) => onChange({ description: e.target.value })}
+        />
+      </label>
+      <div className="flex flex-wrap gap-[10px]">
+        <label className="field basis-[120px] grow-0">
+          Quantity *
+          <input
+            type="number"
+            min={0}
+            step="any"
+            inputMode="decimal"
+            className="w-24 font-semibold"
+            value={line.qty}
+            onChange={(e) => onChange({ qty: e.target.value })}
+          />
+        </label>
+        <label className="field basis-[140px] grow-0">
+          Rate
+          <input
+            type="number"
+            min={0}
+            step="any"
+            inputMode="decimal"
+            value={line.rate}
+            onChange={(e) => onChange({ rate: e.target.value })}
+          />
+        </label>
+        <label className="field basis-[120px] grow-0">
+          Per *
+          <select
+            value={line.newUnit}
+            onChange={(e) => onChange({ newUnit: e.target.value as Unit, unit: e.target.value })}
+          >
+            <UnitOptions current={line.newUnit} />
+          </select>
+        </label>
+        <label className="field basis-[160px] grow">
+          Amount
+          <input readOnly tabIndex={-1} className="font-semibold" value={amount ? money(amount) : '—'} />
+        </label>
+      </div>
+    </div>
   );
 }

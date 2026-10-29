@@ -160,6 +160,8 @@ export interface IMrLine extends Timestamped {
   requestedQty: number;
   requestedMeasurement: string;
   requestedUnit: string;
+  /** sub-contract work: the rate the site puts on it, per unit */
+  rate: number;
   boqRef: string;
   remarks: string;
   /** null until QS splits the line */
@@ -205,6 +207,7 @@ const mrLineSchema = new Schema<IMrLine>(
     requestedQty: qtyField(false),
     requestedMeasurement: { type: String, default: '' },
     requestedUnit: { type: String, default: '' },
+    rate: { type: Number, default: 0 },
     boqRef: { type: String, default: '', maxlength: 30 },
     remarks: { type: String, default: '', maxlength: 250 },
     storeQty: { type: Number, default: null, min: 0 },
