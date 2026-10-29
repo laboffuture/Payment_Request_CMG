@@ -141,8 +141,11 @@ function VendorDrawer({id,lists,close,changed,removed}:{id:string|null;lists:Lis
     fileName:file.name,dataUrl:String(r.result)}),()=>{refresh();changed(`${kind} uploaded`)});r.readAsDataURL(file)};
   const unattach=(doc:Doc)=>run(()=>call(`${API}?id=${encodeURIComponent(id||"")}&file=${encodeURIComponent(doc.id)}`,"DELETE"),
     ()=>{refresh();changed(`${doc.fileName} removed`)});
-  const drop=()=>{if(!confirm("Delete this draft? It has never been submitted."))return;
-    run(()=>call(`${API}?id=${encodeURIComponent(id||"")}`,"DELETE"),()=>removed("Draft deleted"))};
+  /* Procurement may delete a draft never submitted; the administrator may delete any vendor. */
+  const neverSent=detail?.vendor.status==="Draft"&&!detail.vendor.submittedAt;
+  const drop=()=>{if(!confirm(neverSent?"Delete this draft? It has never been submitted."
+      :`Delete ${detail?.vendor.vendorCode} ${detail?.vendor.legalName}?\n\nThe vendor and its documents are removed from the Vendor Master${detail?.vendor.status==="Active"?" and it is no longer offered in payment requests":""}. This cannot be undone.`))return;
+    run(()=>call(`${API}?id=${encodeURIComponent(id||"")}`,"DELETE"),()=>removed(neverSent?"Draft deleted":"Vendor deleted"))};
 
   const list=(c:Choices):{value:string;label:string}[]=>{
     const plain=(l:string[])=>l.map(x=>({value:x,label:x}));
@@ -232,7 +235,7 @@ function VendorDrawer({id,lists,close,changed,removed}:{id:string|null;lists:Lis
           <textarea rows={2} value={note} onChange={e=>setNote(e.target.value)} placeholder="Required for the actions below"/>
           <div className="vm-row">{withNote.map(m=><button key={m} className={["reject","block"].includes(m)?"ghost danger":"ghost"}
             disabled={busy||!note.trim()} onClick={()=>move(m)}>{MOVE[m].label}</button>)}</div></div>}
-        {detail?.canDelete&&<button className="ghost danger" disabled={busy} onClick={drop}><Trash2/>Delete draft</button>}
+        {detail?.canDelete&&<button className="ghost danger" disabled={busy} onClick={drop}><Trash2/>{neverSent?"Delete draft":"Delete vendor"}</button>}
         {vendor&&!detail?.moves.length&&!editable.length&&<p className="recv-empty">{WAITING_ON[status]
           ?`This vendor is with ${WAITING_ON[status]}. Your role cannot act on it now.`:`This vendor is ${status}.`}</p>}
       </div>

@@ -122,6 +122,11 @@ async function inbox(status:VendorStatus,v:Vendor){
   if(named){const to=await emailsForRoles(named);return to.length?to:await emailsForRoles(["Administrator"])}
   return v.createdByEmail?[v.createdByEmail]:[]}
 
+/* Who may delete a vendor: the administrator, at any status; procurement, only a draft that
+   was never submitted. */
+const mayDelete=(v:{status:string;submittedAt:string},roles:string[])=>
+  (roles||[]).includes("Administrator")||(v.status==="Draft"&&!v.submittedAt&&isProcurement(roles));
+
 export async function GET(req:Request){
   try{
     const{actor,response}=await signedIn(req);
@@ -146,7 +151,7 @@ export async function GET(req:Request){
       const creator=lower(v.createdByEmail)===lower(actor.email);
       return Response.json({vendor:shown(v,actor.roles),history,documents:await docsOf(db,id),
         moves:movesFor(v.status,actor.roles,creator),editable:editableSections(v.status,actor.roles),
-        canDelete:v.status==="Draft"&&!v.submittedAt&&isProcurement(actor.roles)});
+        canDelete:mayDelete(v,actor.roles)});
     }
     const lock=await companyLock(actor);
     const rows=(await db.select({id:wfVendorMaster.id,vendorCode:wfVendorMaster.vendorCode,status:wfVendorMaster.status,
@@ -338,14 +343,22 @@ export async function DELETE(req:Request){
       await writeWithAudit([db.delete(wfAttachments).where(eq(wfAttachments.id,a.id))],who,"vendor",v.id,"Document removed",`${a.kind} · ${a.fileName}`);
       return Response.json({documents:await docsOf(db,v.id)});
     }
-    if(!(v.status==="Draft"&&!v.submittedAt&&isProcurement(actor.roles)))
-      return bad("Only a draft that was never submitted can be deleted. Reject it instead.",403);
+    if(!mayDelete(v,actor.roles))
+      return bad("Only the administrator can delete a vendor (procurement can delete a draft that was never submitted).",403);
+    const byAdmin=(actor.roles||[]).includes("Administrator");
     for(const a of await docsOf(db,v.id)){
       const[row]=await db.select({key:wfAttachments.storageKey}).from(wfAttachments).where(eq(wfAttachments.id,a.id));
       if(row)await deleteFile(row.key);
     }
     await writeWithAudit([db.delete(wfAttachments).where(and(eq(wfAttachments.entityType,"vendor"),eq(wfAttachments.entityId,v.id))),
-      db.delete(wfVendorMaster).where(and(eq(wfVendorMaster.id,v.id),eq(wfVendorMaster.status,"Draft")))],
-      who,"vendor",v.id,"Draft deleted",`${v.vendorCode} · ${v.legalName}`);
+      db.delete(wfVendorMaster).where(byAdmin?eq(wfVendorMaster.id,v.id):and(eq(wfVendorMaster.id,v.id),eq(wfVendorMaster.status,"Draft")))],
+      who,"vendor",v.id,byAdmin?"Deleted by the administrator":"Draft deleted",`${v.vendorCode} · ${v.legalName} · was ${v.status}`);
+    /* An active vendor leaves the payment-request vendor list with it - unless another active
+       registration carries the same name. */
+    if(v.status==="Active"){
+      const[still]=await db.select({id:wfVendorMaster.id}).from(wfVendorMaster)
+        .where(and(eq(wfVendorMaster.status,"Active"),sql`lower(${wfVendorMaster.legalName})=${v.legalName.toLowerCase()}`)).limit(1);
+      if(!still)await setVendorOffered(v.legalName,false);
+    }
     return Response.json({deleted:true});
   }catch(e){return oops(e)}}
