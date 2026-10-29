@@ -324,11 +324,7 @@ export function PoDocument({ preview }: { preview: PoDocumentData }) {
         </p>
       ) : null}
 
-      {preview.notes ? (
-        <p className="whitespace-pre-line mt-3 text-[13px]">
-          <b>Remarks:</b> {preview.notes}
-        </p>
-      ) : null}
+      {/* The PO's notes are internal: they are shown on the PO page, never printed or sent. */}
 
       {/* Sign-off: who prepared, checked, verified and approved this PO, by name. */}
       <div className="po-doc-sign">

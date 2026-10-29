@@ -129,6 +129,14 @@ export default function PoDetailPage() {
         canDetach={!!data.canDetach}
       />
 
+      {/* Internal notes: kept for the team on screen, left off the printed PO and the PDF. */}
+      {data.notes ? (
+        <div className="card noprint mb-3 text-sm">
+          <b>Notes</b> <span className="text-mut text-xs">internal — not printed on the PO</span>
+          <p className="whitespace-pre-line mt-1 mb-0">{data.notes}</p>
+        </div>
+      ) : null}
+
       <PoDocument
         preview={{
           displayNo: data.displayNo,

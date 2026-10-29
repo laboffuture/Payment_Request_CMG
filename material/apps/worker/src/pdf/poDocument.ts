@@ -285,7 +285,6 @@ export async function renderPoHtml(poId: string): Promise<{ html: string; no: st
     rfq ? ` · <b>Enquiry:</b> ${esc(rfq.no)}` : ''
   }</p>
   ${(po.conditions || company?.poTerms) ? `<div class="terms"><b>Terms and conditions</b>\n${esc(po.conditions || company?.poTerms || '')}</div>` : ''}
-  ${po.notes ? `<p style="white-space:pre-line"><b>Remarks:</b> ${esc(po.notes)}</p>` : ''}
 
   <div class="sigs">
     ${sig('Prepared by', creator?.name, 'Procurement Associate')}
