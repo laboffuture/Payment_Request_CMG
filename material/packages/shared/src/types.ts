@@ -577,6 +577,8 @@ export interface MrDetailDto extends MrDto {
   canEdit: boolean;
   canPm: boolean;
   canQs: boolean;
+  /** QS may close it as already purchased: waiting for QS, or approved and still open */
+  canQsClose: boolean;
   /** project petty cash: procurement may approve / send back / reject it now */
   canProcReview: boolean;
   /** project petty cash: the site engineer may post the GRN now */

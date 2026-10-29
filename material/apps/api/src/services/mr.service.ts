@@ -249,6 +249,10 @@ const ADMIN_EDITABLE = ['PM_PENDING', 'QS_PENDING', 'SENT_BACK'];
 const canAdminEdit = (actor: Actor, mr: Record<string, any>): boolean =>
   actor.role === 'ADMIN' && ADMIN_EDITABLE.includes(mr.status);
 
+/** QS may close an MR as already purchased while it waits for QS, or once approved and open. */
+const canQsClose = (actor: Actor, mr: Record<string, any>): boolean =>
+  actor.role === 'QS' && (mr.status === 'QS_PENDING' || mr.status === 'APPROVED');
+
 const canQs = (actor: Actor, mr: Record<string, any>): boolean =>
   actor.role === 'QS' && mr.status === 'QS_PENDING';
 
@@ -467,6 +471,7 @@ export async function getMr(actor: Actor, id: string): Promise<MrDetailDto> {
     })),
     canEdit: canEdit(actor, mr) || canAdminEdit(actor, mr),
     canQs: canQs(actor, mr),
+    canQsClose: canQsClose(actor, mr),
     canPm: canPm(actor, mr),
     canProcReview: isBuyer(actor.role) && mr.status === 'PROC_REVIEW',
     canPostGrn: canPostPettyGrn(actor, mr),
@@ -1812,3 +1817,67 @@ const mrStatusLabel = (status: string): string =>
     CLOSED: 'Closed',
   })[status] ?? status;
 
+/**
+ * QS closes an MR whose material was already bought: whatever is still waiting - to be issued
+ * from the store, or to be bought by procurement - is cancelled, and the MR is closed with
+ * QS's reason. What was already issued, ordered or received stays on record. Not while part
+ * of it is on an open enquiry or on a PO still to be received: those are settled first.
+ */
+export async function qsCloseAsPurchased(actor: Actor, id: string, input: MrCommentInput): Promise<void> {
+  const outboxIds = await inTransaction(async (session) => {
+    const mr = await Mr.findById(id).session(session);
+    if (!mr) throw notFound();
+    if (!canQsClose(actor, mr)) throw conflict('Only an MR waiting for QS, or approved and still open, can be closed here');
+    if (input.rv !== undefined && input.rv !== (mr.rv ?? 0)) throw stale();
+
+    const world = await loadWorld();
+    const lookups = await buildLookups();
+    const lines = await MrLine.find({ mrId: mr._id, lineStatus: { $ne: 'REJECTED' } }).session(session);
+    const blocked: string[] = [];
+    for (const line of lines) {
+      const lineIn = world.mrLines.find((l) => l.id === String(line._id));
+      const calc = lineIn ? lineCalc(world, lineIn) : null;
+      if (!calc) continue;
+      if (calc.rfqOpen > 0) blocked.push(`${lineName(line.toObject(), lookups)}: on an open enquiry`);
+      if (calc.poAlloc > calc.received) {
+        const allocs = await PoAlloc.find({ mrLineId: line._id }).select('poId').session(session).lean();
+        const pos = await Po.find({ _id: { $in: allocs.map((a) => a.poId) }, status: { $nin: ['REJECTED', 'CANCELLED'] } })
+          .select('no').session(session).lean();
+        blocked.push(`${lineName(line.toObject(), lookups)}: on ${pos.map((p) => p.no).join(', ') || 'a PO'} still to be received`);
+      }
+    }
+    if (blocked.length) {
+      throw conflict(`Cannot close yet - ${blocked.join('; ')}. Receive or cancel those first.`);
+    }
+
+    // Nothing more is to be issued or bought: keep only what already went out or was ordered.
+    for (const line of lines) {
+      const lineIn = world.mrLines.find((l) => l.id === String(line._id));
+      const calc = lineIn ? lineCalc(world, lineIn) : null;
+      line.storeQty = num(Math.min(num(line.storeQty ?? 0), calc ? calc.issuedGross : 0));
+      line.poQty = num(calc ? calc.poAlloc : 0);
+      await line.save({ session });
+    }
+
+    mr.status = 'CLOSED';
+    mr.closedAt = new Date();
+    mr.qsBy = mr.qsBy ?? (oid(actor.id) as never);
+    mr.qsAt = mr.qsAt ?? new Date();
+    mr.lastComment = `Already purchased - ${input.comment}`;
+    mr.lastCommentBy = oid(actor.id) as never;
+    mr.lastCommentRole = 'QS';
+    await mr.save({ session });
+
+    await writeAudit(session, 'MR', mr._id, AUDIT.MR_QS_CLOSED_PURCHASED, actor.id, input.comment);
+    const outbox = await emit(session, 'MR_CLOSED', {
+      title: `${mr.no} closed by QS - already purchased`,
+      body: input.comment,
+      link: `mr:${String(mr._id)}`,
+      to: [{ userId: mr.createdBy }, mr.pmBy ? { userId: mr.pmBy } : null, { role: 'PROC' }, { role: 'STORE' }],
+      actorId: actor.id,
+    });
+    await bumpSyncStamp(session);
+    return outbox;
+  });
+  await enqueueEmails(outboxIds);
+}

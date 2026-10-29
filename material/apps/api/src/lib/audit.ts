@@ -40,6 +40,7 @@ export const AUDIT = {
   MR_NEW_ITEM_MAPPED: 'New item mapped',
   MR_NEW_ITEM_REJECTED: 'New item line rejected',
   MR_CLOSED: 'Closed',
+  MR_QS_CLOSED_PURCHASED: 'Closed by QS - already purchased',
   MR_DELETED: 'Deleted by the administrator',
   MR_ISSUED: 'Material issued',
   MR_PROC_QUERY: 'Procurement raised a query to QS',

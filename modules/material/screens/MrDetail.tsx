@@ -169,6 +169,7 @@ export default function MrDetailPage() {
         </div>
       ) : null}
       <ApprovalBanner mr={data} />
+      {data.canQsClose ? <QsClosePurchased mr={data} /> : null}
       <BoqBanner mr={data} />
 
       {data.canPm ? <PmPanel mr={data} /> : null}
@@ -219,6 +220,67 @@ export default function MrDetailPage() {
         />
       ) : null}
     </>
+  );
+}
+
+/**
+ * QS: the material on this MR was already bought (or is already at site from the store), so
+ * nothing more should be issued or purchased against it. Closing it cancels what is still
+ * waiting and closes the MR with QS's reason; what already went out stays on record.
+ */
+function QsClosePurchased({ mr }: { mr: MrDetailDto }) {
+  const [open, setOpen] = useState(false);
+  const [reason, setReason] = useState('');
+  const close = useAction(() => post(`/mrs/${mr.id}/qs-close`, { comment: reason.trim(), rv: mr.rv }), {
+    success: `${mr.no} closed - already purchased`,
+    invalidate: [['mr', mr.id], ['mrs'], ['pool'], ['inventory'], ['counts']],
+    onDone: () => setOpen(false),
+  });
+  return (
+    <Card className="mb-3">
+      <div className="flex items-center justify-between gap-3 flex-wrap">
+        <span className="text-sm">
+          <b>Already purchased?</b>{' '}
+          <span className="text-mut">
+            If this material was already bought or is already at site, close the MR so the store
+            and procurement do not act on it.
+          </span>
+        </span>
+        <Btn variant="danger" onClick={() => setOpen(true)}>
+          Already purchased - close MR
+        </Btn>
+      </div>
+      {open ? (
+        <Modal
+          title={`Close ${mr.no} - already purchased`}
+          onClose={() => setOpen(false)}
+          footer={
+            <>
+              <Btn onClick={() => setOpen(false)}>Cancel</Btn>
+              <Btn variant="danger" disabled={close.isPending || reason.trim().length < 3} onClick={() => close.mutate(undefined)}>
+                {close.isPending ? 'Closing…' : 'Close MR'}
+              </Btn>
+            </>
+          }
+        >
+          <p className="mt-0 text-sm">
+            Whatever is still waiting on this MR - to be issued from the store or to be bought by
+            procurement - is cancelled, and the MR is closed. What was already issued, ordered or
+            received stays on record. The site engineer, the PM, procurement and the store are told.
+          </p>
+          <label className="field">
+            Reason *
+            <textarea
+              rows={3}
+              maxLength={500}
+              placeholder="e.g. Already purchased locally by site - bill no. 1234"
+              value={reason}
+              onChange={(e) => setReason(e.target.value)}
+            />
+          </label>
+        </Modal>
+      ) : null}
+    </Card>
   );
 }
 

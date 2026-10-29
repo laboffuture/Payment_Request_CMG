@@ -36,6 +36,7 @@ import {
   qsApprove,
   rejectMr,
   rejectNewItem,
+  qsCloseAsPurchased,
   removeBoqFile,
   sendBackMr,
   queryMrLines,
@@ -247,6 +248,18 @@ mrRouter.post(
   validateBody(mrLineDropInput),
   wrap(async (req, res) => {
     await dropMrLine(actorOf(req), req.params.id!, req.params.lineId!, req.body);
+    res.json({ ok: true });
+  }),
+);
+
+/** QS: the material was already bought - close the MR, cancelling whatever is still waiting. */
+mrRouter.post(
+  '/mrs/:id/qs-close',
+  requireAuth,
+  authorize('QS'),
+  validateBody(mrCommentInput),
+  wrap(async (req, res) => {
+    await qsCloseAsPurchased(actorOf(req), req.params.id!, req.body);
     res.json({ ok: true });
   }),
 );
