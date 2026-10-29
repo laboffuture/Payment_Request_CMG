@@ -441,7 +441,7 @@ function Dashboard({payments,go}:{payments:Payment[];go:(m:Module)=>void}){
       const MONTHS=["JAN","FEB","MAR","APR","MAY","JUN","JUL","AUG","SEP","OCT","NOV","DEC"];
       const dated=open.filter(p=>/^\d{4}-\d{2}-\d{2}/.test(String(p.due||"")));
       const coming=dated.filter(p=>String(p.due).slice(0,10)>=today)
-        .sort((a,b)=>String(a.due).localeCompare(String(b.due))).slice(0,5);
+        .sort((a,b)=>String(a.due).localeCompare(String(b.due))).slice(0,7);
       const late=dated.filter(p=>String(p.due).slice(0,10)<today).length;
       return <>{coming.map(p=>{const due=String(p.due).slice(0,10);
         return <div key={p.id}><time className={due===today?"today":""} title={due===today?`Due today (${due})`:`Due ${due}`}>
