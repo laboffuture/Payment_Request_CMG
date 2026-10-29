@@ -196,7 +196,7 @@ export const MOVE:Record<Move,{label:string;to:VendorStatus;note:boolean}>={
   procVerify:{label:"Verified - send to accounts",to:"Accounts Verification",note:false},
   accVerify:{label:"Verified - send for final approval",to:"Pending Approval",note:false},
   approve:{label:"Approve and activate",to:"Active",note:false},
-  return:{label:"Return for correction",to:"Returned",note:true},
+  return:{label:"Query",to:"Returned",note:true},
   reject:{label:"Reject",to:"Rejected",note:true},
   suspend:{label:"Suspend",to:"Suspended",note:true},
   block:{label:"Block",to:"Blocked",note:true},
@@ -209,12 +209,15 @@ export const MOVE:Record<Move,{label:string;to:VendorStatus;note:boolean}>={
    registered the vendor cannot also approve it. */
 export function movesFor(status:string,roles:string[]=[],isCreator=false):Move[]{
   const p=isProcurement(roles),a=isAccounts(roles),m=isApprover(roles);
+  /* At each check the reviewer can query the vendor back to procurement; closing it as
+     Rejected is the administrator's decision alone. */
+  const reject:Move[]=roles.includes("Administrator")?["reject"]:[];
   switch(status){
     case"Draft":case"Returned":return p?["submit"]:[];
     case"Submitted":return p?["toVerification"]:[];
-    case"Procurement Verification":return p?["procVerify","return","reject"]:[];
-    case"Accounts Verification":return a?["accVerify","return","reject"]:[];
-    case"Pending Approval":return m?[...(isCreator?[]:["approve" as Move]),"return","reject"]:[];
+    case"Procurement Verification":return p?["procVerify","return",...reject]:[];
+    case"Accounts Verification":return a?["accVerify","return",...reject]:[];
+    case"Pending Approval":return m?[...(isCreator?[]:["approve" as Move]),"return",...reject]:[];
     case"Active":return[...(m?["suspend","block","inactivate","expire"] as Move[]:[]),...(p||a?["revise" as Move]:[])];
     case"Suspended":case"Blocked":case"Inactive":case"Expired":return m?["reactivate"]:[];
     default:return[]}}
