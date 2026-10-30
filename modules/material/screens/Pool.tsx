@@ -480,7 +480,8 @@ export default function PoolPage() {
 
       {view === 'ORDER' ? (
         <>
-        <ProcHolds canAnswer={false} />
+        {/* While searching, the lines with QS (queried or rejected) step aside so the matches come first. */}
+        {!search.trim() ? <ProcHolds canAnswer={false} /> : null}
 
         {pool.isLoading ? (
           <div className="text-mut">Loading…</div>
