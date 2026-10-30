@@ -34,6 +34,12 @@ export default function OrgChart({openProfile,flash,readOnly}:{readOnly?:boolean
           name:"",type:"Support",parentId:roots[0]?.id||null,color:"#3f70c7",jd:""})}><Plus/>Add role</button></>}
       </div></div>
 
+    <div className="schedule-metrics wf-metrics">{([
+      ["Charts",wf.departments.length],
+      ["Roles in this chart",wf.roles.length],
+      ["Roles in all charts",wf.allRoles.length],
+      ["Employees",wf.headcount]] as [string,number][]).map(([l,v])=><article key={l}><span>{l}</span><b>{v.toLocaleString()}</b></article>)}</div>
+
     <section className="panel wf-tree">
       {!roots.length&&<Empty label="No roles in this chart yet. Use Add role to begin."/>}
       {roots.map(r=><Node key={r.id} role={r} depth={0} collapsed={collapsed} toggle={toggle}

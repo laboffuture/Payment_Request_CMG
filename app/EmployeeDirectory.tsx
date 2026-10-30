@@ -44,6 +44,12 @@ export default function EmployeeDirectory({openProfile,flash,readOnly}:{readOnly
         roleId:"",deptId:wf.dept,department:"",reportsTo:null,email:"",phone:"",jd:"",photoAt:"",active:true,joined:""})}>
         <Plus/>Add employee</button>}</div>
 
+    <div className="schedule-metrics wf-metrics">{([
+      ["Employees",wf.headcount],
+      ["Matching this filter",total],
+      ["Departments",wf.departments.length],
+      ["Roles",wf.allRoles.length]] as [string,number][]).map(([l,v])=><article key={l}><span>{l}</span><b>{v.toLocaleString()}</b></article>)}</div>
+
     <div className="toolbar">
       <label><Search/><input value={raw} onChange={e=>setRaw(e.target.value)} placeholder="Search name, ID or team"/></label>
       <select className="wf-select" value={deptFilter} onChange={e=>{setDeptFilter(e.target.value);setOffset(0)}}>
