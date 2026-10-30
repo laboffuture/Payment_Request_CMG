@@ -145,6 +145,13 @@ export default function AccessSetup(){
      They must change it at first sign-in.</p>
     <button onClick={()=>setIssued(null)}>Done</button></div>}
 
+  {/* Counted from the whole roster, not the page on screen. */}
+  {roster.length>0&&<div className="schedule-metrics access-metrics">{([
+    ["Logins",roster.length],
+    ["Active",roster.filter(u=>u.active).length],
+    ["Must change password",roster.filter(u=>u.active&&u.mustChange).length],
+    ["Disabled",roster.filter(u=>!u.active).length]] as [string,number][]).map(([l,v])=><article key={l}><span>{l}</span><b>{v}</b></article>)}</div>}
+
   <div className="access-tabs">
    <button className={tab==="users"?"active":""} onClick={()=>setTab("users")}>Users &amp; assignments</button>
    <button className={tab==="matrix"?"active":""} onClick={()=>setTab("matrix")}>Role permission matrix</button></div>
