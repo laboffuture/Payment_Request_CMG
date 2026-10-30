@@ -153,3 +153,26 @@ td .badge:before{width:7px;height:7px}
 .recv-tag{display:inline-flex;align-items:center;gap:6px;padding:4px 10px;border-radius:999px;font-size:11.5px;font-weight:600;line-height:1.25}
 /* the module tabs */
 .recv-modules button{border-color:var(--as-line);border-radius:12px;color:var(--as-ink);font-weight:600}
+
+/* ------------------------------------------------------------------ Audit task pages (pre-audit, post-audit,
+   special audits, meetings) in the dashboard's style: count tiles, tabs, filters and the task table. */
+.audit-metrics>article:nth-child(1){--kpi-color:var(--as-amber)}
+.audit-metrics>article:nth-child(2){--kpi-color:var(--as-blue)}
+.audit-metrics>article:nth-child(3){--kpi-color:var(--as-green)}
+.audit-metrics>article:nth-child(4){--kpi-color:var(--as-violet)}
+.audit-list{border:1px solid var(--as-line);border-radius:12px;overflow:hidden}
+.audit-list-tabs{gap:24px;padding:0 20px}
+.audit-list-tabs button{margin:0;padding:15px 2px 13px;font-size:13px;font-weight:600;color:var(--as-muted);border-bottom:2px solid transparent}
+.audit-list-tabs button:hover{color:var(--as-ink)}
+.audit-list-tabs button.active{color:var(--as-ink);border-bottom-color:var(--as-ink)}
+.audit-list-tabs i{font:700 11.5px/1 var(--font-numbers);padding:3px 8px;margin-left:7px;border-radius:999px;background:var(--as-grey-bg);color:var(--as-grey)}
+.audit-list-tabs button.active i{background:var(--as-ink);color:#fff}
+.audit-list-tools{padding:14px 20px;background:#fff}
+@media (min-width:761px){
+.audit-list th{padding:12px 20px;font-size:11px;font-weight:600;letter-spacing:.06em;color:var(--as-muted);background:#F8FAFC}
+.audit-list td{padding:14px 20px;border-top:1px solid var(--as-line);color:var(--as-ink);font-size:12.5px}
+.audit-list tbody tr:hover td{background:var(--as-hover)}
+.audit-list td>b{font-size:13px;font-weight:600;color:var(--as-ink)}
+.audit-list td small{font-size:11.5px;color:var(--as-muted)}
+.audit-list td .badge{display:inline-flex;align-items:center;padding:4px 10px;border-radius:999px;font-size:11.5px;font-weight:600}
+}
