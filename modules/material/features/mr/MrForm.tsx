@@ -407,6 +407,7 @@ export function MrForm({ existing }: { existing?: MrDetailDto }) {
               key={line.id ?? `new-${index}`}
               line={line}
               work={subContract && !line.itemId}
+              priced={me.role !== 'SITE'}
               onChange={(patch) => setLine(index, patch)}
               onRemove={() => setLines((rows) => rows.filter((_, i) => i !== index))}
               onChangeItem={() => {
@@ -694,17 +695,20 @@ function LineCard({
   onChange,
   onRemove,
   onChangeItem,
+  priced = true,
 }: {
   line: FormLine;
   /** a line of sub-contract work: heading, description, quantity, rate, per and amount */
   work?: boolean;
+  /** show the work line's rate and amount - not to site engineers; procurement and the rest see them */
+  priced?: boolean;
   onChange: (patch: Partial<FormLine>) => void;
   onRemove: () => void;
   /** pick a different item for this line, keeping the quantity and description */
   onChangeItem: () => void;
 }) {
   const isNew = !line.itemId;
-  if (work) return <WorkCard line={line} onChange={onChange} onRemove={onRemove} />;
+  if (work) return <WorkCard line={line} priced={priced} onChange={onChange} onRemove={onRemove} />;
 
   return (
     <div
@@ -932,10 +936,12 @@ function ItemPicker({
 /** One line of sub-contract work. The amount is quantity × rate, worked out as you type. */
 function WorkCard({
   line,
+  priced,
   onChange,
   onRemove,
 }: {
   line: FormLine;
+  priced: boolean;
   onChange: (patch: Partial<FormLine>) => void;
   onRemove: () => void;
 }) {
@@ -992,6 +998,7 @@ function WorkCard({
             onChange={(e) => onChange({ qty: e.target.value })}
           />
         </label>
+        {priced ? (
         <label className="field basis-[140px] grow-0">
           Rate
           <input
@@ -1003,6 +1010,7 @@ function WorkCard({
             onChange={(e) => onChange({ rate: e.target.value })}
           />
         </label>
+        ) : null}
         <label className="field basis-[120px] grow-0">
           Per *
           <select
@@ -1012,10 +1020,12 @@ function WorkCard({
             <UnitOptions current={line.newUnit} />
           </select>
         </label>
+        {priced ? (
         <label className="field basis-[160px] grow">
           Amount
           <input readOnly tabIndex={-1} className="font-semibold" value={amount ? money(amount) : '—'} />
         </label>
+        ) : null}
       </div>
     </div>
   );
