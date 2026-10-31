@@ -264,10 +264,13 @@ export const PO_EXTRA_CHARGES = [
   'Installation Charge',
   'Holes Charge',
   'Packaging Charge',
+  'Fixing Charge',
   'Round-off',
 ] as const;
 export type PoExtraCharge = (typeof PO_EXTRA_CHARGES)[number];
 export const PO_ROUND_OFF: PoExtraCharge = 'Round-off';
+/** GST filled in on an extra charge as its amount is typed; procurement can still change it. */
+export const PO_CHARGE_GST_PCT = 18;
 
 /**
  * What a request is for. Material, tools & assets and sub-contractor requests all follow

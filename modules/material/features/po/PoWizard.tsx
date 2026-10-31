@@ -10,6 +10,7 @@ import {
   DEFAULT_PAYMENT_TERMS,
   MSG,
   PO_DIRECT_REASONS,
+  PO_CHARGE_GST_PCT,
   PO_EXTRA_CHARGES,
   PO_ROUND_OFF,
   TAX_MODES,
@@ -904,6 +905,7 @@ function StepVendorPrices({
       <ExtraCharges
         charges={form.charges}
         currency={currency}
+        taxMode={form.taxMode}
         onChange={(next) => setForm((f) => ({ ...f, charges: next }))}
       />
 
@@ -1127,18 +1129,28 @@ const chargesOf = (drafts: ChargeDraft[]) =>
     }))
     .filter((c) => Number.isFinite(c.amount) && c.amount !== 0);
 
+/** The GST on a charge's amount at PO_CHARGE_GST_PCT, as typed into the tax box ('' = none). */
+const chargeGst = (type: string, amount: string, taxMode: TaxMode): string => {
+  const value = Number(amount);
+  if (type === PO_ROUND_OFF || taxMode === 'NONE' || !amount.trim() || !Number.isFinite(value) || value <= 0) return '';
+  return String(Math.round(value * PO_CHARGE_GST_PCT) / 100);
+};
+
 /**
  * Optional extra charges on the PO - transport, cutting, round-off and the like. Pick one
  * from the list, give it an amount, and it is added to the total and printed on the PO.
  * Each kind can be added once. Nothing here is required: most POs have none.
+ * Typing the amount fills its GST at 18%; the tax box stays editable for a vendor who bills otherwise.
  */
 function ExtraCharges({
   charges,
   currency,
+  taxMode,
   onChange,
 }: {
   charges: ChargeDraft[];
   currency: string;
+  taxMode: TaxMode;
   onChange: (next: ChargeDraft[]) => void;
 }) {
   const left = PO_EXTRA_CHARGES.filter((type) => !charges.some((c) => c.type === type));
@@ -1154,9 +1166,10 @@ function ExtraCharges({
         {charges.length ? <Tag label={`${charges.length} ADDED`} tone="ac" /> : null}
       </div>
       <p className="text-mut text-sm mt-0 mb-3">
-        Add a charge only if the vendor bills it on this order. Enter its amount and the tax on
-        it (leave the tax empty if there is none); both are added to the PO total exactly as
-        entered and printed on the PO. Round-off can be a minus figure and has no tax.
+        Add a charge only if the vendor bills it on this order. Enter its amount and GST at{' '}
+        {PO_CHARGE_GST_PCT}% is filled in for you (change or clear it if the vendor bills
+        otherwise); both are added to the PO total and printed on the PO. Round-off can be a
+        minus figure and has no tax.
       </p>
 
       {charges.length ? (
@@ -1178,7 +1191,9 @@ function ExtraCharges({
                 title="Amount"
                 className="text-right"
                 value={charge.amount}
-                onChange={(e) => set(index, { amount: e.target.value })}
+                onChange={(e) =>
+                  set(index, { amount: e.target.value, tax: chargeGst(charge.type, e.target.value, taxMode) })
+                }
               />
               {charge.type === PO_ROUND_OFF ? (
                 <span className="text-mut text-xs">no tax</span>
@@ -1189,8 +1204,8 @@ function ExtraCharges({
                   step="0.01"
                   min={0}
                   aria-label={`Tax on ${charge.type} in ${currency}`}
-                  placeholder={`Tax (${currency})`}
-                  title="Tax"
+                  placeholder={`GST ${PO_CHARGE_GST_PCT}% (${currency})`}
+                  title={`GST - filled in at ${PO_CHARGE_GST_PCT}% of the amount`}
                   className="text-right"
                   value={charge.tax}
                   onChange={(e) => set(index, { tax: e.target.value })}
