@@ -25,16 +25,35 @@ const statusTone=(s:string)=>s==="Query Raised"||s==="Audit Query"?"amber":/reje
 
 const PER_PAGE=10;
 
+/* The local calendar day a request was raised, as YYYY-MM-DD for the date boxes. Stored in
+   UTC, so a request raised before 5:30 in the morning in India would otherwise fall on the
+   day before. */
+const dayOf=(v?:string)=>{
+  if(!v)return"";
+  const d=new Date(/[zZ]|[+-]\d\d:?\d\d$/.test(v)?v:v.replace(" ","T")+"Z");
+  if(isNaN(+d))return"";
+  return`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`};
+const shortDay=(v:string)=>new Date(v+"T00:00").toLocaleDateString("en-GB",{day:"numeric",month:"short",year:"numeric"});
+
 export default function RequestorWorkspace({rows,open,create,scope="own"}:{rows:P[];open:(p:P)=>void;create:()=>void;scope?:"own"|"department"}){
   /* A department head is shown his department's requests, so the headings cannot keep
      saying "my" and "your" over other people's work. */
   const dept=scope==="department";
   const[offset,setOffset]=useState(0),[term,setTerm]=useState("");
+  const[from,setFrom]=useState(""),[to,setTo]=useState("");
   const q=term.trim().toLowerCase();
+  const dated=!!(from||to);
   /* The vendor is what the search is for, but somebody hunting "the ABC one" may just as
      easily remember the request number or the company, and being told "no match" because
      they typed the right thing in the wrong field would be the search's fault, not theirs. */
-  const found=q?rows.filter(p=>matchesPayment(p,q)):rows;
+  /* The dates are the day the request was raised, both ends included. */
+  const found=rows.filter(p=>{
+    if(q&&!matchesPayment(p,q))return false;
+    if(!dated)return true;
+    const day=dayOf(p.createdAt);
+    return!!day&&(!from||day>=from)&&(!to||day<=to)});
+  const narrowed=!!q||dated;
+  const range=dated?(from&&to?`${shortDay(from)} to ${shortDay(to)}`:from?`from ${shortDay(from)}`:`up to ${shortDay(to)}`):"";
   /* Clamped rather than used as given: if the list shortens under a reader who has paged
      forward - a search narrows it, a request is withdrawn - an unclamped offset would land
      past the end and show an empty table, which reads as "no requests" rather than as a
@@ -64,13 +83,18 @@ export default function RequestorWorkspace({rows,open,create,scope="own"}:{rows:
         <h2>{dept?"Recent requests in your department":"Your recent requests"}</h2></div>
         <button className="wf-small" onClick={download} disabled={!found.length}
           title={!rows.length?(dept?"Your department has not raised a request yet":"You have not raised a request yet")
-            :q?`Download the ${found.length} request${found.length===1?"":"s"} matching "${term.trim()}"`
+            :narrowed?`Download the ${found.length} request${found.length===1?"":"s"} ${[q&&`matching "${term.trim()}"`,range&&`raised ${range}`].filter(Boolean).join(", ")}`
             :`Download all ${rows.length} ${dept?"of your department's requests":"of your requests"} as a spreadsheet`}>
           <Download/>Download report</button></div>
       <div className="rq-tools"><label><Search/>
         <input value={term} onChange={e=>{setTerm(e.target.value);setOffset(0)}}
           placeholder="Search vendor, request number, company or amount"/></label>
-        {q&&<button className="rq-clear" onClick={()=>{setTerm("");setOffset(0)}}>
+        <span className="rq-dates" title="The day the request was raised">
+          <label>From<input type="date" value={from} max={to||undefined}
+            onChange={e=>{setFrom(e.target.value);setOffset(0)}}/></label>
+          <label>To<input type="date" value={to} min={from||undefined}
+            onChange={e=>{setTo(e.target.value);setOffset(0)}}/></label></span>
+        {narrowed&&<button className="rq-clear" onClick={()=>{setTerm("");setFrom("");setTo("");setOffset(0)}}>
           Clear · {found.length} of {rows.length}</button>}</div>
       <div className="table-wrap"><table><thead><tr>
         <th>REQUEST</th><th>COMPANY / DEPT</th><th>VENDOR</th><th>AMOUNT</th><th>DUE</th>
@@ -97,8 +121,9 @@ export default function RequestorWorkspace({rows,open,create,scope="own"}:{rows:
       {!rows.length&&<div className="wb-empty"><FileText/><b>No requests yet</b>
         <span>Use Request payment to raise your first one.</span></div>}
       {!!rows.length&&!found.length&&<div className="wb-empty"><Search/>
-        <b>Nothing matches “{term.trim()}”</b>
-        <span>Searches the vendor, request number, company, department and nature of your {rows.length} requests.</span></div>}</div>
+        <b>{q?`Nothing matches “${term.trim()}”${range?` raised ${range}`:""}`:`No requests raised ${range}`}</b>
+        <span>{q?`Searches the vendor, request number, company, department and nature of your ${rows.length} requests.`
+          :"Widen the dates, or clear them to see every request."}</span></div>}</div>
       <Pager total={found.length} limit={PER_PAGE} offset={start} setOffset={setOffset}/>
     </section>
   </div>}
