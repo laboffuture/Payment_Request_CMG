@@ -321,6 +321,11 @@ export function PoWizard({
           grouped={grouped}
           rows={rows}
           onPatchItem={patchItem}
+          onRemoveItem={(key) => {
+            const left = rows.filter((r) => groupKeyOf(r) !== key);
+            setRows(left);
+            if (!left.length) setStep(1);
+          }}
           totals={totals}
           currency={currency}
           locked={revise}
@@ -606,6 +611,7 @@ function StepVendorPrices({
   grouped,
   rows,
   onPatchItem,
+  onRemoveItem,
   totals,
   currency,
   locked,
@@ -619,6 +625,8 @@ function StepVendorPrices({
   rows: PoDraftRow[];
   /** key: groupKeyOf(row) - the item and its measurement */
   onPatchItem: (key: string, patch: Partial<PoDraftRow>) => void;
+  /** takes every MR line of this item and measurement off the PO; they go back to the pool */
+  onRemoveItem: (key: string) => void;
   totals: { subtotal: number; taxTotal: number; total: number; chargesTotal: number };
   currency: string;
   locked: boolean;
@@ -830,6 +838,7 @@ function StepVendorPrices({
               <th>Rate *</th>
               <th>Tax %</th>
               <th className="text-right">Amount incl. tax</th>
+              <th />
             </tr>
           </thead>
           <tbody>
@@ -894,6 +903,22 @@ function StepVendorPrices({
                   </td>
                   <td data-label="Amount" className="desk:text-right">
                     {money(amount + tax)}
+                  </td>
+                  <td data-label="">
+                    {(() => {
+                      const received = rows.some((r) => groupKeyOf(r) === group.key && r.received);
+                      return (
+                        <Btn
+                          small
+                          variant="danger"
+                          disabled={received}
+                          title={received ? 'Already received' : 'Take this item off the PO'}
+                          onClick={() => onRemoveItem(group.key)}
+                        >
+                          Remove
+                        </Btn>
+                      );
+                    })()}
                   </td>
                 </tr>
               );
