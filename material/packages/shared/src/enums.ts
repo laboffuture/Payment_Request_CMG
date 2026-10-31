@@ -116,6 +116,10 @@ export const ROLE_NAMES: Record<Role, string> = {
   VENDOR: 'Vendor',
 };
 
+/** The roles that can be kept to chosen projects (none chosen = every project). */
+export const isProjectScopedRole = (role: Role | string | undefined): boolean =>
+  role === 'SITE' || role === 'PM';
+
 /** Prototype: isBuyer() */
 export const isBuyer = (role: Role | string | undefined): boolean =>
   role === 'PROC' || role === 'PROC_MGR';

@@ -4,7 +4,7 @@ import { wrap, sendCsv } from '../lib/http.js';
 import { forbidden } from '../lib/errors.js';
 import { readLocalFile } from '../lib/files.js';
 import { verifyLocal } from '../lib/localFiles.js';
-import { actorOf, authorize, requireAuth } from '../middleware/auth.js';
+import { actorOf, authorize, projectScopeOf, requireAuth } from '../middleware/auth.js';
 import { authRouter } from './auth.routes.js';
 import { adminRouter } from './admin.routes.js';
 import { mrRouter } from './mr.routes.js';
@@ -64,12 +64,10 @@ apiRouter.get(
       listUnits(),
     ]);
 
-    // A site user only ever picks from the projects they are allowed to raise
-    // material requests for (§3).
-    const scoped =
-      actor.role === 'SITE' && actor.projectIds.length
-        ? projects.filter((p) => actor.projectIds.includes(p.id))
-        : projects;
+    // A site engineer or project manager only ever picks from the projects they are
+    // allowed to raise material requests for (§3).
+    const scope = projectScopeOf(actor);
+    const scoped = scope ? projects.filter((p) => scope.includes(p.id)) : projects;
 
     res.json({
       projects: scoped,

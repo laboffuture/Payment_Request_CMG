@@ -1,4 +1,4 @@
-import { MSG, type ImportPaymentUsersInput, type Role, type UpsertUserInput, type UserDto } from '@cm/shared';
+import { MSG, isProjectScopedRole, type ImportPaymentUsersInput, type Role, type UpsertUserInput, type UserDto } from '@cm/shared';
 import { badRequest, conflict, notFound } from '../lib/errors.js';
 import { hashPassword } from '../lib/password.js';
 import { revokeAllForUser } from '../lib/tokens.js';
@@ -62,8 +62,8 @@ export async function createUser(input: UpsertUserInput): Promise<UserDto> {
     phone: input.phone ?? '',
     role: input.role,
     vendorId: input.role === 'VENDOR' ? input.vendorId : null,
-    // Only SITE users are project-scoped; everyone else sees every project.
-    projectIds: input.role === 'SITE' ? input.projectIds : [],
+    // Only Site Engineers and Project Managers are project-scoped; everyone else sees every project.
+    projectIds: isProjectScopedRole(input.role) ? input.projectIds : [],
     active: input.active,
     emailOn: input.emailOn,
     passwordHash: await hashPassword(input.password),
@@ -97,7 +97,7 @@ export async function updateUser(
   user.phone = input.phone ?? '';
   user.role = input.role;
   user.vendorId = input.role === 'VENDOR' ? (input.vendorId as never) : null;
-  user.projectIds = (input.role === 'SITE' ? input.projectIds : []) as never;
+  user.projectIds = (isProjectScopedRole(input.role) ? input.projectIds : []) as never;
   user.active = input.active;
   user.emailOn = input.emailOn;
 

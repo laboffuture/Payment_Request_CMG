@@ -218,7 +218,7 @@ function listFilterFor(actor: Actor, query: MrListQuery): Record<string, unknown
 
   if (query.projectId) filter.projectId = oid(query.projectId);
 
-  // A project-scoped site user never sees another project's request.
+  // A project-scoped site engineer or project manager never sees another project's request.
   const scope = projectScopeOf(actor);
   if (scope) filter.projectId = { $in: scope.map(oid) };
 
@@ -739,6 +739,8 @@ async function writeLines(
     link: `mr:${String(mr._id)}`,
     // The Project Manager reviews it first; QS is notified once the PM passes it on.
     to: [{ role: 'PM' }],
+    // a Project Manager limited to other projects is not told
+    projectId: mr.projectId,
     actorId: actor.id,
   });
 }

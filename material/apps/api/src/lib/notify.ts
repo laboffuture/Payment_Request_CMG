@@ -32,6 +32,11 @@ export interface EmitInput {
   /** a different link for vendors, e.g. "vrfq:<id>" */
   vendorLink?: string;
   to: Recipient[];
+  /**
+   * the project this is about: a role-addressed row then reaches only the Site Engineers
+   * and Project Managers who work on it (or on every project)
+   */
+  projectId?: Types.ObjectId | string | null;
   /** the user who caused this — never notified (§9) */
   actorId: Types.ObjectId | string;
   /** attach this PO's PDF to the email (PO_APPROVED → vendor) */
@@ -108,6 +113,7 @@ export async function emit(
         role: 'userId' in r ? '' : r.role,
         vendorId: isVendor ? (r as { vendorId: unknown }).vendorId : null,
         exceptUserId: 'userId' in r ? null : input.actorId,
+        projectId: input.projectId ?? null,
         readBy: [],
         createdAt: new Date(),
       });
@@ -121,6 +127,7 @@ export async function emit(
         toRole: 'userId' in r ? '' : r.role,
         toVendorId: isVendor ? (r as { vendorId: unknown }).vendorId : null,
         exceptUserId: 'userId' in r ? null : input.actorId,
+        projectId: input.projectId ?? null,
         subject: EMAIL_SUBJECT_PREFIX + input.title,
         body: `${input.body ? `${input.body}\n\n` : ''}Open: ${appLink(link)}`,
         status: 'QUEUED',

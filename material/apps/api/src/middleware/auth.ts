@@ -1,6 +1,6 @@
 import type { NextFunction, Request, Response } from 'express';
 import type { Role } from '@cm/shared';
-import { MSG } from '@cm/shared';
+import { MSG, isProjectScopedRole } from '@cm/shared';
 import { forbidden, unauthenticated } from '../lib/errors.js';
 import { ACCESS_COOKIE, verifyAccessToken } from '../lib/tokens.js';
 import { User } from '../models/masters.js';
@@ -11,7 +11,7 @@ export interface Actor {
   id: string;
   role: Role;
   vendorId: string | null;
-  /** empty = every project (SITE users only) */
+  /** empty = every project (Site Engineers and Project Managers only) */
   projectIds: string[];
   name: string;
   email: string;
@@ -62,7 +62,7 @@ export async function requireAuth(
     const projectIds = (user.projectIds ?? []).map(String);
     // Anyone limited to their own projects may still raise (and follow) a
     // Tools & Assets request, which always belongs to the tools project.
-    if (role === 'SITE' && projectIds.length) {
+    if (isProjectScopedRole(role) && projectIds.length) {
       const tools = await toolsProjectId();
       if (tools && !projectIds.includes(tools)) projectIds.push(tools);
     }
@@ -108,9 +108,9 @@ export function denyReadOnly(req: Request, _res: Response, next: NextFunction): 
   next();
 }
 
-/** A SITE user with an empty projectIds list may see every project. */
+/** A Site Engineer or Project Manager with an empty projectIds list may see every project. */
 export const projectScopeOf = (actor: Actor): string[] | null =>
-  actor.role === 'SITE' && actor.projectIds.length ? actor.projectIds : null;
+  isProjectScopedRole(actor.role) && actor.projectIds.length ? actor.projectIds : null;
 
 export const canSeeProject = (actor: Actor, projectId: string): boolean => {
   const scope = projectScopeOf(actor);

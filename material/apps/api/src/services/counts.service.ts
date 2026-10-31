@@ -18,7 +18,11 @@ export async function countsFor(actor: Actor): Promise<Counts> {
   const role = actor.role;
 
   if (role === 'PM') {
-    counts.pmQueue = await Mr.countDocuments({ status: 'PM_PENDING' });
+    const scope = projectScopeOf(actor);
+    counts.pmQueue = await Mr.countDocuments({
+      status: 'PM_PENDING',
+      ...(scope ? { projectId: { $in: scope } } : {}),
+    });
   }
 
   if (role === 'QS') {

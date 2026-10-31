@@ -165,7 +165,7 @@ export async function materialUserFor(actor: PaymentActor, requested = '') {
     name: actor.name || actor.email,
     email: actor.email,
     role: roles[0]!,
-    projectIds: roles.includes('SITE') ? projectIds : [],
+    projectIds: roles.includes('SITE') || roles.includes('PM') ? projectIds : [],
     vendorId: roles.includes('VENDOR') ? vendorId : null,
     active: true,
   };

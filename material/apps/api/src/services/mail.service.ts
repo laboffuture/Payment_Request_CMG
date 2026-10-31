@@ -2,6 +2,7 @@ import {
   EVENTS,
   EVENT_CODES,
   defaultRule,
+  isProjectScopedRole,
   type EventCode,
   type MailHealthDto,
   type NotifyRuleDto,
@@ -76,6 +77,7 @@ export async function addressesFor(row: {
   toRole?: string;
   toVendorId?: unknown;
   exceptUserId?: unknown;
+  projectId?: unknown;
 }): Promise<string[]> {
   const out: string[] = [];
   const add = (u: { active?: boolean; emailOn?: boolean; email?: string } | null) => {
@@ -96,6 +98,10 @@ export async function addressesFor(row: {
     const roles = row.toRole === 'PROC' ? ['PROC', 'PROC_MGR'] : [row.toRole];
     const filter: Record<string, unknown> = { role: { $in: roles } };
     if (row.exceptUserId) filter._id = { $ne: row.exceptUserId };
+    // Site Engineers and Project Managers kept to other projects are not mailed about this one.
+    if (row.projectId && isProjectScopedRole(row.toRole)) {
+      filter.$or = [{ projectIds: { $size: 0 } }, { projectIds: row.projectId }];
+    }
     const users = await User.find(filter).select('active emailOn email').lean();
     users.forEach(add);
   }

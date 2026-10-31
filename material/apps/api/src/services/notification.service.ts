@@ -1,6 +1,6 @@
 import { Types } from 'mongoose';
 import type { NotificationDto } from '@cm/shared';
-import type { Actor } from '../middleware/auth.js';
+import { projectScopeOf, type Actor } from '../middleware/auth.js';
 import { Notification } from '../models/system.js';
 import { bumpSyncStamp } from '../lib/sync.js';
 import { notFound } from '../lib/errors.js';
@@ -21,6 +21,10 @@ function audienceFilter(actor: Actor): Record<string, unknown> {
     userId: null,
     exceptUserId: { $ne: new Types.ObjectId(actor.id) },
   };
+
+  // A Site Engineer or Project Manager kept to some projects: not the other projects' rows.
+  const scope = projectScopeOf(actor);
+  if (scope) roleClause.projectId = { $in: [null, ...scope.map((id) => new Types.ObjectId(id))] };
 
   // A vendor only ever sees rows for its own vendor.
   if (actor.role === 'VENDOR') {

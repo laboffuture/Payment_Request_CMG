@@ -78,6 +78,8 @@ export interface INotification {
    * who caused it — plan decision (d)(9). Filtered out when the list is read.
    */
   exceptUserId: Types.ObjectId | null;
+  /** the project it is about; a project-scoped SITE or PM user sees only their projects' rows */
+  projectId: Types.ObjectId | null;
   readBy: Types.ObjectId[];
   createdAt: Date;
 }
@@ -92,6 +94,7 @@ const notificationSchema = new Schema<INotification>(
     role: { type: String, enum: [...ROLES, ''], default: '' },
     vendorId: optionalRefTo('Vendor'),
     exceptUserId: optionalRefTo('User'),
+    projectId: optionalRefTo('Project'),
     readBy: [{ type: Schema.Types.ObjectId, ref: 'User' }],
     createdAt: { type: Date, default: Date.now, index: true },
   },
@@ -115,6 +118,8 @@ export interface IEmailOutbox {
   toVendorId: Types.ObjectId | null;
   /** Never mail the actor, even on a role fan-out — plan decision (d)(9). */
   exceptUserId: Types.ObjectId | null;
+  /** the project it is about; a role email then skips SITE / PM users kept to other projects */
+  projectId: Types.ObjectId | null;
   subject: string;
   body: string;
   status: EmailStatus;
@@ -135,6 +140,7 @@ const emailOutboxSchema = new Schema<IEmailOutbox>(
     toRole: { type: String, default: '' },
     toVendorId: optionalRefTo('Vendor'),
     exceptUserId: optionalRefTo('User'),
+    projectId: optionalRefTo('Project'),
     subject: { type: String, required: true },
     body: { type: String, default: '' },
     status: {

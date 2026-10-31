@@ -353,12 +353,13 @@ function RoleEditor({account,everyone,busy,close,save}:{account:Account;everyone
        onClick={()=>save(roles,head?picked:[],scope)}>{busy?"Saving…":"Save changes"}</button></footer>
    </aside></>}
 
-/* Material scope on the login. A Site Engineer works on chosen projects (none chosen means
-   every project); a Vendor login belongs to exactly one supplier, and sees only that
+/* Material scope on the login. A Site Engineer or Project Manager works on chosen projects
+   (one list for both roles; none chosen means every project); a Vendor login belongs to exactly one supplier, and sees only that
    supplier's enquiries and orders. The lists come from Material Management. */
 function MaterialScopeFields({roles,scope,setScope}:{roles:string[];scope:MaterialScope;
   setScope:(s:MaterialScope)=>void}){
-  const site=roles.includes("Site Engineer"),vendor=roles.includes("Vendor");
+  const siteRole=roles.includes("Site Engineer"),pmRole=roles.includes("Project Manager");
+  const site=siteRole||pmRole,vendor=roles.includes("Vendor");
   const[lists,setLists]=useState<{projects:{id:string;code:string;name:string}[];vendors:{id:string;name:string}[]}|null>(null);
   const[failed,setFailed]=useState(false);
   useEffect(()=>{if(!(site||vendor)||lists)return;
@@ -372,7 +373,7 @@ function MaterialScopeFields({roles,scope,setScope}:{roles:string[];scope:Materi
   const toggle=(id:string)=>setScope({...scope,projectIds:scope.projectIds.includes(id)
     ?scope.projectIds.filter(x=>x!==id):[...scope.projectIds,id]});
   return <>
-   {site&&<fieldset><legend>Site Engineer — projects</legend>
+   {site&&<fieldset><legend>{siteRole&&pmRole?"Site Engineer / Project Manager":siteRole?"Site Engineer":"Project Manager"} — projects</legend>
      <p className="queue-empty">{scope.projectIds.length?`${scope.projectIds.length} selected`:"None selected: every project"}</p>
      <div>{lists.projects.map(p=><button type="button" key={p.id}
        className={scope.projectIds.includes(p.id)?"selected":""} onClick={()=>toggle(p.id)}>
@@ -385,4 +386,4 @@ function MaterialScopeFields({roles,scope,setScope}:{roles:string[];scope:Materi
   </>}
 
 function Group({title,values,selected,toggle}:{title:string;values:string[];selected:string[];toggle:(v:string)=>void}){return <fieldset><legend>{title}</legend><div>{values.map(v=><button type="button" className={selected.includes(v)?"selected":""} onClick={()=>toggle(v)} key={v}>{selected.includes(v)&&<Check/>}{v}</button>)}</div></fieldset>}
-function RoleMatrix(){const rows=[["Payment Requestor","Create own requests","Own requests only","No"],["Department Head","Create own requests; no workflow actions","Every request raised by his own department, and his own","Read only"],["Accountant","Accept, verify, reconcile, send to Audit","All payments; work mapped departments","Yes"],["Management","Approve and view exceptions","All companies mapped","Yes"],["Finance","Release approved payments — the final step","All approved payments","Yes"],["Audit Head","Configure programs, users and reports","All audit data","Yes"],["Administrator","Act at any workflow stage; manage logins, roles and passwords; run Material Management","Everything, all companies","Yes"],["Site Engineer","Raise material requests; receive at site","Own projects","—"],["Project Manager","Approve material requests","All projects","—"],["QS","Check requests, split store and PO, validate POs","All projects","—"],["Procurement","Consolidate, enquire, raise POs, verify invoices","All projects","—"],["Procurement Manager","Approve POs, and all procurement work","All projects","—"],["Store","Receive POs (GRN), issue to site","All projects","—"],["Management (Material)","Approve POs above the limit; view everything","All projects","Read only"],["Material Admin","Material masters: vendors, projects, items, settings","Material Management","—"],["Vendor","Quote enquiries, acknowledge POs, upload invoices","Own supplier only","—"]];return <section className="panel user-table matrix"><table><thead><tr><th>ROLE</th><th>CAN ACT</th><th>VISIBILITY</th><th>DEPARTMENT CONTROL</th></tr></thead><tbody>{rows.map(r=><tr key={r[0]}><td><b>{r[0]}</b></td><td>{r[1]}</td><td>{r[2]}</td><td>{r[3]}</td></tr>)}</tbody></table></section>}
+function RoleMatrix(){const rows=[["Payment Requestor","Create own requests","Own requests only","No"],["Department Head","Create own requests; no workflow actions","Every request raised by his own department, and his own","Read only"],["Accountant","Accept, verify, reconcile, send to Audit","All payments; work mapped departments","Yes"],["Management","Approve and view exceptions","All companies mapped","Yes"],["Finance","Release approved payments — the final step","All approved payments","Yes"],["Audit Head","Configure programs, users and reports","All audit data","Yes"],["Administrator","Act at any workflow stage; manage logins, roles and passwords; run Material Management","Everything, all companies","Yes"],["Site Engineer","Raise material requests; receive at site","Own projects (none chosen: all)","—"],["Project Manager","Approve material requests","Own projects (none chosen: all)","—"],["QS","Check requests, split store and PO, validate POs","All projects","—"],["Procurement","Consolidate, enquire, raise POs, verify invoices","All projects","—"],["Procurement Manager","Approve POs, and all procurement work","All projects","—"],["Store","Receive POs (GRN), issue to site","All projects","—"],["Management (Material)","Approve POs above the limit; view everything","All projects","Read only"],["Material Admin","Material masters: vendors, projects, items, settings","Material Management","—"],["Vendor","Quote enquiries, acknowledge POs, upload invoices","Own supplier only","—"]];return <section className="panel user-table matrix"><table><thead><tr><th>ROLE</th><th>CAN ACT</th><th>VISIBILITY</th><th>DEPARTMENT CONTROL</th></tr></thead><tbody>{rows.map(r=><tr key={r[0]}><td><b>{r[0]}</b></td><td>{r[1]}</td><td>{r[2]}</td><td>{r[3]}</td></tr>)}</tbody></table></section>}
