@@ -1,7 +1,7 @@
 'use client';
 
 import { create } from 'zustand';
-import { measurementKey } from '@cm/shared';
+import { measurementKey, mrTextKey } from '@cm/shared';
 
 /**
  * The PO wizard's working copy.
@@ -70,9 +70,17 @@ export const usePoDraft = create<PoDraftState>((set) => ({
 }));
 
 /** Rows grouped into the one-line-per-item shape the PO is stored in. */
-/** One product on the PO: the item, its measurement and its unit (another size or unit is another line). */
-export const groupKeyOf = (row: { itemId: string; measurement?: string; unit?: string }): string =>
-  `${row.itemId}|${measurementKey(row.measurement)}|${(row.unit ?? '').toLowerCase()}`;
+/**
+ * One product on the PO: the item, its measurement, its unit and what the site engineer wrote
+ * for it - another size, unit or description ("round chair", "long chair") is another line.
+ */
+export const groupKeyOf = (row: {
+  itemId: string;
+  measurement?: string;
+  unit?: string;
+  mrDescription?: string;
+}): string =>
+  `${row.itemId}|${measurementKey(row.measurement)}|${(row.unit ?? '').toLowerCase()}|${mrTextKey(row.mrDescription)}`;
 
 export function groupRows(rows: PoDraftRow[]) {
   const groups = new Map<string, { key: string; measurement: string; itemId: string; itemCode: string; itemName: string; description: string; mrDescriptions: string[]; unit: string; qty: number; rate: number; gstPct: number; projects: string[]; mrNos: string[] }>();

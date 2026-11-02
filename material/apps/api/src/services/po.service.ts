@@ -11,7 +11,7 @@ import {
   poTotals,
   r2,
 } from '@cm/calc';
-import { measurementKey,
+import { measurementKey, mrTextKey,
   DEFAULT_CURRENCY,
   DEFAULT_PO_DELIVERY_DAYS,
   MAX_BOQ_FILES,
@@ -550,7 +550,7 @@ async function writePoLines(
   session: ClientSession,
 ): Promise<WriteLinesResult> {
   const mrLines = await MrLine.find({ _id: { $in: rows.map((r) => oid(r.mrLineId)) } })
-    .select('itemId mrId measurement unit')
+    .select('itemId mrId measurement unit description')
     .session(session)
     .lean();
   const mrs = await Mr.find({ _id: { $in: mrLines.map((l) => l.mrId) } })
@@ -563,6 +563,15 @@ async function writePoLines(
   const sizeByLine = new Map(mrLines.map((l) => [String(l._id), (l.measurement ?? '').trim()]));
   // ... and per unit: 30 Nos and 30 Cft are not one quantity. Blank = the item's own unit.
   const unitByLine = new Map(mrLines.map((l) => [String(l._id), (l.unit ?? '').trim()]));
+  // ... and per what the site engineer wrote: "round chair" and "long chair" are two products
+  // even as one item. Description and measurement together, as Consolidate MRs shows them.
+  const textByLine = new Map(
+    mrLines.map((l) => [
+      String(l._id),
+      [l.description, l.measurement].map((v) => (v ?? '').trim()).filter(Boolean).join(' — '),
+    ]),
+  );
+  const saidByLine = new Map(mrLines.map((l) => [String(l._id), (l.description ?? '').trim()]));
   const projectByLine = new Map(
     mrLines.map((l) => [
       String(l._id),
@@ -578,8 +587,19 @@ async function writePoLines(
     const gst = taxMode === 'NONE' ? 0 : num(row.gstPct);
     const size = measurementKey(sizeByLine.get(row.mrLineId));
     const unit = (unitByLine.get(row.mrLineId) ?? '').toLowerCase();
-    const key = `${itemByLine.get(row.mrLineId)}|${size}|${unit}|${num(row.rate)}|${gst}`;
+    const text = mrTextKey(textByLine.get(row.mrLineId));
+    const key = `${itemByLine.get(row.mrLineId)}|${size}|${unit}|${text}|${num(row.rate)}|${gst}`;
     groups.set(key, [...(groups.get(key) ?? []), row]);
+  }
+
+  // Products split only by what the site engineer wrote: without a description of their own
+  // they would print as the same item name twice, so each takes the engineer's words.
+  const productKey = (mrLineId: string) =>
+    `${itemByLine.get(mrLineId)}|${measurementKey(sizeByLine.get(mrLineId))}|${(unitByLine.get(mrLineId) ?? '').toLowerCase()}`;
+  const textsByProduct = new Map<string, Set<string>>();
+  for (const row of rows) {
+    const k = productKey(row.mrLineId);
+    textsByProduct.set(k, (textsByProduct.get(k) ?? new Set()).add(mrTextKey(textByLine.get(row.mrLineId))));
   }
 
   let subtotal = 0;
@@ -591,7 +611,10 @@ async function writePoLines(
     const gst = taxMode === 'NONE' ? 0 : num(first.gstPct);
     const rate = num(first.rate);
     const qty = num(group.reduce((s, r) => s + num(r.qty), 0));
-    const description = group.find((r) => r.description)?.description ?? '';
+    const split = (textsByProduct.get(productKey(first.mrLineId))?.size ?? 0) > 1;
+    const description =
+      group.find((r) => r.description)?.description ||
+      (split ? saidByLine.get(first.mrLineId) ?? '' : '');
 
     const measurement = sizeByLine.get(first.mrLineId) ?? '';
     const unit = unitByLine.get(first.mrLineId) ?? '';

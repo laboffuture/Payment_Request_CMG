@@ -357,6 +357,14 @@ export const isToolsProjectCode = (code: string | null | undefined): boolean =>
  * lines are merged only when item and measurement match. Compared without case, spacing
  * or the kind of "x": "2400 x 1200" and "2400×1200" are one size.
  */
+/**
+ * What the site engineer wrote on an MR line, for telling lines of one item apart on a PO:
+ * "round chair" and "long chair" are two products even when both are the item Chair.
+ * Compared without case or extra spacing.
+ */
+export const mrTextKey = (text: string | null | undefined): string =>
+  String(text ?? '').trim().toLowerCase().replace(/\s+/g, ' ');
+
 export const measurementKey = (measurement: string | null | undefined): string =>
   String(measurement ?? '')
     .trim()
