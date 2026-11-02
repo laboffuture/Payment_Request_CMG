@@ -253,7 +253,8 @@ export const MAX_LOGO_BYTES = 300 * 1024; // 300 KB
 /**
  * Extra charges procurement may add to a purchase order, beside the material lines.
  * Optional: a PO without any is the normal case. Each is a flat amount in the PO's
- * currency, added to the total as entered; Round-off alone may be negative.
+ * currency, added to the total as entered; Round-off alone may be negative, and a Discount
+ * is always a minus amount.
  */
 export const PO_EXTRA_CHARGES = [
   'Transport Charge',
@@ -272,10 +273,15 @@ export const PO_EXTRA_CHARGES = [
   'Holes Charge',
   'Packaging Charge',
   'Fixing Charge',
+  'Discount',
   'Round-off',
 ] as const;
 export type PoExtraCharge = (typeof PO_EXTRA_CHARGES)[number];
 export const PO_ROUND_OFF: PoExtraCharge = 'Round-off';
+/** Taken off the total: kept as a minus amount, typed as a plain figure, never taxed. */
+export const PO_DISCOUNT: PoExtraCharge = 'Discount';
+/** Charges that carry no GST: Round-off and Discount. */
+export const isUntaxedCharge = (type: string): boolean => type === PO_ROUND_OFF || type === PO_DISCOUNT;
 /** GST filled in on an extra charge as its amount is typed; procurement can still change it. */
 export const PO_CHARGE_GST_PCT = 18;
 

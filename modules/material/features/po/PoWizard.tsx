@@ -11,8 +11,10 @@ import {
   MSG,
   PO_DIRECT_REASONS,
   PO_CHARGE_GST_PCT,
+  PO_DISCOUNT,
   PO_EXTRA_CHARGES,
   PO_ROUND_OFF,
+  isUntaxedCharge,
   TAX_MODES,
   TAX_MODE_LABELS,
   TAX_RATES,
@@ -100,7 +102,8 @@ export function PoWizard({
     revisionReason: '',
     charges: (existing?.charges ?? []).map((c) => ({
       type: c.type,
-      amount: String(c.amount),
+      // a discount is saved as a minus amount but typed as a plain figure
+      amount: String(c.type === PO_DISCOUNT ? Math.abs(c.amount) : c.amount),
       tax: c.tax ? String(c.tax) : '',
     })),
   });
@@ -248,7 +251,7 @@ export function PoWizard({
         if (!charge.amount.trim() || !Number.isFinite(amount) || amount === 0) {
           return toast(`Enter the amount for ${charge.type}, or remove it`);
         }
-        if (amount < 0 && charge.type !== PO_ROUND_OFF) {
+        if (amount < 0 && charge.type !== PO_ROUND_OFF && charge.type !== PO_DISCOUNT) {
           return toast(`${charge.type} must be above zero — only Round-off can be negative`);
         }
         const tax = Number(charge.tax || 0);
@@ -1144,20 +1147,23 @@ function StepReview({
 /** An extra charge as typed: its amount and the tax on it ('' = none). */
 type ChargeDraft = { type: string; amount: string; tax: string };
 
-/** The charges worth saving - an amount given - as numbers, Round-off without tax. */
+/**
+ * The charges worth saving - an amount given - as numbers. Round-off and Discount carry no
+ * tax, and a discount goes in as a minus amount so every total takes it off.
+ */
 const chargesOf = (drafts: ChargeDraft[]) =>
   drafts
     .map((c) => ({
       type: c.type,
-      amount: Number(c.amount),
-      tax: c.type === PO_ROUND_OFF ? 0 : Math.max(0, Number(c.tax) || 0),
+      amount: c.type === PO_DISCOUNT ? -Math.abs(Number(c.amount)) : Number(c.amount),
+      tax: isUntaxedCharge(c.type) ? 0 : Math.max(0, Number(c.tax) || 0),
     }))
     .filter((c) => Number.isFinite(c.amount) && c.amount !== 0);
 
 /** The GST on a charge's amount at PO_CHARGE_GST_PCT, as typed into the tax box ('' = none). */
 const chargeGst = (type: string, amount: string, taxMode: TaxMode): string => {
   const value = Number(amount);
-  if (type === PO_ROUND_OFF || taxMode === 'NONE' || !amount.trim() || !Number.isFinite(value) || value <= 0) return '';
+  if (isUntaxedCharge(type) || taxMode === 'NONE' || !amount.trim() || !Number.isFinite(value) || value <= 0) return '';
   return String(Math.round(value * PO_CHARGE_GST_PCT) / 100);
 };
 
@@ -1179,7 +1185,7 @@ function ExtraCharges({
   onChange: (next: ChargeDraft[]) => void;
 }) {
   const left = PO_EXTRA_CHARGES.filter((type) => !charges.some((c) => c.type === type));
-  const sum = charges.reduce((total, c) => total + (Number(c.amount) || 0) + (Number(c.tax) || 0), 0);
+  const sum = chargesOf(charges).reduce((total, c) => total + c.amount + c.tax, 0);
   const set = (index: number, patch: Partial<ChargeDraft>) =>
     onChange(charges.map((c, i) => (i === index ? { ...c, ...patch } : c)));
 
@@ -1193,7 +1199,8 @@ function ExtraCharges({
       <p className="text-mut text-sm mt-0 mb-3">
         Add a charge only if the vendor bills it on this order. Enter its amount and GST at{' '}
         {PO_CHARGE_GST_PCT}% is filled in for you (change or clear it if the vendor bills
-        otherwise); both are added to the PO total and printed on the PO. Round-off can be a
+        otherwise); both are added to the PO total and printed on the PO. A Discount is typed
+        as a plain amount and taken off the total, with no GST. Round-off can be a
         minus figure and has no tax.
       </p>
 
@@ -1212,7 +1219,7 @@ function ExtraCharges({
                 step="0.01"
                 min={charge.type === PO_ROUND_OFF ? undefined : 0}
                 aria-label={`${charge.type} amount in ${currency}`}
-                placeholder={`Amount (${currency})`}
+                placeholder={charge.type === PO_DISCOUNT ? `Discount (${currency})` : `Amount (${currency})`}
                 title="Amount"
                 className="text-right"
                 value={charge.amount}
@@ -1220,8 +1227,10 @@ function ExtraCharges({
                   set(index, { amount: e.target.value, tax: chargeGst(charge.type, e.target.value, taxMode) })
                 }
               />
-              {charge.type === PO_ROUND_OFF ? (
-                <span className="text-mut text-xs">no tax</span>
+              {isUntaxedCharge(charge.type) ? (
+                <span className="text-mut text-xs">
+                  {charge.type === PO_DISCOUNT ? 'taken off the total · no GST' : 'no tax'}
+                </span>
               ) : (
                 <input
                   type="number"
