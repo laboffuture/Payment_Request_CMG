@@ -63,8 +63,11 @@ test("a role with no part in this flow cannot act anywhere", () => {
 });
 
 test("each stage owes the next one its numbers", () => {
-  assert.deepEqual(flow.REQUIRED_TO_LEAVE["Job Notification"], ["crmJobNo"]);
-  assert.deepEqual(flow.REQUIRED_TO_LEAVE["CRM JOB Creation"], ["soNo", "amount"]);
+  assert.deepEqual(flow.REQUIRED_TO_LEAVE["Job Notification"], [
+    "jobName", "customer", "projectName", "projectType", "jobLocation", "contractValue",
+    "contractCurrency", "startDate", "pmEmail", "jobStatus", "scope", "managementApproval"
+  ]);
+  assert.deepEqual(flow.REQUIRED_TO_LEAVE["CRM JOB Creation"], ["soDate", "soApprovedByEmail", "soApprovalDate"]);
   // Sending to audit adds nothing of its own; verification needs no field either.
   assert.deepEqual(flow.REQUIRED_TO_LEAVE["Sales Order"], []);
   assert.deepEqual(flow.REQUIRED_TO_LEAVE["Audit Verification"], []);

@@ -17,7 +17,9 @@ export const MATERIAL_ROLES={
   "Procurement":"PROC",
   "Procurement Manager":"PROC_MGR",
   "Store":"STORE",
+  "Operations":"MGMT",
   "Management (Material)":"MGMT",
+  "IT Manager":"ADMIN",
   "Material Admin":"ADMIN",
   "Vendor":"VENDOR",
 } as const;
@@ -34,7 +36,7 @@ export const isMaterialRole=(r:string):r is MaterialRoleName=>r in MATERIAL_ROLE
    menus. All of them, since 6 Oct 2026 (Procurement and Procurement Manager were first). A
    role left out of this list is offered to nobody and opens nothing. */
 export const ENABLED_MATERIAL_ROLES:MaterialRoleName[]=["Site Engineer","Project Manager","QS","Procurement",
-  "Procurement Manager","Store","Management (Material)","Material Admin","Vendor"];
+  "Procurement Manager","Store","Operations","Management (Material)","IT Manager","Material Admin","Vendor"];
 export const isEnabledMaterialRole=(r:string)=>(ENABLED_MATERIAL_ROLES as string[]).includes(r);
 /* A role that cannot be given to a login yet: a Material role not switched on. */
 export const disabledRoles=(roles:string[]=[])=>roles.filter(r=>isMaterialRole(r)&&!isEnabledMaterialRole(r));

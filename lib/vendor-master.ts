@@ -33,7 +33,7 @@ export const PROCUREMENT_ROLES=["Procurement","Procurement Manager","Administrat
 export const ACCOUNTS_ROLES=["Accountant","Administrator"];
 export const APPROVER_ROLES=["Management","Management (Material)","Administrator"];
 /* Who opens the module. Finance and audit read it; the account number is masked for them. */
-export const VIEW_ROLES=[...new Set([...PROCUREMENT_ROLES,...ACCOUNTS_ROLES,...APPROVER_ROLES,"Finance","Auditor","Audit Head"])];
+export const VIEW_ROLES=[...new Set([...PROCUREMENT_ROLES,...ACCOUNTS_ROLES,...APPROVER_ROLES,"Finance","Auditor","Audit Head","Operations","IT Manager"])];
 export const FULL_BANK_ROLES=[...new Set([...PROCUREMENT_ROLES,...ACCOUNTS_ROLES,...APPROVER_ROLES])];
 
 const any=(roles:string[],list:string[])=>roles.some(r=>list.includes(r));

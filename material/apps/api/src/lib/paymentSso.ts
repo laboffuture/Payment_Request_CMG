@@ -48,7 +48,9 @@ const ROLE_CODES: Record<string, Role> = {
   Procurement: 'PROC',
   'Procurement Manager': 'PROC_MGR',
   Store: 'STORE',
+  Operations: 'MGMT',
   'Management (Material)': 'MGMT',
+  'IT Manager': 'ADMIN',
   Vendor: 'VENDOR',
 };
 
