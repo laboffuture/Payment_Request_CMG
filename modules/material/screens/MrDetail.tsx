@@ -15,7 +15,7 @@ import {
   RFQ_ST,
   ROLE_NAMES,
   chipFor,
-  isCorporateProjectCode,
+  firstApproverForProjectCode,
   type ItemDto,
   type LinkedPoDto,
   type MrDetailDto,
@@ -966,7 +966,7 @@ function PmPanel({ mr }: { mr: MrDetailDto }) {
 
   return (
     <>
-      <h2>{isCorporateProjectCode(mr.projectCode) ? 'Operations review' : 'Project Manager review'}</h2>
+      <h2>{`${firstApproverForProjectCode(mr.projectCode)?.approver ?? 'Project Manager'} review`}</h2>
       <DataTable
         columns={reviewColumns(review, patch)}
         rows={active}

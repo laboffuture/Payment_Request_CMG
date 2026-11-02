@@ -141,6 +141,14 @@ export const NAV: Record<Role, readonly NavItem[]> = {
     { href: '/pos', label: 'Purchase orders' },
     { href: '/notifications', label: 'Notifications', count: 'notifications' },
   ],
+  // IT Manager: the same for the IT assets project.
+  IT: [
+    { href: '/', label: 'Home' },
+    { href: '/pm', label: 'MR approvals', count: 'pmQueue' },
+    { href: '/mrs', label: 'All MRs' },
+    { href: '/pos', label: 'Purchase orders' },
+    { href: '/notifications', label: 'Notifications', count: 'notifications' },
+  ],
   VENDOR: [
     { href: '/vendor', label: 'Enquiries', count: 'vendorRfqs' },
     { href: '/vendor/pos', label: 'My POs' },

@@ -36,7 +36,7 @@ import { deleteFile, signedUrlFor, uploadBoq } from '../lib/files.js';
 import { knownUnit } from './unit.service.js';
 import { Item, Project } from '../models/masters.js';
 import { toolsProjectId } from '../lib/toolsProject.js';
-import { corporateProjectId, isCorporateProject } from '../lib/corporateProject.js';
+import { firstApproverOf, firstApproverProjects, type FirstApprovers } from '../lib/firstApprover.js';
 import { canPostPettyGrn } from './petty.service.js';
 import { Mr, MrLine } from '../models/mr.js';
 import { Issue, IssueLine, StockLedger } from '../models/stock.js';
@@ -192,7 +192,7 @@ export function toMrDto(
 function listFilterFor(
   actor: Actor,
   query: MrListQuery,
-  corporateId: string | null,
+  firstApprovers: FirstApprovers,
 ): Record<string, unknown> {
   const filter: Record<string, unknown> = {};
 
@@ -227,9 +227,10 @@ function listFilterFor(
   const scope = projectScopeOf(actor);
   if (scope) filter.projectId = { $in: scope.map(oid) };
 
-  // The corporate purchase project's MRs wait for Operations, not in a PM's approvals.
-  if (query.queue === 'pm' && actor.role === 'PM' && corporateId) {
-    filter.$and = [{ projectId: { $ne: oid(corporateId) } }];
+  // The corporate purchase and IT assets projects' MRs wait for Operations and the IT
+  // Manager, not in a PM's approvals.
+  if (query.queue === 'pm' && actor.role === 'PM' && firstApprovers.size) {
+    filter.$and = [{ projectId: { $nin: [...firstApprovers.keys()].map(oid) } }];
   }
 
   return filter;
@@ -243,11 +244,11 @@ function assertCanRead(actor: Actor, mr: Record<string, any>): void {
 
 /**
  * Where a submitted MR goes: to the Project Manager - or, when he raised it, to QS. A
- * corporate purchase MR always waits for Operations first (status PM_PENDING), whoever
- * raised it.
+ * corporate purchase or IT assets MR always waits for Operations or the IT Manager first
+ * (status PM_PENDING), whoever raised it.
  */
-const submittedStatus = (actor: Actor, corporate: boolean): 'PM_PENDING' | 'QS_PENDING' =>
-  actor.role === 'PM' && !corporate ? 'QS_PENDING' : 'PM_PENDING';
+const submittedStatus = (actor: Actor, deptApproved: boolean): 'PM_PENDING' | 'QS_PENDING' =>
+  actor.role === 'PM' && !deptApproved ? 'QS_PENDING' : 'PM_PENDING';
 
 /** Prototype: canEdit — the creator, while the MR is a draft or sent back. */
 const canEdit = (actor: Actor, mr: Record<string, any>): boolean =>
@@ -272,23 +273,28 @@ const canQs = (actor: Actor, mr: Record<string, any>): boolean =>
 
 /**
  * The first approval, before QS ever sees the request: Operations for the corporate purchase
- * project, the Project Manager (of that project, when kept to some) for every other.
+ * project, the IT Manager for the IT assets project, the Project Manager (of that project,
+ * when kept to some) for every other.
  */
-const canPm = (actor: Actor, mr: Record<string, any>, corporateId: string | null): boolean =>
-  mr.status === 'PM_PENDING' &&
-  (isCorporateProject(mr.projectId, corporateId)
-    ? actor.role === 'OPS'
-    : actor.role === 'PM' && canSeeProject(actor, String(mr.projectId)));
+const canPm = (actor: Actor, mr: Record<string, any>, firstApprovers: FirstApprovers): boolean => {
+  if (mr.status !== 'PM_PENDING') return false;
+  const dept = firstApproverOf(mr.projectId, firstApprovers);
+  return dept
+    ? actor.role === dept.role
+    : actor.role === 'PM' && canSeeProject(actor, String(mr.projectId));
+};
 
 /** Refuses the first-approval actions to anyone but the approver canPm names. */
 async function assertFirstApprover(actor: Actor, mr: Record<string, any>): Promise<void> {
   if (mr.status !== 'PM_PENDING') throw conflict(MSG.mrNotWithPm);
-  if (!canPm(actor, mr, await corporateProjectId())) throw forbidden();
+  if (!canPm(actor, mr, await firstApproverProjects())) throw forbidden();
 }
 
 /** Who gave the first approval, as the history and notices name them. */
-const approverName = (actor: Actor) => (actor.role === 'OPS' ? 'Operations' : 'the Project Manager');
-const approverRole = (actor: Actor) => (actor.role === 'OPS' ? 'Operations' : 'PM');
+const approverName = (actor: Actor) =>
+  actor.role === 'OPS' ? 'Operations' : actor.role === 'IT' ? 'the IT Manager' : 'the Project Manager';
+const approverRole = (actor: Actor) =>
+  actor.role === 'OPS' ? 'Operations' : actor.role === 'IT' ? 'IT Manager' : 'PM';
 
 // ---------------------------------------------------------------------------
 // Reads
@@ -298,7 +304,7 @@ export async function listMrs(
   actor: Actor,
   query: MrListQuery,
 ): Promise<{ rows: MrDto[]; total: number }> {
-  const filter = listFilterFor(actor, query, await corporateProjectId());
+  const filter = listFilterFor(actor, query, await firstApproverProjects());
   // Both approval queues are worked by due date; every other list is newest first.
   const sort: Record<string, 1 | -1> =
     query.queue ? { requiredDate: 1 } : { createdAt: -1 };
@@ -502,7 +508,7 @@ export async function getMr(actor: Actor, id: string): Promise<MrDetailDto> {
     canEdit: canEdit(actor, mr) || canAdminEdit(actor, mr),
     canQs: canQs(actor, mr),
     canQsClose: canQsClose(actor, mr),
-    canPm: canPm(actor, mr, await corporateProjectId()),
+    canPm: canPm(actor, mr, await firstApproverProjects()),
     canProcReview: isBuyer(actor.role) && mr.status === 'PROC_REVIEW',
     canPostGrn: canPostPettyGrn(actor, mr),
     pettyGrn: mr.pettyGrn?.no
@@ -624,7 +630,7 @@ async function newMrDocument(
   session: ClientSession,
 ) {
   const project = await Project.findById(input.projectId).select('code').session(session).lean();
-  const corporate = isCorporateProject(input.projectId, await corporateProjectId());
+  const deptApproved = !!firstApproverOf(input.projectId, await firstApproverProjects());
 
   const [mr] = await Mr.create(
     [
@@ -634,10 +640,10 @@ async function newMrDocument(
         requiredDate: input.requiredDate,
         remarks: input.remarks,
         requestType: input.requestType,
-        status: input.submit ? submittedStatus(actor, corporate) : 'DRAFT',
+        status: input.submit ? submittedStatus(actor, deptApproved) : 'DRAFT',
         createdBy: actor.id,
         submittedAt: input.submit ? new Date() : null,
-        ...(input.submit && actor.role === 'PM' && !corporate ? { pmBy: actor.id, pmAt: new Date() } : {}),
+        ...(input.submit && actor.role === 'PM' && !deptApproved ? { pmBy: actor.id, pmAt: new Date() } : {}),
       },
     ],
     { session, ordered: true },
@@ -748,8 +754,8 @@ async function writeLines(
   if (!input.submit) return [];
 
   const lookups = await buildLookups();
-  const corporate = isCorporateProject(mr.projectId, await corporateProjectId());
-  if (actor.role === 'PM' && !corporate) {
+  const dept = firstApproverOf(mr.projectId, await firstApproverProjects());
+  if (actor.role === 'PM' && !dept) {
     // The Project Manager's own request: there is no one above him to review it, so it
     // goes straight to QS, as if he had raised and approved it in one step.
     await writeAudit(session, 'MR', mr._id, AUDIT.MR_PM_APPROVED, actor.id, 'Raised by the Project Manager');
@@ -769,9 +775,9 @@ async function writeLines(
     )}, need by ${mr.requiredDate}`,
     body: `${input.lines.length} item(s) raised by ${actor.name}`,
     link: `mr:${String(mr._id)}`,
-    // The Project Manager reviews it first - Operations for the corporate purchase project;
-    // QS is notified once it is passed on.
-    to: [{ role: corporate ? 'OPS' : 'PM' }],
+    // The Project Manager reviews it first - Operations or the IT Manager for their own
+    // project; QS is notified once it is passed on.
+    to: [{ role: dept ? dept.role : 'PM' }],
     // a Project Manager limited to other projects is not told
     projectId: mr.projectId,
     actorId: actor.id,
@@ -817,10 +823,10 @@ export async function updateMr(
           .lean();
         mr.no = await nextMrNo(project!.code, session);
       }
-      const corporate = isCorporateProject(mr.projectId, await corporateProjectId());
-      mr.status = submittedStatus(actor, corporate);
+      const deptApproved = !!firstApproverOf(mr.projectId, await firstApproverProjects());
+      mr.status = submittedStatus(actor, deptApproved);
       mr.submittedAt = new Date();
-      if (actor.role === 'PM' && !corporate) {
+      if (actor.role === 'PM' && !deptApproved) {
         mr.pmBy = oid(actor.id) as never;
         mr.pmAt = new Date();
       }
@@ -1169,7 +1175,7 @@ export async function pmApprove(
       );
     }
 
-    const note = changeNote(changed, rejected, actor.role === 'OPS' ? 'Operations' : 'the PM', input.comment);
+    const note = changeNote(changed, rejected, actor.role === 'PM' ? 'the PM' : approverName(actor), input.comment);
 
     const outbox = await emit(session, 'MR_PM_APPROVED', {
       title: `${mr.no} approved by ${approverName(actor)} — now with QS (${lookups.projectCode(

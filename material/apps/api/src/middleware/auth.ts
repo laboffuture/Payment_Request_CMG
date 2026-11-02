@@ -1,11 +1,11 @@
 import type { NextFunction, Request, Response } from 'express';
 import type { Role } from '@cm/shared';
-import { MSG, isProjectScopedRole } from '@cm/shared';
+import { MSG, isFirstApproverRole, isProjectScopedRole } from '@cm/shared';
 import { forbidden, unauthenticated } from '../lib/errors.js';
 import { ACCESS_COOKIE, verifyAccessToken } from '../lib/tokens.js';
 import { User } from '../models/masters.js';
 import { toolsProjectId } from '../lib/toolsProject.js';
-import { corporateProjectId } from '../lib/corporateProject.js';
+import { firstApproverProjects, projectIdsOfRole } from '../lib/firstApprover.js';
 
 /** An id no project has: a scope holding only this sees nothing. */
 const NO_PROJECT = '000000000000000000000000';
@@ -64,9 +64,10 @@ export async function requireAuth(
     if (!user || !user.active || !role) throw unauthenticated();
 
     let projectIds = (user.projectIds ?? []).map(String);
-    // Operations sees the corporate purchase project only - and nothing until it exists.
-    if (role === 'OPS') {
-      projectIds = [(await corporateProjectId()) ?? NO_PROJECT];
+    // Operations and the IT Manager see their own project only - nothing until it exists.
+    if (isFirstApproverRole(role)) {
+      const own = projectIdsOfRole(role, await firstApproverProjects());
+      projectIds = own.length ? own : [NO_PROJECT];
     }
     // Anyone limited to their own projects may still raise (and follow) a
     // Tools & Assets request, which always belongs to the tools project.
@@ -118,7 +119,7 @@ export function denyReadOnly(req: Request, _res: Response, next: NextFunction): 
 
 /** A Site Engineer or Project Manager with an empty projectIds list may see every project. */
 export const projectScopeOf = (actor: Actor): string[] | null =>
-  (isProjectScopedRole(actor.role) || actor.role === 'OPS') && actor.projectIds.length
+  (isProjectScopedRole(actor.role) || isFirstApproverRole(actor.role)) && actor.projectIds.length
     ? actor.projectIds
     : null;
 

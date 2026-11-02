@@ -100,10 +100,12 @@ export const ROLES = [
   'STORE',
   'ADMIN',
   'VENDOR',
-  /** IT Manager: dashboard, MRs and POs to look at; the flow comes later */
+  /** view only: dashboard, MRs and POs to look at (no role uses it at present) */
   'VIEW',
   /** Operations: approves the corporate purchase project's MRs in place of the PM */
   'OPS',
+  /** IT Manager: approves the IT assets project's MRs in place of the PM */
+  'IT',
 ] as const;
 export type Role = (typeof ROLES)[number];
 
@@ -120,6 +122,7 @@ export const ROLE_NAMES: Record<Role, string> = {
   VENDOR: 'Vendor',
   VIEW: 'View only',
   OPS: 'Operations',
+  IT: 'IT Manager',
 };
 
 /** The roles that can be kept to chosen projects (none chosen = every project). */
@@ -317,14 +320,33 @@ export const isPettyCash = (type: string | null | undefined): boolean => type ==
 export const TOOLS_PROJECT_CODE = 'TRG TOOLS & ASSET';
 export const TOOLS_PROJECT_NAME = 'TRG PROJECT TOOLS & ASSETS';
 /**
- * The corporate purchase project. Its material requests go to Operations for the first
- * approval instead of a Project Manager, and Operations sees only this project. Matched
- * without spacing, hyphens or case, like the tools project.
+ * Projects whose material requests get their first approval from a department head role
+ * instead of a Project Manager; that role sees only its own project's MRs and POs. After
+ * the first approval the request goes to QS like any other. Codes are matched without
+ * spacing, hyphens or case, like the tools project.
  */
-export const CORPORATE_PROJECT_CODE = 'TRG-CORP';
-export const isCorporateProjectCode = (code: string | null | undefined): boolean =>
-  String(code ?? '').toUpperCase().replace(/[\s-]+/g, '') ===
-  CORPORATE_PROJECT_CODE.replace(/[\s-]+/g, '');
+export const FIRST_APPROVER_PROJECTS = [
+  { role: 'OPS', code: 'TRG-CORP', approver: 'Operations', project: 'corporate purchase' },
+  { role: 'IT', code: 'TRG-IT', approver: 'IT Manager', project: 'IT assets' },
+] as const;
+export type FirstApproverProject = (typeof FIRST_APPROVER_PROJECTS)[number];
+export type FirstApproverRole = FirstApproverProject['role'];
+
+const codeKey = (code: string | null | undefined) =>
+  String(code ?? '').toUpperCase().replace(/[\s-]+/g, '');
+
+/** The department that approves this project's MRs first, or null for a Project Manager. */
+export const firstApproverForProjectCode = (
+  code: string | null | undefined,
+): FirstApproverProject | null =>
+  FIRST_APPROVER_PROJECTS.find((p) => codeKey(p.code) === codeKey(code)) ?? null;
+
+/** The project a first-approver role is kept to. */
+export const firstApproverProjectOfRole = (role: string): FirstApproverProject | null =>
+  FIRST_APPROVER_PROJECTS.find((p) => p.role === role) ?? null;
+
+export const isFirstApproverRole = (role: string): role is FirstApproverRole =>
+  FIRST_APPROVER_PROJECTS.some((p) => p.role === role);
 
 export const isToolsProjectCode = (code: string | null | undefined): boolean =>
   String(code ?? '').toUpperCase().replace(/[\s-]+/g, '') ===

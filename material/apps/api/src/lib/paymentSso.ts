@@ -50,7 +50,7 @@ const ROLE_CODES: Record<string, Role> = {
   Store: 'STORE',
   Operations: 'OPS',
   'Management (Material)': 'MGMT',
-  'IT Manager': 'VIEW',
+  'IT Manager': 'IT',
   Vendor: 'VENDOR',
 };
 

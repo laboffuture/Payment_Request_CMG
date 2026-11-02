@@ -1,15 +1,16 @@
 import { Types } from 'mongoose';
+import { isFirstApproverRole } from '@cm/shared';
 import type { Actor } from '../middleware/auth.js';
 import { Mr, MrLine } from '../models/mr.js';
 import { PoAlloc } from '../models/po.js';
 
 /**
  * A site engineer sees only the POs raised against MRs they raised themselves, and
- * Operations only the POs carrying the corporate purchase project's material; every other
+ * Operations and the IT Manager only the POs carrying their own project's material; every other
  * PO is for the people who buy, check and receive it. Null for any other role — no such limit.
  */
 export async function sitePoIdsOf(actor: Actor): Promise<Set<string> | null> {
-  if (actor.role === 'OPS') {
+  if (isFirstApproverRole(actor.role)) {
     const ids = actor.projectIds.filter((id) => Types.ObjectId.isValid(id)).map((id) => new Types.ObjectId(id));
     const poIds = await PoAlloc.find({ projectId: { $in: ids } }).distinct('poId');
     return new Set(poIds.map(String));

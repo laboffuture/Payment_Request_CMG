@@ -19,7 +19,7 @@ export const MATERIAL_ROLES={
   "Store":"STORE",
   "Operations":"OPS",
   "Management (Material)":"MGMT",
-  "IT Manager":"VIEW",
+  "IT Manager":"IT",
   "Material Admin":"ADMIN",
   "Vendor":"VENDOR",
 } as const;
