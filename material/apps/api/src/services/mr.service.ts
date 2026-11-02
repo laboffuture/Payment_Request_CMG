@@ -1822,8 +1822,10 @@ const mrStatusLabel = (status: string): string =>
 /**
  * QS closes an MR whose material was already bought: whatever is still waiting - to be issued
  * from the store, or to be bought by procurement - is cancelled, and the MR is closed with
- * QS's reason. What was already issued, ordered or received stays on record. Not while part
- * of it is on an open enquiry or on a PO still to be received: those are settled first.
+ * QS's reason. What was already issued, ordered or received stays on record. A line still on
+ * an open enquiry or on a PO not yet received no longer stops the close (material bought in an
+ * emergency): the MR closes, and procurement is told which enquiries and POs to cancel. Those
+ * documents are left as they are - a PO may carry other MRs' lines and is already with the vendor.
  */
 export async function qsCloseAsPurchased(actor: Actor, id: string, input: MrCommentInput): Promise<void> {
   const outboxIds = await inTransaction(async (session) => {
@@ -1835,22 +1837,22 @@ export async function qsCloseAsPurchased(actor: Actor, id: string, input: MrComm
     const world = await loadWorld();
     const lookups = await buildLookups();
     const lines = await MrLine.find({ mrId: mr._id, lineStatus: { $ne: 'REJECTED' } }).session(session);
-    const blocked: string[] = [];
+    const stillOpen: string[] = [];
     for (const line of lines) {
       const lineIn = world.mrLines.find((l) => l.id === String(line._id));
       const calc = lineIn ? lineCalc(world, lineIn) : null;
       if (!calc) continue;
-      if (calc.rfqOpen > 0) blocked.push(`${lineName(line.toObject(), lookups)}: on an open enquiry`);
+      if (calc.rfqOpen > 0) stillOpen.push(`${lineName(line.toObject(), lookups)}: on an open enquiry`);
       if (calc.poAlloc > calc.received) {
         const allocs = await PoAlloc.find({ mrLineId: line._id }).select('poId').session(session).lean();
         const pos = await Po.find({ _id: { $in: allocs.map((a) => a.poId) }, status: { $nin: ['REJECTED', 'CANCELLED'] } })
           .select('no').session(session).lean();
-        blocked.push(`${lineName(line.toObject(), lookups)}: on ${pos.map((p) => p.no).join(', ') || 'a PO'} still to be received`);
+        stillOpen.push(`${lineName(line.toObject(), lookups)}: on ${pos.map((p) => p.no).join(', ') || 'a PO'} not yet received`);
       }
     }
-    if (blocked.length) {
-      throw conflict(`Cannot close yet - ${blocked.join('; ')}. Receive or cancel those first.`);
-    }
+    const openNote = stillOpen.length
+      ? ` Still open - cancel or revise if no longer needed: ${stillOpen.join('; ')}.`
+      : '';
 
     // Nothing more is to be issued or bought: keep only what already went out or was ordered.
     for (const line of lines) {
@@ -1870,10 +1872,10 @@ export async function qsCloseAsPurchased(actor: Actor, id: string, input: MrComm
     mr.lastCommentRole = 'QS';
     await mr.save({ session });
 
-    await writeAudit(session, 'MR', mr._id, AUDIT.MR_QS_CLOSED_PURCHASED, actor.id, input.comment);
+    await writeAudit(session, 'MR', mr._id, AUDIT.MR_QS_CLOSED_PURCHASED, actor.id, `${input.comment}${openNote}`);
     const outbox = await emit(session, 'MR_CLOSED', {
       title: `${mr.no} closed by QS - already purchased`,
-      body: input.comment,
+      body: `${input.comment}${openNote}`,
       link: `mr:${String(mr._id)}`,
       to: [{ userId: mr.createdBy }, mr.pmBy ? { userId: mr.pmBy } : null, { role: 'PROC' }, { role: 'STORE' }],
       actorId: actor.id,

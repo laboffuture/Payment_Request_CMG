@@ -266,7 +266,9 @@ function QsClosePurchased({ mr }: { mr: MrDetailDto }) {
           <p className="mt-0 text-sm">
             Whatever is still waiting on this MR - to be issued from the store or to be bought by
             procurement - is cancelled, and the MR is closed. What was already issued, ordered or
-            received stays on record. The site engineer, the PM, procurement and the store are told.
+            received stays on record. If part of it is still on an open enquiry or a PO not yet
+            received, the MR closes anyway and procurement is told which ones to cancel. The site
+            engineer, the PM, procurement and the store are told.
           </p>
           <label className="field">
             Reason *
