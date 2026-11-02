@@ -65,7 +65,8 @@ export async function countsFor(actor: Actor): Promise<Counts> {
     });
   }
 
-  if (role === 'SITE') {
+  // The admin follows site receipts too, across every project.
+  if (role === 'SITE' || role === 'ADMIN') {
     const scope = projectScopeOf(actor);
     const issueFilter: Record<string, unknown> = { status: 'ISSUED' };
     if (scope) issueFilter.projectId = { $in: scope };
@@ -76,7 +77,9 @@ export async function countsFor(actor: Actor): Promise<Counts> {
     ]);
     counts.receive = pendingIssues + sitePos;
     // Their own petty cash, approved by procurement, waiting for the GRN.
-    counts.pettyCash = await Mr.countDocuments({ status: 'GRN_PENDING', createdBy: actor.id });
+    if (role === 'SITE') {
+      counts.pettyCash = await Mr.countDocuments({ status: 'GRN_PENDING', createdBy: actor.id });
+    }
   }
 
   if (role === 'VENDOR' && actor.vendorId) {

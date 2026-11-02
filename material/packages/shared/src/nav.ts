@@ -119,6 +119,8 @@ export const NAV: Record<Role, readonly NavItem[]> = {
     { href: '/admin/notification-rules', label: 'Notification settings' },
     { href: '/admin/email', label: 'Email settings' },
     { href: '/mrs', label: 'All MRs' },
+    // What has arrived at site: store issues to accept and POs delivered straight to site.
+    { href: '/receive', label: 'Receive at site', count: 'receive' },
     // Read-only: an admin watches the process, never approves within it.
     { href: '/pos', label: 'Purchase orders' },
     { href: '/inventory', label: 'Inventory' },
