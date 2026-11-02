@@ -127,6 +127,12 @@ export const NAV: Record<Role, readonly NavItem[]> = {
     { href: '/reports', label: 'Reports' },
     { href: '/notifications', label: 'Notifications', count: 'notifications' },
   ],
+  // Operations and IT Manager, until their own flow is defined: look, never act.
+  VIEW: [
+    { href: '/', label: 'Home' },
+    { href: '/mrs', label: 'All MRs' },
+    { href: '/pos', label: 'Purchase orders' },
+  ],
   VENDOR: [
     { href: '/vendor', label: 'Enquiries', count: 'vendorRfqs' },
     { href: '/vendor/pos', label: 'My POs' },

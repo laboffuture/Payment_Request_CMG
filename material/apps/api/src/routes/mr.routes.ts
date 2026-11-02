@@ -57,7 +57,7 @@ const boqUpload = multer({
 mrRouter.get(
   '/mrs',
   requireAuth,
-  authorize('SITE', 'PM', 'QS', 'PROC', 'STORE', 'MGMT', 'ADMIN'),
+  authorize('SITE', 'PM', 'QS', 'PROC', 'STORE', 'MGMT', 'VIEW', 'ADMIN'),
   wrap(async (req, res) => {
     res.json(await listMrs(actorOf(req), mrListQuery.parse(req.query)));
   }),
@@ -67,7 +67,7 @@ mrRouter.get(
 mrRouter.get(
   '/mrs/export.csv',
   requireAuth,
-  authorize('SITE', 'PM', 'QS', 'PROC', 'STORE', 'MGMT', 'ADMIN'),
+  authorize('SITE', 'PM', 'QS', 'PROC', 'STORE', 'MGMT', 'VIEW', 'ADMIN'),
   wrap(async (req, res) => {
     const ids = String(req.query.ids ?? '')
       .split(',')
@@ -82,7 +82,7 @@ mrRouter.get(
 mrRouter.get(
   '/mrs/print',
   requireAuth,
-  authorize('SITE', 'PM', 'QS', 'PROC', 'STORE', 'MGMT', 'ADMIN'),
+  authorize('SITE', 'PM', 'QS', 'PROC', 'STORE', 'MGMT', 'VIEW', 'ADMIN'),
   wrap(async (req, res) => {
     const ids = String(req.query.ids ?? '')
       .split(',')
@@ -95,7 +95,7 @@ mrRouter.get(
 mrRouter.get(
   '/mrs/:id',
   requireAuth,
-  authorize('SITE', 'PM', 'QS', 'PROC', 'STORE', 'MGMT', 'ADMIN'),
+  authorize('SITE', 'PM', 'QS', 'PROC', 'STORE', 'MGMT', 'VIEW', 'ADMIN'),
   wrap(async (req, res) => {
     res.json(await getMr(actorOf(req), req.params.id!));
   }),
@@ -161,7 +161,7 @@ mrRouter.delete(
 mrRouter.get(
   '/mrs/:id/boq',
   requireAuth,
-  authorize('SITE', 'PM', 'QS', 'PROC', 'STORE', 'MGMT', 'ADMIN'),
+  authorize('SITE', 'PM', 'QS', 'PROC', 'STORE', 'MGMT', 'VIEW', 'ADMIN'),
   wrap(async (req, res) => {
     res.json(await boqLinks(actorOf(req), req.params.id!));
   }),

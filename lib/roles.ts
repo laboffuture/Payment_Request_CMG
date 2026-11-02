@@ -17,9 +17,9 @@ export const MATERIAL_ROLES={
   "Procurement":"PROC",
   "Procurement Manager":"PROC_MGR",
   "Store":"STORE",
-  "Operations":"MGMT",
+  "Operations":"VIEW",
   "Management (Material)":"MGMT",
-  "IT Manager":"ADMIN",
+  "IT Manager":"VIEW",
   "Material Admin":"ADMIN",
   "Vendor":"VENDOR",
 } as const;

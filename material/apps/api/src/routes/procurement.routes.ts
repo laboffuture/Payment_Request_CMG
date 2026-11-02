@@ -254,14 +254,14 @@ procurementRouter.post(
 procurementRouter.get(
   '/rfqs',
   requireAuth,
-  authorize('PROC', 'PROC_MGR', 'QS', 'PM', 'SITE', 'MGMT', 'ADMIN'),
+  authorize('PROC', 'PROC_MGR', 'QS', 'PM', 'SITE', 'MGMT', 'VIEW', 'ADMIN'),
   wrap(async (_req, res) => res.json(await listRfqs())),
 );
 
 procurementRouter.get(
   '/rfqs/:id',
   requireAuth,
-  authorize('PROC', 'PROC_MGR', 'QS', 'PM', 'SITE', 'MGMT', 'ADMIN'),
+  authorize('PROC', 'PROC_MGR', 'QS', 'PM', 'SITE', 'MGMT', 'VIEW', 'ADMIN'),
   wrap(async (req, res) => {
     res.json(await getRfq(actorOf(req), req.params.id!));
   }),
@@ -318,7 +318,7 @@ procurementRouter.post(
 procurementRouter.get(
   '/pos',
   requireAuth,
-  authorize('PROC', 'PROC_MGR', 'QS', 'PM', 'MGMT', 'ADMIN', 'STORE', 'SITE', 'VENDOR'),
+  authorize('PROC', 'PROC_MGR', 'QS', 'PM', 'MGMT', 'VIEW', 'ADMIN', 'STORE', 'SITE', 'VENDOR'),
   wrap(async (req, res) => {
     res.json(await listPos(actorOf(req), poListQuery.parse(req.query)));
   }),
@@ -488,7 +488,7 @@ procurementRouter.delete(
 procurementRouter.get(
   '/pos/:id/files',
   requireAuth,
-  authorize('PROC', 'PROC_MGR', 'QS', 'PM', 'MGMT', 'ADMIN', 'STORE', 'SITE'),
+  authorize('PROC', 'PROC_MGR', 'QS', 'PM', 'MGMT', 'VIEW', 'ADMIN', 'STORE', 'SITE'),
   wrap(async (req, res) => {
     res.json(await poFileLinks(actorOf(req), req.params.id!));
   }),

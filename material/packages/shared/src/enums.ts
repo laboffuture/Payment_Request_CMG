@@ -100,6 +100,8 @@ export const ROLES = [
   'STORE',
   'ADMIN',
   'VENDOR',
+  /** Operations and IT Manager: dashboard, MRs and POs to look at; their flow comes later */
+  'VIEW',
 ] as const;
 export type Role = (typeof ROLES)[number];
 
@@ -114,6 +116,7 @@ export const ROLE_NAMES: Record<Role, string> = {
   STORE: 'Store',
   ADMIN: 'Admin',
   VENDOR: 'Vendor',
+  VIEW: 'View only',
 };
 
 /** The roles that can be kept to chosen projects (none chosen = every project). */
