@@ -156,6 +156,10 @@ export interface IProject extends Timestamped {
   source: MasterSource;
   externalId: string;
   active: boolean;
+  /** code or name changed here: the Payment app sync no longer overwrites them */
+  localEdit: boolean;
+  /** a Payment app project deleted here: hidden, and the sync does not bring it back */
+  removed: boolean;
 }
 
 const projectSchema = new Schema<IProject>(
@@ -165,6 +169,8 @@ const projectSchema = new Schema<IProject>(
     source: { type: String, enum: MASTER_SOURCES, default: 'LOCAL', index: true },
     externalId: { type: String, default: '', index: true },
     active: { type: Boolean, default: true },
+    localEdit: { type: Boolean, default: false },
+    removed: { type: Boolean, default: false },
   },
   baseOptions(),
 );

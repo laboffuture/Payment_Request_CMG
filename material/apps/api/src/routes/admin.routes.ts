@@ -42,6 +42,8 @@ import {
   setCompanyLogo,
   toggleCategory,
   updateVendor,
+  updateProject,
+  deleteProject,
   upsertCompany,
 } from '../services/masters.service.js';
 import {
@@ -255,6 +257,21 @@ adminRouter.post(
   validateBody(createProjectInput),
   wrap(async (req, res) => {
     res.status(201).json(await createProject(req.body));
+  }),
+);
+
+adminRouter.put(
+  '/projects/:id',
+  validateBody(createProjectInput),
+  wrap(async (req, res) => {
+    res.json(await updateProject(req.params.id!, req.body));
+  }),
+);
+
+adminRouter.delete(
+  '/projects/:id',
+  wrap(async (req, res) => {
+    res.json(await deleteProject(req.params.id!));
   }),
 );
 

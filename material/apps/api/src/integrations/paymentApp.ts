@@ -178,17 +178,21 @@ export async function syncExternalMasters(): Promise<SyncResult> {
   for (const p of projects) {
     // Already here by its external id, or entered by hand under the same code.
     const known =
-      (await Project.findOne({ source: 'PAYMENT_APP', externalId: p.id }).select('_id').lean()) ??
+      (await Project.findOne({ source: 'PAYMENT_APP', externalId: p.id })
+        .select('_id localEdit removed')
+        .lean()) ??
       (await Project.findOne({ code: p.code })
         .collation({ locale: 'en', strength: 2 })
-        .select('_id')
+        .select('_id localEdit removed')
         .lean());
+    // Deleted in Material Management: stays deleted.
+    if (known?.removed) continue;
     const res = await Project.updateOne(
       known ? { _id: known._id } : { source: 'PAYMENT_APP', externalId: p.id },
       {
         $set: {
-          code: p.code,
-          name: p.name,
+          // Edited in Material Management: the code and name typed there are kept.
+          ...(known?.localEdit ? {} : { code: p.code, name: p.name }),
           active: p.active ?? true,
           source: 'PAYMENT_APP',
           externalId: p.id,

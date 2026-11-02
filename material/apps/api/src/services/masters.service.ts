@@ -1,5 +1,6 @@
 import {
   MSG,
+  isToolsProjectCode,
   SOURCE_LABELS,
   type CategoryDto,
   type CompanyDto,
@@ -17,6 +18,9 @@ import { inTransaction } from '../db.js';
 import { nextVendorCode } from '../lib/counters.js';
 import { Category, Company, Item, Project, User, Vendor } from '../models/masters.js';
 import { Mr } from '../models/mr.js';
+import { PoAlloc } from '../models/po.js';
+import { RfqLine } from '../models/rfq.js';
+import { Issue, StockLedger } from '../models/stock.js';
 import { deleteFile, uploadImage } from '../lib/files.js';
 
 const ci = { locale: 'en', strength: 2 } as const;
@@ -103,7 +107,7 @@ export async function updateVendor(
 // ---------------------------------------------------------------------------
 
 export async function listProjects(withCounts = false): Promise<ProjectDto[]> {
-  const projects = await Project.find({}).sort({ code: 1 }).lean();
+  const projects = await Project.find({ removed: { $ne: true } }).sort({ code: 1 }).lean();
 
   let counts = new Map<string, number>();
   if (withCounts) {
@@ -139,6 +143,80 @@ export async function createProject(
   const project = await Project.create({ ...input, source: 'LOCAL', active: true });
   await bumpSyncStamp();
   return (await listProjects()).find((p) => p.id === String(project._id))!;
+}
+
+/**
+ * Change a project's code or name. A Payment app project keeps the change: the sync stops
+ * overwriting its code and name (it still follows the job's active / inactive state).
+ * The Tools & Assets project is found by its code, so that code cannot be changed.
+ */
+export async function updateProject(id: string, input: CreateProjectInput): Promise<ProjectDto> {
+  const project = await Project.findById(id);
+  if (!project || project.removed) throw notFound();
+
+  const clash = await Project.findOne({ code: input.code, _id: { $ne: project._id } })
+    .collation(ci)
+    .select('_id')
+    .lean();
+  if (clash) throw conflict(MSG.projectCodeExists);
+  if (isToolsProjectCode(project.code) && !isToolsProjectCode(input.code)) {
+    throw conflict(`${project.code} is the Tools & Assets project - its code cannot be changed`);
+  }
+
+  if (project.code === input.code && project.name === input.name) {
+    return (await listProjects()).find((p) => p.id === id)!;
+  }
+  project.code = input.code;
+  project.name = input.name;
+  if (project.source === 'PAYMENT_APP') project.localEdit = true;
+  await project.save();
+  await bumpSyncStamp();
+  return (await listProjects()).find((p) => p.id === id)!;
+}
+
+/**
+ * Delete a project nothing uses yet. One with material requests, purchase orders, store
+ * issues, stock movements or enquiries against it, or a login kept to it, is refused with
+ * the reason. A Payment app project is hidden rather than erased, so the sync does not
+ * bring it back.
+ */
+export async function deleteProject(id: string): Promise<{ ok: true }> {
+  const project = await Project.findById(id);
+  if (!project || project.removed) throw notFound();
+  if (isToolsProjectCode(project.code)) {
+    throw conflict(`${project.code} is the Tools & Assets project and cannot be deleted`);
+  }
+
+  const oidOf = project._id;
+  const [mrs, pos, issues, moves, rfqs, users] = await Promise.all([
+    Mr.countDocuments({ projectId: oidOf }),
+    PoAlloc.countDocuments({ projectId: oidOf }),
+    Issue.countDocuments({ projectId: oidOf }),
+    StockLedger.countDocuments({ projectId: oidOf }),
+    RfqLine.countDocuments({ 'allocs.projectId': oidOf }),
+    User.countDocuments({ projectIds: oidOf }),
+  ]);
+  const uses = [
+    mrs && `${mrs} material request${mrs === 1 ? '' : 's'}`,
+    pos && `${pos} purchase order line${pos === 1 ? '' : 's'}`,
+    issues && `${issues} store issue${issues === 1 ? '' : 's'}`,
+    moves && `${moves} stock movement${moves === 1 ? '' : 's'}`,
+    rfqs && `${rfqs} enquiry line${rfqs === 1 ? '' : 's'}`,
+    users && `${users} login${users === 1 ? '' : 's'} kept to it in User roles`,
+  ].filter(Boolean);
+  if (uses.length) {
+    throw conflict(`${project.code} cannot be deleted - it is used by ${uses.join(', ')}`);
+  }
+
+  if (project.source === 'PAYMENT_APP') {
+    project.removed = true;
+    project.active = false;
+    await project.save();
+  } else {
+    await project.deleteOne();
+  }
+  await bumpSyncStamp();
+  return { ok: true };
 }
 
 // ---------------------------------------------------------------------------
