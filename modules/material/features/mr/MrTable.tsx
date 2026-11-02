@@ -1,7 +1,7 @@
 'use client';
 
 import { useRouter } from '@mm/lib/nav';
-import { REQUEST_TYPE_LABELS, MR_ST, chipFor, type MrDto } from '@cm/shared';
+import { REQUEST_TYPE_LABELS, mrChipFor, type MrDto } from '@cm/shared';
 import { DataTable, type Column } from '@mm/components/DataTable';
 import { Btn, Chip, Tag } from '@mm/components/ui';
 import { fmtDate } from '@mm/lib/format';
@@ -70,7 +70,7 @@ export function MrTable({ rows }: { rows: MrDto[] }) {
     {
       key: 'status',
       header: 'Status',
-      render: (m) => <Chip spec={chipFor(MR_ST, m.status)} />,
+      render: (m) => <Chip spec={mrChipFor(m.status, m.projectCode)} />,
     },
     {
       key: 'pdf',

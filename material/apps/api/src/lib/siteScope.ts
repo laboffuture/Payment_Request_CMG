@@ -4,11 +4,16 @@ import { Mr, MrLine } from '../models/mr.js';
 import { PoAlloc } from '../models/po.js';
 
 /**
- * A site engineer sees only the POs raised against MRs they raised themselves;
- * every other PO is for the people who buy, check and receive it. Null for
- * any other role — no such limit.
+ * A site engineer sees only the POs raised against MRs they raised themselves, and
+ * Operations only the POs carrying the corporate purchase project's material; every other
+ * PO is for the people who buy, check and receive it. Null for any other role — no such limit.
  */
 export async function sitePoIdsOf(actor: Actor): Promise<Set<string> | null> {
+  if (actor.role === 'OPS') {
+    const ids = actor.projectIds.filter((id) => Types.ObjectId.isValid(id)).map((id) => new Types.ObjectId(id));
+    const poIds = await PoAlloc.find({ projectId: { $in: ids } }).distinct('poId');
+    return new Set(poIds.map(String));
+  }
   if (actor.role !== 'SITE') return null;
   if (!Types.ObjectId.isValid(actor.id)) return new Set();
   const mrIds = await Mr.find({ createdBy: new Types.ObjectId(actor.id) }).distinct('_id');

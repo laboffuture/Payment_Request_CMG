@@ -5,6 +5,7 @@ import type { MrDto } from '@cm/shared';
 import { get } from '@mm/lib/api';
 import { PageHeader } from '@mm/components/ui';
 import { MrTable } from '@mm/features/mr/MrTable';
+import { useSession } from '@mm/lib/session';
 
 /**
  * The Project Manager's queue — every MR waiting for the first approval,
@@ -12,6 +13,7 @@ import { MrTable } from '@mm/features/mr/MrTable';
  * It mirrors the QS queue, one step earlier in the chain.
  */
 export default function PmQueuePage() {
+  const { me } = useSession();
   const list = useQuery({
     queryKey: ['mrs', 'pm-queue'],
     queryFn: () => get<{ rows: MrDto[] }>('/mrs?queue=pm'),
@@ -23,7 +25,11 @@ export default function PmQueuePage() {
     <>
       <PageHeader
         title="MR approvals"
-        subtitle="Requests come here straight from site. Check the quantity, the measurement and the unit on each line — change what needs changing, then pass it to QS."
+        subtitle={
+          me.role === 'OPS'
+            ? 'Corporate purchase (TRG-CORP) requests come here for your approval. Check the quantity, the measurement and the unit on each line — change what needs changing, then pass it to QS.'
+            : 'Requests come here straight from site. Check the quantity, the measurement and the unit on each line — change what needs changing, then pass it to QS.'
+        }
       />
       {list.isLoading ? <div className="text-mut">Loading…</div> : <MrTable rows={rows} />}
     </>

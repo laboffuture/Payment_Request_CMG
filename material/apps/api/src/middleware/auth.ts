@@ -5,6 +5,10 @@ import { forbidden, unauthenticated } from '../lib/errors.js';
 import { ACCESS_COOKIE, verifyAccessToken } from '../lib/tokens.js';
 import { User } from '../models/masters.js';
 import { toolsProjectId } from '../lib/toolsProject.js';
+import { corporateProjectId } from '../lib/corporateProject.js';
+
+/** An id no project has: a scope holding only this sees nothing. */
+const NO_PROJECT = '000000000000000000000000';
 import { ROLE_HEADER, materialUserFor, paymentActorFor, paymentSessionOf } from '../lib/paymentSso.js';
 
 export interface Actor {
@@ -59,7 +63,11 @@ export async function requireAuth(
     }
     if (!user || !user.active || !role) throw unauthenticated();
 
-    const projectIds = (user.projectIds ?? []).map(String);
+    let projectIds = (user.projectIds ?? []).map(String);
+    // Operations sees the corporate purchase project only - and nothing until it exists.
+    if (role === 'OPS') {
+      projectIds = [(await corporateProjectId()) ?? NO_PROJECT];
+    }
     // Anyone limited to their own projects may still raise (and follow) a
     // Tools & Assets request, which always belongs to the tools project.
     if (isProjectScopedRole(role) && projectIds.length) {
@@ -110,7 +118,9 @@ export function denyReadOnly(req: Request, _res: Response, next: NextFunction): 
 
 /** A Site Engineer or Project Manager with an empty projectIds list may see every project. */
 export const projectScopeOf = (actor: Actor): string[] | null =>
-  isProjectScopedRole(actor.role) && actor.projectIds.length ? actor.projectIds : null;
+  (isProjectScopedRole(actor.role) || actor.role === 'OPS') && actor.projectIds.length
+    ? actor.projectIds
+    : null;
 
 export const canSeeProject = (actor: Actor, projectId: string): boolean => {
   const scope = projectScopeOf(actor);

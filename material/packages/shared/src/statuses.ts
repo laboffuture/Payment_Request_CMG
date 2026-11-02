@@ -6,6 +6,8 @@
  * but only ever writes `QS_PENDING`. Only `QS_PENDING` exists here.
  */
 
+import { isCorporateProjectCode } from './enums.js';
+
 /** Colour token names as used by the CSS variables (--<tone> / --<tone>s). */
 export type ChipTone =
   | 'gry'
@@ -219,6 +221,12 @@ export function materialStatusOf(q: {
   if (q.onEnquiry > eps) return 'ON_ENQUIRY';
   return 'PENDING';
 }
+
+/** An MR's status chip: a corporate purchase MR waiting for its first approval is with Operations. */
+export const mrChipFor = (status: string, projectCode?: string | null): ChipSpec =>
+  status === 'PM_PENDING' && isCorporateProjectCode(projectCode)
+    ? { label: 'With Operations', tone: 'amb' }
+    : chipFor(MR_ST, status);
 
 export const chipFor = <T extends string>(
   map: Record<string, ChipSpec>,

@@ -133,6 +133,14 @@ export const NAV: Record<Role, readonly NavItem[]> = {
     { href: '/mrs', label: 'All MRs' },
     { href: '/pos', label: 'Purchase orders' },
   ],
+  // Operations: the first approval of corporate purchase MRs, and that project's MRs and POs.
+  OPS: [
+    { href: '/', label: 'Home' },
+    { href: '/pm', label: 'MR approvals', count: 'pmQueue' },
+    { href: '/mrs', label: 'All MRs' },
+    { href: '/pos', label: 'Purchase orders' },
+    { href: '/notifications', label: 'Notifications', count: 'notifications' },
+  ],
   VENDOR: [
     { href: '/vendor', label: 'Enquiries', count: 'vendorRfqs' },
     { href: '/vendor/pos', label: 'My POs' },

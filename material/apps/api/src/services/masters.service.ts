@@ -1,5 +1,6 @@
 import {
   MSG,
+  isCorporateProjectCode,
   isToolsProjectCode,
   SOURCE_LABELS,
   type CategoryDto,
@@ -162,6 +163,9 @@ export async function updateProject(id: string, input: CreateProjectInput): Prom
   if (isToolsProjectCode(project.code) && !isToolsProjectCode(input.code)) {
     throw conflict(`${project.code} is the Tools & Assets project - its code cannot be changed`);
   }
+  if (isCorporateProjectCode(project.code) && !isCorporateProjectCode(input.code)) {
+    throw conflict(`${project.code} is the corporate purchase project Operations approves - its code cannot be changed`);
+  }
 
   if (project.code === input.code && project.name === input.name) {
     return (await listProjects()).find((p) => p.id === id)!;
@@ -185,6 +189,9 @@ export async function deleteProject(id: string): Promise<{ ok: true }> {
   if (!project || project.removed) throw notFound();
   if (isToolsProjectCode(project.code)) {
     throw conflict(`${project.code} is the Tools & Assets project and cannot be deleted`);
+  }
+  if (isCorporateProjectCode(project.code)) {
+    throw conflict(`${project.code} is the corporate purchase project Operations approves and cannot be deleted`);
   }
 
   const oidOf = project._id;

@@ -100,8 +100,10 @@ export const ROLES = [
   'STORE',
   'ADMIN',
   'VENDOR',
-  /** Operations and IT Manager: dashboard, MRs and POs to look at; their flow comes later */
+  /** IT Manager: dashboard, MRs and POs to look at; the flow comes later */
   'VIEW',
+  /** Operations: approves the corporate purchase project's MRs in place of the PM */
+  'OPS',
 ] as const;
 export type Role = (typeof ROLES)[number];
 
@@ -117,6 +119,7 @@ export const ROLE_NAMES: Record<Role, string> = {
   ADMIN: 'Admin',
   VENDOR: 'Vendor',
   VIEW: 'View only',
+  OPS: 'Operations',
 };
 
 /** The roles that can be kept to chosen projects (none chosen = every project). */
@@ -313,6 +316,16 @@ export const isPettyCash = (type: string | null | undefined): boolean => type ==
  */
 export const TOOLS_PROJECT_CODE = 'TRG TOOLS & ASSET';
 export const TOOLS_PROJECT_NAME = 'TRG PROJECT TOOLS & ASSETS';
+/**
+ * The corporate purchase project. Its material requests go to Operations for the first
+ * approval instead of a Project Manager, and Operations sees only this project. Matched
+ * without spacing, hyphens or case, like the tools project.
+ */
+export const CORPORATE_PROJECT_CODE = 'TRG-CORP';
+export const isCorporateProjectCode = (code: string | null | undefined): boolean =>
+  String(code ?? '').toUpperCase().replace(/[\s-]+/g, '') ===
+  CORPORATE_PROJECT_CODE.replace(/[\s-]+/g, '');
+
 export const isToolsProjectCode = (code: string | null | undefined): boolean =>
   String(code ?? '').toUpperCase().replace(/[\s-]+/g, '') ===
   TOOLS_PROJECT_CODE.replace(/[\s-]+/g, '');

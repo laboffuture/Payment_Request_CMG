@@ -126,7 +126,7 @@ storeRouter.get(
 storeRouter.get(
   '/grns',
   requireAuth,
-  authorize('STORE', 'SITE', 'PROC', 'MGMT', 'VIEW', 'ADMIN'),
+  authorize('STORE', 'SITE', 'PROC', 'MGMT', 'VIEW', 'OPS', 'ADMIN'),
   wrap(async (_req, res) => res.json(await listGrns())),
 );
 
@@ -147,7 +147,7 @@ storeRouter.post(
 storeRouter.get(
   '/grns/:id/files',
   requireAuth,
-  authorize('STORE', 'SITE', 'PROC', 'PROC_MGR', 'QS', 'PM', 'MGMT', 'VIEW', 'ADMIN'),
+  authorize('STORE', 'SITE', 'PROC', 'PROC_MGR', 'QS', 'PM', 'MGMT', 'VIEW', 'OPS', 'ADMIN'),
   wrap(async (req, res) => res.json(await grnFileLinks(req.params.id!))),
 );
 
@@ -165,14 +165,14 @@ storeRouter.get(
 storeRouter.get(
   '/issues',
   requireAuth,
-  authorize('STORE', 'SITE', 'PROC', 'MGMT', 'VIEW', 'ADMIN'),
+  authorize('STORE', 'SITE', 'PROC', 'MGMT', 'VIEW', 'OPS', 'ADMIN'),
   wrap(async (req, res) => res.json(await listIssues(actorOf(req)))),
 );
 
 storeRouter.get(
   '/issues/:id',
   requireAuth,
-  authorize('STORE', 'SITE', 'PROC', 'MGMT', 'VIEW', 'ADMIN'),
+  authorize('STORE', 'SITE', 'PROC', 'MGMT', 'VIEW', 'OPS', 'ADMIN'),
   wrap(async (req, res) => {
     res.json(await getIssue(actorOf(req), req.params.id!));
   }),
@@ -207,7 +207,7 @@ storeRouter.post(
 storeRouter.get(
   '/issues/:id/files',
   requireAuth,
-  authorize('STORE', 'SITE', 'PROC', 'PROC_MGR', 'QS', 'PM', 'MGMT', 'VIEW', 'ADMIN'),
+  authorize('STORE', 'SITE', 'PROC', 'PROC_MGR', 'QS', 'PM', 'MGMT', 'VIEW', 'OPS', 'ADMIN'),
   wrap(async (req, res) => res.json(await issueFileLinks(actorOf(req), req.params.id!))),
 );
 

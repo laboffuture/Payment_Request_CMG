@@ -17,7 +17,7 @@ export const MATERIAL_ROLES={
   "Procurement":"PROC",
   "Procurement Manager":"PROC_MGR",
   "Store":"STORE",
-  "Operations":"VIEW",
+  "Operations":"OPS",
   "Management (Material)":"MGMT",
   "IT Manager":"VIEW",
   "Material Admin":"ADMIN",

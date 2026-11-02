@@ -9,12 +9,13 @@ import {
   REQUEST_TYPE_LABELS,
   isPettyCash,
   IS_ST,
-  MR_ST,
+  mrChipFor,
   MSG,
   PO_ST,
   RFQ_ST,
   ROLE_NAMES,
   chipFor,
+  isCorporateProjectCode,
   type ItemDto,
   type LinkedPoDto,
   type MrDetailDto,
@@ -128,7 +129,7 @@ export default function MrDetailPage() {
               className="h-9 w-auto object-contain"
             />
             <span className="font-mono">{data.no || 'Draft'}</span>
-            <Chip spec={chipFor(MR_ST, data.status)} />
+            <Chip spec={mrChipFor(data.status, data.projectCode)} />
             <Tag label={REQUEST_TYPE_LABELS[data.requestType ?? 'MATERIAL'].toUpperCase()} tone="ac" />
           </span>
         }
@@ -965,7 +966,7 @@ function PmPanel({ mr }: { mr: MrDetailDto }) {
 
   return (
     <>
-      <h2>Project Manager review</h2>
+      <h2>{isCorporateProjectCode(mr.projectCode) ? 'Operations review' : 'Project Manager review'}</h2>
       <DataTable
         columns={reviewColumns(review, patch)}
         rows={active}

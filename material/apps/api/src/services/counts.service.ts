@@ -5,6 +5,7 @@ import { loadWorld } from '../lib/world.js';
 import { Issue, Mr, MrLine, Po, RfqVendor, VendorDoc } from '../models/index.js';
 import { unreadCount } from './notification.service.js';
 import { projectScopeOf } from '../middleware/auth.js';
+import { corporateProjectId } from '../lib/corporateProject.js';
 
 /**
  * Sidebar badges.
@@ -17,11 +18,15 @@ export async function countsFor(actor: Actor): Promise<Counts> {
   const counts: Counts = { notifications: await unreadCount(actor) };
   const role = actor.role;
 
-  if (role === 'PM') {
+  // MRs waiting for their first approval: the PM's, or for Operations the corporate
+  // purchase project's (the PM never sees those).
+  if (role === 'PM' || role === 'OPS') {
     const scope = projectScopeOf(actor);
+    const corporate = await corporateProjectId();
     counts.pmQueue = await Mr.countDocuments({
       status: 'PM_PENDING',
       ...(scope ? { projectId: { $in: scope } } : {}),
+      ...(role === 'PM' && corporate ? { $and: [{ projectId: { $ne: corporate } }] } : {}),
     });
   }
 

@@ -88,7 +88,7 @@ apiRouter.get(
 apiRouter.get(
   '/items',
   requireAuth,
-  authorize('SITE', 'PM', 'QS', 'PROC', 'STORE', 'MGMT', 'VIEW', 'ADMIN'),
+  authorize('SITE', 'PM', 'QS', 'PROC', 'STORE', 'MGMT', 'VIEW', 'OPS', 'ADMIN'),
   wrap(async (req, res) => {
     const query = z
       .object({

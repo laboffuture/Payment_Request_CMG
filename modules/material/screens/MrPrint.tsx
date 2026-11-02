@@ -3,7 +3,7 @@
 import { Suspense } from 'react';
 import { useRouter, useSearchParams } from '@mm/lib/nav';
 import { useQuery } from '@tanstack/react-query';
-import { BRAND_LOGO_URL, MR_ST, chipFor, type MrPrintDto } from '@cm/shared';
+import { BRAND_LOGO_URL, mrChipFor, type MrPrintDto } from '@cm/shared';
 import { get } from '@mm/lib/api';
 import { Btn, EmptyState, PageHeader } from '@mm/components/ui';
 import { fmtDate, fmtDateTime, money, qty } from '@mm/lib/format';
@@ -86,7 +86,7 @@ function MrDocument({ doc }: { doc: MrPrintDto }) {
         <div className="grid gap-1 text-right text-[13px]">
           <b>{company?.legalName || company?.name}</b>
           {mr.status !== 'DRAFT' ? (
-            <span>Status: {chipFor(MR_ST, mr.status).label}</span>
+            <span>Status: {mrChipFor(mr.status, mr.projectCode).label}</span>
           ) : null}
         </div>
       </div>

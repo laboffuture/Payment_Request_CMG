@@ -40,7 +40,7 @@ export default function HomePage() {
   const pos = useQuery({
     queryKey: ['pos', 'home'],
     queryFn: () => get<{ rows: PoDto[] }>('/pos'),
-    enabled: ['PROC', 'PROC_MGR', 'MGMT', 'QS', 'ADMIN', 'VIEW'].includes(me.role),
+    enabled: ['PROC', 'PROC_MGR', 'MGMT', 'QS', 'ADMIN', 'VIEW', 'OPS'].includes(me.role),
   });
 
   const tiles = tilesFor(me.role, counts, mrs.data?.rows ?? [], pos.data?.rows ?? [], me.id);
@@ -175,6 +175,17 @@ function tilesFor(
         href: '/pos',
       },
       { label: 'Reports', value: 13, href: '/reports' },
+    );
+  }
+
+  if (role === 'OPS') {
+    tiles.push(
+      { label: 'MRs waiting for my approval', value: counts.pmQueue ?? 0, href: '/pm' },
+      {
+        label: 'Open POs',
+        value: pos.filter((p) => ['APPROVED', 'PARTIAL'].includes(p.status)).length,
+        href: '/pos',
+      },
     );
   }
 
