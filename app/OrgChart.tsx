@@ -30,7 +30,7 @@ export default function OrgChart({openProfile,flash,readOnly}:{readOnly?:boolean
 {!readOnly&&<><button onClick={()=>setDeptEdit({id:`d-${Date.now().toString(36)}`,name:"",code:"",color:"#0b725d",position:wf.departments.length})}>
           <Building2/>New chart</button>
         {dept&&<button onClick={()=>setDeptEdit({...dept})}><Pencil/>Edit chart</button>}
-        <button className="primary" onClick={()=>setRoleEdit({id:`r-${Date.now().toString(36)}`,deptId:wf.dept,
+        <button className="primary" onClick={()=>setRoleEdit({id:`r-${Date.now().toString(36)}`,deptId:"",
           name:"",type:"Support",parentId:roots[0]?.id||null,color:"#3f70c7",jd:""})}><Plus/>Add role</button></>}
       </div></div>
 

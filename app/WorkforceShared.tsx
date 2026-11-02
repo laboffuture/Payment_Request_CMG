@@ -126,13 +126,15 @@ export function RoleEditor({role,close,flash}:{role:Partial<Role>;close:()=>void
     <div className="form">
       <label className="wide">Role name<input required value={r.name||""} onChange={e=>setR({...r,name:e.target.value})}
         placeholder="e.g. AR Executive"/></label>
-      <label>Department<select value={r.deptId||wf.dept} onChange={e=>setR({...r,deptId:e.target.value})}>
+      {/* Starts on Nil: a department has to be picked before the role can be saved. */}
+      <label>Department<select required value={r.deptId||""} onChange={e=>setR({...r,deptId:e.target.value})}>
+        <option value="" disabled>Nil</option>
         {wf.departments.map(d=><option key={d.id} value={d.id}>{d.name}</option>)}</select></label>
       <label>Role type<select value={r.type||"Support"} onChange={e=>setR({...r,type:e.target.value as RoleType})}>
         {roleTypes.map(t=><option key={t}>{t}</option>)}</select></label>
       <label className="wide">Reports to<select value={r.parentId||""} onChange={e=>setR({...r,parentId:e.target.value||null})}>
         <option value="">— top of this chart —</option>
-        {wf.allRoles.filter(x=>!banned.has(x.id)&&x.deptId===(r.deptId||wf.dept))
+        {wf.allRoles.filter(x=>!banned.has(x.id)&&x.deptId===r.deptId)
           .map(x=><option key={x.id} value={x.id}>{x.name}</option>)}</select></label>
       <label className="wide">Job description<textarea value={r.jd||""} onChange={e=>setR({...r,jd:e.target.value})}
         placeholder="What this position is accountable for. Inherited by anyone in the role who has no personal JD."/></label>
@@ -208,14 +210,16 @@ export function EmployeeEditor({employee,close,flash}:{employee:Partial<Employee
       {!isNew&&e.id&&<div className="wide"><PhotoPicker employee={e as Employee} flash={flash} onDone={wf.refresh}/></div>}
       <label>Employee name<input required value={e.name||""} onChange={x=>set("name",x.target.value)}/></label>
       <label>Employee ID<input required value={e.code||""} onChange={x=>set("code",x.target.value)}/></label>
-      <label>Department<select value={e.deptId||wf.dept}
+      {/* Starts on Nil: a department has to be picked before the employee can be saved. */}
+      <label>Department<select required value={e.deptId||""}
         onChange={x=>setE(p=>({...p,deptId:x.target.value,roleId:"",designation:""}))}>
+        <option value="" disabled>Nil</option>
         {wf.departments.map(d=><option key={d.id} value={d.id}>{d.name}</option>)}</select></label>
       <label>Designation<select required value={e.roleId||""}
         onChange={x=>{const picked=wf.allRoles.find(r=>r.id===x.target.value);
           setE(p=>({...p,roleId:x.target.value,designation:picked?picked.name:""}))}}>
         <option value="">— select a designation —</option>
-        {wf.allRoles.filter(r=>r.deptId===(e.deptId||wf.dept)).map(r=><option key={r.id} value={r.id}>{r.name}</option>)}</select></label>
+        {wf.allRoles.filter(r=>r.deptId===e.deptId).map(r=><option key={r.id} value={r.id}>{r.name}</option>)}</select></label>
       <label>Team / vertical<input value={e.department||""} onChange={x=>set("department",x.target.value)}/></label>
       <div ref={companyPickerRef} style={{position:"relative"}}>
         <label style={{display:"block",margin:0}}>Company

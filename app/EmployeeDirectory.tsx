@@ -41,7 +41,7 @@ export default function EmployeeDirectory({openProfile,flash,readOnly}:{readOnly
     <div className="intro"><div><small>WORKFORCE</small><h2>Employee register</h2>
       <p>Searched and paged on the server. Click any name for the full record.</p></div>
 {!readOnly&&<button className="primary" onClick={()=>setEdit({id:`new-${Date.now()}`,name:"",code:"",designation:"",
-        roleId:"",deptId:wf.dept,department:"",reportsTo:null,email:"",phone:"",jd:"",photoAt:"",active:true,joined:""})}>
+        roleId:"",deptId:"",department:"",reportsTo:null,email:"",phone:"",jd:"",photoAt:"",active:true,joined:""})}>
         <Plus/>Add employee</button>}</div>
 
     <div className="schedule-metrics wf-metrics">{([
