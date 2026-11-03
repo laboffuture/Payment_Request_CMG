@@ -23,7 +23,7 @@ import {
   type Role,
   type Unit,
 } from '@cm/shared';
-import { del, downloadFile, get, newIdempotencyKey, post, postWithFiles } from '@mm/lib/api';
+import { downloadFile, get, newIdempotencyKey, post, postWithFiles } from '@mm/lib/api';
 import { ReceiptFiles } from '@mm/features/store/ReceiptFiles';
 import { Modal } from '@mm/components/Modal';
 import { DataTable, type Column } from '@mm/components/DataTable';
@@ -44,6 +44,7 @@ import { useAction } from '@mm/lib/hooks';
 import { fmtDate, fmtDateTime, money, qty } from '@mm/lib/format';
 import { useSession } from '@mm/lib/session';
 import { AttachmentLinks } from '@mm/features/mr/MrAttachments';
+import { AdminDeleteMr } from '@mm/features/mr/AdminDeleteMr';
 import { ItemSearchSelect } from '@mm/components/ItemSearchSelect';
 
 /**
@@ -54,52 +55,6 @@ import { ItemSearchSelect } from '@mm/components/ItemSearchSelect';
  * Both may change the quantity, the measurement and the unit, or drop a line,
  * and whatever they do is shown back to the site engineer on this page.
  */
-/** Only the administrator deletes an MR outright, in any status, after confirming. */
-function AdminDeleteMr({ id, no }: { id: string; no: string }) {
-  const router = useRouter();
-  const [open, setOpen] = useState(false);
-  const remove = useAction(() => del<{ no: string }>(`/admin/mrs/${id}`), {
-    success: (r) => `${r.no || 'MR'} deleted`,
-    invalidate: [['mrs'], ['mr', id], ['counts']],
-    onDone: () => router.push('/mrs'),
-  });
-
-  return (
-    <>
-      <Btn onClick={() => setOpen(true)}>
-        <span className="text-[#b42318]">Delete MR</span>
-      </Btn>
-      {open ? (
-        <Modal
-          title={`Delete ${no || 'this MR'}?`}
-          onClose={() => setOpen(false)}
-          footer={
-            <>
-              <Btn onClick={() => setOpen(false)}>Cancel</Btn>
-              <Btn
-                variant="primary"
-                disabled={remove.isPending}
-                onClick={() => remove.mutate(undefined)}
-              >
-                {remove.isPending ? 'Deleting…' : 'Delete MR'}
-              </Btn>
-            </>
-          }
-        >
-          <p>
-            The MR, its lines, attachments, notifications and unsent emails are removed
-            for everyone. This cannot be undone.
-          </p>
-          <p className="text-mut text-sm">
-            An MR that is already on a PO, an enquiry or a stock issue cannot be deleted
-            until those are cancelled or revised.
-          </p>
-        </Modal>
-      ) : null}
-    </>
-  );
-}
-
 export default function MrDetailPage() {
   const { id } = useParams<{ id: string }>();
   const router = useRouter();
@@ -158,7 +113,7 @@ export default function MrDetailPage() {
             >
               <Download size={14} aria-hidden /> Excel (CSV)
             </Btn>
-            {me.role === 'ADMIN' ? <AdminDeleteMr id={id} no={data.no} /> : null}
+            {me.role === 'ADMIN' ? <AdminDeleteMr id={id} no={data.no} leaveTo="/mrs" /> : null}
           </>
         }
       />

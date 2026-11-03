@@ -5,6 +5,8 @@ import { REQUEST_TYPE_LABELS, mrChipFor, type MrDto } from '@cm/shared';
 import { DataTable, type Column } from '@mm/components/DataTable';
 import { Btn, Chip, Tag } from '@mm/components/ui';
 import { fmtDate } from '@mm/lib/format';
+import { useSession } from '@mm/lib/session';
+import { AdminDeleteMr } from './AdminDeleteMr';
 
 const nameOnly = (name: string, code: string): string => {
   const text = (name ?? '').trim();
@@ -20,6 +22,8 @@ const nameOnly = (name: string, code: string): string => {
  */
 export function MrTable({ rows }: { rows: MrDto[] }) {
   const router = useRouter();
+  const { me } = useSession();
+  const isAdmin = me.role === 'ADMIN';
 
   const columns: Column<MrDto>[] = [
     {
@@ -76,9 +80,12 @@ export function MrTable({ rows }: { rows: MrDto[] }) {
       key: 'pdf',
       header: '',
       render: (m) => (
-        <Btn small onClick={() => router.push(`/mrs/print?ids=${m.id}`)}>
-          PDF
-        </Btn>
+        <span className="flex gap-2" style={{ whiteSpace: 'nowrap' }}>
+          <Btn small onClick={() => router.push(`/mrs/print?ids=${m.id}`)}>
+            PDF
+          </Btn>
+          {isAdmin ? <AdminDeleteMr id={m.id} no={m.no} small /> : null}
+        </span>
       ),
     },
   ];

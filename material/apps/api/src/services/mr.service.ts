@@ -895,14 +895,28 @@ export async function adminDeleteMr(actor: Actor, id: string): Promise<{ no: str
       StockLedger.countDocuments({ mrLineId: { $in: lineIds } }).session(session),
     ]);
 
+    // A cancelled or rejected PO and a closed enquiry are history: they do not stop
+    // the delete, and keep showing the MR number they were raised for.
     const blockers: string[] = [];
     if (allocs.length) {
-      const pos = await Po.find({ _id: { $in: allocs.map((a) => a.poId) } }).select('no').session(session).lean();
-      blockers.push(`PO ${pos.map((p) => p.no).join(', ')}`);
+      const pos = await Po.find({
+        _id: { $in: allocs.map((a) => a.poId) },
+        status: { $nin: ['CANCELLED', 'REJECTED'] },
+      })
+        .select('no')
+        .session(session)
+        .lean();
+      if (pos.length) blockers.push(`PO ${pos.map((p) => p.no).join(', ')}`);
     }
     if (rfqLines.length) {
-      const rfqs = await Rfq.find({ _id: { $in: rfqLines.map((l) => l.rfqId) } }).select('no').session(session).lean();
-      blockers.push(`enquiry ${rfqs.map((r) => r.no).join(', ')}`);
+      const rfqs = await Rfq.find({
+        _id: { $in: rfqLines.map((l) => l.rfqId) },
+        status: { $ne: 'CLOSED' },
+      })
+        .select('no')
+        .session(session)
+        .lean();
+      if (rfqs.length) blockers.push(`enquiry ${rfqs.map((r) => r.no).join(', ')}`);
     }
     if (issues.length) blockers.push(`issue ${issues.map((i) => i.no).join(', ')}`);
     else if (issueLines || ledger) blockers.push('stock already issued against it');
