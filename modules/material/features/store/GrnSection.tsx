@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { MSG, PO_ST, chipFor, type GrnOpenPoDto, type OpenPoRowDto, type PoStatus } from '@cm/shared';
 import { get, newIdempotencyKey, post, postWithFiles } from '@mm/lib/api';
@@ -41,6 +41,31 @@ export function GrnSection({ location }: { location: 'STORE' | 'SITE' }) {
   });
 
   const selected = data.data?.selected ?? null;
+
+  // The open POs that match what is typed: every word must appear in the PO number,
+  // vendor, project, MR number or who raised the MR.
+  const allOpen = data.data?.pos;
+  const openRows = useMemo(() => {
+    const words = search.toLowerCase().split(/\s+/).filter(Boolean);
+    if (!allOpen || !words.length) return allOpen ?? [];
+    return allOpen.filter((po) => {
+      const text = [po.no, po.vendorName, ...po.projectCodes, ...po.mrNos, ...po.raisedBy]
+        .join(' ')
+        .toLowerCase();
+      return words.every((w) => text.includes(w));
+    });
+  }, [allOpen, search]);
+
+  // Find PO / Enter: an exact PO number, or the only PO that matches, opens it.
+  const find = () => {
+    const typed = search.trim();
+    if (!typed) return;
+    const exact = (allOpen ?? []).find((po) => po.no.toLowerCase() === typed.toLowerCase());
+    if (exact) return pick(exact.no);
+    if (openRows.length === 1) return pick(openRows[0].no);
+    if (openRows.length > 1) return toast(`${openRows.length} POs match - pick one below`);
+    pick(typed);
+  };
 
   // Fill the form the moment a PO is chosen: receive the balance by default.
   const pick = (no: string) => {
@@ -113,25 +138,36 @@ export function GrnSection({ location }: { location: 'STORE' | 'SITE' }) {
             <input
               list={`po-list-${location}`}
               className="font-mono flex-1 min-w-[200px]"
-              placeholder="Search PO number"
-              aria-label="PO number"
+              placeholder="Search PO no., vendor, MR no. or project"
+              aria-label="Search open POs"
               value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              onKeyDown={(e) => e.key === 'Enter' && pick(search)}
+              onChange={(e) => {
+                setSearch(e.target.value);
+                // typing a new search closes the PO that was open
+                if (selectedNo && e.target.value !== selectedNo) setSelectedNo('');
+              }}
+              onKeyDown={(e) => e.key === 'Enter' && find()}
             />
             <datalist id={`po-list-${location}`}>
               {(data.data?.pos ?? []).map((po) => (
-                <option key={po.id} value={po.no} />
+                <option
+                  key={po.id}
+                  value={po.no}
+                  label={[po.vendorName, po.projectCodes.join(', '), po.mrNos.join(', ')]
+                    .filter(Boolean)
+                    .join(' · ')}
+                />
               ))}
             </datalist>
-            <Btn variant="primary" onClick={() => pick(search)}>
+            <Btn variant="primary" onClick={find}>
               Find PO
             </Btn>
           </div>
 
           <OpenPoList
             location={location}
-            rows={data.data?.pos ?? []}
+            rows={openRows}
+            total={allOpen?.length ?? 0}
             loading={data.isLoading}
             onPick={pick}
           />
@@ -300,17 +336,23 @@ export function GrnSection({ location }: { location: 'STORE' | 'SITE' }) {
 function OpenPoList({
   location,
   rows,
+  total,
   loading,
   onPick,
 }: {
   location: 'STORE' | 'SITE';
   rows: OpenPoRowDto[];
+  /** open POs before the search; differs from rows.length while searching */
+  total: number;
   loading: boolean;
   onPick: (no: string) => void;
 }) {
   const { me } = useSession();
   const where = location === 'STORE' ? 'store' : 'site';
   if (loading) return <div className="text-mut text-sm">Loading open POs…</div>;
+  if (!rows.length && total) {
+    return <div className="text-mut text-sm">No open PO matches the search.</div>;
+  }
   if (!rows.length) {
     return (
       <div className="text-mut text-sm">
@@ -332,7 +374,7 @@ function OpenPoList({
   return (
     <div className="flex flex-col gap-3">
       <b>
-        Open POs for {where} delivery ({rows.length})
+        Open POs for {where} delivery ({rows.length === total ? total : `${rows.length} of ${total}`})
       </b>
       {[...groups.entries()]
         .sort(([a], [b]) => a.localeCompare(b))
