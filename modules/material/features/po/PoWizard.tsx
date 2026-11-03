@@ -11,6 +11,7 @@ import {
   MSG,
   PO_DIRECT_REASONS,
   PO_CHARGE_GST_PCT,
+  DEFAULT_PO_GST_PCT,
   PO_DISCOUNT,
   PO_EXTRA_CHARGES,
   PO_ROUND_OFF,
@@ -313,7 +314,7 @@ export function PoWizard({
             clear();
             router.push(existing ? `/pos/${existing.id}` : '/pos');
           }}
-          defaultTax={defaultCompany?.defaultTax ?? 5}
+          defaultTax={DEFAULT_PO_GST_PCT}
         />
       ) : null}
 
@@ -415,8 +416,8 @@ function StepPickItems({
     mrNo: r.mrNo,
     qty: r.openQty,
     rate: r.lastRate ?? 0,
-    // the item's own GST from the item master, else the company default
-    gstPct: r.gstRate ?? defaultTax,
+    // every new line starts at 18%; procurement changes it per line or with Apply for all
+    gstPct: defaultTax,
     received: 0,
     openQty: r.openQty,
   });
@@ -639,7 +640,7 @@ function StepVendorPrices({
   onNext: () => void;
 }) {
   const reference = useReference();
-  const [taxForAll, setTaxForAll] = useState('5');
+  const [taxForAll, setTaxForAll] = useState(String(DEFAULT_PO_GST_PCT));
 
   return (
     <>
@@ -814,8 +815,9 @@ function StepVendorPrices({
               <Btn
                 small
                 onClick={() =>
+                  // every line of the PO, each keyed as the table keys it (item, size, unit, description)
                   grouped.forEach((g) =>
-                    onPatchItem(g.itemId, { gstPct: Number(taxForAll) || 0 }),
+                    onPatchItem(g.key, { gstPct: Number(taxForAll) || 0 }),
                   )
                 }
               >

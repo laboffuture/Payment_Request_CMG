@@ -17,6 +17,7 @@ import {
   type PoolAnalysisDto,
   type PoolRowDto,
   type VendorDto,
+  DEFAULT_PO_GST_PCT,
 } from '@cm/shared';
 import { downloadFile, get, newIdempotencyKey, post, postWithFiles } from '@mm/lib/api';
 import { DataTable, type Column } from '@mm/components/DataTable';
@@ -360,7 +361,7 @@ export default function PoolPage() {
         mrNo: s.row.mrNo,
         qty: s.take,
         rate: s.row.lastRate ?? 0,
-        gstPct: 5,
+        gstPct: DEFAULT_PO_GST_PCT,
         received: 0,
         openQty: s.row.openQty,
       })),

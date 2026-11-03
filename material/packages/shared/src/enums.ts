@@ -288,6 +288,9 @@ export const PO_ROUND_OFF: PoExtraCharge = 'Round-off';
 export const PO_DISCOUNT: PoExtraCharge = 'Discount';
 /** Charges that carry no GST: Round-off and Discount. */
 export const isUntaxedCharge = (type: string): boolean => type === PO_ROUND_OFF || type === PO_DISCOUNT;
+/** The tax % every new PO line starts with; procurement can change it per line or for all. */
+export const DEFAULT_PO_GST_PCT = 18;
+
 /** GST filled in on an extra charge as its amount is typed; procurement can still change it. */
 export const PO_CHARGE_GST_PCT = 18;
 
