@@ -302,6 +302,8 @@ export interface PoAllocDto {
   id: string;
   poLineId: string;
   mrLineId: string;
+  /** the MR the line belongs to - the MR page opens by this, not by the line */
+  mrId: string;
   mrNo: string;
   /** the item, so QS can validate the PO against what QS approved */
   itemName: string;

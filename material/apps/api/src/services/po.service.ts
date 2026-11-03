@@ -289,6 +289,7 @@ export async function getPo(actor: Actor, id: string): Promise<PoDetailDto> {
       id: String(alloc._id),
       poLineId: String(alloc.poLineId),
       mrLineId: String(alloc.mrLineId),
+      mrId: mrLine ? String(mrLine.mrId) : '',
       mrNo: mrNoByLine.get(String(alloc.mrLineId)) ?? '',
       itemName: item?.name ?? mrLine?.newItemName ?? '',
       unit: mrLine?.unit || item?.unit || mrLine?.newUnit || '',

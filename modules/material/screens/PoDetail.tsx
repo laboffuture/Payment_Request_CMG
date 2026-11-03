@@ -398,14 +398,17 @@ function AllocTable({ rows }: { rows: PoAllocDto[] }) {
     {
       key: 'mr',
       header: 'MR',
-      render: (a) => (
-        <button
-          className="text-ac underline font-semibold font-mono"
-          onClick={() => router.push(`/mrs/${a.mrLineId}`)}
-        >
-          {a.mrNo}
-        </button>
-      ),
+      render: (a) =>
+        a.mrId ? (
+          <button
+            className="text-ac underline font-semibold font-mono"
+            onClick={() => router.push(`/mrs/${a.mrId}`)}
+          >
+            {a.mrNo}
+          </button>
+        ) : (
+          <span className="font-mono">{a.mrNo || '—'}</span>
+        ),
     },
     { key: 'qty', header: 'Qty', align: 'right', render: (a) => qty(a.qty) },
     { key: 'recd', header: 'Received', align: 'right', render: (a) => qty(a.received) },
