@@ -64,6 +64,9 @@ export async function countsFor(actor: Actor): Promise<Counts> {
   if (role === 'STORE') {
     const world = await loadWorld();
     counts.issue = issueRows(world).length;
+  }
+  // POs to receive at the main store: the storekeeper's, and the admin's too.
+  if (role === 'STORE' || role === 'ADMIN') {
     counts.grn = await Po.countDocuments({
       status: { $in: ['APPROVED', 'PARTIAL'] },
       deliverTo: 'STORE',
