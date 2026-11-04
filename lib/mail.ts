@@ -59,7 +59,7 @@ export async function mailConfig():Promise<MailConfig|null>{
     const sendAs=String(env.MAIL_SEND_AS||"").trim()||from;
     /* The name a recipient actually reads. This one is free text, and it is what makes a
        message look like it came from a system rather than from a person. */
-    const fromName=String(env.MAIL_FROM_NAME||"CMG Payment Request").trim();
+    const fromName=String(env.MAIL_FROM_NAME||"CMG Control").trim();
     /* "none" leaves the header off entirely, which is what makes a message a no-reply.
        An address here is used for every message; empty keeps the older behaviour of
        replying to whoever acted. */
@@ -156,7 +156,7 @@ export function template(o:{title:string;reference?:string;intro?:string;detail?
    <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="560" style="max-width:560px;background:#ffffff;border:1px solid #e2e9e6;border-radius:10px;overflow:hidden">
     <tr><td style="background:${stripe};height:4px;line-height:4px;font-size:0">&nbsp;</td></tr>
     <tr><td style="padding:22px 26px 6px">
-     <p style="margin:0;font-size:10px;letter-spacing:1.4px;color:#8a978f;font-weight:700">CMG PAYMENT REQUEST</p>
+     <p style="margin:0;font-size:10px;letter-spacing:1.4px;color:#8a978f;font-weight:700">CMG CONTROL</p>
      <p style="margin:8px 0 0;font-size:19px;color:#17312b;font-weight:600">${esc(o.title)}</p>
      ${o.reference?`<p style="margin:4px 0 0;font-size:13px;color:#0b725d;font-weight:700">${esc(o.reference)}</p>`:""}
     </td></tr>
@@ -208,7 +208,7 @@ async function relay(to:string[],opts:{subject:string;html:string;replyTo?:strin
   if(!url||!token||!from)return null;
   const result=(sent:boolean,reason:string):MailResult=>({sent,reason,to,subject:opts.subject});
   try{
-    const name=String(env.MAIL_FROM_NAME||"CMG Payment Request").trim();
+    const name=String(env.MAIL_FROM_NAME||"CMG Control").trim();
     const shownFrom=String(env.MAIL_SEND_AS||from).trim();
     const configured=String(env.MAIL_REPLY_TO||"").trim();
     const replyTo=configured==="none"?undefined:(configured||opts.replyTo);
@@ -257,7 +257,7 @@ export async function sendMail(opts:{to:string[];subject:string;html:string;repl
          before any credential exists. Everything except the delivery itself is decided by
          this point, so everything except delivery can be read here. */
       const env=await getBindings() as MailEnv;
-      const name=String(env.MAIL_FROM_NAME||"CMG Payment Request").trim();
+      const name=String(env.MAIL_FROM_NAME||"CMG Control").trim();
       const shownFrom=String(env.MAIL_SEND_AS||env.MAIL_FROM||"(MAIL_FROM not set)").trim();
       const reply=String(env.MAIL_REPLY_TO||"").trim();
       console.log([`[mail] would send`,

@@ -85,7 +85,7 @@ async function email(db:Awaited<ReturnType<typeof getDb>>,ids:string[],to:string
        expanded by the mail server after we hand it over, so one member cannot be left out,
        and they would be emailed about their own action. */
     let target=to;
-    let why="You are receiving this because it is waiting on you in CMG Payment Request.";
+    let why="You are receiving this because it is waiting on you in CMG Control.";
     const listId=(roles||[]).map(r=>GROUP_FOR_ROLE[r]).find(Boolean);
     if(listId){
       const group=await groupAddress(db,listId);
