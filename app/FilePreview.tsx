@@ -8,8 +8,8 @@
    paragraphs. Old binary formats (.xls, .doc) and anything else get a plain "open it"
    fallback. Nothing leaves the browser: the file is read from memory. */
 
-import{useEffect,useMemo,useState}from"react";
-import{Download,X}from"lucide-react";
+import{useEffect,useMemo,useRef,useState,type PointerEvent as ReactPointerEvent}from"react";
+import{Download,Maximize2,Minus,X}from"lucide-react";
 
 type Sheet={name:string;rows:string[][]};
 type View={kind:"image"|"pdf"|"none"}|{kind:"text";text:string}|{kind:"table";sheets:Sheet[]}
@@ -109,7 +109,30 @@ export default function FilePreview({file,onClose}:{file:File;onClose:()=>void})
   const[view,setView]=useState<View|null>(kind==="image"||kind==="pdf"||kind==="none"?{kind}:null);
   const[tab,setTab]=useState(0);
   useEffect(()=>()=>URL.revokeObjectURL(url),[url]);
-  useEffect(()=>{const esc=(e:KeyboardEvent)=>e.key==="Escape"&&onClose();
+  /* A floating window: dragged by its title bar, resized from its corner, minimised to a
+     bar at the bottom right. The page behind stays usable, so the file can be read while
+     the form is filled in. */
+  const[pos,setPos]=useState({x:0,y:0});
+  const[min,setMin]=useState(false);
+  const[dragging,setDragging]=useState(false);
+  const box=useRef<HTMLElement>(null);
+  const drag=useRef<{px:number;py:number;x:number;y:number}|null>(null);
+  const startDrag=(e:ReactPointerEvent<HTMLElement>)=>{
+    if(min||e.button!==0||(e.target as HTMLElement).closest("a,button"))return;
+    drag.current={px:e.clientX,py:e.clientY,x:pos.x,y:pos.y};
+    e.currentTarget.setPointerCapture(e.pointerId);setDragging(true)};
+  const moveDrag=(e:ReactPointerEvent<HTMLElement>)=>{const d=drag.current,el=box.current;if(!d||!el)return;
+    let x=d.x+e.clientX-d.px,y=d.y+e.clientY-d.py;
+    // keep the title bar on screen, so the window can always be dragged back
+    const r=el.getBoundingClientRect(),left=r.left-pos.x+x,top=r.top-pos.y+y;
+    x+=Math.max(0,80-(left+r.width))-Math.max(0,left-(window.innerWidth-80));
+    y+=Math.max(0,-top)-Math.max(0,top-(window.innerHeight-48));
+    setPos({x,y})};
+  const endDrag=()=>{drag.current=null;setDragging(false)};
+  useEffect(()=>{const esc=(e:KeyboardEvent)=>{
+      // Escape while typing in the form belongs to the form
+      const t=e.target as HTMLElement|null;
+      if(e.key==="Escape"&&!t?.closest?.("input,textarea,select,[contenteditable]"))onClose()};
     window.addEventListener("keydown",esc);return()=>window.removeEventListener("keydown",esc)},[onClose]);
   useEffect(()=>{let live=true;
     const done=(v:View)=>{if(live)setView(v)};
@@ -124,13 +147,17 @@ export default function FilePreview({file,onClose}:{file:File;onClose:()=>void})
   const sheet=view?.kind==="table"?view.sheets[Math.min(tab,view.sheets.length-1)]:null;
   const width=sheet?Math.max(1,...sheet.rows.map(r=>r.length)):0;
 
-  return <div className="file-preview" role="dialog" aria-modal="true" aria-label={`Preview of ${file.name}`}>
-    <button type="button" className="file-preview-scrim" aria-label="Close preview" onClick={onClose}/>
-    <section>
-      <header><b title={file.name}>{file.name}</b>
+  return <div className={`file-preview${min?" is-min":""}${dragging?" is-dragging":""}`} role="dialog"
+    aria-modal="false" aria-label={`Preview of ${file.name}`}>
+    <section ref={box} style={min?undefined:{transform:`translate(${pos.x}px,${pos.y}px)`}}>
+      <header onPointerDown={startDrag} onPointerMove={moveDrag} onPointerUp={endDrag} onPointerCancel={endDrag}
+        onDoubleClick={e=>{if(!(e.target as HTMLElement).closest("a,button"))setMin(m=>!m)}}
+        title={min?undefined:"Drag to move"}><b title={file.name}>{file.name}</b>
         <a href={url} download={file.name} title="Download"><Download/></a>
-        <button type="button" aria-label="Close preview" onClick={onClose}><X/></button></header>
-      <div className="file-preview-body">
+        <button type="button" aria-label={min?"Restore preview":"Minimise preview"} title={min?"Restore":"Minimise"}
+          onClick={()=>setMin(m=>!m)}>{min?<Maximize2/>:<Minus/>}</button>
+        <button type="button" aria-label="Close preview" title="Close" onClick={onClose}><X/></button></header>
+      <div className="file-preview-body" hidden={min}>
         {!view&&<p className="file-preview-note">Opening…</p>}
         {view?.kind==="image"&&<img src={url} alt={file.name}/>}
         {view?.kind==="pdf"&&<iframe src={url} title={file.name}/>}
