@@ -215,6 +215,8 @@ async function rowsFor(
         'PO generated date': ofPos(r.poIds, 'on'),
         'PO currency': ofPos(r.poIds, 'currency'),
         'PO amount': ofPos(r.poIds, 'amount'),
+        // this line's share of the PO(s): ordered qty x rate, with GST
+        'Line Item Amount': r.poIds.length ? money(r.lineAmount) : '—',
         Received: r.received,
         Issued: r.issued,
         'Site acc.': r.site,

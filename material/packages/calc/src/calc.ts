@@ -406,6 +406,8 @@ export interface ReportLine {
   /** the live POs the line is on, in the order of `poNo` */
   poIds: string[];
   onPo: number;
+  /** this line's value on its live POs: ordered qty x rate, with GST */
+  lineAmount: number;
   received: number;
   issued: number;
   site: number;
@@ -450,13 +452,11 @@ export function reportLines(
     const item = line.itemId ? byId(w.items, line.itemId) : undefined;
     const project = byId(w.projects, mr.projectId);
 
-    const poIds = [
-      ...new Set(
-        w.poAllocs
-          .filter((a) => same(a.mrLineId, line.id) && livePo(w, a.poId))
-          .map((a) => a.poId),
-      ),
-    ];
+    const liveAllocs = w.poAllocs.filter(
+      (a) => same(a.mrLineId, line.id) && livePo(w, a.poId),
+    );
+    const poIds = [...new Set(liveAllocs.map((a) => a.poId))];
+    const lineAmount = r2(liveAllocs.reduce((sum, a) => sum + allocValue(w, a.id), 0));
     const poNos = [...new Set(poIds.map((id) => displayPoNo(byId(w.pos, id))))];
 
     const overdue =
@@ -481,6 +481,7 @@ export function reportLines(
       poNo: poNos.join(' '),
       poIds,
       onPo: calc.poAlloc,
+      lineAmount,
       received: calc.received,
       issued: calc.issuedGross,
       site: calc.siteAcc,
