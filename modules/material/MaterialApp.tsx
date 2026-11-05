@@ -3,7 +3,7 @@ import {createContext,useContext,useMemo,type ComponentType,type ReactNode} from
 import {QueryClient,QueryClientProvider,useQuery} from "@tanstack/react-query";
 import {Bell,BellRing,Boxes,ClipboardCheck,ClipboardList,FileBarChart,FilePlus2,
   FolderKanban,LayoutDashboard,Layers,ListChecks,Mail,MessagesSquare,Package,PackageCheck,
-  PackagePlus,Printer,Receipt,ScrollText,ShoppingCart,Stamp,Tags,Truck,Upload,BadgeCheck} from "lucide-react";
+  PackagePlus,Printer,Receipt,ScrollText,ShoppingCart,Stamp,Tags,Truck,Upload,BadgeCheck,Warehouse} from "lucide-react";
 import {NAV,homeFor,resolveDeepLink,type Role} from "@cm/shared";
 import {setActiveMaterialRole} from "./lib/api";
 import {MaterialNavProvider,RouteParams,onMaterialPath,useMaterialLocation,useRouter} from "./lib/nav";
@@ -22,6 +22,7 @@ import Projects from "./screens/admin/Projects";
 import Docs from "./screens/Docs";
 import Grn from "./screens/Grn";
 import Inventory from "./screens/Inventory";
+import StoreStock from "./screens/StoreStock";
 import Issue from "./screens/Issue";
 import Issues from "./screens/Issues";
 import IssueDetail from "./screens/IssueDetail";
@@ -67,7 +68,7 @@ const ROUTES:[string,ComponentType][]=[
   ["/admin/import",ImportInventory],["/admin/items",Items],
   ["/admin/notification-rules",NotificationRules],["/admin/projects",Projects],
 
-  ["/docs",Docs],["/grn",Grn],["/inventory",Inventory],["/issue",Issue],
+  ["/docs",Docs],["/grn",Grn],["/inventory",Inventory],["/store-stock",StoreStock],["/issue",Issue],
   ["/issues",Issues],["/issues/:id",IssueDetail],
   ["/mrs",Mrs],["/mrs/new",MrNew],["/mrs/print",MrPrint],["/mrs/:id",MrDetail],["/mrs/:id/edit",MrEdit],
   ["/notifications",Notifications],["/petty-cash",PettyCash],["/pm",PmQueue],["/pool",Pool],
@@ -93,7 +94,7 @@ function match(path:string):{Screen:ComponentType;params:Record<string,string>}{
 const ICONS:Record<string,ComponentType<{className?:string}>>={
   "/":LayoutDashboard,"/mrs":ClipboardList,"/mrs/new":FilePlus2,"/pos":ShoppingCart,
   "/receive":PackageCheck,"/reports":FileBarChart,"/notifications":Bell,"/pm":ClipboardCheck,
-  "/rfqs":MessagesSquare,"/inventory":Boxes,"/qs":ListChecks,"/pos/validate":BadgeCheck,
+  "/rfqs":MessagesSquare,"/inventory":Boxes,"/store-stock":Warehouse,"/qs":ListChecks,"/pos/validate":BadgeCheck,
   "/pool":Layers,"/pos/new":FilePlus2,"/docs":Receipt,"/pos/approvals":Stamp,"/grn":PackagePlus,
   "/issue":Truck,"/issues":ScrollText,"/admin/projects":FolderKanban,
   "/admin/company":Printer,"/admin/categories":Tags,"/admin/items":Package,"/admin/import":Upload,

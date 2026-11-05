@@ -889,3 +889,20 @@ export interface MrPrintDto {
   qsName: string | null;
   qsAt: string | null;
 }
+
+/** One entry of the Store Stock register (kept by hand, separate from Inventory). */
+export interface StoreStockDto {
+  id: string;
+  code: string;
+  name: string;
+  category: string;
+  specification: string;
+  brand: string;
+  unit: string;
+  qty: number;
+  location: string;
+  remarks: string;
+  updatedAt: string;
+  updatedByName: string;
+  rv: number;
+}

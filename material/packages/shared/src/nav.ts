@@ -105,6 +105,8 @@ export const NAV: Record<Role, readonly NavItem[]> = {
     { href: '/issue', label: 'Issue to site', count: 'issue' },
     { href: '/issues', label: 'Issue notes' },
     { href: '/inventory', label: 'Inventory' },
+    // the store's own register, kept by hand - separate from Inventory
+    { href: '/store-stock', label: 'Store Stock' },
     { href: '/reports', label: 'Reports' },
     { href: '/notifications', label: 'Notifications', count: 'notifications' },
   ],
@@ -126,6 +128,7 @@ export const NAV: Record<Role, readonly NavItem[]> = {
     // Read-only: an admin watches the process, never approves within it.
     { href: '/pos', label: 'Purchase orders' },
     { href: '/inventory', label: 'Inventory' },
+    { href: '/store-stock', label: 'Store Stock' },
     { href: '/reports', label: 'Reports' },
     { href: '/notifications', label: 'Notifications', count: 'notifications' },
   ],

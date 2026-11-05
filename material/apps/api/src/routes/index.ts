@@ -10,6 +10,7 @@ import { adminRouter } from './admin.routes.js';
 import { mrRouter } from './mr.routes.js';
 import { procurementRouter } from './procurement.routes.js';
 import { storeRouter } from './store.routes.js';
+import { storeStockRouter } from './storeStock.routes.js';
 import { readSyncStamp } from '../lib/sync.js';
 import { inventory, itemLedger } from '../services/inventory.service.js';
 import { listItems } from '../services/item.service.js';
@@ -35,6 +36,7 @@ apiRouter.use('/admin', adminRouter);
 apiRouter.use(mrRouter);
 apiRouter.use(procurementRouter);
 apiRouter.use(storeRouter);
+apiRouter.use(storeStockRouter);
 
 // ---------------------------------------------------------------------------
 // Live refresh (§9)

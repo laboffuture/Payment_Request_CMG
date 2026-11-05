@@ -178,3 +178,44 @@ const stockLedgerSchema = new Schema<IStockLedger>(
 stockLedgerSchema.index({ itemId: 1, at: 1 });
 
 export const StockLedger = defineModel<IStockLedger>('StockLedger', stockLedgerSchema);
+
+// ---------------------------------------------------------------------------
+// store stock — the Store Stock register: what the main store holds, kept by
+// hand. Separate from the item master and the stock ledger; nothing in the MR,
+// PO or GRN flow reads or changes it.
+// ---------------------------------------------------------------------------
+
+export interface IStoreStock extends Timestamped {
+  /** SS-0001, given on create */
+  code: string;
+  name: string;
+  category: string;
+  specification: string;
+  brand: string;
+  unit: string;
+  qty: number;
+  /** where in the store: rack, bin, room */
+  location: string;
+  remarks: string;
+  createdBy: Types.ObjectId | null;
+  updatedBy: Types.ObjectId | null;
+}
+
+const storeStockSchema = new Schema<IStoreStock>(
+  {
+    code: { type: String, required: true, unique: true },
+    name: { type: String, required: true, trim: true },
+    category: { type: String, default: '', trim: true },
+    specification: { type: String, default: '', trim: true },
+    brand: { type: String, default: '', trim: true },
+    unit: { type: String, default: '', trim: true },
+    qty: { type: Number, default: 0 },
+    location: { type: String, default: '', trim: true },
+    remarks: { type: String, default: '', trim: true },
+    createdBy: { type: Schema.Types.ObjectId, ref: 'User', default: null },
+    updatedBy: { type: Schema.Types.ObjectId, ref: 'User', default: null },
+  },
+  baseOptions(),
+);
+
+export const StoreStock = defineModel<IStoreStock>('StoreStock', storeStockSchema);

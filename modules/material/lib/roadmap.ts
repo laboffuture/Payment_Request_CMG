@@ -31,6 +31,7 @@ export const BUILT_ROUTES: readonly string[] = [
   '/issues',
   '/receive',
   '/inventory',
+  '/store-stock',
   '/reports',
   '/notifications',
   '/vendor',

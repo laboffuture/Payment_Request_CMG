@@ -90,3 +90,8 @@ export async function ensureCounterFloor(
     { upsert: true, ...(session ? { session } : {}) },
   );
 }
+
+/** `SS-0001` — the Store Stock register's own running number. */
+export async function nextStoreStockCode(session: ClientSession): Promise<string> {
+  return `SS-${String(await nextValue('storeStock', session)).padStart(4, '0')}`;
+}
