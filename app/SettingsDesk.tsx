@@ -1,7 +1,9 @@
 "use client";
-import{Plus,Trash2}from"lucide-react";
+import{Pencil,Plus,Trash2}from"lucide-react";
 import MultiSelect from"./MultiSelect";
 import{useCallback,useEffect,useState}from"react";
+import{useWorkforce,type Role}from"./workforce-store";
+import{RoleEditor}from"./WorkforceShared";
 
 /* Master data, for an Administrator.
 
@@ -23,17 +25,80 @@ const call=async(url:string,method:string,body?:unknown)=>{
   return d};
 
 export default function SettingsDesk({changed}:{changed?:()=>void}){
-  const[tab,setTab]=useState<"lists"|"fields"|"approvals">("lists");
+  const[tab,setTab]=useState<"lists"|"designations"|"fields"|"approvals">("lists");
   return <div className="page settings-page">
     <div className="intro"><div><small>ADMINISTRATION</small><h2>Settings</h2>
       <p>Maintain the choices behind the dropdowns, and add extra fields to a form,
         without waiting on a code change.</p></div></div>
     <div className="settings-tabs">
       <button className={tab==="lists"?"active":""} onClick={()=>setTab("lists")}>Dropdown lists</button>
+      <button className={tab==="designations"?"active":""} onClick={()=>setTab("designations")}>Designations</button>
       <button className={tab==="fields"?"active":""} onClick={()=>setTab("fields")}>Extra form fields</button>
       <button className={tab==="approvals"?"active":""} onClick={()=>setTab("approvals")}>Payment approvals</button>
     </div>
-    {tab==="lists"?<Lists changed={changed}/>:tab==="fields"?<Fields changed={changed}/>:<Approvals/>}
+    {tab==="lists"?<Lists changed={changed}/>:tab==="designations"?<Designations/>:tab==="fields"?<Fields changed={changed}/>:<Approvals/>}
+  </div>}
+
+/* Designations are the roles under each department - the same list the employee
+   form's Designation dropdown and the org chart use. Adding one here puts it on the
+   employee form for that department straight away. */
+function Designations(){
+  const wf=useWorkforce();
+  const[picked,setPicked]=useState("");
+  const[name,setName]=useState("");
+  const[busy,setBusy]=useState(false);
+  const[note,setNote]=useState("");
+  const[editing,setEditing]=useState<Partial<Role>|null>(null);
+  const dept=wf.departments.find(d=>d.id===picked)||wf.departments[0];
+  const rows=dept?wf.allRoles.filter(r=>r.deptId===dept.id).sort((a,b)=>a.name.localeCompare(b.name)):[];
+
+  const add=async(e:React.FormEvent)=>{e.preventDefault();
+    const n=name.trim();if(!n||!dept)return;
+    if(rows.some(r=>r.name.toLowerCase()===n.toLowerCase())){setNote(`${n} is already a designation in ${dept.name}`);return}
+    setBusy(true);setNote("");
+    try{await wf.api.saveRole({name:n,deptId:dept.id,type:"Support",parentId:null,color:"#0b725d",jd:""},true);setName("")}
+    catch(err){setNote(err instanceof Error?err.message:"Could not add")}
+    finally{setBusy(false)}};
+  const remove=async(r:Role)=>{
+    if(!confirm(`Remove the designation "${r.name}"?`))return;
+    setBusy(true);setNote("");
+    try{await wf.api.removeRole(r.id)}
+    catch(err){setNote(err instanceof Error?err.message:"Could not remove")}
+    finally{setBusy(false)}};
+
+  if(wf.loading&&!wf.departments.length)return <p className="settings-note">Loading…</p>;
+  if(wf.error)return <p className="settings-error">{wf.error}</p>;
+  if(!wf.departments.length)return <p className="settings-note">Add a department in the org chart first.</p>;
+  return <div className="settings-body">
+    <aside className="settings-side">
+      {wf.departments.map(d=><button key={d.id} className={dept?.id===d.id?"active":""}
+        onClick={()=>{setPicked(d.id);setNote("");setName("")}}>
+        <b>{d.name}</b><small>{wf.allRoles.filter(r=>r.deptId===d.id).length} designations</small>
+      </button>)}
+    </aside>
+    <section className="panel settings-main">
+      {dept&&<>
+        <div className="panel-head"><div><small>DESIGNATIONS</small><h2>{dept.name}</h2></div></div>
+        <p className="settings-note">Shown on: the Designation dropdown of the employee form when
+          {" "}{dept.name} is the department, and on the org chart. Use Edit to set who it reports
+          to, its job description and colour.</p>
+        <form className="settings-add" onSubmit={add}>
+          <input value={name} maxLength={80} onChange={e=>setName(e.target.value)}
+            placeholder={`Add a designation to ${dept.name}`}/>
+          <button className="primary" disabled={busy||!name.trim()}><Plus/>Add</button>
+        </form>
+        {!!note&&<p className="settings-error">{note}</p>}
+        <ul className="settings-list">
+          {rows.map(r=><li key={r.id}>
+            <span>{r.name}<small>{r.type}{r.parentId?` · reports to ${wf.roleById(r.parentId)?.name||"—"}`:""}</small></span>
+            <button disabled={busy} onClick={()=>setEditing(r)}><Pencil/>Edit</button>
+            <button className="settings-delete" disabled={busy} onClick={()=>remove(r)}><Trash2/></button>
+          </li>)}
+          {!rows.length&&<li className="settings-empty">No designations in this department yet.</li>}
+        </ul>
+      </>}
+    </section>
+    {editing&&<RoleEditor role={editing} close={()=>setEditing(null)} flash={m=>setNote(m.endsWith(" saved")?"":m)}/>}
   </div>}
 
 function Lists({changed}:{changed?:()=>void}){
