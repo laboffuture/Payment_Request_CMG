@@ -181,8 +181,15 @@ export interface World {
   rfqs: RfqIn[];
   rfqLines: RfqLineIn[];
   ledger: LedgerIn[];
+  /** Store Stock register rows linked to an item: what the main store holds */
+  storeStock?: StoreStockIn[];
   items: ItemIn[];
   projects: ProjectIn[];
+}
+
+export interface StoreStockIn {
+  itemId: string;
+  qty: number;
 }
 
 export const emptyWorld = (): World => ({
@@ -198,6 +205,7 @@ export const emptyWorld = (): World => ({
   rfqs: [],
   rfqLines: [],
   ledger: [],
+  storeStock: [],
   items: [],
   projects: [],
 });

@@ -58,6 +58,12 @@ export default function InventoryPage() {
       align: 'right',
       render: (r) => <span className="text-red">{qty(r.out)}</span>,
     },
+    {
+      key: 'storeStock',
+      header: 'Store stock',
+      align: 'right',
+      render: (r) => (r.storeStock ? qty(r.storeStock) : '—'),
+    },
     { key: 'onHand', header: 'On hand', align: 'right', render: (r) => <b>{qty(r.onHand)}</b> },
     {
       key: 'reserved',

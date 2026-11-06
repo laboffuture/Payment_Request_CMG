@@ -16,6 +16,7 @@ import {
   type ItemDto,
   type MrDetailDto,
   type RequestType,
+  type StoreAvailableDto,
   type Unit,
 } from '@cm/shared';
 import { get, post, put, del, newIdempotencyKey, upload } from '@mm/lib/api';
@@ -25,7 +26,7 @@ import { useToast } from '@mm/components/Toast';
 import { useAction } from '@mm/lib/hooks';
 import { useReference } from '@mm/lib/reference';
 import { UnitOptions } from '@mm/components/UnitOptions';
-import { fmtDate, money } from '@mm/lib/format';
+import { fmtDate, money, qty as fmtQty } from '@mm/lib/format';
 import { useSession } from '@mm/lib/session';
 
 /**
@@ -81,6 +82,17 @@ const blankLine = (over: Partial<FormLine>): FormLine => ({
 /* A line of sub-contract work, typed in rather than picked from the item master: heading,
    description, quantity, rate and per. It reaches QS as a new item to clear. */
 const SUB_CONTRACT_CATEGORY = 'Sub-Contract';
+
+/** What the main store can send, by item id - read once for the form. */
+function useStoreAvailable(enabled: boolean): Map<string, StoreAvailableDto> {
+  const q = useQuery({
+    queryKey: ['store-stock', 'available'],
+    queryFn: () => get<StoreAvailableDto[]>('/store-stock/available'),
+    enabled,
+    staleTime: 60_000,
+  });
+  return new Map((q.data ?? []).map((r) => [r.itemId, r]));
+}
 const blankWork = (): FormLine => blankLine({ newCategory: SUB_CONTRACT_CATEGORY, newUnit: 'Nos' as Unit, unit: 'Nos' });
 
 export function MrForm({ existing }: { existing?: MrDetailDto }) {
@@ -124,6 +136,9 @@ export function MrForm({ existing }: { existing?: MrDetailDto }) {
   const [pickerOpen, setPickerOpen] = useState(false);
   // Sub-contract work is typed in, line by line; every other request picks from the item master.
   const subContract = requestType === 'SUB_CONTRACTOR';
+  // Petty cash is bought at site and sub-contract work is not stock: neither comes from the store.
+  const storeMatters = requestType !== 'SUB_CONTRACTOR' && requestType !== 'PETTY_CASH';
+  const inStore = useStoreAvailable(storeMatters);
   const addItem = () => (subContract ? setLines((rows) => [...rows, blankWork()]) : setPickerOpen(true));
   // Which line the picker is replacing (QS queried it), or null to add a new line.
   const [replaceAt, setReplaceAt] = useState<number | null>(null);
@@ -408,6 +423,7 @@ export function MrForm({ existing }: { existing?: MrDetailDto }) {
               line={line}
               work={subContract && !line.itemId}
               priced={me.role !== 'SITE'}
+              inStore={storeMatters && line.itemId ? inStore.get(line.itemId) : undefined}
               onChange={(patch) => setLine(index, patch)}
               onRemove={() => setLines((rows) => rows.filter((_, i) => i !== index))}
               onChangeItem={() => {
@@ -498,6 +514,7 @@ export function MrForm({ existing }: { existing?: MrDetailDto }) {
 
       {pickerOpen ? (
         <ItemPicker
+          inStore={storeMatters ? inStore : null}
           usedItemIds={lines.filter((l) => l.itemId).map((l) => l.itemId!)}
           onClose={() => {
             setPickerOpen(false);
@@ -696,8 +713,11 @@ function LineCard({
   onRemove,
   onChangeItem,
   priced = true,
+  inStore,
 }: {
   line: FormLine;
+  /** what the main store can send of this item, when it has any */
+  inStore?: StoreAvailableDto;
   /** a line of sub-contract work: heading, description, quantity, rate, per and amount */
   work?: boolean;
   /** show the work line's rate and amount - not to site engineers; procurement and the rest see them */
@@ -821,6 +841,15 @@ function LineCard({
         </label>
       </div>
 
+      {inStore && inStore.available > 0 ? (
+        <div className="rounded-lg border border-[#9fd3b8] bg-[#eefaf3] px-3 py-2 text-sm">
+          <b>In the main store: {fmtQty(inStore.available)} {inStore.unit}</b> available.{' '}
+          {Number(line.qty) > inStore.available
+            ? `QS can send ${fmtQty(inStore.available)} from the store; the rest is bought.`
+            : 'QS can send all of it from the store.'}
+        </div>
+      ) : null}
+
       {isNew ? (
         <div className="warn">Not in item master — QS approves or maps it.</div>
       ) : null}
@@ -836,10 +865,13 @@ function LineCard({
  * slightly different name; a missing item is now added to the master by QS instead.
  */
 function ItemPicker({
+  inStore,
   usedItemIds,
   onClose,
   onPick,
 }: {
+  /** what the main store holds, by item; null when this request cannot draw on it */
+  inStore: Map<string, StoreAvailableDto> | null;
   usedItemIds: string[];
   onClose: () => void;
   onPick: (line: FormLine) => void;
@@ -847,6 +879,9 @@ function ItemPicker({
   const reference = useReference();
   const [search, setSearch] = useState('');
   const [category, setCategory] = useState('');
+  // Show only what the main store has, to ask for it from there.
+  const [storeOnly, setStoreOnly] = useState(false);
+  const stocked = [...(inStore?.values() ?? [])].filter((r) => r.available > 0);
 
   const params = new URLSearchParams({ limit: '50' });
   if (search) params.set('q', search);
@@ -855,7 +890,26 @@ function ItemPicker({
   const items = useQuery({
     queryKey: ['items', search, category],
     queryFn: () => get<ItemDto[]>(`/items?${params}`),
+    enabled: !storeOnly,
   });
+
+  // In-store list: every word typed must be in the code or name.
+  const words = search.toLowerCase().split(/\s+/).filter(Boolean);
+  const storeRows: ItemDto[] = stocked
+    .filter((r) => !category || r.category === category)
+    .filter((r) => words.every((w) => `${r.code} ${r.name}`.toLowerCase().includes(w)))
+    .map((r) => ({
+      id: r.itemId,
+      code: r.code,
+      name: r.name,
+      unit: r.unit,
+      category: r.category,
+      subCategory: r.subCategory,
+      brand: '',
+      packing: '',
+    }) as ItemDto);
+  const shown = storeOnly ? storeRows : (items.data ?? []);
+  const loading = !storeOnly && items.isLoading;
 
   return (
     <Modal title="Add item" onClose={onClose}>
@@ -880,10 +934,22 @@ function ItemPicker({
         />
       </div>
 
+      {inStore ? (
+        <label className="flex items-center gap-2 text-sm">
+          <input
+            type="checkbox"
+            checked={storeOnly}
+            onChange={(e) => setStoreOnly(e.target.checked)}
+          />
+          Show only what is in the main store ({stocked.length} item{stocked.length === 1 ? '' : 's'})
+        </label>
+      ) : null}
+
       <div className="flex flex-col border border-line rounded-xl overflow-hidden max-h-[340px] overflow-y-auto">
-        {(items.data ?? []).map((item) => {
+        {shown.map((item) => {
           // An item can be added again — the same glass in another size is another line.
           const used = usedItemIds.filter((id) => id === item.id).length;
+          const store = inStore?.get(item.id);
           return (
             <button
               key={item.id}
@@ -912,16 +978,23 @@ function ItemPicker({
                     : ''}
                 </span>
               </span>
-              <span className="text-mut">
+              <span className="text-mut text-right">
+                {store && store.available > 0 ? (
+                  <span className="block mb-1">
+                    <Tag label={`IN STORE: ${fmtQty(store.available)}`} tone="grn" />
+                  </span>
+                ) : null}
                 {item.category}
                 {item.subCategory ? ` / ${item.subCategory}` : ''}
               </span>
             </button>
           );
         })}
-        {items.isLoading ? <div className="p-[14px] text-mut">Loading…</div> : null}
-        {!items.isLoading && !(items.data ?? []).length ? (
-          <div className="p-[14px] text-mut">No match</div>
+        {loading ? <div className="p-[14px] text-mut">Loading…</div> : null}
+        {!loading && !shown.length ? (
+          <div className="p-[14px] text-mut">
+            {storeOnly ? 'Nothing in the main store matches' : 'No match'}
+          </div>
         ) : null}
       </div>
 

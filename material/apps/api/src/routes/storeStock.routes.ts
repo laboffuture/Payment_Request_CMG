@@ -8,6 +8,7 @@ import {
   createStoreStock,
   deleteStoreStock,
   listStoreStock,
+  storeAvailable,
   updateStoreStock,
 } from '../services/storeStock.service.js';
 
@@ -24,6 +25,7 @@ const entryInput = z.object({
   brand: text(120),
   unit: text(40),
   qty: z.coerce.number().min(0, 'Quantity cannot be below 0').default(0),
+  itemId: z.string().trim().max(40).nullable().optional().default(''),
   location: text(200),
   remarks: text(1000),
 });
@@ -34,9 +36,16 @@ storeStockRouter.get(
   wrap(async (_req, res) => res.json(await listStoreStock())),
 );
 
+// What the main store can send, per item - shown to whoever raises an MR.
+storeStockRouter.get(
+  '/store-stock/available',
+  requireAuth,
+  wrap(async (_req, res) => res.json(await storeAvailable())),
+);
+
 const CSV_COLUMNS = [
   'Code', 'Material', 'Category', 'Specification', 'Brand', 'Unit', 'Quantity',
-  'Location', 'Remarks', 'Last updated by',
+  'Item master code', 'Item master name', 'Location', 'Remarks', 'Last updated by',
 ] as const;
 
 storeStockRouter.get(
@@ -51,6 +60,8 @@ storeStockRouter.get(
       Brand: r.brand,
       Unit: r.unit,
       Quantity: r.qty,
+      'Item master code': r.itemCode,
+      'Item master name': r.itemName,
       Location: r.location,
       Remarks: r.remarks,
       'Last updated by': r.updatedByName,

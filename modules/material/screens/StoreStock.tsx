@@ -12,11 +12,13 @@ import { useToast } from '@mm/components/Toast';
 import { useAction } from '@mm/lib/hooks';
 import { fmtDate, qty } from '@mm/lib/format';
 import { unitsOf, useReference } from '@mm/lib/reference';
+import { ItemSearchSelect } from '@mm/components/ItemSearchSelect';
 
 /**
  * Store Stock: the register of what the main store holds, entered by hand by the
- * store or the administrator. It is separate from Inventory (which is worked out from
- * receipts and issues) - nothing here changes MRs, POs, GRNs or stock movements.
+ * store or the administrator. A row linked to its item master item is that item's stock
+ * in the store: an MR sees it as available, QS can send it from the store, and issuing it
+ * to site takes the quantity off here.
  */
 type Form = {
   name: string;
@@ -25,6 +27,8 @@ type Form = {
   brand: string;
   unit: string;
   qty: string;
+  itemId: string;
+  itemLabel: string;
   location: string;
   remarks: string;
 };
@@ -36,6 +40,8 @@ const EMPTY: Form = {
   brand: '',
   unit: '',
   qty: '',
+  itemId: '',
+  itemLabel: '',
   location: '',
   remarks: '',
 };
@@ -47,6 +53,8 @@ const formOf = (r: StoreStockDto): Form => ({
   brand: r.brand,
   unit: r.unit,
   qty: String(r.qty),
+  itemId: r.itemId,
+  itemLabel: r.itemId ? `${r.itemCode} · ${r.itemName}` : '',
   location: r.location,
   remarks: r.remarks,
 });
@@ -76,7 +84,7 @@ export default function StoreStockPage() {
     return all.filter((r) => {
       if (category && r.category !== category) return false;
       if (!words.length) return true;
-      const text = [r.code, r.name, r.category, r.specification, r.brand, r.unit, r.location, r.remarks]
+      const text = [r.code, r.name, r.category, r.specification, r.brand, r.unit, r.location, r.remarks, r.itemCode, r.itemName]
         .join(' ')
         .toLowerCase();
       return words.every((w) => text.includes(w));
@@ -105,6 +113,21 @@ export default function StoreStockPage() {
     { key: 'brand', header: 'Brand', render: (r) => r.brand || '—' },
     { key: 'qty', header: 'Quantity', align: 'right', render: (r) => <b>{qty(r.qty)}</b> },
     { key: 'unit', header: 'Unit', render: (r) => r.unit || '—' },
+    {
+      key: 'item',
+      header: 'Item master',
+      render: (r) =>
+        r.itemId ? (
+          <span className="text-xs">
+            <span className="font-mono">{r.itemCode}</span>
+            <span className="block text-mut">{r.itemName}</span>
+          </span>
+        ) : (
+          <span className="text-xs text-[#b42318]" title="Not linked: MRs cannot ask for it from the store">
+            Not linked
+          </span>
+        ),
+    },
     { key: 'location', header: 'Location', render: (r) => r.location || '—' },
     { key: 'remarks', header: 'Remarks', render: (r) => r.remarks || '—' },
     {
@@ -142,7 +165,7 @@ export default function StoreStockPage() {
         subtitle={
           filtered
             ? `${rows.length} of ${all.length} materials match`
-            : `${all.length} material${all.length === 1 ? '' : 's'} in the store register. Separate from Inventory - entries here do not change MRs, POs or receipts.`
+            : `${all.length} material${all.length === 1 ? '' : 's'} in the store register. Linked to the item master, they show as available on MRs and come off here when the store issues them.`
         }
         actions={
           <>
@@ -258,7 +281,8 @@ function EntryModal({
 
   const save = useAction(
     () => {
-      const body = { ...form, qty: Number(form.qty) || 0 };
+      const { itemLabel: _label, ...rest } = form;
+      const body = { ...rest, qty: Number(form.qty) || 0 };
       return entry
         ? put<StoreStockDto>(`/store-stock/${entry.id}`, { ...body, rv: entry.rv })
         : post<StoreStockDto>('/store-stock', body);
@@ -344,6 +368,40 @@ function EntryModal({
           Remarks
           <input value={form.remarks} onChange={set('remarks')} maxLength={1000} />
         </label>
+        <div className="field">
+          <span>Item master item</span>
+          {form.itemId && form.itemLabel ? (
+            <div className="flex items-center gap-2 flex-wrap">
+              <span className="text-sm">
+                <span className="font-mono">{form.itemLabel}</span>
+              </span>
+              <Btn small onClick={() => setForm({ ...form, itemId: '', itemLabel: '' })}>
+                Change
+              </Btn>
+            </div>
+          ) : (
+            <ItemSearchSelect
+              ariaLabel="Item master item"
+              value={form.itemId}
+              placeholder="Type the item name or code to link it"
+              onChange={(itemId, item) =>
+                setForm({
+                  ...form,
+                  itemId,
+                  itemLabel: item ? `${item.code} · ${item.name}` : '',
+                  // a new entry takes the item's wording where nothing is typed yet
+                  name: form.name || item?.name || '',
+                  unit: form.unit || item?.unit || '',
+                  category: form.category || item?.category || '',
+                })
+              }
+            />
+          )}
+          <span className="text-mut text-xs">
+            Linked, it shows as available on MRs and comes off this register when the store
+            issues it. Not linked, it stays a note in the register only.
+          </span>
+        </div>
       </div>
     </Modal>
   );

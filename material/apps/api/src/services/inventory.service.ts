@@ -1,6 +1,6 @@
 import { lineCalc, num } from '@cm/calc';
 import type { InventoryRowDto, LedgerRowDto } from '@cm/shared';
-import { Item, Project, StockLedger } from '../models/index.js';
+import { Item, Project, StockLedger, StoreStock } from '../models/index.js';
 import { loadWorld } from '../lib/world.js';
 import { notFound } from '../lib/errors.js';
 import { listItems } from './item.service.js';
@@ -52,16 +52,26 @@ async function ledgerTotals(): Promise<Map<string, LedgerTotals>> {
   );
 }
 
+/** What the Store Stock register holds per linked item - part of on hand, as in `stock()`. */
+async function storeStockTotals(): Promise<Map<string, number>> {
+  const rows = await StoreStock.aggregate<{ _id: unknown; qty: number }>([
+    { $match: { itemId: { $ne: null }, qty: { $gt: 0 } } },
+    { $group: { _id: '$itemId', qty: { $sum: '$qty' } } },
+  ]);
+  return new Map(rows.map((r) => [String(r._id), num(r.qty)]));
+}
+
 export interface InventoryQuery {
   category?: string;
   q?: string;
 }
 
 export async function inventory(query: InventoryQuery = {}): Promise<InventoryRowDto[]> {
-  const [items, totals, world] = await Promise.all([
+  const [items, totals, world, held] = await Promise.all([
     listItems({ category: query.category, q: query.q }),
     ledgerTotals(),
     loadWorld(),
+    storeStockTotals(),
   ]);
 
   // Reserved per item, computed once for every approved line.
@@ -76,7 +86,8 @@ export async function inventory(query: InventoryQuery = {}): Promise<InventoryRo
 
   return items.map((item) => {
     const t = totals.get(item.id) ?? { opening: 0, in: 0, out: 0 };
-    const onHand = num(t.opening + t.in - t.out);
+    const storeStock = held.get(item.id) ?? 0;
+    const onHand = num(t.opening + t.in - t.out + storeStock);
     const res = reserved.get(item.id) ?? 0;
     return {
       ...item,
@@ -84,6 +95,7 @@ export async function inventory(query: InventoryQuery = {}): Promise<InventoryRo
       opening: t.opening,
       in: t.in,
       out: t.out,
+      storeStock,
       onHand,
       reserved: res,
       available: num(onHand - res),

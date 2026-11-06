@@ -139,6 +139,8 @@ export interface StockCalc {
   opening: number;
   in: number;
   out: number;
+  /** held in the Store Stock register under this item */
+  storeStock: number;
   onHand: number;
   reserved: number;
   available: number;
@@ -162,7 +164,14 @@ export function stock(w: World, itemId: unknown): StockCalc {
     'qtyIn',
   );
   const outQty = sum(rows, 'qtyOut');
-  const onHand = num(opening + inQty - outQty);
+  // The Store Stock register is the main store's count of what it holds; an issue takes
+  // from it (see createIssue), so it is part of what is on hand.
+  const storeStock = num(
+    (w.storeStock ?? [])
+      .filter((x) => same(x.itemId, itemId))
+      .reduce((s, x) => s + Math.max(0, num(x.qty)), 0),
+  );
+  const onHand = num(opening + inQty - outQty + storeStock);
 
   let reserved = 0;
   for (const line of w.mrLines) {
@@ -176,6 +185,7 @@ export function stock(w: World, itemId: unknown): StockCalc {
     opening: num(opening),
     in: num(inQty),
     out: num(outQty),
+    storeStock,
     onHand,
     reserved,
     available: num(onHand - reserved),

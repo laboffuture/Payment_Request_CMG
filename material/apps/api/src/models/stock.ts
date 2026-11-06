@@ -194,6 +194,7 @@ export interface IStoreStock extends Timestamped {
   brand: string;
   unit: string;
   qty: number;
+  itemId: Types.ObjectId | null;
   /** where in the store: rack, bin, room */
   location: string;
   remarks: string;
@@ -210,6 +211,8 @@ const storeStockSchema = new Schema<IStoreStock>(
     brand: { type: String, default: '', trim: true },
     unit: { type: String, default: '', trim: true },
     qty: { type: Number, default: 0 },
+    /** the item master item this is - what lets an MR ask for it and the store issue it */
+    itemId: { type: Schema.Types.ObjectId, ref: 'Item', default: null, index: true },
     location: { type: String, default: '', trim: true },
     remarks: { type: String, default: '', trim: true },
     createdBy: { type: Schema.Types.ObjectId, ref: 'User', default: null },

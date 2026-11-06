@@ -15,6 +15,7 @@ import {
   Rfq,
   RfqLine,
   StockLedger,
+  StoreStock,
 } from '../models/index.js';
 
 /**
@@ -70,11 +71,12 @@ export async function loadWorld(opts: WorldOptions = {}): Promise<World> {
   ]);
 
   const grnIds = [...new Set(grnLines.map((g) => String(g.grnId)))];
-  const [grns, items, projects, ledger] = await Promise.all([
+  const [grns, items, projects, ledger, storeStock] = await Promise.all([
     Grn.find({ _id: { $in: grnIds } }).lean(),
     Item.find({}).lean(),
     Project.find({}).lean(),
     StockLedger.find({}).lean(),
+    StoreStock.find({ itemId: { $ne: null } }).select('itemId qty').lean(),
   ]);
 
   const w = emptyWorld();
@@ -203,6 +205,8 @@ export async function loadWorld(opts: WorldOptions = {}): Promise<World> {
     qtyIn: x.qtyIn,
     qtyOut: x.qtyOut,
   }));
+
+  w.storeStock = storeStock.map((x) => ({ itemId: String(x.itemId), qty: Number(x.qty) || 0 }));
 
   w.items = items.map((i) => ({
     id: String(i._id),

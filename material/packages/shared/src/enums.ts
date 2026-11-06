@@ -162,6 +162,8 @@ export const LEDGER_DOC_TYPES = [
   'SITE_GRN',
   'ISSUE',
   'RETURN',
+  /** taken out of the Store Stock register to be issued (it then leaves on the ISSUE row) */
+  'STORE_STOCK',
 ] as const;
 export type LedgerDocType = (typeof LEDGER_DOC_TYPES)[number];
 

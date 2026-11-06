@@ -14,7 +14,7 @@ import { Item, Vendor } from '../models/masters.js';
 import { MrLine } from '../models/mr.js';
 import { PoLine } from '../models/po.js';
 import { RfqLine } from '../models/rfq.js';
-import { IssueLine, StockLedger } from '../models/stock.js';
+import { IssueLine, StockLedger, StoreStock } from '../models/stock.js';
 import { logger } from '../logger.js';
 
 const ci = { locale: 'en', strength: 2 } as const;
@@ -191,12 +191,13 @@ export async function deleteItem(id: string, actorId: string): Promise<{ code: s
   if (!item) throw notFound();
 
   const itemId = item._id;
-  const [onMr, onRfq, onPo, onIssue, inStock] = await Promise.all([
+  const [onMr, onRfq, onPo, onIssue, inStock, inStore] = await Promise.all([
     MrLine.exists({ itemId }),
     RfqLine.exists({ itemId }),
     PoLine.exists({ itemId }),
     IssueLine.exists({ itemId }),
     StockLedger.exists({ itemId }),
+    StoreStock.exists({ itemId }),
   ]);
   const usedOn = [
     onMr && 'an MR',
@@ -204,6 +205,7 @@ export async function deleteItem(id: string, actorId: string): Promise<{ code: s
     onPo && 'a PO',
     onIssue && 'an issue note',
     inStock && 'the stock ledger',
+    inStore && 'the Store Stock register',
   ].filter(Boolean);
   if (usedOn.length) {
     throw conflict(

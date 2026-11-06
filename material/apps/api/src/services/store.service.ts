@@ -27,7 +27,7 @@ import { enqueueEmails } from '../jobs/queues.js';
 import { sitePoIdsOf } from '../lib/siteScope.js';
 import { Mr, MrLine } from '../models/mr.js';
 import { Po, PoAlloc, PoLine, VendorDoc } from '../models/po.js';
-import { Grn, GrnLine, Issue, IssueLine, StockLedger } from '../models/stock.js';
+import { Grn, GrnLine, Issue, IssueLine, StockLedger, StoreStock } from '../models/stock.js';
 import { canSeeProject, projectScopeOf, type Actor } from '../middleware/auth.js';
 import { closeMrIfComplete } from './mr.service.js';
 import { refreshPoStatus } from './po.service.js';
@@ -607,6 +607,51 @@ export async function createIssue(
       ],
       { session, ordered: true },
     );
+
+    // What received stock does not cover comes out of the Store Stock register: the
+    // register rows are taken down (oldest code first) and a STORE_STOCK ledger row moves
+    // that quantity into the ledger, so the ISSUE row below takes it out again and every
+    // count - register, ledger, inventory - stays in step.
+    for (const [itemId, used] of usedByItem) {
+      const s = stock(world, itemId);
+      let need = num(used - Math.max(0, num(s.onHand - s.storeStock)));
+      if (need <= 0) continue;
+      const held = await StoreStock.find({ itemId: oid(itemId), qty: { $gt: 0 } })
+        .sort({ code: 1 })
+        .session(session)
+        .lean();
+      for (const row of held) {
+        if (need <= 0) break;
+        const take = num(Math.min(need, num(row.qty)));
+        const done = await StoreStock.updateOne(
+          { _id: row._id, qty: { $gte: take } },
+          { $inc: { qty: -take, rv: 1 }, $set: { updatedBy: oid(actor.id) } },
+          { session },
+        );
+        if (!done.modifiedCount) {
+          throw conflict('The Store Stock register changed just now - reload and try again');
+        }
+        await StockLedger.create(
+          [
+            {
+              at: new Date(),
+              itemId: oid(itemId),
+              docType: 'STORE_STOCK',
+              docNo: row.code,
+              refNo: issue!.no,
+              projectId: null,
+              mrLineId: null,
+              qtyIn: take,
+              qtyOut: 0,
+              note: `Taken from Store Stock ${row.code} for ${issue!.no}`,
+            },
+          ],
+          { session, ordered: true },
+        );
+        need = num(need - take);
+      }
+      if (need > 0) throw badRequest(MSG.issueNoStock(lookups.item(itemId)?.name ?? 'Item'));
+    }
 
     for (const row of rows) {
       await IssueLine.create(

@@ -131,6 +131,8 @@ export interface StockDto {
   opening: number;
   in: number;
   out: number;
+  /** held in the Store Stock register under this item (part of on hand) */
+  storeStock: number;
   onHand: number;
   reserved: number;
   available: number;
@@ -900,9 +902,25 @@ export interface StoreStockDto {
   brand: string;
   unit: string;
   qty: number;
+  /** the item master item this is; empty when not linked (then an MR cannot ask for it) */
+  itemId: string;
+  itemCode: string;
+  itemName: string;
   location: string;
   remarks: string;
   updatedAt: string;
   updatedByName: string;
   rv: number;
+}
+
+/** What the main store can send for an item: Store Stock and received stock, less what approved MRs already hold. */
+export interface StoreAvailableDto {
+  itemId: string;
+  code: string;
+  name: string;
+  unit: string;
+  category: string;
+  subCategory: string;
+  onHand: number;
+  available: number;
 }
