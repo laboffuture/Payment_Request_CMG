@@ -1,5 +1,5 @@
 import { Types, type ClientSession } from 'mongoose';
-import { lineCalc, num, shouldCloseMr, stock } from '@cm/calc';
+import { lineCalc, mrNoFor, num, shouldCloseMr, stock } from '@cm/calc';
 import {
   MAX_BOQ_FILES,
   earliestRequiredDate,
@@ -635,7 +635,7 @@ async function newMrDocument(
   const [mr] = await Mr.create(
     [
       {
-        no: input.submit ? await nextMrNo(project!.code, session) : '',
+        no: input.submit ? await nextMrNo(project!.code, session, input.requestType) : '',
         projectId: input.projectId,
         requiredDate: input.requiredDate,
         remarks: input.remarks,
@@ -814,6 +814,9 @@ export async function updateMr(
     mr.requiredDate = input.requiredDate;
     mr.remarks = input.remarks;
     mr.requestType = input.requestType;
+    // A numbered request whose type is changed keeps its number but takes the
+    // matching start: MR- for most requests, SUB- for a sub-contractor request.
+    if (mr.no) mr.no = mrNoFor(mr.no, mr.requestType);
 
     if (input.submit) {
       if (!mr.no) {
@@ -821,7 +824,7 @@ export async function updateMr(
           .select('code')
           .session(session)
           .lean();
-        mr.no = await nextMrNo(project!.code, session);
+        mr.no = await nextMrNo(project!.code, session, mr.requestType);
       }
       const deptApproved = !!firstApproverOf(mr.projectId, await firstApproverProjects());
       mr.status = submittedStatus(actor, deptApproved);
@@ -1390,7 +1393,7 @@ async function splitQueriedLines(
   const [child] = await Mr.create(
     [
       {
-        no: await nextMrNo(project!.code, session),
+        no: await nextMrNo(project!.code, session, mr.requestType),
         projectId: mr.projectId,
         requiredDate: mr.requiredDate,
         remarks: mr.remarks,

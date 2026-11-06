@@ -6,6 +6,7 @@ import {
   grnCounterKey,
   issueCounterKey,
   mrCounterKey,
+  mrNoFor,
   poCounterKey,
   rfqCounterKey,
 } from '@cm/calc';
@@ -27,14 +28,18 @@ async function nextValue(key: string, session: ClientSession): Promise<number> {
   return row?.n ?? 1;
 }
 
-/** `MR-0114-26-0001` — a separate counter per project per year. */
+/**
+ * `MR-0114-26-0001` — a separate counter per project per year. A sub-contractor
+ * request takes the next number from the same counter, written `SUB-0114-26-0001`.
+ */
 export async function nextMrNo(
   projectCode: string,
   session: ClientSession,
+  requestType?: string,
   now?: Date,
 ): Promise<string> {
   const key = mrCounterKey(projectCode, now);
-  return formatNo(key, await nextValue(key, session));
+  return mrNoFor(formatNo(key, await nextValue(key, session)), requestType);
 }
 
 export async function nextRfqNo(session: ClientSession, now?: Date): Promise<string> {

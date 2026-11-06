@@ -5,6 +5,7 @@ import {
   formatNo,
   highestItemCode,
   mrCounterKey,
+  mrNoFor,
   poCounterKey,
   yy,
 } from '../numbering.js';
@@ -65,6 +66,14 @@ describe('numbering', () => {
   it('formats document numbers to four digits', () => {
     expect(formatNo(poCounterKey(d), 7)).toBe('PO-26-0007');
     expect(formatNo(mrCounterKey('PRJ-0114', d), 1)).toBe('MR-0114-26-0001');
+  });
+
+  it('starts a sub-contractor request number with SUB-', () => {
+    expect(mrNoFor('MR-0114-26-0001', 'SUB_CONTRACTOR')).toBe('SUB-0114-26-0001');
+    expect(mrNoFor('MR-0114-26-0001', 'MATERIAL')).toBe('MR-0114-26-0001');
+    expect(mrNoFor('SUB-0114-26-0001', 'TOOLS')).toBe('MR-0114-26-0001');
+    expect(mrNoFor('SUB-0114-26-0001', 'SUB_CONTRACTOR')).toBe('SUB-0114-26-0001');
+    expect(mrNoFor('', 'SUB_CONTRACTOR')).toBe('');
   });
 
   it('formats item codes to five digits and finds the highest existing one', () => {

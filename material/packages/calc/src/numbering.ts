@@ -23,6 +23,17 @@ export const mrCounterKey = (projectCode: string, d?: Date): string => {
   return `MR-${digits}-${yy(d)}`.toUpperCase();
 };
 
+/**
+ * Sub-contractor requests are MRs too, but their number starts with SUB- instead of
+ * MR- (SUB-0114-26-0001). They share the project's MR counter, so the two kinds can
+ * never get the same number; only the start differs.
+ */
+export const mrNoFor = (no: string, requestType?: string): string => {
+  if (!no) return no;
+  const rest = no.replace(/^(MR|SUB)-/, '');
+  return `${requestType === 'SUB_CONTRACTOR' ? 'SUB' : 'MR'}-${rest}`;
+};
+
 export const rfqCounterKey = (d?: Date): string => `RFQ-${yy(d)}`;
 export const poCounterKey = (d?: Date): string => `PO-${yy(d)}`;
 export const grnCounterKey = (d?: Date): string => `GRN-${yy(d)}`;
