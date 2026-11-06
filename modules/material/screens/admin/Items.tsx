@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { Download } from 'lucide-react';
 import type { CategoryDto, ItemDto, UnitDto } from '@cm/shared';
 import { del, get, newIdempotencyKey, post, put } from '@mm/lib/api';
 import { Modal } from '@mm/components/Modal';
@@ -347,6 +348,41 @@ function DeleteItem({ item, onClose }: { item: ItemDto; onClose: () => void }) {
   );
 }
 
+/**
+ * Saves the items as a CSV file that opens in Excel. It takes the rows as they are on
+ * screen, so the search and category filter apply. The BOM keeps symbols such as ° and
+ * ₹ readable in Excel; a cell starting with = + - @ gets a leading ' so Excel does not
+ * run it as a formula.
+ */
+function downloadItems(items: ItemDto[], category: string) {
+  const cell = (v: unknown) => {
+    let t = String(v ?? '');
+    if (/^[=+\-@\t\r]/.test(t)) t = `'${t}`;
+    return `"${t.replace(/"/g, '""')}"`;
+  };
+  const head = ['Code', 'Item', 'Unit', 'Category', 'Sub-category', 'Specification', 'Brand',
+    'Packing', 'HSN', 'GST %', 'Last rate', 'Last vendor', 'Active'];
+  const lines = [head.map(cell).join(',')];
+  for (const i of items) {
+    lines.push(
+      [i.code, i.name, i.unit, i.category, i.subCategory, i.spec, i.brand, i.packing, i.hsn,
+        i.gstRate ?? '', i.lastRate ?? '', i.lastVendorName ?? '', i.active ? 'Yes' : 'No']
+        .map(cell)
+        .join(','),
+    );
+  }
+  const blob = new Blob(['\uFEFF' + lines.join('\r\n')], { type: 'text/csv;charset=utf-8' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  const slug = category ? `-${category.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '')}` : '';
+  a.href = url;
+  a.download = `item-master${slug}-${new Date().toISOString().slice(0, 10)}.csv`;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+
 export default function ItemsPage() {
   const reference = useReference();
   const [category, setCategory] = useState('');
@@ -446,6 +482,13 @@ export default function ItemsPage() {
                   <option key={c.id}>{c.name}</option>
                 ))}
               </select>
+              <Btn
+                title="Download the items shown to open in Excel"
+                disabled={!shown.length}
+                onClick={() => downloadItems(shown, category)}
+              >
+                <Download size={14} aria-hidden /> Excel (CSV)
+              </Btn>
               <Btn variant="primary" onClick={() => setAdding(true)}>
                 Add item
               </Btn>
