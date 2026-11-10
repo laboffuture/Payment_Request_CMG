@@ -1,0 +1,48 @@
+/* Job budgets: the box on the payment form and request panel, the queue badge, the overview
+   and the Settings editor. Green within budget, amber near it, red over it. */
+.jb-box{margin-top:10px;border:1px solid #cfe6dd;background:#f3faf7;border-radius:10px;padding:10px 12px;color:var(--ink);font-size:11px}
+.jb-box.near{border-color:#f1d29c;background:#fff8ec}.jb-box.over{border-color:#f1c2c1;background:#fdf1f1}
+.jb-top{display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:7px}
+.jb-top span{display:flex;align-items:center;gap:6px;font-weight:700;font-size:10px;letter-spacing:.4px;text-transform:uppercase;color:#4c5f5a}
+.jb-top svg{width:14px;height:14px}
+.jb-state{font-style:normal;font-size:9px;font-weight:800;border-radius:20px;padding:3px 8px;background:#e5f4ef;color:var(--green);white-space:nowrap}
+.jb-state.near{background:#fff0dd;color:#b86b08}.jb-state.over{background:#fde9e8;color:#b43e3c}
+.jb-bar{position:relative;height:6px;border-radius:6px;background:#e3ebe8;overflow:hidden;display:flex}
+.jb-bar i{display:block;height:100%;background:var(--green)}.jb-bar.near i{background:var(--amber)}.jb-bar.over i{background:var(--red)}
+.jb-bar i.jb-add{background:repeating-linear-gradient(45deg,#7c8f8a,#7c8f8a 3px,#a9b8b4 3px,#a9b8b4 6px)}
+.jb-box dl{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin:9px 0 4px}
+.jb-box dt{font-size:9px;color:var(--muted);text-transform:uppercase;letter-spacing:.4px}
+.jb-box dd{margin:2px 0 0;font-weight:700;font-size:13px}.jb-box dd small{font-weight:500;color:var(--muted);font-size:10px}
+.jb-box dd.neg,.jb-table td.neg{color:#b43e3c}
+.jb-split{margin:2px 0 0;color:var(--muted);font-size:10px}
+.jb-warn{display:flex;align-items:center;gap:6px;margin:8px 0 0;font-weight:600;font-size:11px;color:#4c5f5a}
+.jb-warn.over{color:#b43e3c}.jb-warn.near{color:#b86b08}.jb-warn svg{width:14px;height:14px;flex:none}
+.jb-none{margin:4px 0 0;color:var(--muted);font-size:10px}
+.jb-badge{display:inline-block!important;margin-top:4px}
+.wb-head-actions{display:flex;align-items:center;gap:8px;flex-wrap:wrap;justify-content:flex-end}
+.wb-budgets{display:flex;align-items:center;gap:6px;border:1px solid var(--line);background:#fff;border-radius:999px;padding:9px 14px;font-size:12px;font-weight:600;cursor:pointer;color:var(--ink)}
+.wb-budgets svg{width:15px;height:15px}
+.jb-modal{width:min(1100px,95vw);display:flex;flex-direction:column}
+.jb-modal-body{padding:16px 22px 22px;overflow:auto}
+.jb-totals{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin:0 0 12px}
+.jb-totals article{border:1px solid var(--line);border-radius:10px;padding:10px 12px;background:#fff}
+.jb-totals article.over{border-color:#f1c2c1;background:#fdf1f1}
+.jb-totals span,.jb-totals small{display:block;font-size:10px;color:var(--muted)}.jb-totals b{display:block;font-size:18px;margin:3px 0}
+.jb-tools{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px}
+.jb-tools label{flex:1;min-width:200px;display:flex;align-items:center;gap:6px;border:1px solid var(--line);border-radius:8px;padding:0 10px;background:#fff}
+.jb-tools label svg{width:14px;color:var(--muted)}.jb-tools input{border:0;outline:0;padding:9px 0;width:100%;font-size:12px}
+.jb-tools select{border:1px solid var(--line);border-radius:8px;padding:8px 10px;background:#fff;font-size:12px}
+.jb-table{min-width:760px}.jb-table tbody tr{cursor:default}.jb-table td{vertical-align:top}
+.jb-table .num{text-align:right;white-space:nowrap}.jb-table tr.over td:first-child{box-shadow:inset 3px 0 var(--red)}
+.jb-table tr.near td:first-child{box-shadow:inset 3px 0 var(--amber)}
+.jb-table td .jb-bar{width:110px;margin:4px 0 5px}
+.jb-editor{margin-top:22px;border-top:1px solid var(--line);padding-top:16px}
+.jb-edit{display:flex;flex-direction:column;align-items:flex-end;gap:4px}
+.jb-edit input{width:130px;text-align:right;border:1px solid var(--line);border-radius:7px;padding:7px 8px;font-size:12px}
+.jb-edit button{border:1px solid var(--line);background:#fff;border-radius:7px;padding:5px 10px;font-size:10px;font-weight:700;cursor:pointer}
+.jb-edit .primary{padding:6px 12px}
+@media(max-width:760px){.jb-box dl,.jb-totals{grid-template-columns:1fr 1fr}}
+.jb-modal td small,.jb-modal .jb-totals small,.jb-modal .jb-totals span{letter-spacing:0;font-weight:400;font-size:10px;color:var(--muted);text-transform:none}
+.jb-table td small{display:block;margin-top:3px}
+.workflow-detail .jb-box{margin:12px 22px 4px}
+.modal .jb-box dt,.modal .jb-box .jb-top span{letter-spacing:.4px}

@@ -1026,3 +1026,10 @@ export const wfConsolidationItems=sqliteTable("wf_consolidation_items",{
   addedBy:text("added_by").notNull().default(""),
   addedAt:text("added_at").notNull()},
   t=>[index("wf_consolidation_items_batch_idx").on(t.consolidationId)]);
+
+/* The budget each job (JB code, upper case) is held to; a job with no row has the default. */
+export const wfJobBudgets=sqliteTable("wf_job_budgets",{
+  code:text("code").primaryKey(),
+  budget:real("budget").notNull(),
+  updatedBy:text("updated_by").notNull().default(""),
+  updatedAt:text("updated_at").notNull()});

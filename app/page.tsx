@@ -18,6 +18,7 @@ import AccountsReceived from "./AccountsReceived";
 import VendorMaster from "./VendorMaster";
 import ScheduledPayments from "./ScheduledPayments";
 import ConsolidatedPayments from "./ConsolidatedPayments";
+import{BudgetBox,refreshBudgets}from"./JobBudget";
 import ObservationDesk from "./ObservationDesk";
 import SettingsDesk from "./SettingsDesk";
 import{ExtraFields,packExtra,refreshFields,useExtraFields}from"./ExtraFields";
@@ -524,7 +525,7 @@ function PaymentForm({close,added,companies,departments,natures,currencies,tdsCh
    ever reached the server and Accounts and Audit opened the request to find it empty.
    They upload here, once the request exists and has the id they hang off, so everyone
    who opens it afterwards sees the same list. */
-for(const file of files){try{const dataUrl=await asDataUrl(file);await fetch("/api/attachments",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({entityType:"payment",entityId:String(p.id),kind:"Other",fileName:file.name,dataUrl})});}catch{}}setSaving(false);added(p)};return <><button className="overlay" onClick={close}/><form className="modal" onSubmit={submit}><header><div><small>NEW REQUEST</small><h2>Create payment request</h2></div><button type="button" onClick={close}><X/></button></header><div className="form">
+for(const file of files){try{const dataUrl=await asDataUrl(file);await fetch("/api/attachments",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({entityType:"payment",entityId:String(p.id),kind:"Other",fileName:file.name,dataUrl})});}catch{}}setSaving(false);refreshBudgets();added(p)};return <><button className="overlay" onClick={close}/><form className="modal" onSubmit={submit}><header><div><small>NEW REQUEST</small><h2>Create payment request</h2></div><button type="button" onClick={close}><X/></button></header><div className="form">
  {FIELD_ORDER.map(key=>{
    const need=ruleFor(v.nature,key);
    if(need==="H"||key==="description")return null;
@@ -571,6 +572,7 @@ for(const file of files){try{const dataUrl=await asDataUrl(file);await fetch("/a
          <button type="button" key={n}
            onMouseDown={e=>{e.preventDefault();setV({...v,vendor:n});setVendorOpen(false)}}>
            <b>{n}</b></button>)}</div>}
+     {key==="jbCode"&&!!v.jbCode&&<BudgetBox code={v.jbCode} amount={Number(v.amount)||0} currency={v.currency}/>}
    </label>})}
  <ExtraFields form="payment" values={extra} onChange={setExtra}/>
  <label className="wide">{labelFor(v.nature,"description")}

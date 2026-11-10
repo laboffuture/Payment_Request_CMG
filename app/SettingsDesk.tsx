@@ -4,6 +4,7 @@ import MultiSelect from"./MultiSelect";
 import{useCallback,useEffect,useState}from"react";
 import{useWorkforce,type Role}from"./workforce-store";
 import{RoleEditor}from"./WorkforceShared";
+import{JobBudgetEditor,refreshBudgets}from"./JobBudget";
 
 /* Master data, for an Administrator.
 
@@ -120,7 +121,7 @@ function Lists({changed}:{changed?:()=>void}){
 
   const run=async(fn:()=>Promise<unknown>)=>{
     setBusy(true);setNote("");
-    try{await fn();await load();changed?.()}
+    try{await fn();await load();changed?.();refreshBudgets()}
     catch(e){setNote(e instanceof Error?e.message:"That did not work")}
     finally{setBusy(false)}};
 
@@ -162,6 +163,7 @@ function Lists({changed}:{changed?:()=>void}){
           </li>)}
           {!rows.length&&<li className="settings-empty">Nothing on this list yet.</li>}
         </ul>
+        {picked==="payment.job"&&<JobBudgetEditor/>}
       </>}
     </section>
   </div>}
