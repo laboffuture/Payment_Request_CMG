@@ -5,6 +5,9 @@ import{stamp}from"../lib/stamp";
 import{csv}from"./workforce-store";
 import{money,moneyList,summaryOf}from"../lib/consolidation";
 import type{BatchPayment,Consolidation,Group}from"../lib/consolidation";
+import{useBudgets}from"./JobBudget";
+import{inr,short}from"../lib/budget";
+import type{JobBudget}from"../lib/budget";
 
 /* Consolidated payments: the batches accounts, audit, finance and the administrator have
    made by ticking payment requests on the register. Each batch has a summary on screen and a
@@ -63,6 +66,9 @@ function GroupTable({title,groups}:{title:string;groups:Group[]}){
 function BatchDetail({batch,back,reload,flash,open}:{batch:Batch;back:()=>void;reload:()=>Promise<void>|void;flash:(m:string)=>void;open?:(id:number)=>void}){
   const[ticked,setTicked]=useState<number[]>([]),[edit,setEdit]=useState(false),[busy,setBusy]=useState(false);
   const rows=batch.payments;
+  /* The budget and spend of each request's job, from the job budgets. */
+  const{find}=useBudgets();
+  const jobOf=(p:BatchPayment)=>find(p.jbCode||p.projectCode);
   /* With some requests ticked, the summary and the PDF cover those; otherwise the whole batch. */
   const chosen=ticked.length?rows.filter(r=>ticked.includes(r.id)):rows;
   const s=summaryOf(chosen);
@@ -76,17 +82,18 @@ function BatchDetail({batch,back,reload,flash,open}:{batch:Batch;back:()=>void;r
     if(!confirm(`Delete ${batch.cpNo}?\n\nOnly the batch is deleted. The ${rows.length} payment request(s) in it are not changed and can be consolidated again.`))return;
     setBusy(true);try{await send("DELETE",undefined,`?id=${encodeURIComponent(batch.id)}`);flash(`${batch.cpNo} deleted`);back();await reload()}
     catch(e){flash(e instanceof Error?e.message:"Could not delete it")}finally{setBusy(false)}};
-  const excel=()=>csv([["S.No","Request no","Company","Department","Vendor","Project","PO no","Invoice no","Invoice date","Due","Status","Currency","Amount","TDS value"],
-    ...chosen.map((p,i)=>[i+1,p.requestNo,p.company,p.department,p.vendor,p.project||"",p.poNumber||"",p.invoiceNumber||"",p.invoiceDate||"",
-      p.due,p.status,p.currency,p.amount,p.tdsValue||""]),
-    [],...s.totals.map(t=>["","","","","","","","","","","Total",t.currency,t.amount,""])],
+  const excel=()=>csv([["S.No","Request no","Payment type","Company","Department","Vendor","Project","JB code","PO no","Invoice no","Invoice date","Due","Status","Currency","Amount","TDS value","Job budget (INR)","Job spent (INR)","Budget status"],
+    ...chosen.map((p,i)=>{const j=jobOf(p);return[i+1,p.requestNo,p.nature||"",p.company,p.department,p.vendor,p.project||"",p.jbCode||p.projectCode||"",p.poNumber||"",p.invoiceNumber||"",p.invoiceDate||"",
+      p.due,p.status,p.currency,p.amount,p.tdsValue||"",j?j.budget:"",j?Math.round(j.spent*100)/100:"",j?stateText[j.state]:""]}),
+    [],...s.byKind.filter(k=>k.count).flatMap(k=>k.totals.map(t=>["","",k.label,"","","","","","","","","","Total",t.currency,t.amount,"","","",""])),
+    ...s.totals.map(t=>["","","All","","","","","","","","","","Total",t.currency,t.amount,"","","",""])],
     `${batch.cpNo}-${new Date().toISOString().slice(0,10)}.csv`);
   return <div className="page cp-page">
     <div className="cp-head"><button className="cp-back" onClick={back}><ArrowLeft/>All consolidated payments</button>
       <div className="cp-actions">
         <button onClick={()=>setEdit(true)}><Pencil/>Edit</button>
         <button onClick={excel} disabled={!chosen.length}><Download/>Excel (CSV)</button>
-        <button className="primary" onClick={()=>printBatch(batch,chosen)} disabled={!chosen.length}><Printer/>Print / Save PDF</button>
+        <button className="primary" onClick={()=>printBatch(batch,chosen,jobOf)} disabled={!chosen.length}><Printer/>Print / Save PDF</button>
         <button className="cp-danger" onClick={remove} disabled={busy}><Trash2/>Delete</button></div></div>
     <div className="intro"><div><small>{batch.cpNo} · CREATED {when(batch.createdAt).toUpperCase()} BY {batch.createdBy.toUpperCase()}</small><h2>{batch.title}</h2>
       {batch.note&&<p>{batch.note}</p>}
@@ -94,24 +101,36 @@ function BatchDetail({batch,back,reload,flash,open}:{batch:Batch;back:()=>void;r
       {batch.hidden>0&&<p className="cp-scope">{batch.hidden} more request(s) in this batch belong to a company you cannot see.</p>}</div></div>
     <div className="metrics cp-metrics">
       <article className="blue"><span>Payment requests</span><b>{s.count}</b><small>{ticked.length?`ticked of ${rows.length}`:"in this batch"}</small></article>
-      {s.totals.slice(0,3).map(t=><article className="green" key={t.currency}><span>Total {t.currency}</span><b>{money(t.currency,t.amount)}</b><small>{t.count} request(s)</small></article>)}
+      {s.byKind.filter(k=>k.kind!=="other"||k.count).map(k=><article className={k.kind==="vendor"?"green":k.kind==="sub"?"amber":""} key={k.kind}><span>{k.label}</span>
+        <b className="cp-money">{moneyList(k.totals)}</b><small>{k.count} request(s)</small></article>)}
+      <article className="green"><span>Total</span><b className="cp-money">{moneyList(s.totals)}</b><small>{s.count} request(s)</small></article>
       <article className="violet"><span>Companies · vendors</span><b>{s.byCompany.length} · {s.byVendor.length}</b><small>{s.tds.length?`TDS ${moneyList(s.tds)}`:"no TDS recorded"}</small></article>
     </div>
-    <div className="cp-groups"><GroupTable title="By company" groups={s.byCompany}/><GroupTable title="By vendor" groups={s.byVendor}/><GroupTable title="By status" groups={s.byStatus}/></div>
+    <div className="cp-groups"><GroupTable title="By payment type" groups={s.byNature}/><GroupTable title="By company" groups={s.byCompany}/><GroupTable title="By vendor" groups={s.byVendor}/><GroupTable title="By status" groups={s.byStatus}/></div>
     <section className="panel table-panel"><div className="panel-head"><div><small>PAYMENT REQUESTS</small><h2>In this batch</h2></div>
       {ticked.length>0&&<button className="cp-danger" disabled={busy} onClick={removeTicked}><X/>Take {ticked.length} out</button>}</div>
       {!rows.length?<div className="wb-empty"><FileText/><b>This batch is empty</b><span>Every request was taken out. Add more from Accounts / Audit queues → All requests, or delete it.</span></div>
       :<div className="table-wrap"><table className="cp-table"><thead><tr><th><input type="checkbox" aria-label="Tick every request" checked={all} onChange={()=>setTicked(all?[]:rows.map(r=>r.id))}/></th>
-        <th>REQUEST</th><th>COMPANY / DEPT</th><th>VENDOR</th><th>PROJECT / PO</th><th>INVOICE</th><th>DUE</th><th>STATUS</th><th>AMOUNT</th></tr></thead>
+        <th>REQUEST</th><th>COMPANY / DEPT</th><th>VENDOR</th><th>PROJECT / PO</th><th>INVOICE</th><th>DUE</th><th>STATUS</th><th>AMOUNT</th><th>BUDGET</th><th>SPENT</th></tr></thead>
         <tbody>{rows.map(p=><tr key={p.id} className={ticked.includes(p.id)?"cp-ticked":""} onClick={()=>open?.(p.id)}>
           <td onClick={e=>e.stopPropagation()}><input type="checkbox" aria-label={`Tick ${p.requestNo}`} checked={ticked.includes(p.id)} onChange={()=>toggle(p.id)}/></td>
-          <td><b>{p.requestNo}</b></td><td>{p.company}<small>{p.department}</small></td><td>{p.vendor}</td>
+          <td><b>{p.requestNo}</b><small>{p.nature||"—"}</small></td><td>{p.company}<small>{p.department}</small></td><td>{p.vendor}</td>
           <td>{p.project||"—"}{p.poNumber&&<small>PO {p.poNumber}</small>}</td><td>{p.invoiceNumber||"—"}{p.invoiceDate&&<small>{p.invoiceDate}</small>}</td>
-          <td>{p.due}</td><td><span className="badge">{p.status}</span></td><td className="cp-amt"><b>{money(p.currency,p.amount)}</b></td></tr>)}</tbody>
-        <tfoot>{s.totals.map(t=><tr key={t.currency}><td colSpan={8}>Total {t.currency} ({t.count}{ticked.length?" ticked":""})</td><td className="cp-amt"><b>{money(t.currency,t.amount)}</b></td></tr>)}</tfoot></table></div>}
+          <td>{p.due}</td><td><span className="badge">{p.status}</span></td><td className="cp-amt"><b>{money(p.currency,p.amount)}</b></td><BudgetCells j={jobOf(p)}/></tr>)}</tbody>
+        <tfoot>{s.byKind.filter(k=>k.count).flatMap(k=>k.totals.map(t=><tr key={k.kind+t.currency} className="cp-sub"><td colSpan={8}>{k.label} · {t.currency} ({t.count})</td><td className="cp-amt">{money(t.currency,t.amount)}</td><td colSpan={2}/></tr>))}
+          {s.totals.map(t=><tr key={t.currency}><td colSpan={8}>Total {t.currency} ({t.count}{ticked.length?" ticked":""})</td><td className="cp-amt"><b>{money(t.currency,t.amount)}</b></td><td colSpan={2}/></tr>)}</tfoot></table></div>}
     </section>
     {edit&&<EditBatch batch={batch} close={()=>setEdit(false)} done={async()=>{setEdit(false);await reload();flash(`${batch.cpNo} updated`)}}/>}
   </div>}
+
+const stateText={ok:"Within budget",near:"Near budget",over:"Overspent"} as const;
+
+/* The job's budget and spend for a request in the batch; a dash when it has no job. */
+function BudgetCells({j}:{j?:JobBudget}){
+  if(!j)return <><td className="cp-amt cp-nojob">—</td><td className="cp-amt cp-nojob">—</td></>;
+  return <><td className="cp-amt" title={inr(j.budget)}>{short(j.budget)}<small>{j.code}</small></td>
+    <td className="cp-amt" title={`${inr(j.spent)} of ${inr(j.budget)}`}>{short(j.spent)}
+      <small className={`cp-bstate ${j.state}`}>{j.state==="ok"?`${j.budget?Math.round(j.spent/j.budget*100):0}% used`:stateText[j.state]}</small></td></>}
 
 function EditBatch({batch,close,done}:{batch:Batch;close:()=>void;done:()=>void}){
   const[title,setTitle]=useState(batch.title),[note,setNote]=useState(batch.note),[err,setErr]=useState(""),[saving,setSaving]=useState(false);
@@ -151,14 +170,17 @@ export function MoveToConsolidated({rows,batches,close,done}:{rows:BatchPayment[
 const esc=(v:unknown)=>String(v??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]!));
 
 /* The PDF: a print page in its own window, saved through the browser's Save as PDF. */
-function printBatch(batch:Batch,rows:BatchPayment[]){
+function printBatch(batch:Batch,rows:BatchPayment[],jobOf:(p:BatchPayment)=>JobBudget|undefined){
   const s=summaryOf(rows);
   const groups=(title:string,list:Group[])=>`<div class="g"><h3>${esc(title)}</h3><table><thead><tr><th>${esc(title.replace(/^By /,""))}</th><th class="n">Requests</th><th class="r">Amount</th></tr></thead><tbody>${
     list.map(g=>`<tr><td>${esc(g.name)}</td><td class="n">${g.count}</td><td class="r">${esc(moneyList(g.totals))}</td></tr>`).join("")}</tbody></table></div>`;
-  const body=rows.map((p,i)=>`<tr><td class="n">${i+1}</td><td><b>${esc(p.requestNo)}</b></td><td>${esc(p.company)}<small>${esc(p.department)}</small></td><td>${esc(p.vendor)}</td>
+  const body=rows.map((p,i)=>`<tr><td class="n">${i+1}</td><td><b>${esc(p.requestNo)}</b><small>${esc(p.nature||"")}</small></td><td>${esc(p.company)}<small>${esc(p.department)}</small></td><td>${esc(p.vendor)}</td>
     <td>${esc(p.project||"—")}${p.poNumber?`<small>PO ${esc(p.poNumber)}</small>`:""}</td><td>${esc(p.invoiceNumber||"—")}${p.invoiceDate?`<small>${esc(p.invoiceDate)}</small>`:""}</td>
-    <td>${esc(p.due)}</td><td>${esc(p.status)}</td><td class="r">${esc(money(p.currency,p.amount))}</td></tr>`).join("");
-  const foot=s.totals.map(t=>`<tr><td colspan="8" class="r">Total ${esc(t.currency)} (${t.count} request${t.count===1?"":"s"})</td><td class="r"><b>${esc(money(t.currency,t.amount))}</b></td></tr>`).join("");
+    <td>${esc(p.due)}</td><td>${esc(p.status)}</td><td class="r">${esc(money(p.currency,p.amount))}</td>${(()=>{const j=jobOf(p);
+    return j?`<td class="r">${esc(short(j.budget))}<small>${esc(j.code)}</small></td><td class="r${j.state==="over"?" over":""}">${esc(short(j.spent))}<small>${esc(j.state==="ok"?`${j.budget?Math.round(j.spent/j.budget*100):0}% used`:stateText[j.state])}</small></td>`
+      :`<td class="r">—</td><td class="r">—</td>`})()}</tr>`).join("");
+  const foot=s.byKind.filter(k=>k.count).flatMap(k=>k.totals.map(t=>`<tr class="sub"><td colspan="8" class="r">${esc(k.label)} · ${esc(t.currency)} (${t.count})</td><td class="r">${esc(money(t.currency,t.amount))}</td><td colspan="2"></td></tr>`)).join("")
+    +s.totals.map(t=>`<tr><td colspan="8" class="r">Total ${esc(t.currency)} (${t.count} request${t.count===1?"":"s"})</td><td class="r"><b>${esc(money(t.currency,t.amount))}</b></td><td colspan="2"></td></tr>`).join("");
   const partial=rows.length<batch.payments.length?`<p class="note">This copy covers ${rows.length} of the ${batch.payments.length} payment requests in ${esc(batch.cpNo)}.</p>`:"";
   const html=`<!doctype html><html><head><meta charset="utf-8"><title>${esc(batch.cpNo)} - ${esc(batch.title)}</title><style>
   @page{size:A4 landscape;margin:12mm}*{box-sizing:border-box}body{font:10.5px/1.4 Inter,Arial,sans-serif;color:#17312b;margin:0}
@@ -168,17 +190,18 @@ function printBatch(batch:Batch,rows:BatchPayment[]){
   .groups{display:flex;gap:10px;margin-bottom:12px}.g{flex:1}h3{font-size:11px;margin:0 0 4px;text-transform:uppercase;letter-spacing:.6px;color:#0b725d}
   table{width:100%;border-collapse:collapse}th{background:#eef4f2;text-align:left;font-size:9px;text-transform:uppercase;letter-spacing:.4px;padding:5px 6px;border:1px solid #d5e0dc}
   td{padding:5px 6px;border:1px solid #e1e8e5;vertical-align:top}td small{display:block;color:#71817d;font-size:8.5px}.r{text-align:right;white-space:nowrap}.n{text-align:center}
-  tfoot td{background:#f6f9f8;font-weight:600}tr{page-break-inside:avoid}.note{color:#5b6b67;margin:4px 0 8px}
+  tfoot td{background:#f6f9f8;font-weight:600}tfoot tr.sub td{font-weight:400;color:#4c5f5a}td.over{color:#b43e3c;font-weight:600}tr{page-break-inside:avoid}.note{color:#5b6b67;margin:4px 0 8px}
   .sign{display:flex;gap:18px;margin-top:34px}.sign div{flex:1;border-top:1px solid #8a9a96;padding-top:5px;text-align:center;color:#5b6b67}
   .foot{margin-top:14px;color:#8a9a96;font-size:8.5px;display:flex;justify-content:space-between}
   @media screen{body{padding:20px;max-width:1150px;margin:auto}}</style></head><body>
   <div class="top"><div style="display:flex;gap:12px;align-items:center"><img src="${esc(location.origin)}/logo.png" alt="" onerror="this.style.display='none'"><div><h1>Consolidated payment</h1><p>${esc(batch.title)}</p></div></div>
     <div class="meta"><b>${esc(batch.cpNo)}</b>Created ${esc(when(batch.createdAt))} by ${esc(batch.createdBy)}</div></div>
   ${batch.note?`<p class="note">${esc(batch.note)}</p>`:""}${partial}
-  <div class="cards"><div class="card"><span>Payment requests</span><b>${s.count}</b></div>${s.totals.map(t=>`<div class="card"><span>Total ${esc(t.currency)}</span><b>${esc(money(t.currency,t.amount))}</b></div>`).join("")}
+  <div class="cards"><div class="card"><span>Payment requests</span><b>${s.count}</b></div>${s.byKind.filter(k=>k.kind!=="other"||k.count).map(k=>`<div class="card"><span>${esc(k.label)} (${k.count})</span><b>${esc(moneyList(k.totals))}</b></div>`).join("")}
+    <div class="card"><span>Total</span><b>${esc(moneyList(s.totals))}</b></div>
     <div class="card"><span>Companies · vendors</span><b>${s.byCompany.length} · ${s.byVendor.length}</b></div>${s.tds.length?`<div class="card"><span>TDS</span><b>${esc(moneyList(s.tds))}</b></div>`:""}</div>
-  <div class="groups">${groups("By company",s.byCompany)}${groups("By vendor",s.byVendor)}${groups("By status",s.byStatus)}</div>
-  <h3>Payment requests</h3><table><thead><tr><th class="n">#</th><th>Request</th><th>Company / Dept</th><th>Vendor</th><th>Project / PO</th><th>Invoice</th><th>Due</th><th>Status</th><th class="r">Amount</th></tr></thead>
+  <div class="groups">${groups("By payment type",s.byNature)}${groups("By company",s.byCompany)}${groups("By vendor",s.byVendor)}${groups("By status",s.byStatus)}</div>
+  <h3>Payment requests</h3><table><thead><tr><th class="n">#</th><th>Request</th><th>Company / Dept</th><th>Vendor</th><th>Project / PO</th><th>Invoice</th><th>Due</th><th>Status</th><th class="r">Amount</th><th class="r">Job budget</th><th class="r">Job spent</th></tr></thead>
   <tbody>${body}</tbody><tfoot>${foot}</tfoot></table>
   <div class="sign"><div>Prepared by (Accounts)</div><div>Verified by (Audit)</div><div>Approved by</div><div>Released by (Finance)</div></div>
   <div class="foot"><span>${esc(batch.cpNo)} · ${rows.length} payment request(s)</span><span>Printed ${esc(stamp(new Date().toISOString()))}</span></div>

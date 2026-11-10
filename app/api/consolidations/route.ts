@@ -33,7 +33,7 @@ async function visibleTo(db:Db,actor:Actor){
 
 const asBatchPayment=(r:typeof paymentRequests.$inferSelect):BatchPayment=>({id:r.id,requestNo:r.requestNo,
   company:r.company,department:r.department,vendor:r.vendor,amount:Number(r.amount)||0,currency:r.currency,due:r.due,
-  status:r.status,project:r.project||"",projectCode:r.projectCode||"",poNumber:r.poNumber||"",
+  status:r.status,project:r.project||"",projectCode:r.projectCode||"",jbCode:r.jbCode||"",poNumber:r.poNumber||"",
   invoiceNumber:r.invoiceNumber||"",invoiceDate:r.invoiceDate||"",nature:r.nature||"",tdsValue:r.tdsValue||"",
   paymentMode:r.paymentMode||"",utrNumber:r.utrNumber||""});
 

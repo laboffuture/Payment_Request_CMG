@@ -8,7 +8,7 @@ export const mayConsolidate=(roles:string[]=[])=>roles.some(r=>CONSOLIDATION_ROL
 
 export type BatchPayment={id:number;requestNo:string;company:string;department:string;vendor:string;
   amount:number;currency:string;due:string;status:string;project?:string;projectCode?:string;poNumber?:string;
-  invoiceNumber?:string;invoiceDate?:string;nature?:string;tdsValue?:string;paymentMode?:string;utrNumber?:string};
+  jbCode?:string;invoiceNumber?:string;invoiceDate?:string;nature?:string;tdsValue?:string;paymentMode?:string;utrNumber?:string};
 
 export type Consolidation={id:string;cpNo:string;title:string;note:string;createdBy:string;createdAt:string;
   updatedAt:string;payments:BatchPayment[]};
@@ -31,8 +31,17 @@ export function groupBy(rows:BatchPayment[],key:(r:BatchPayment)=>string):Group[
   return[...by].map(([name,list])=>({name,count:list.length,totals:totalsOf(list)}))
     .sort((a,b)=>b.count-a.count||a.name.localeCompare(b.name))}
 
+/* The two kinds of payment a batch is read by: vendor payments and sub-contractor payments,
+   from the request's nature of payment. Anything else is shown as other. */
+export const paymentKind=(nature?:string):"vendor"|"sub"|"other"=>
+  /sub[\s-]*contract/i.test(nature||"")?"sub":/vendor/i.test(nature||"")?"vendor":"other";
+export const KIND_LABEL={vendor:"Vendor payments",sub:"Sub-contractor payments",other:"Other payment types"} as const;
+
 export const summaryOf=(rows:BatchPayment[])=>({
   count:rows.length,
+  byKind:(["vendor","sub","other"] as const).map(k=>{const list=rows.filter(r=>paymentKind(r.nature)===k);
+    return{kind:k,label:KIND_LABEL[k],count:list.length,totals:totalsOf(list)}}),
+  byNature:groupBy(rows,r=>r.nature||"Not given"),
   totals:totalsOf(rows),
   tds:totalsOf(rows.filter(r=>num(r.tdsValue)>0).map(r=>({...r,amount:num(r.tdsValue)}))),
   byCompany:groupBy(rows,r=>r.company),
