@@ -1007,3 +1007,22 @@ export const wfVendorMaster=sqliteTable("wf_vendor_master",{
   approvedByEmail:text("approved_by_email").notNull().default(""),
   approvedAt:text("approved_at").notNull().default("")},
   t=>[index("wf_vm_status_idx").on(t.status,t.updatedAt)]);
+
+/* Consolidated payments: a batch of payment requests combined for one summary and one PDF.
+   A request sits in one batch at most - the item table is keyed by its payment id. */
+export const wfConsolidations=sqliteTable("wf_consolidations",{
+  id:text("id").primaryKey(),
+  cpNo:text("cp_no").notNull(),
+  title:text("title").notNull().default(""),
+  note:text("note").notNull().default(""),
+  createdBy:text("created_by").notNull().default(""),
+  createdByEmail:text("created_by_email").notNull().default(""),
+  createdAt:text("created_at").notNull(),
+  updatedAt:text("updated_at").notNull()},
+  t=>[index("wf_consolidations_no_idx").on(t.cpNo)]);
+export const wfConsolidationItems=sqliteTable("wf_consolidation_items",{
+  paymentId:integer("payment_id").primaryKey(),
+  consolidationId:text("consolidation_id").notNull(),
+  addedBy:text("added_by").notNull().default(""),
+  addedAt:text("added_at").notNull()},
+  t=>[index("wf_consolidation_items_batch_idx").on(t.consolidationId)]);

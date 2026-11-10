@@ -1,7 +1,7 @@
 "use client";
 import MultiSelect from"./MultiSelect";
 import {useCallback,useEffect,useMemo,useRef,useState} from "react";
-import {Store,Bell,AlertTriangle,Building2,CalendarClock,CalendarDays,CheckCircle2,ChevronDown,CircleDollarSign,ClipboardCheck,FileBarChart,FileText,History,Import,LayoutDashboard,LogOut,Menu,MessageSquareText,Plus,ReceiptText,Search,Settings,ShieldCheck,SlidersHorizontal,Users,X,GraduationCap,Upload} from "lucide-react";
+import {Store,Bell,AlertTriangle,Building2,CalendarClock,CalendarDays,CheckCircle2,ChevronDown,Layers,CircleDollarSign,ClipboardCheck,FileBarChart,FileText,History,Import,LayoutDashboard,LogOut,Menu,MessageSquareText,Plus,ReceiptText,Search,Settings,ShieldCheck,SlidersHorizontal,Users,X,GraduationCap,Upload} from "lucide-react";
 import PaymentDetail from "./PaymentDetail";
 import{matchesPayment}from"../lib/payment-search";
 import FilePicker from "./FilePicker";
@@ -17,6 +17,7 @@ import CompanySetup from "./CompanySetup";
 import AccountsReceived from "./AccountsReceived";
 import VendorMaster from "./VendorMaster";
 import ScheduledPayments from "./ScheduledPayments";
+import ConsolidatedPayments from "./ConsolidatedPayments";
 import ObservationDesk from "./ObservationDesk";
 import SettingsDesk from "./SettingsDesk";
 import{ExtraFields,packExtra,refreshFields,useExtraFields}from"./ExtraFields";
@@ -39,7 +40,7 @@ import ResponsiveTables from "./ResponsiveTables";
 import BrandLockup from "./BrandLockup";
 type Payment={deptPriority?:string;deptPriorityBy?:string;deptPriorityAt?:string;createdAt?:string;tds?:string;nature?:string;poNumber?:string;resubmitNote?:string;resubmittedAt?:string;rejectionNote?:string;rejectedBy?:string;rejectedAt?:string;raisedBy?:string;id:number;requestNo:string;company:string;vendor:string;amount:number;currency:string;due:string;urgency:string;status:string;owner:string;department:string};
 export type AuditTask={ref?:string;remarks?:string;category?:string;entity?:string;dueRule?:string;frequency?:string;recurDay?:string;recurUntil?:string;seriesId?:string;attendees?:string;id:string;title:string;company:string;department:string;kind:"Pre-Audit"|"Post-Audit"|"Meeting"|"Special Audit"|"Task"|"Token"|"Training";status:"Available"|"Accepted"|"In Progress"|"Observation Submitted"|"Response Received"|"Completed";due?:string;assignedTo?:string;plannedStart?:string;plannedEnd?:string;notes?:string;dataProvider?:string};
-type Module="material"|"dashboard"|"requests"|"payments"|"scheduled"|"accountsreceived"|"preaudit"|"postaudit"|"specialaudit"|"observations"|"meetings"|"reports"|"companies"|"settings"|"users"|"imports"|"organisation"|"employees"|"vendors";
+type Module="material"|"dashboard"|"requests"|"payments"|"consolidated"|"scheduled"|"accountsreceived"|"preaudit"|"postaudit"|"specialaudit"|"observations"|"meetings"|"reports"|"companies"|"settings"|"users"|"imports"|"organisation"|"employees"|"vendors";
 const seed:Payment[]=[];
 const auditSeed:AuditTask[]=[];
 const specialAuditSeed:AuditTask[]=[];
@@ -54,6 +55,7 @@ const nav:{id:Module;label:string;icon:any}[]=([
   ["dashboard","Dashboard",LayoutDashboard],
   ["requests","My payment requests",FileText],
   ["payments","Accounts / Audit queues",CircleDollarSign],
+  ["consolidated","Consolidated payments",Layers],
   ["scheduled","Scheduled payment",CalendarClock],
   ["accountsreceived","Accounts Receivable",ReceiptText],
   ["vendors","Vendor master",Store],
@@ -77,7 +79,7 @@ const nav:{id:Module;label:string;icon:any}[]=([
    longer keeps them together. */
 const workforceIds:Module[]=["organisation","employees","reports"];
 const tone:Record<string,string>={"Rejected":"red","Query Raised":"amber","Requested":"blue","Accountant Review":"amber","Pre-Audit Queue":"blue","Management Approval":"amber","Management Approval: Yes":"green","Management Approval: No":"red","Audit Rejected":"red","Audit Query":"amber","Finance Queue":"violet","Approved by Auditor – Ready to Release":"green","Payment Released":"green","Expenses Booked":"green","Reconciliation":"green","Audit Accepted":"blue","Audit Cleared":"green"};
-const access:Record<string,Module[]>={"Cost Control":["dashboard","accountsreceived","reports","organisation","employees"],Administrator:nav.map(x=>x.id),Requestor:["dashboard","requests","organisation","employees","meetings","reports"],"Department Head":["dashboard","requests","organisation","employees","meetings","reports"],Accountant:["dashboard","requests","payments","scheduled","organisation","employees","meetings","reports","observations","accountsreceived","vendors"],Auditor:["dashboard","requests","payments","scheduled","organisation","employees","preaudit","postaudit","specialaudit","meetings","reports","observations","accountsreceived","vendors"],Finance:["meetings","dashboard","payments","organisation","employees","reports","vendors"],Management:["meetings","dashboard","payments","accountsreceived","vendors",...workforceIds],
+const access:Record<string,Module[]>={"Cost Control":["dashboard","accountsreceived","reports","organisation","employees"],Administrator:nav.map(x=>x.id),Requestor:["dashboard","requests","organisation","employees","meetings","reports"],"Department Head":["dashboard","requests","organisation","employees","meetings","reports"],Accountant:["dashboard","requests","payments","consolidated","scheduled","organisation","employees","meetings","reports","observations","accountsreceived","vendors"],Auditor:["dashboard","requests","payments","consolidated","scheduled","organisation","employees","preaudit","postaudit","specialaudit","meetings","reports","observations","accountsreceived","vendors"],Finance:["meetings","dashboard","payments","consolidated","organisation","employees","reports","vendors"],Management:["meetings","dashboard","payments","accountsreceived","vendors",...workforceIds],
   /* Material roles that work the Vendor Master: procurement registers and verifies, and
      management (material) may give the final approval. */
   Procurement:["vendors"],"Procurement Manager":["vendors"],"Management (Material)":["vendors"],"Audit Head":nav.filter(x=>x.id!=="settings").map(x=>x.id)};
@@ -302,6 +304,7 @@ export default function Home(){
  {active==="dashboard"&&visible.some(n=>n.id==="organisation")&&<div className="page wf-dash-wrap"><WorkforceOverview openProfile={setProfile} go={()=>setActive("organisation")}/></div>}
  {active==="requests"&&<RequestorWorkspace rows={role==="Requestor"?mine:filtered} open={openRequest} create={()=>setForm(true)} scope={role==="Department Head"?"department":"own"}/>}
  {active==="payments"&&<PaymentWorkbench departments={departments} companies={companies.map(c=>c.name)} onDelete={removeRequest} rows={filtered} role={role} search={search} setSearch={setSearch} open={openRequest} create={()=>setForm(true)}/>}
+ {active==="consolidated"&&<ConsolidatedPayments flash={flash} open={id=>{const p=payments.find(x=>x.id===id);if(p)openRequest(p)}}/>}
  {active==="scheduled"&&<ScheduledPayments role={role} flash={flash}/>}
  {active==="accountsreceived"&&<AccountsReceived role={role} userEmail={userEmail} companies={companies} flash={flash}/>}
  {active==="vendors"&&<VendorMaster flash={flash}/>}

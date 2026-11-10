@@ -1,0 +1,31 @@
+/* Consolidated payments: the tick boxes and bar on the register, and the module's screens. */
+.cp-tick{width:14px;height:14px;margin:0 8px 0 0;vertical-align:-2px;accent-color:var(--green);cursor:pointer}
+.cp-tick:disabled{cursor:not-allowed;opacity:.4}
+.wb-panel tr.cp-ticked td,.cp-table tr.cp-ticked td{background:#eef8f4}
+.cp-bar{display:flex;align-items:center;flex-wrap:wrap;gap:10px;padding:10px 16px;background:#eef8f4;border-top:1px solid #cfe6dd;border-bottom:1px solid #cfe6dd;font-size:11px}
+.cp-bar span{color:var(--muted)}.cp-bar .primary{margin-left:auto}
+.cp-bar button:not(.primary){display:flex;align-items:center;gap:5px;border:1px solid var(--line);background:#fff;border-radius:8px;padding:9px 12px;font-size:11px;cursor:pointer}
+.cp-bar button svg{width:14px}.cp-bar .cp-done{color:var(--green);font-weight:600}
+.cp-error{color:var(--red);font-size:12px}
+.cp-head{display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;margin-bottom:14px}
+.cp-back,.cp-actions button{display:flex;align-items:center;gap:6px;border:1px solid var(--line);background:#fff;border-radius:8px;padding:9px 12px;font-size:11px;font-weight:600;cursor:pointer;color:var(--ink)}
+.cp-back svg,.cp-actions svg,.panel-head .cp-danger svg{width:14px}
+.cp-actions{display:flex;flex-wrap:wrap;gap:8px}.cp-actions button:disabled{opacity:.45;cursor:not-allowed}
+.cp-danger{color:var(--red)!important;border-color:#f1c9c8!important}
+.panel-head .cp-danger{display:flex;align-items:center;gap:5px;border:1px solid;background:#fff;border-radius:8px;padding:8px 11px;cursor:pointer}
+.cp-scope{font-size:11px;color:var(--ink)!important}.cp-scope button{border:0;background:none;color:var(--green);font-weight:700;cursor:pointer;padding:0 0 0 4px;font-size:11px}
+.cp-metrics{grid-template-columns:repeat(auto-fit,minmax(170px,1fr))}.cp-metrics b{font-size:19px;overflow-wrap:anywhere}
+.cp-groups{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:14px}
+.cp-group{padding:14px}.cp-group .panel-head{margin-bottom:8px}.cp-group .panel-head h2{font-size:15px}
+.cp-group table{min-width:0}.cp-group td,.cp-group th{padding:7px 8px}.cp-group tbody tr{cursor:default}
+.cp-table td:first-child,.cp-table th:first-child{width:34px}
+.cp-table input[type=checkbox]{width:14px;height:14px;accent-color:var(--green);cursor:pointer}
+.cp-amt{text-align:right;white-space:nowrap}.cp-table tfoot td{background:#f7f9f8;font-weight:600;text-align:right}
+.cp-mode{display:flex;flex-wrap:wrap;gap:16px}.cp-mode label{display:flex;align-items:center;gap:6px;font-size:12px;color:var(--ink)}
+.cp-mode input{width:auto!important;margin:0!important}
+.cp-move-list{max-height:180px;overflow:auto;border:1px solid var(--line);border-radius:8px;padding:6px 10px;display:flex;flex-direction:column}
+.cp-move-list span{display:flex;gap:8px;font-size:11px;padding:4px 0;border-bottom:1px solid #edf1ef}.cp-move-list span:last-child{border:0}
+.cp-move-list em{margin-left:auto;font-style:normal;font-weight:600;white-space:nowrap}
+.cp-hint{font-size:10px;color:var(--muted);margin:0}
+@media(max-width:900px){.cp-groups{grid-template-columns:1fr}}
+@media(max-width:760px){.cp-bar .primary{margin-left:0}.cp-head{flex-direction:column;align-items:stretch}}
