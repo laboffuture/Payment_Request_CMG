@@ -1,7 +1,7 @@
 'use client';
 
 import { useQuery } from '@tanstack/react-query';
-import { firstApproverProjectOfRole, type MrDto } from '@cm/shared';
+import { firstApproverProjectsOfRole, type MrDto } from '@cm/shared';
 import { get } from '@mm/lib/api';
 import { PageHeader } from '@mm/components/ui';
 import { MrTable } from '@mm/features/mr/MrTable';
@@ -14,7 +14,10 @@ import { useSession } from '@mm/lib/session';
  */
 export default function PmQueuePage() {
   const { me } = useSession();
-  const dept = firstApproverProjectOfRole(me.role);
+  const depts = firstApproverProjectsOfRole(me.role);
+  const deptText = depts
+    .map((d) => `${d.project[0]!.toUpperCase()}${d.project.slice(1)} (${d.code})`)
+    .join(' and ');
   const list = useQuery({
     queryKey: ['mrs', 'pm-queue'],
     queryFn: () => get<{ rows: MrDto[] }>('/mrs?queue=pm'),
@@ -27,8 +30,8 @@ export default function PmQueuePage() {
       <PageHeader
         title="MR approvals"
         subtitle={
-          dept
-            ? `${dept.project[0]!.toUpperCase()}${dept.project.slice(1)} (${dept.code}) requests come here for your approval. Check the quantity, the measurement and the unit on each line — change what needs changing, then pass it to QS.`
+          depts.length
+            ? `${deptText} requests come here for your approval. Check the quantity, the measurement and the unit on each line — change what needs changing, then pass it to QS.`
             : 'Requests come here straight from site. Check the quantity, the measurement and the unit on each line — change what needs changing, then pass it to QS.'
         }
       />

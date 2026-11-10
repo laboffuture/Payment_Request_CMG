@@ -333,6 +333,7 @@ export const TOOLS_PROJECT_NAME = 'TRG PROJECT TOOLS & ASSETS';
 export const FIRST_APPROVER_PROJECTS = [
   { role: 'OPS', code: 'TRG-CORP', approver: 'Operations', project: 'corporate purchase' },
   { role: 'IT', code: 'TRG-IT', approver: 'IT Manager', project: 'IT assets' },
+  { role: 'OPS', code: 'TRG-GENERAL', approver: 'Operations', project: 'office general expense' },
 ] as const;
 export type FirstApproverProject = (typeof FIRST_APPROVER_PROJECTS)[number];
 export type FirstApproverRole = FirstApproverProject['role'];
@@ -346,9 +347,9 @@ export const firstApproverForProjectCode = (
 ): FirstApproverProject | null =>
   FIRST_APPROVER_PROJECTS.find((p) => codeKey(p.code) === codeKey(code)) ?? null;
 
-/** The project a first-approver role is kept to. */
-export const firstApproverProjectOfRole = (role: string): FirstApproverProject | null =>
-  FIRST_APPROVER_PROJECTS.find((p) => p.role === role) ?? null;
+/** The projects a first-approver role is kept to (Operations has more than one). */
+export const firstApproverProjectsOfRole = (role: string): FirstApproverProject[] =>
+  FIRST_APPROVER_PROJECTS.filter((p) => p.role === role);
 
 export const isFirstApproverRole = (role: string): role is FirstApproverRole =>
   FIRST_APPROVER_PROJECTS.some((p) => p.role === role);

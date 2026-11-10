@@ -3,7 +3,7 @@ import { Project } from '../models/masters.js';
 
 /**
  * The projects whose material requests a department approves first instead of a Project
- * Manager (TRG-CORP: Operations, TRG-IT: IT Manager), by project id. Looked up by code,
+ * Manager (TRG-CORP and TRG-GENERAL: Operations, TRG-IT: IT Manager), by project id. Looked up by code,
  * like the tools project; a project not set up yet is simply absent.
  */
 export type FirstApprovers = Map<string, FirstApproverProject>;
