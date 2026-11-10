@@ -15,7 +15,7 @@ import{audit,bad,oops,str}from"../../../lib/workforce-api";
 
 type Db=Awaited<ReturnType<typeof getDb>>;
 const now=()=>new Date().toISOString();
-const MAX_IDS=500;
+const MAX_IDS=1000;
 
 async function signedIn(req:Request){
   const{actor,response}=await requireAuth(req,"read");
@@ -37,6 +37,9 @@ const asBatchPayment=(r:typeof paymentRequests.$inferSelect):BatchPayment=>({id:
   invoiceNumber:r.invoiceNumber||"",invoiceDate:r.invoiceDate||"",nature:r.nature||"",tdsValue:r.tdsValue||"",
   paymentMode:r.paymentMode||"",utrNumber:r.utrNumber||""});
 
+/* D1 allows 100 bound parameters a query, so long id lists are split. */
+const chunks=<T,>(list:T[],size=90)=>Array.from({length:Math.ceil(list.length/size)},(_,i)=>list.slice(i*size,i*size+size));
+
 const idList=(v:unknown)=>Array.isArray(v)?[...new Set(v.map(Number).filter(n=>Number.isInteger(n)&&n>0))]:[];
 
 /* CP-<yy>-0001, one series per year. */
@@ -54,12 +57,17 @@ async function checkAdd(db:Db,actor:Actor,ids:number[],batchId:string){
   const visible=new Map((await visibleTo(db,actor)).map(r=>[r.id,r]));
   const missing=ids.filter(id=>!visible.has(id));
   if(missing.length)return"Some of those payment requests are not available to you any more. Reload and try again.";
-  const taken=await db.select({paymentId:wfConsolidationItems.paymentId,batch:wfConsolidations.cpNo,
+  /* Every item read and filtered here rather than with an IN list: D1 allows 100 bound
+     parameters a query, and a few hundred ticked requests passed that. */
+  const want=new Set(ids);
+  const taken=(await db.select({paymentId:wfConsolidationItems.paymentId,batch:wfConsolidations.cpNo,
     batchId:wfConsolidations.id}).from(wfConsolidationItems)
-    .innerJoin(wfConsolidations,eq(wfConsolidations.id,wfConsolidationItems.consolidationId))
-    .where(inArray(wfConsolidationItems.paymentId,ids));
+    .innerJoin(wfConsolidations,eq(wfConsolidations.id,wfConsolidationItems.consolidationId)))
+    .filter(t=>want.has(t.paymentId));
   const elsewhere=taken.filter(t=>t.batchId!==batchId);
-  if(elsewhere.length)return`${elsewhere.map(t=>`${visible.get(t.paymentId)?.requestNo} is already in ${t.batch}`).join("; ")}.`;
+  if(elsewhere.length){
+    const named=elsewhere.slice(0,5).map(t=>`${visible.get(t.paymentId)?.requestNo} is already in ${t.batch}`).join("; ");
+    return`${named}${elsewhere.length>5?` - and ${elsewhere.length-5} more`:""}. Untick those and try again.`}
   return null}
 
 export async function GET(req:Request){
@@ -148,7 +156,7 @@ export async function PATCH(req:Request){
         .where(eq(wfConsolidationItems.consolidationId,batch.id))).map(r=>r.paymentId);
       const out=remove.filter(id=>held.includes(id));
       if(out.length){
-        statements.push(db.delete(wfConsolidationItems).where(inArray(wfConsolidationItems.paymentId,out)));
+        for(const part of chunks(out))statements.push(db.delete(wfConsolidationItems).where(inArray(wfConsolidationItems.paymentId,part)));
         changes.push(`${out.length} payment request(s) taken out`)}
     }
     if(!changes.length)return Response.json({ok:true});
