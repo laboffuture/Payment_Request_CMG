@@ -461,7 +461,7 @@ procurementRouter.post(
 
 // --- PO attachments (optional, added while raising the PO or later) ----------
 
-/** Several at once — added to whatever is already attached. */
+/** Several at once — added to whatever is already attached, in the tile `kind` names. */
 procurementRouter.post(
   '/pos/:id/files',
   requireAuth,
@@ -470,7 +470,7 @@ procurementRouter.post(
   poFileUpload.array('files', MAX_BOQ_FILES),
   wrap(async (req, res) => {
     const files = (req.files ?? []) as Express.Multer.File[];
-    res.json(await attachPoFiles(actorOf(req), req.params.id!, files));
+    res.json(await attachPoFiles(actorOf(req), req.params.id!, files, req.body?.kind));
   }),
 );
 

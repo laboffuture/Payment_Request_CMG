@@ -563,6 +563,8 @@ export interface BoqFileDto {
   name: string;
   size: number;
   url: string;
+  /** On a PO only: which tile the file is in. Files from before the tiles read as quotations. */
+  kind?: 'QUOTATION' | 'COMPARISON';
 }
 
 export interface MrDetailDto extends MrDto {

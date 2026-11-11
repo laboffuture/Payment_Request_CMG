@@ -1,4 +1,4 @@
-import { CURRENCIES, DEFAULT_CURRENCY } from '@cm/shared';
+import { CURRENCIES, DEFAULT_CURRENCY, PO_FILE_KINDS, type PoFileKind } from '@cm/shared';
 import { Schema, Types } from 'mongoose';
 import {
   DELIVER_TO,
@@ -24,6 +24,19 @@ import {
   type Timestamped,
 } from './base.js';
 
+/** A PO attachment: a stored file plus the tile it sits in (quotation or comparison). */
+const poFileSchema = new Schema<StoredFileDoc & { kind: PoFileKind }>(
+  {
+    publicId: { type: String, required: true },
+    url: { type: String, required: true },
+    name: { type: String, default: '' },
+    mime: { type: String, default: '' },
+    size: { type: Number, default: 0 },
+    kind: { type: String, enum: PO_FILE_KINDS, default: 'QUOTATION' },
+  },
+  { _id: false },
+);
+
 export interface IPo extends Timestamped {
   no: string;
   rev: number;
@@ -46,7 +59,7 @@ export interface IPo extends Timestamped {
   reason: string;
   rfqId: Types.ObjectId | null;
   /** Supporting papers procurement attaches when raising the PO: quotation, vendor mail, drawing. */
-  files: StoredFileDoc[];
+  files: (StoredFileDoc & { kind?: PoFileKind })[];
   /** Optional extra charges, each an amount and the tax on it, both added to the total. */
   charges: { type: string; amount: number; tax: number }[];
   chargesTotal: number;
@@ -110,7 +123,7 @@ const poSchema = new Schema<IPo>(
     lastCommentBy: optionalRefTo('User'),
     lastCommentRole: { type: String, default: '' },
     vendorAckAt: { type: Date, default: null },
-    files: { type: [fileSchema], default: [] },
+    files: { type: [poFileSchema], default: [] },
     charges: {
       type: [
         new Schema(

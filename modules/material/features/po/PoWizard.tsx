@@ -20,7 +20,9 @@ import {
   TAX_MODE_LABELS,
   TAX_RATES,
   type Currency,
-  MAX_BOQ_FILES,
+  MAX_PO_FILES_PER_KIND,
+  PO_FILE_KINDS,
+  type PoFileKind,
   type BoqFileDto,
   type PoDetailDto,
   type PoRecommendationsDto,
@@ -37,7 +39,15 @@ import { useReference } from '@mm/lib/reference';
 import { addDays, fmtDate, money, qty } from '@mm/lib/format';
 import { draftTotals, groupKeyOf, groupRows, usePoDraft, type PoDraftRow } from './draft';
 import { PoDocument } from './PoDocument';
-import { PoFilePicker, acceptPoFiles, uploadPoFiles } from './PoAttachments';
+import {
+  KIND_TILE,
+  PoFilePicker,
+  acceptPoFiles,
+  kindOf,
+  tooManyOf,
+  uploadPoFiles,
+  type PendingPoFile,
+} from './PoAttachments';
 
 /**
  * The three-step purchase order wizard.
@@ -83,7 +93,7 @@ export function PoWizard({
   const [step, setStep] = useState(1);
   // Attachments: what the PO already carries, and what was chosen now and goes up on save.
   const [attached, setAttached] = useState<BoqFileDto[]>(existing?.files ?? []);
-  const [pending, setPending] = useState<File[]>([]);
+  const [pending, setPending] = useState<PendingPoFile[]>([]);
   const defaultCompany =
     reference.companies.find((c) => c.isDefault) ?? reference.companies[0];
 
@@ -181,7 +191,10 @@ export function PoWizard({
       // still saved - it is said plainly, and they can be added from the PO page.
       if (pending.length) {
         try {
-          await uploadPoFiles(po.id, pending);
+          for (const kind of PO_FILE_KINDS) {
+            const mine = pending.filter((p) => p.kind === kind).map((p) => p.file);
+            if (mine.length) await uploadPoFiles(po.id, mine, kind);
+          }
         } catch (err) {
           po.filesFailed = err instanceof Error ? err.message : 'the files could not be uploaded';
         }
@@ -208,10 +221,11 @@ export function PoWizard({
     { success: 'File removed', onDone: setAttached, invalidate: [['po']] },
   );
 
-  const pickFiles = (chosen: FileList | null) => {
-    const room = MAX_BOQ_FILES - attached.length - pending.length;
-    const accepted = acceptPoFiles(chosen, pending, room, toast);
-    if (accepted.length) setPending((list) => [...list, ...accepted]);
+  const pickFiles = (kind: PoFileKind, chosen: FileList | null) => {
+    const minePending = pending.filter((p) => p.kind === kind).map((p) => p.file);
+    const room = MAX_PO_FILES_PER_KIND - attached.filter((f) => kindOf(f) === kind).length - minePending.length;
+    const accepted = acceptPoFiles(chosen, minePending, room, toast, tooManyOf(kind));
+    if (accepted.length) setPending((list) => [...list, ...accepted.map((file) => ({ file, kind }))]);
   };
 
   const attachments = (
@@ -349,7 +363,10 @@ export function PoWizard({
           totals={totals}
           currency={currency}
           busy={save.isPending}
-          fileNames={[...attached.map((f) => f.name), ...pending.map((f) => f.name)]}
+          fileNames={[
+            ...attached.map((f) => `${KIND_TILE[kindOf(f)].title}: ${f.name}`),
+            ...pending.map((p) => `${KIND_TILE[p.kind].title}: ${p.file.name}`),
+          ]}
           onBack={() => setStep(2)}
           onSave={submit}
         />

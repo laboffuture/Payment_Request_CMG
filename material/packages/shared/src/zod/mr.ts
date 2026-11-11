@@ -202,5 +202,14 @@ export const MAX_BOQ_BYTES = 5 * 1024 * 1024;
  */
 export const MAX_BOQ_FILES = 10;
 
+/**
+ * A PO's attachments sit in two tiles: the vendors' quotations and the comparison of
+ * them. Each tile takes up to this many files (one upload still sends at most
+ * MAX_BOQ_FILES, so the screens send larger picks in turns).
+ */
+export const PO_FILE_KINDS = ['QUOTATION', 'COMPARISON'] as const;
+export type PoFileKind = (typeof PO_FILE_KINDS)[number];
+export const MAX_PO_FILES_PER_KIND = 30;
+
 export const BOQ_ACCEPT =
   '.pdf,.png,.jpg,.jpeg,.webp,.csv,.xls,.xlsx,application/pdf,image/*,text/csv';

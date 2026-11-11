@@ -223,3 +223,7 @@
   display: block; font-size: 9px; letter-spacing: .11em; font-weight: 700;
   color: #63728f; padding: 16px 10px 6px;
 }
+
+/* PO attachments: the Quotations and Comparison tiles, side by side where there is room. */
+.mm .po-file-tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 12px; align-items: start; }
+@media (max-width: 640px) { .mm .po-file-tiles { grid-template-columns: 1fr; } }

@@ -14,7 +14,9 @@ import {
 import { measurementKey, mrTextKey,
   DEFAULT_CURRENCY,
   DEFAULT_PO_DELIVERY_DAYS,
-  MAX_BOQ_FILES,
+  MAX_PO_FILES_PER_KIND,
+  PO_FILE_KINDS,
+  type PoFileKind,
   MSG,
   type BoqFileDto,
   type PoAllocDto,
@@ -1381,6 +1383,7 @@ function poFilesOf(po: Record<string, any>): BoqFileDto[] {
     name: file.name,
     size: num(file.size),
     url: signedUrlFor(file.publicId),
+    kind: file.kind === 'COMPARISON' ? 'COMPARISON' : 'QUOTATION',
   }));
 }
 
@@ -1393,15 +1396,23 @@ export async function attachPoFiles(
   actor: Actor,
   id: string,
   files: Express.Multer.File[],
+  kindSent?: unknown,
 ): Promise<BoqFileDto[]> {
   if (!files?.length) throw badRequest(MSG.boqNoFiles);
+  // Quotation unless said otherwise - the tile older screens and files belong to.
+  const kind: PoFileKind = kindSent === undefined || kindSent === '' ? 'QUOTATION' : (kindSent as PoFileKind);
+  if (!PO_FILE_KINDS.includes(kind)) throw badRequest('Attach the file as a quotation or a comparison');
   const po = await Po.findById(id);
   if (!po) throw notFound();
   if (!mayAttach(actor, po.status)) throw forbidden();
 
-  const already = (po.files ?? []).length;
-  if (already + files.length > MAX_BOQ_FILES) {
-    throw badRequest(`Attach at most ${MAX_BOQ_FILES} files to a PO`);
+  const already = ((po.files ?? []) as { kind?: string }[]).filter(
+    (f) => (f.kind === 'COMPARISON' ? 'COMPARISON' : 'QUOTATION') === kind,
+  ).length;
+  if (already + files.length > MAX_PO_FILES_PER_KIND) {
+    throw badRequest(
+      `Attach at most ${MAX_PO_FILES_PER_KIND} ${kind === 'COMPARISON' ? 'comparison files' : 'quotations'} to a PO`,
+    );
   }
 
   // All uploaded before the PO is touched, so one bad file does not leave it half-changed.
@@ -1432,7 +1443,7 @@ export async function attachPoFiles(
 
   // Only the files are written - not the whole document - so this cannot undo a status
   // change made by somebody else in the same moment.
-  await Po.updateOne({ _id: po._id }, { $push: { files: { $each: stored } } });
+  await Po.updateOne({ _id: po._id }, { $push: { files: { $each: stored.map((f) => ({ ...f, kind })) } } });
   await bumpSyncStamp();
   const fresh = await Po.findById(id).lean();
   return poFilesOf(fresh ?? {});
