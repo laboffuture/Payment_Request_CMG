@@ -1,7 +1,7 @@
 'use client';
 
 import { useQuery } from '@tanstack/react-query';
-import { firstApproverProjectsOfRole, type MrDto } from '@cm/shared';
+import { firstApproverProjectsOfRole, skipsQs, type MrDto } from '@cm/shared';
 import { get } from '@mm/lib/api';
 import { PageHeader } from '@mm/components/ui';
 import { MrTable } from '@mm/features/mr/MrTable';
@@ -31,7 +31,9 @@ export default function PmQueuePage() {
         title="MR approvals"
         subtitle={
           depts.length
-            ? `${deptText} requests come here for your approval. Check the quantity, the measurement and the unit on each line — change what needs changing, then pass it to QS.`
+            ? `${deptText} requests come here for your approval. Check the quantity, the measurement and the unit on each line — change what needs changing, then pass it on: ${depts
+                .map((d) => `${d.code} ${skipsQs(d.code) ? 'goes straight to procurement' : 'to QS'}`)
+                .join(', ')}.`
             : 'Requests come here straight from site. Check the quantity, the measurement and the unit on each line — change what needs changing, then pass it to QS.'
         }
       />

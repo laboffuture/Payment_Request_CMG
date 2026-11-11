@@ -5,6 +5,7 @@ import {
   earliestRequiredDate,
   isBuyer,
   isPettyCash,
+  skipsQs,
   MSG,
   type MapNewItemInput,
   type MrCommentInput,
@@ -1170,7 +1171,23 @@ export async function pmApprove(
     // Rejecting every line is a rejection of the request, not an approval.
     if (!kept) throw badRequest(MSG.pmNothingApproved);
 
-    mr.status = 'QS_PENDING';
+    // TRG-IT: no QS step. Everything goes to procurement for PO (petty cash to procurement's
+    // review) - unless a line asks for a new item, which only QS can add to the item master.
+    const projectCode = lookups.projectCode(mr.projectId);
+    const keptLines = lines.filter((l) => l.lineStatus !== 'REJECTED');
+    const direct = skipsQs(projectCode) && !keptLines.some((l) => l.newStatus === 'PENDING');
+    const petty = isPettyCash(mr.requestType);
+    let poTotal = 0;
+    if (direct) {
+      for (const line of keptLines) {
+        line.storeQty = 0;
+        line.poQty = num(line.qty);
+        poTotal = num(poTotal + num(line.qty));
+        await line.save({ session });
+      }
+    }
+
+    mr.status = direct ? (petty ? 'PROC_REVIEW' : 'APPROVED') : 'QS_PENDING';
     mr.pmBy = oid(actor.id) as never;
     mr.pmAt = new Date();
     if (input.comment) {
@@ -1180,7 +1197,16 @@ export async function pmApprove(
     }
     await mr.save({ session });
 
-    await writeAudit(session, 'MR', mr._id, AUDIT.MR_PM_APPROVED, actor.id, input.comment);
+    await writeAudit(
+      session,
+      'MR',
+      mr._id,
+      direct
+        ? `${approverRole(actor)} approved and sent to procurement - no QS step for ${projectCode}`
+        : AUDIT.MR_PM_APPROVED,
+      actor.id,
+      direct ? [`PO ${poTotal}`, input.comment].filter(Boolean).join(' · ') : input.comment,
+    );
     if (changed || rejected.length) {
       await writeAudit(
         session,
@@ -1193,6 +1219,18 @@ export async function pmApprove(
     }
 
     const note = changeNote(changed, rejected, actor.role === 'PM' ? 'the PM' : approverName(actor), input.comment);
+
+    if (direct) {
+      const outbox = await emit(session, petty ? 'PETTY_CASH_REVIEW' : 'MR_APPROVED', {
+        title: `${mr.no} approved by ${approverName(actor)} — now with procurement (${projectCode})`,
+        body: note || `${kept} item(s) for PO, approved by ${actor.name}`,
+        link: `mr:${String(mr._id)}`,
+        to: [{ role: 'PROC' }, petty ? { role: 'PROC_MGR' } : null, { userId: mr.createdBy }],
+        actorId: actor.id,
+      });
+      await bumpSyncStamp(session);
+      return outbox;
+    }
 
     const outbox = await emit(session, 'MR_PM_APPROVED', {
       title: `${mr.no} approved by ${approverName(actor)} — now with QS (${lookups.projectCode(

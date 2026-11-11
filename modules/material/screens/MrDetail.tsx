@@ -16,6 +16,7 @@ import {
   ROLE_NAMES,
   chipFor,
   firstApproverForProjectCode,
+  skipsQs,
   type ItemDto,
   type LinkedPoDto,
   type MrDetailDto,
@@ -893,6 +894,9 @@ function PmPanel({ mr }: { mr: MrDetailDto }) {
     setReview((rows) => ({ ...rows, [id]: { ...rows[id]!, ...change } }));
 
   const invalidate = [['mr', mr.id], ['mrs'], ['counts']];
+  // TRG-IT skips QS - unless a line asks for a new item, which only QS can add.
+  const toProc = skipsQs(mr.projectCode) && !active.some((l) => l.newStatus === 'PENDING');
+  const next = toProc ? 'procurement' : 'QS';
 
   const approve = useAction(
     () =>
@@ -901,7 +905,7 @@ function PmPanel({ mr }: { mr: MrDetailDto }) {
         comment,
         lines: reviewPayload(review),
       }),
-    { success: `${mr.no} passed to QS`, invalidate },
+    { success: `${mr.no} passed to ${next}`, invalidate },
   );
 
   const sendBack = useAction(
@@ -955,7 +959,7 @@ function PmPanel({ mr }: { mr: MrDetailDto }) {
               disabled={!keeping || approve.isPending}
               onClick={() => approve.mutate()}
             >
-              Approve &amp; send to QS
+              Approve &amp; send to {next}
             </Btn>
           </div>
         </Stack>

@@ -3,7 +3,7 @@
 import { Suspense } from 'react';
 import { useRouter, useSearchParams } from '@mm/lib/nav';
 import { useQuery } from '@tanstack/react-query';
-import { BRAND_LOGO_URL, mrChipFor, type MrPrintDto } from '@cm/shared';
+import { BRAND_LOGO_URL, mrChipFor, skipsQs, type MrPrintDto } from '@cm/shared';
 import { get } from '@mm/lib/api';
 import { Btn, EmptyState, PageHeader } from '@mm/components/ui';
 import { fmtDate, fmtDateTime, money, qty } from '@mm/lib/format';
@@ -212,7 +212,7 @@ function MrDocument({ doc }: { doc: MrPrintDto }) {
           title="Project Manager"
           name={mr.pmByName}
           at={mr.pmAt}
-          note={mr.pmAt ? 'Checked & passed to QS' : ''}
+          note={mr.pmAt ? `Checked & passed to ${skipsQs(mr.projectCode) && !doc.qsAt ? 'procurement' : 'QS'}` : ''}
         />
         <Signature
           title="Quantity Surveyor"

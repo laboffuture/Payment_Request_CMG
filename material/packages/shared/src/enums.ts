@@ -347,6 +347,15 @@ export const firstApproverForProjectCode = (
 ): FirstApproverProject | null =>
   FIRST_APPROVER_PROJECTS.find((p) => codeKey(p.code) === codeKey(code)) ?? null;
 
+/**
+ * Projects whose MRs skip QS: once the first approver approves, the MR goes straight to
+ * procurement with everything for PO. An MR asking for an item not yet in the item master
+ * still goes to QS, who adds new items.
+ */
+export const QS_SKIP_PROJECT_CODES = ['TRG-IT'] as const;
+export const skipsQs = (code: string | null | undefined): boolean =>
+  QS_SKIP_PROJECT_CODES.some((c) => codeKey(c) === codeKey(code));
+
 /** The projects a first-approver role is kept to (Operations has more than one). */
 export const firstApproverProjectsOfRole = (role: string): FirstApproverProject[] =>
   FIRST_APPROVER_PROJECTS.filter((p) => p.role === role);
