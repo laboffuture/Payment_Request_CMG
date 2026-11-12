@@ -245,7 +245,7 @@ export default function Home(){
       department's - which read as "payments not showing". Applied over a remembered
       requestor view as well, since that is where most heads were left. */
    const saved=savedView(u.email,u.roles);
-   const head=u.roles.includes("Department Head")&&(!saved||saved.role==="Requestor");
+   const head=u.roles.includes("Department Head")&&(saved?.role??u.roles[0])==="Requestor";
    const back=head?{role:"Department Head",active:landingFor("Department Head")}:saved;
    setRole(back?.role??u.roles[0]);setActive(back?.active??landingFor(u.roles[0]))};
  useEffect(()=>{if(!userEmail||!role)return;
