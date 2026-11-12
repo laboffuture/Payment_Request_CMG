@@ -391,10 +391,17 @@ export const wfAuditTasks=sqliteTable("wf_audit_tasks",{
   assignedEmail:text("assigned_email").notNull().default(""),
   workDescription:text("work_description").notNull().default(""),
   observations:text("observations").notNull().default(""),
-  completedOn:text("completed_on").notNull().default("")},
+  completedOn:text("completed_on").notNull().default(""),
+  /* A pre-audit report: the project beside the vertical (entity), and the Audit Head's
+     review - who, when, why it was rejected - with every step as a JSON history list. */
+  project:text("project").notNull().default(""),
+  reviewedBy:text("reviewed_by").notNull().default(""),
+  reviewedAt:text("reviewed_at").notNull().default(""),
+  rejectReason:text("reject_reason").notNull().default(""),
+  history:text("history").notNull().default("")},
   t=>[index("wf_at_kind_idx").on(t.kind),index("wf_at_status_idx").on(t.status),
       index("wf_at_company_idx").on(t.companyId),index("wf_at_assigned_idx").on(t.assignedTo),
-      index("wf_at_kind_status_idx").on(t.kind,t.status),index("wf_at_completed_on_idx").on(t.completedOn)]);
+      index("wf_at_kind_status_idx").on(t.kind,t.status),index("wf_at_completed_on_idx").on(t.completedOn),index("wf_at_assigned_email_idx").on(t.assignedEmail)]);
 
 export const wfBatches=sqliteTable("wf_batches",{
   id:text("id").primaryKey(),

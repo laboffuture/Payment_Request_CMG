@@ -1,249 +1,286 @@
 "use client";
 /* Pre-audit tasks.
 
-   The Audit Head adds the tasks; they go into an open pool. An auditor sees the open
-   pool, takes the task they will do, and from then on nobody else sees it. When it is
-   done they file a short report: the task's title, project, category and department are
-   filled in and locked, the auditor is whoever took it and the date is today. They write
-   what was done and the observations found; the observations go to the observation
-   register as well.
+   Nobody creates tasks here: each auditor works from their own task sheet and, once a task
+   is done, reports it - project, vertical, task title, department, what was done, the
+   observations found and any reference files. The auditor's name and today's date are
+   filled in and locked. The report goes to the Audit Head, who accepts it (the task is
+   closed) or rejects it with a reason; a rejected report keeps its record and the auditor
+   corrects it and sends it again.
 
-   The Audit Head sees every completed task, searches and filters them by auditor,
-   project and date, and writes remarks on them. */
+   The Audit Head audits too, and reports his own work the same way - it needs nobody's
+   review and is accepted as reported. He sees the whole team's reports, filtered by
+   auditor, project, vertical, department and date. */
 
-import{useEffect,useMemo,useState}from"react";
-import{CheckCircle2,Download,Plus,Search,Trash2,X}from"lucide-react";
+import{useEffect,useMemo,useRef,useState}from"react";
+import{CheckCircle2,Download,FileUp,Plus,Search,X,XCircle}from"lucide-react";
 import{auditTasksApi}from"./audit-api";
 import type{AuditRow}from"./audit-api";
 import{csv,useAsync}from"./workforce-store";
 import{Pager}from"./WorkforceShared";
-import{PreAuditTaskForm}from"./PreAuditForms";
+import Attachments from"./Attachments";
+import type{Job}from"../lib/jobs";
 
 const HEAD_ROLES=["Audit Head","Administrator"];
 const LIMIT=25;
 const req=<i className="pa-req" aria-hidden="true">*</i>;
 const opt=<i className="field-optional">optional</i>;
-/* Today in India, as the server dates a completed task. */
+/* Today in India, as the server dates a report. */
 const indiaToday=()=>new Date(Date.now()+330*60_000).toISOString().slice(0,10);
 const uniq=(xs:string[])=>[...new Set(xs.map(x=>(x||"").trim()).filter(Boolean))].sort((a,b)=>a.localeCompare(b));
 const day=(d:string)=>d?new Date(`${d.slice(0,10)}T00:00:00`).toLocaleDateString("en-GB",{day:"2-digit",month:"short",year:"numeric"}):"—";
 const when=(iso:string)=>iso?new Date(iso).toLocaleString("en-GB",{day:"2-digit",month:"short",year:"numeric",hour:"2-digit",minute:"2-digit"}):"—";
-type Remark={by:string;at:string;text:string};
-const remarksOf=(v?:string):Remark[]=>{try{const r=JSON.parse(v||"[]");return Array.isArray(r)?r:[]}catch{return[]}};
-const OPEN=(t:AuditRow)=>t.status==="Available";
-const DONE=(t:AuditRow)=>t.status==="Completed";
-const WORKING=(t:AuditRow)=>!OPEN(t)&&!DONE(t);
+type Step={by:string;at:string;action:string;note?:string};
+const listOf=<T,>(v?:string):T[]=>{try{const r=JSON.parse(v||"[]");return Array.isArray(r)?r:[]}catch{return[]}};
+const tone=(s:string)=>s==="Accepted"?"green":s==="Rejected"?"red":"amber";
+const label=(s:string)=>s==="Reported"?"Waiting for review":s;
 
-type Tab="open"|"mine"|"done"|"working";
+type Status="Reported"|"Accepted"|"Rejected";
+type Catalogue={tasks:{entity:string;title:string}[]};
 
-export default function PreAuditDesk({role,departments,flash,changed}:{role:string;departments:string[];
-  flash:(m:string)=>void;changed?:()=>void}){
+export default function PreAuditDesk({role,departments,jobs,userName,flash,changed}:{role:string;departments:string[];jobs:Job[];
+  userName:string;flash:(m:string)=>void;changed?:()=>void}){
   const head=HEAD_ROLES.includes(role);
-  const[tab,setTab]=useState<Tab>(head?"done":"open");
+  const[tab,setTab]=useState<Status>("Reported");
   const[version,setVersion]=useState(0);
   const reload=()=>{setVersion(v=>v+1);changed?.()};
-  /* The open pool and the work under way. The server leaves out what other auditors hold. */
-  const live=useAsync(()=>auditTasksApi.load({kind:"Pre-Audit",limit:200}),[version]);
-  const all=useMemo(()=>(live.data?.tasks||[]).filter(t=>!DONE(t)),[live.data]);
-  const open=all.filter(OPEN),working=all.filter(WORKING);
 
-  /* Completed tasks are searched on the server, a page at a time, since they only grow. */
   const[raw,setRaw]=useState(""),[q,setQ]=useState("");
-  const[auditor,setAuditor]=useState(""),[project,setProject]=useState("");
+  const[auditor,setAuditor]=useState(""),[project,setProject]=useState(""),[vertical,setVertical]=useState(""),[dept,setDept]=useState("");
   const[from,setFrom]=useState(""),[to,setTo]=useState(""),[offset,setOffset]=useState(0);
   useEffect(()=>{const t=setTimeout(()=>{setQ(raw);setOffset(0)},300);return()=>clearTimeout(t)},[raw]);
-  const done=useAsync(()=>auditTasksApi.load({kind:"Pre-Audit",status:"Completed",q,assignedTo:auditor,entity:project,
-    from,to,limit:LIMIT,offset}),[q,auditor,project,from,to,offset,version]);
-  const doneRows=done.data?.tasks||[],doneTotal=done.data?.total||0;
+  const filters={kind:"Pre-Audit",q,assignedTo:auditor,project,entity:vertical,department:dept,from,to};
+  const list=useAsync(()=>auditTasksApi.load({...filters,status:tab,limit:LIMIT,offset}),
+    [tab,q,auditor,project,vertical,dept,from,to,offset,version]);
+  /* The count on each tab, under the same filters. */
+  const counts=useAsync(async()=>{const n=await Promise.all((["Reported","Accepted","Rejected"] as Status[])
+      .map(s=>auditTasksApi.load({...filters,status:s,limit:1}).then(d=>d.total)));
+    return{Reported:n[0],Accepted:n[1],Rejected:n[2]} as Record<Status,number>},
+    [q,auditor,project,vertical,dept,from,to,version]);
+  const rows=list.data?.tasks||[],total=list.data?.total||0;
 
-  /* The filter choices: every auditor and every project the catalogue knows. */
-  const catalogue=useAsync(()=>fetch("/api/task-catalogue").then(r=>r.json()) as Promise<{tasks:{entity:string}[];auditors:{name:string}[]}>,[]);
-  const auditors=uniq([...(catalogue.data?.auditors||[]).map(a=>a.name),...doneRows.map(t=>t.assignedTo),auditor]);
-  const projects=uniq([...(catalogue.data?.tasks||[]).map(t=>t.entity),...all.map(t=>t.entity||""),...doneRows.map(t=>t.entity||""),project]);
+  /* The filter and form choices. */
+  const catalogue=useAsync(()=>fetch("/api/task-catalogue").then(r=>r.json()) as Promise<Catalogue&{auditors:{name:string}[]}>,[]);
+  const verticals=uniq([...(catalogue.data?.tasks||[]).map(t=>t.entity),...rows.map(t=>t.entity||""),vertical]);
+  const projects=uniq([...jobs.map(j=>j.project),...rows.map(t=>t.project||""),project]);
+  const depts=uniq([...departments,...rows.map(t=>t.department),dept]);
+  const auditors=uniq([...(catalogue.data?.auditors||[]).map(a=>a.name),...rows.map(t=>t.assignedTo),auditor]);
 
-  const[adding,setAdding]=useState(false),[completing,setCompleting]=useState<AuditRow|null>(null),
-    [viewing,setViewing]=useState<AuditRow|null>(null),[busy,setBusy]=useState(""),[reporting,setReporting]=useState(false);
+  const[reporting,setReporting]=useState<AuditRow|"new"|null>(null),[viewing,setViewing]=useState<AuditRow|null>(null),
+    [exporting,setExporting]=useState(false);
+  const filtered=!!(auditor||project||vertical||dept||from||to||raw);
+  const clear=()=>{setAuditor("");setProject("");setVertical("");setDept("");setFrom("");setTo("");setRaw("");setOffset(0)};
 
-  const act=async(t:AuditRow,action:"take"|"release",msg:string)=>{
-    setBusy(t.id);
-    try{await auditTasksApi.update({id:t.id,action});flash(msg)}
-    catch(e){flash(e instanceof Error?e.message:"That did not work")}
-    finally{setBusy("");reload()}};
-  const remove=async(t:AuditRow)=>{
-    if(!confirm(`Delete ${t.ref} (${t.title})? Observations raised on it stay in the register.`))return;
-    try{await auditTasksApi.remove(t.id);flash(`${t.ref} deleted`);reload()}
-    catch(e){flash(e instanceof Error?e.message:"Could not delete it")}};
-  const create=async(t:Partial<AuditRow>)=>{
-    await auditTasksApi.create({...t,kind:"Pre-Audit"});flash("Task added to the open pool");reload()};
-
-  /* The report covers what the completed list shows - the filters decide - up to 1,000 tasks. */
-  const report=async()=>{setReporting(true);
+  /* The download covers the tab and filters on screen, up to 1,000 reports. */
+  const download=async()=>{setExporting(true);
     try{
-      const rows:AuditRow[]=[];
+      const all:AuditRow[]=[];
       for(let off=0;off<1000;off+=200){
-        const d=await auditTasksApi.load({kind:"Pre-Audit",status:"Completed",q,assignedTo:auditor,entity:project,from,to,limit:200,offset:off});
-        rows.push(...d.tasks);if(off+200>=d.total)break}
-      csv([["Task no.","Task title","Project","Category","Department","Task done by","Task started on","Task completed on",
-        "Description","Observations","Remarks"],
-        ...rows.map(t=>[t.ref,t.title,t.entity||"",t.category||"",t.department,t.assignedTo,when(t.acceptedAt),t.completedOn||"",
-          t.workDescription||"",t.observations||"",remarksOf(t.remarks).map(r=>`${r.text} (${r.by}, ${when(r.at)})`).join(" | ")])],
-        `pre-audit-completed-${indiaToday()}.csv`);
-      flash(`Report downloaded: ${rows.length} task${rows.length===1?"":"s"}`)}
-    catch(e){flash(e instanceof Error?e.message:"Could not build the report")}
-    finally{setReporting(false)}};
+        const d=await auditTasksApi.load({...filters,status:tab,limit:200,offset:off});
+        all.push(...d.tasks);if(off+200>=d.total)break}
+      csv([["Task no.","Task title","Project","Vertical","Department",...(head?["Task done by"]:[]),"Task completed date","Status",
+        "Description","Observations","Reviewed by","Reviewed on","Rejection reason"],
+        ...all.map(t=>[t.ref,t.title,t.project||"",t.entity||"",t.department,...(head?[t.assignedTo]:[]),t.completedOn||"",label(t.status),
+          t.workDescription||"",t.observations||"",t.reviewedBy||"",t.reviewedAt?when(t.reviewedAt):"",t.rejectReason||""])],
+        `pre-audit-${tab.toLowerCase()}-${indiaToday()}.csv`);
+      flash(`Downloaded ${all.length} report${all.length===1?"":"s"}`)}
+    catch(e){flash(e instanceof Error?e.message:"Could not build the download")}
+    finally{setExporting(false)}};
 
-  const tabs:[Tab,string,number|null][]=head
-    ?[["done","Completed",doneTotal],["working","In progress",working.length],["open","Open tasks",open.length]]
-    :[["open","Open tasks",open.length],["mine","My tasks",working.length],["done","My completed",doneTotal]];
-  const pool=tab==="open"?open:working;
+  const tabs:[Status,string][]=[["Reported",head?"To review":"Reported tasks"],["Accepted","Accepted"],["Rejected","Rejected"]];
+  const set=(f:(v:string)=>void)=>(e:React.ChangeEvent<HTMLInputElement|HTMLSelectElement>)=>{f(e.target.value);setOffset(0)};
 
   return <div className="page audit-list-page">
     <div className="intro"><div><small>AUDIT DEPARTMENT</small><h2>Pre-audit tasks</h2>
-      <p>{head?"Add tasks to the open pool, and review what the auditors completed."
-        :"Take a task from the open pool. Once you take it, it is yours and leaves the pool for everyone else."}</p></div>
+      <p>{head?"Review what the team reported, and report your own work."
+        :"Finished a task from your sheet? Report it here for the Audit Head to accept."}</p></div>
       <div className="audit-list-actions">
-        {tab==="done"&&head&&<button disabled={reporting||!doneTotal} onClick={report}><Download/>{reporting?"Preparing…":"Download report"}</button>}
-        {head&&<button className="primary" onClick={()=>setAdding(true)}><Plus/>New pre-audit task</button>}
+        <button disabled={exporting||!total} onClick={download}><Download/>{exporting?"Preparing…":"Download"}</button>
+        <button className="primary" onClick={()=>setReporting("new")}><Plus/>Report task completion</button>
       </div></div>
 
     <section className="panel audit-list">
-      <div className="audit-list-tabs">{tabs.map(([k,l,n])=>
-        <button key={k} className={tab===k?"active":""} onClick={()=>setTab(k)}>{l}{n!==null&&<i>{n}</i>}</button>)}</div>
-
-      {tab==="done"?<>
-        <div className="audit-list-tools pa-filters">
-          <label><Search/><input value={raw} onChange={e=>setRaw(e.target.value)} placeholder="Search task, project or auditor"/></label>
-          {head&&<select value={auditor} onChange={e=>{setAuditor(e.target.value);setOffset(0)}} aria-label="Auditor">
-            <option value="">All auditors</option>{auditors.map(a=><option key={a}>{a}</option>)}</select>}
-          <select value={project} onChange={e=>{setProject(e.target.value);setOffset(0)}} aria-label="Project">
-            <option value="">All projects</option>{projects.map(p=><option key={p}>{p}</option>)}</select>
-          <label className="pa-date">From<input type="date" value={from} max={to||undefined} onChange={e=>{setFrom(e.target.value);setOffset(0)}}/></label>
-          <label className="pa-date">To<input type="date" value={to} min={from||undefined} onChange={e=>{setTo(e.target.value);setOffset(0)}}/></label>
-          <button type="button" className={from===indiaToday()&&to===indiaToday()?"pa-chip on":"pa-chip"}
-            onClick={()=>{const d=indiaToday();setFrom(d);setTo(d);setOffset(0)}}>Today</button>
-          {(auditor||project||from||to||raw)&&<button type="button" className="pa-chip" onClick={()=>{setAuditor("");setProject("");setFrom("");setTo("");setRaw("");setOffset(0)}}>Clear</button>}
-        </div>
-        <div className="table-wrap"><table><thead><tr><th>TASK</th><th>PROJECT</th><th>TASK DONE BY</th><th>STARTED ON</th>
-          <th>COMPLETED ON</th><th>OBSERVATIONS</th><th>REMARKS</th></tr></thead>
-          <tbody>{doneRows.map(t=>{const r=remarksOf(t.remarks);return <tr key={t.id} onClick={()=>setViewing(t)} className="pa-row">
-            <td><b>{t.ref}</b><small>{t.title}</small></td>
-            <td>{t.entity||"—"}<small>{[t.category,t.department].filter(Boolean).join(" · ")}</small></td>
-            <td>{t.assignedTo||"—"}</td>
-            <td>{when(t.acceptedAt)}</td>
-            <td><b>{day(t.completedOn||t.completedAt)}</b></td>
-            <td>{t.observations?<span className="pa-clip">{t.observations}</span>:<small>None</small>}</td>
-            <td><button className="wb-next" onClick={e=>{e.stopPropagation();setViewing(t)}}>
-              {head?(r.length?`Remarks (${r.length})`:"Add remark"):r.length?`Remarks (${r.length})`:"View"}</button>
-              {head&&<div className="pa-head"><button className="pa-del" onClick={e=>{e.stopPropagation();remove(t)}}><Trash2/>Delete</button></div>}</td>
-          </tr>})}</tbody></table>
-          {done.error?<div className="wb-empty"><b>Could not load the completed tasks</b><span>{done.error}</span></div>
-          :!doneRows.length&&!done.loading&&<div className="wb-empty"><CheckCircle2/><b>No completed tasks</b>
-            <span>{auditor||project||from||to||q?"Nothing matches these filters.":"Completed pre-audit tasks appear here."}</span></div>}</div>
-        <Pager total={doneTotal} limit={LIMIT} offset={offset} setOffset={setOffset}/>
-      </>
-      :<div className="table-wrap"><table><thead><tr><th>TASK</th><th>PROJECT</th><th>DEPARTMENT</th><th>DUE</th>
-        {tab!=="open"&&<><th>TAKEN BY</th><th>STARTED ON</th></>}<th>ACTION</th></tr></thead>
-        <tbody>{pool.map(t=><tr key={t.id}>
-          <td><b>{t.ref}</b><small>{t.title}</small>{t.notes&&<small className="pa-clip">{t.notes}</small>}</td>
-          <td>{t.entity||"—"}<small>{t.category||""}</small></td>
+      <div className="audit-list-tabs">{tabs.map(([k,l])=>
+        <button key={k} className={tab===k?"active":""} onClick={()=>{setTab(k);setOffset(0)}}>{l}<i>{counts.data?.[k]??"…"}</i></button>)}</div>
+      <div className="audit-list-tools pa-filters">
+        <label><Search/><input value={raw} onChange={e=>setRaw(e.target.value)} placeholder="Search task, project or description"/></label>
+        {head&&<select value={auditor} onChange={set(setAuditor)} aria-label="Auditor">
+          <option value="">All auditors</option>{auditors.map(a=><option key={a}>{a}</option>)}</select>}
+        <select value={project} onChange={set(setProject)} aria-label="Project">
+          <option value="">All projects</option>{projects.map(p=><option key={p}>{p}</option>)}</select>
+        <select value={vertical} onChange={set(setVertical)} aria-label="Vertical">
+          <option value="">All verticals</option>{verticals.map(p=><option key={p}>{p}</option>)}</select>
+        <select value={dept} onChange={set(setDept)} aria-label="Department">
+          <option value="">All departments</option>{depts.map(p=><option key={p}>{p}</option>)}</select>
+        <label className="pa-date">From<input type="date" value={from} max={to||undefined} onChange={set(setFrom)}/></label>
+        <label className="pa-date">To<input type="date" value={to} min={from||undefined} onChange={set(setTo)}/></label>
+        <button type="button" className={from===indiaToday()&&to===indiaToday()?"pa-chip on":"pa-chip"}
+          onClick={()=>{const d=indiaToday();setFrom(d);setTo(d);setOffset(0)}}>Today</button>
+        {filtered&&<button type="button" className="pa-chip" onClick={clear}>Clear</button>}
+      </div>
+      <div className="table-wrap"><table><thead><tr><th>TASK</th><th>PROJECT</th><th>VERTICAL</th><th>DEPARTMENT</th>
+        {head&&<th>TASK DONE BY</th>}<th>COMPLETED ON</th><th>STATUS</th><th>ACTION</th></tr></thead>
+        <tbody>{rows.map(t=><tr key={t.id} className="pa-row" onClick={()=>setViewing(t)}>
+          <td><b>{t.ref}</b><small>{t.title}</small></td>
+          <td>{t.project||"—"}</td>
+          <td>{t.entity||"—"}</td>
           <td>{t.department||"—"}</td>
-          <td><b>{t.due?day(t.due):"Not set"}</b><small>{t.dueRule||""}{t.frequency&&t.frequency!=="One time"?` · ${t.frequency}`:""}</small></td>
-          {tab!=="open"&&<><td>{t.assignedTo||"—"}</td><td>{when(t.acceptedAt)}</td></>}
-          <td>{tab==="open"
-            ?(head?<span className="wb-next wb-readonly">Waiting for an auditor</span>
-              :<button className="wb-next" disabled={busy===t.id} onClick={()=>act(t,"take",`${t.ref} is yours - find it under My tasks`)}>
-                {busy===t.id?"Taking…":"Take this task"}</button>)
-            :<div className="wb-next-pair">
-              {!head&&<button className="wb-next" onClick={()=>setCompleting(t)}>Complete task</button>}
-              <button className="wb-next" disabled={busy===t.id} onClick={()=>{
-                if(confirm(head?`Put ${t.ref} back in the open pool? ${t.assignedTo} will no longer hold it.`:`Give ${t.ref} back to the open pool?`))
-                  act(t,"release",`${t.ref} is back in the open pool`)}}>{head?"Back to pool":"Give back"}</button></div>}
-            {head&&<div className="pa-head"><button className="pa-del" onClick={()=>remove(t)}><Trash2/>Delete</button></div>}</td>
+          {head&&<td>{t.assignedTo||"—"}</td>}
+          <td><b>{day(t.completedOn||t.completedAt)}</b></td>
+          <td><span className={`badge ${tone(t.status)}`}>{label(t.status)}</span>
+            {t.status==="Rejected"&&t.rejectReason&&<small className="pa-clip">{t.rejectReason}</small>}
+            {t.status!=="Reported"&&t.reviewedBy&&<small>by {t.reviewedBy}</small>}
+            {/* A report rejected and sent again keeps its rejection on record. */}
+            {t.status!=="Rejected"&&(()=>{const n=listOf<Step>(t.history).filter(s=>s.action==="Rejected").length;
+              return n?<small className="pa-was">Rejected {n===1?"once":`${n} times`} before</small>:null})()}</td>
+          <td><button className="wb-next" onClick={e=>{e.stopPropagation();
+              if(!head&&t.status==="Rejected")setReporting(t);else setViewing(t)}}>
+            {head&&t.status==="Reported"?"Review":!head&&t.status==="Rejected"?"Edit & resubmit":"View"}</button></td>
         </tr>)}</tbody></table>
-        {live.error?<div className="wb-empty"><b>Could not load the tasks</b><span>{live.error}</span></div>
-        :!pool.length&&!live.loading&&<div className="wb-empty"><CheckCircle2/>
-          <b>{tab==="open"?"No open tasks":head?"Nothing in progress":"You have no tasks in hand"}</b>
-          <span>{tab==="open"?(head?"Add a task and it appears here for the auditors.":"New tasks appear here when the Audit Head adds them.")
-            :head?"Tasks the auditors take appear here.":"Take one from Open tasks."}</span></div>}</div>}
+        {list.error?<div className="wb-empty"><b>Could not load the reports</b><span>{list.error}</span></div>
+        :!rows.length&&!list.loading&&<div className="wb-empty"><CheckCircle2/>
+          <b>{filtered?"Nothing matches these filters":tab==="Reported"?(head?"Nothing waiting for review":"Nothing waiting for review")
+            :tab==="Accepted"?"Nothing accepted yet":"Nothing rejected"}</b>
+          <span>{filtered?"Change or clear the filters.":tab==="Reported"
+            ?(head?"Reports from the auditors appear here.":"Use Report task completion when you finish a task.")
+            :"Reports appear here once the Audit Head has reviewed them."}</span></div>}</div>
+      <Pager total={total} limit={LIMIT} offset={offset} setOffset={setOffset}/>
     </section>
 
-    {adding&&<PreAuditTaskForm departments={departments} close={()=>setAdding(false)} create={t=>create(t)}/>}
-    {completing&&<CompleteForm task={completing} close={()=>setCompleting(null)}
-      saved={m=>{setCompleting(null);flash(m);reload()}}/>}
-    {viewing&&<TaskReport task={viewing} head={head} close={()=>setViewing(null)}
+    {reporting&&<ReportForm task={reporting==="new"?null:reporting} userName={userName} head={head}
+      verticals={uniq((catalogue.data?.tasks||[]).map(t=>t.entity))} catalogue={catalogue.data?.tasks||[]}
+      projects={uniq(jobs.map(j=>j.project))} departments={uniq(departments)} close={()=>setReporting(null)}
+      saved={(m,next)=>{setReporting(null);flash(m);setTab(next);setOffset(0);reload()}}/>}
+    {viewing&&<ReportView task={viewing} head={head} close={()=>setViewing(null)} flash={flash}
+      edit={()=>{setReporting(viewing);setViewing(null)}}
       saved={(t,m)=>{setViewing(t);flash(m);reload()}}/>}
   </div>}
 
-/* The auditor's completion report. Only the description and the observations are theirs
-   to write; the rest is the task's, and the server takes it from the task, not from here. */
-function CompleteForm({task,close,saved}:{task:AuditRow;close:()=>void;saved:(m:string)=>void}){
-  const[description,setDescription]=useState(""),[found,setFound]=useState("");
+/* Reporting a finished task, or correcting a rejected one. The auditor and the date are
+   filled in and locked - the server takes them from the sign-in and the clock. */
+function ReportForm({task,userName,head,verticals,catalogue,projects,departments,close,saved}:{task:AuditRow|null;userName:string;head:boolean;
+  verticals:string[];catalogue:{entity:string;title:string}[];projects:string[];departments:string[];
+  close:()=>void;saved:(m:string,tab:Status)=>void}){
+  const[f,setF]=useState({project:task?.project||"",entity:task?.entity||"",title:task?.title||"",department:task?.department||"",
+    workDescription:task?.workDescription||"",observations:task?.observations||""});
+  const[files,setFiles]=useState<File[]>([]);
   const[busy,setBusy]=useState(false),[err,setErr]=useState("");
+  const input=useRef<HTMLInputElement>(null);
+  const set=(k:keyof typeof f)=>(e:React.ChangeEvent<HTMLInputElement|HTMLSelectElement|HTMLTextAreaElement>)=>setF(x=>({...x,[k]:e.target.value}));
+  const titles=useMemo(()=>uniq(catalogue.filter(t=>!f.entity||t.entity===f.entity).map(t=>t.title)),[catalogue,f.entity]);
+  const steps=listOf<Step>(task?.history).filter(s=>s.action==="Rejected");
+
   const submit=async(e:React.FormEvent)=>{
-    e.preventDefault();if(!description.trim())return;setBusy(true);setErr("");
-    try{await auditTasksApi.update({id:task.id,action:"complete",workDescription:description.trim(),observations:found.trim()} as never);
-      saved(`${task.ref} completed${found.trim()?" - observations sent to the observation register":""}`)}
-    catch(x){setErr(x instanceof Error?x.message:"Could not complete the task");setBusy(false)}};
+    e.preventDefault();setBusy(true);setErr("");
+    try{
+      const t=task?await auditTasksApi.update({id:task.id,action:"resubmit",...f} as never)
+        :await auditTasksApi.create({kind:"Pre-Audit",...f} as never);
+      /* Reference files go up once the report exists to hold them. One that fails is named;
+         the report itself is already saved. */
+      const failed:string[]=[];
+      for(const file of files){
+        try{
+          const dataUrl=await new Promise<string>((ok,no)=>{const r=new FileReader();r.onload=()=>ok(String(r.result));r.onerror=()=>no(r.error);r.readAsDataURL(file)});
+          const res=await fetch("/api/attachments",{method:"POST",headers:{"content-type":"application/json"},
+            body:JSON.stringify({entityType:"audit-task",entityId:t.id,kind:"Other",note:"Reference file",fileName:file.name,dataUrl})});
+          if(!res.ok)throw new Error(((await res.json().catch(()=>({}))) as {error?:string}).error||file.name)}
+        catch(x){failed.push(x instanceof Error?x.message:file.name)}}
+      const next:Status=t.status==="Accepted"?"Accepted":"Reported";
+      saved(`${t.ref} ${task?"sent again":head?"recorded":"reported to the Audit Head"}`+
+        (failed.length?`. Not attached: ${failed.join("; ")}`:""),next)}
+    catch(x){setErr(x instanceof Error?x.message:"Could not save the report");setBusy(false)}};
+
   return <><button className="overlay" onClick={close}/>
     <form className="modal" onSubmit={submit}>
-      <header><div><small>COMPLETE TASK · {task.ref}</small><h2>{task.title}</h2></div>
+      <header><div><small>{task?`EDIT & RESUBMIT · ${task.ref}`:"PRE-AUDIT"}</small><h2>{task?task.title:"Report task completion"}</h2></div>
         <button type="button" onClick={close}><X/></button></header>
       <div className="form">
-        <Locked label="Project" value={task.entity||"—"}/>
-        <Locked label="Category" value={task.category||"—"}/>
-        <Locked label="Department" value={task.department||"—"}/>
-        <Locked label="Task done by" value={task.assignedTo||"—"}/>
-        <Locked wide label="Task title" value={task.title}/>
-        <Locked label="Task started on" value={when(task.acceptedAt)}/>
-        <Locked label="Task completed on" value={day(indiaToday())}/>
+        {steps.length>0&&<div className="wide pa-rejected">{steps.map((s,i)=><p key={i}><b>Rejected by {s.by} · {when(s.at)}</b><span>{s.note}</span></p>)}</div>}
+        <label>Project {req}
+          <input required list="pa-projects" value={f.project} onChange={set("project")} placeholder="Choose or type the project"/>
+          <datalist id="pa-projects">{projects.map(p=><option key={p} value={p}/>)}</datalist></label>
+        <label>Vertical {req}
+          <select required value={f.entity} onChange={set("entity")}>
+            <option value="">Select vertical</option>{uniq([...verticals,f.entity]).map(v=><option key={v}>{v}</option>)}</select></label>
+        <label className="wide">Task title {req}
+          <input required list="pa-titles" value={f.title} onChange={set("title")} placeholder="Choose a task, or type it as it is on your sheet"/>
+          <datalist id="pa-titles">{titles.map(t=><option key={t} value={t}/>)}</datalist></label>
+        <label>Department {req}
+          <select required value={f.department} onChange={set("department")}>
+            <option value="">{departments.length?"Select department":"Loading departments…"}</option>
+            {uniq([...departments,f.department]).map(d=><option key={d}>{d}</option>)}</select></label>
+        <Locked label="Task done by" value={task?.assignedTo||userName||"You"}/>
+        <Locked label="Task completed date" value={day(indiaToday())}/>
         <label className="wide">Description {req}
-          <textarea required autoFocus value={description} onChange={e=>setDescription(e.target.value)}
+          <textarea required value={f.workDescription} onChange={set("workDescription")}
             placeholder="What was checked, against what evidence, and the result"/></label>
         <label className="wide">Observations {opt}
-          <textarea value={found} onChange={e=>setFound(e.target.value)}
+          <textarea value={f.observations} onChange={set("observations")}
             placeholder="What was found that needs attention. Leave empty if nothing was found."/></label>
-        <p className="wide pa-note">The observations are also added to the observation register against this task.
-          Once completed, the task cannot be changed.</p>
+        <div className="wide"><span className="pa-label">Reference files <em className="pa-opt">optional</em></span>
+          <div className="pa-files">
+            <button type="button" className="pa-chip" onClick={()=>input.current?.click()}><FileUp/>Add files</button>
+            <input ref={input} type="file" multiple hidden accept="image/*,application/pdf,.doc,.docx,.xls,.xlsx,.csv,.txt,.zip"
+              onChange={e=>{const add=Array.from(e.target.files||[]);setFiles(v=>[...v,...add]);e.target.value=""}}/>
+            {files.map((x,i)=><span key={i} className="wf-tag on">{x.name}
+              <button type="button" aria-label={`Remove ${x.name}`} onClick={()=>setFiles(v=>v.filter((_,j)=>j!==i))}>×</button></span>)}
+            {!files.length&&<span className="pa-hint">{task?"Files already attached stay; add more here.":"PDF, images, Word, Excel, CSV or ZIP."}</span>}
+          </div></div>
+        <p className="wide pa-note">{head?"Your own work is recorded as accepted.":"The Audit Head is told, and accepts or rejects it."}
+          {" "}Observations are also added to the observation register.</p>
         {err&&<p className="wide form-error">{err}</p>}
       </div>
       <footer><button type="button" onClick={close}>Cancel</button>
-        <button className="primary" disabled={busy||!description.trim()}><CheckCircle2/>{busy?"Saving…":"Complete task"}</button></footer>
+        <button className="primary" disabled={busy}><CheckCircle2/>{busy?"Saving…":task?"Resubmit":"Report"}</button></footer>
     </form></>}
 
 function Locked({label,value,wide}:{label:string;value:string;wide?:boolean}){
   return <label className={wide?"wide":undefined}>{label}<input readOnly tabIndex={-1} className="pa-locked" value={value}/></label>}
 
-/* A completed task as filed, with the Audit Head's remarks - and, for the Audit Head, a box
-   to add one. Remarks are added to, never edited. */
-function TaskReport({task,head,close,saved}:{task:AuditRow;head:boolean;close:()=>void;saved:(t:AuditRow,m:string)=>void}){
-  const[text,setText]=useState(""),[busy,setBusy]=useState(false),[err,setErr]=useState("");
-  const list=remarksOf(task.remarks);
-  const submit=async(e:React.FormEvent)=>{
-    e.preventDefault();if(!text.trim())return;setBusy(true);setErr("");
-    try{const t=await auditTasksApi.update({id:task.id,action:"remark",remark:text.trim()} as never);
-      setText("");setBusy(false);saved(t,`Remark added to ${task.ref}`)}
-    catch(x){setErr(x instanceof Error?x.message:"Could not save the remark");setBusy(false)}};
+/* A report as filed, with its files and its review history. The Audit Head accepts or
+   rejects one waiting for review; the auditor can correct a rejected one. */
+function ReportView({task,head,close,saved,edit,flash}:{task:AuditRow;head:boolean;close:()=>void;flash:(m:string)=>void;
+  saved:(t:AuditRow,m:string)=>void;edit:()=>void}){
+  const[rejecting,setRejecting]=useState(false),[reason,setReason]=useState("");
+  const[busy,setBusy]=useState(false),[err,setErr]=useState("");
+  const steps=listOf<Step>(task.history);
+  const review=head&&task.status==="Reported";
+  const decide=async(action:"accept"|"reject")=>{
+    if(action==="reject"&&!reason.trim()){setErr("Write the reason for rejecting it.");return}
+    setBusy(true);setErr("");
+    try{const t=await auditTasksApi.update({id:task.id,action,reason:reason.trim()} as never);
+      setRejecting(false);setReason("");setBusy(false);
+      saved(t,`${task.ref} ${action==="accept"?"accepted - the task is closed":"rejected - the auditor has been told"}`)}
+    catch(x){setErr(x instanceof Error?x.message:"That did not work");setBusy(false)}};
   return <><button className="overlay" onClick={close}/>
-    <form className="modal" onSubmit={submit}>
-      <header><div><small>COMPLETED TASK · {task.ref}</small><h2>{task.title}</h2></div>
+    <div className="modal pa-view">
+      <header><div><small>{task.ref} · <span className={`badge ${tone(task.status)}`}>{label(task.status)}</span></small><h2>{task.title}</h2></div>
         <button type="button" onClick={close}><X/></button></header>
       <div className="form">
-        <Locked label="Project" value={task.entity||"—"}/>
-        <Locked label="Category" value={task.category||"—"}/>
+        <Locked label="Project" value={task.project||"—"}/>
+        <Locked label="Vertical" value={task.entity||"—"}/>
         <Locked label="Department" value={task.department||"—"}/>
         <Locked label="Task done by" value={task.assignedTo||"—"}/>
-        <Locked label="Task started on" value={when(task.acceptedAt)}/>
-        <Locked label="Task completed on" value={day(task.completedOn||task.completedAt)}/>
+        <Locked label="Task completed date" value={day(task.completedOn||task.completedAt)}/>
+        <Locked label="Reviewed" value={task.status!=="Reported"&&task.reviewedBy?`${task.reviewedBy} · ${when(task.reviewedAt||"")}`:"Not yet"}/>
         <div className="wide pa-text"><span>Description</span><p>{task.workDescription||"—"}</p></div>
         <div className="wide pa-text"><span>Observations</span><p>{task.observations||"None"}</p></div>
-        <div className="wide"><span className="pa-label">Audit Head remarks</span>
-          <div className="pa-remarks">{list.length?list.map((r,i)=><p key={i}><b>{r.text}</b><span>{r.by} · {when(r.at)}</span></p>)
-            :<p className="pa-none">No remarks yet.</p>}</div></div>
-        {head&&<label className="wide">New remark {req}
-          <textarea value={text} onChange={e=>setText(e.target.value)} placeholder="Your remark on this task"/></label>}
+        <div className="wide"><Attachments entityType="audit-task" entityId={task.id} flash={flash} readOnly canRemove={false}/></div>
+        {steps.length>0&&<div className="wide"><span className="pa-label">History</span>
+          <div className="pa-remarks">{steps.map((s,i)=><p key={i} className={s.action==="Rejected"?"pa-bad":undefined}>
+            <b>{s.action}{s.note?` - ${s.note}`:""}</b><span>{s.by} · {when(s.at)}</span></p>)}</div></div>}
+        {review&&rejecting&&<label className="wide">Reason for rejecting {req}
+          <textarea autoFocus value={reason} onChange={e=>setReason(e.target.value)} placeholder="What is wrong or missing, so the auditor can correct it"/></label>}
         {err&&<p className="wide form-error">{err}</p>}
       </div>
-      <footer><button type="button" onClick={close}>{head?"Cancel":"Close"}</button>
-        {head&&<button className="primary" disabled={busy||!text.trim()}><Plus/>{busy?"Saving…":"Add remark"}</button>}</footer>
-    </form></>}
-
+      <footer>
+        {review?(rejecting
+          ?<><button type="button" onClick={()=>{setRejecting(false);setErr("")}}>Back</button>
+            <button type="button" className="pa-reject" disabled={busy||!reason.trim()} onClick={()=>decide("reject")}><XCircle/>{busy?"Saving…":"Reject"}</button></>
+          :<><button type="button" className="pa-reject" onClick={()=>setRejecting(true)}><XCircle/>Reject</button>
+            <button type="button" className="primary" disabled={busy} onClick={()=>decide("accept")}><CheckCircle2/>{busy?"Saving…":"Accept"}</button></>)
+        :!head&&task.status==="Rejected"
+          ?<><button type="button" onClick={close}>Close</button><button type="button" className="primary" onClick={edit}>Edit &amp; resubmit</button></>
+          :<button type="button" onClick={close}>Close</button>}
+      </footer>
+    </div></>}

@@ -22,7 +22,8 @@ export type AuditRow={frequency?:string;recurDay?:string;recurUntil?:string;seri
   dataProvider:string;createdAt:string;acceptedAt:string;completedAt:string;
   category?:string;entity?:string;dueRule?:string;catalogueId?:string;remarks?:string;
   /* A pre-audit task: the auditor's login, and the report filed on completing it. */
-  assignedEmail?:string;workDescription?:string;observations?:string;completedOn?:string};
+  assignedEmail?:string;workDescription?:string;observations?:string;completedOn?:string;
+  project?:string;reviewedBy?:string;reviewedAt?:string;rejectReason?:string;history?:string};
 /* A task in the task catalogue - the pre-audit form's dropdowns. */
 export type CatalogueTask={id:string;title:string;description:string;category:string;entity:string;assigneeName:string;
   assigneeEmail:string;frequency:string;dueRule:string;nextDue:string;nextDueDate:string;status:string};

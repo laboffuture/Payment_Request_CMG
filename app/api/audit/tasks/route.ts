@@ -25,26 +25,30 @@ const shape=(t:Row)=>({id:str(t.id),ref:str(t.ref),title:str(t.title),kind:str(t
   createdAt:str(t.createdAt)||now(),acceptedAt:str(t.acceptedAt),completedAt:str(t.completedAt),extra:str(t.extra),
   category:str(t.category),entity:str(t.entity),dueRule:str(t.dueRule),catalogueId:str(t.catalogueId),
   remarks:str(t.remarks),assignedEmail:str(t.assignedEmail),workDescription:str(t.workDescription),
-  observations:str(t.observations),completedOn:str(t.completedOn)});
+  observations:str(t.observations),completedOn:str(t.completedOn),project:str(t.project),
+  reviewedBy:str(t.reviewedBy),reviewedAt:str(t.reviewedAt),rejectReason:str(t.rejectReason),history:str(t.history)});
 
-/* Who runs the pre-audit queue: adds and deletes tasks, sees every task and writes the
-   remarks on completed ones. */
+/* Who reviews pre-audit reports: accepts or rejects them, and sees every auditor's. */
 const HEAD_ROLES=["Audit Head","Administrator"];
 const isHead=(roles:string[]=[])=>roles.some(r=>HEAD_ROLES.includes(r));
-/* Who takes pre-audit tasks from the open pool and completes them. */
+/* Who reports pre-audit work: the auditors, and the Audit Head, who audits too. */
 const isAuditor=(roles:string[]=[])=>roles.some(r=>AUDITOR_ROLES.includes(r));
-/* The auditor holding a task. The login decides; a task taken before logins were kept
-   falls back to the name. */
-const holds=(t:Row,actor?:{email:string;name:string})=>!!actor&&(str(t.assignedEmail)
-  ?str(t.assignedEmail).toLowerCase()===actor.email.toLowerCase()
-  :!!str(t.assignedTo)&&str(t.assignedTo).trim().toLowerCase()===(actor.name||"").trim().toLowerCase());
+const owns=(t:Row,actor?:{email:string}|null)=>!!actor?.email&&str(t.assignedEmail).toLowerCase()===actor.email.toLowerCase();
 
-/* The pre-audit form's required fields, from the Daily Task Import template. Checked for
-   pre-audit tasks only - the other kinds share this route and have forms of their own. */
-function preAuditMissing(t:Row){
-  return([["title","Task title"],["category","Category (area)"],["department","Department"],["entity","Project / entity (vertical)"],
-    ["dueRule","Due date rule"],["due","Next due date"]] as const)
-    .filter(([k])=>!str(t[k]).trim()).map(([,l])=>l)}
+/* A pre-audit report's fields, as the auditor fills them in. Observations and reference
+   files are optional; the rest is required. */
+type Report={project:string;entity:string;title:string;department:string;workDescription:string;observations:string};
+function reportFrom(body:Row):Report|string{
+  const r={project:str(body.project).trim(),entity:str(body.entity).trim(),title:str(body.title).trim(),
+    department:str(body.department).trim(),workDescription:str(body.workDescription).trim(),observations:str(body.observations).trim()};
+  const missing=([["project","Project"],["entity","Vertical"],["title","Task title"],["department","Department"],
+    ["workDescription","Description"]] as const).filter(([k])=>!r[k]).map(([,l])=>l);
+  if(missing.length)return`${missing.join(", ")} must be filled in.`;
+  if(r.title.length>300||r.project.length>300)return"Keep the project and the task title under 300 characters.";
+  if(r.workDescription.length>5000||r.observations.length>5000)return"Keep the description and the observations under 5,000 characters each.";
+  return r}
+type Step={at:string;by:string;action:string;note?:string};
+const historyOf=(v:unknown):Step[]=>{try{const r=JSON.parse(str(v)||"[]");return Array.isArray(r)?r:[]}catch{return[]}};
 
 /* Pre-audit tasks are numbered Pre-Aud-Task-001, -002, ... as their ref, the number people
    read; the id behind it stays a key nothing shows. Each task, and each occurrence of a
@@ -117,22 +121,24 @@ export async function GET(req:Request){
     /* Completed between these days (inclusive), by the day the auditor filed it. */
     const from=url.searchParams.get("from"),to=url.searchParams.get("to");
     const q=search(url.searchParams.get("q"));
-    /* A pre-audit task an auditor has taken is theirs alone: the other auditors see the
-       open pool and their own tasks, never one somebody else is working. The Audit Head,
-       administrators and management see them all. */
+    /* An auditor sees only the pre-audit work they reported. The Audit Head,
+       administrators and management see everyone's. */
     const own=seesAllWork(actor?.roles)?undefined
-      :or(ne(wfAuditTasks.kind,"Pre-Audit"),eq(wfAuditTasks.status,"Available"),
-        eq(wfAuditTasks.assignedEmail,(actor?.email||"").toLowerCase()));
+      :or(ne(wfAuditTasks.kind,"Pre-Audit"),eq(wfAuditTasks.assignedEmail,(actor?.email||"").toLowerCase()));
+    const project=url.searchParams.get("project");
+    const department=url.searchParams.get("department");
     const filters=[own,
       kind?eq(wfAuditTasks.kind,kind):undefined,
       status?eq(wfAuditTasks.status,status):undefined,
       companyId?eq(wfAuditTasks.companyId,companyId):undefined,
       assignedTo?eq(wfAuditTasks.assignedTo,assignedTo):undefined,
       entity?eq(wfAuditTasks.entity,entity):undefined,
+      project?eq(wfAuditTasks.project,project):undefined,
+      department?eq(wfAuditTasks.department,department):undefined,
       from?gte(wfAuditTasks.completedOn,from):undefined,
       to?lte(wfAuditTasks.completedOn,to):undefined,
-      q?or(like(wfAuditTasks.title,q),like(wfAuditTasks.ref,q),like(wfAuditTasks.entity,q),
-        like(wfAuditTasks.assignedTo,q),like(wfAuditTasks.category,q)):undefined].filter(Boolean);
+      q?or(like(wfAuditTasks.title,q),like(wfAuditTasks.ref,q),like(wfAuditTasks.entity,q),like(wfAuditTasks.project,q),
+        like(wfAuditTasks.assignedTo,q),like(wfAuditTasks.workDescription,q)):undefined].filter(Boolean);
     const where=filters.length?and(...filters):undefined;
     /* Recurring series catch up here, because nothing else can. There is no scheduler on
        this host, so "every Monday" cannot fire on Monday morning by itself; the occurrences
@@ -145,7 +151,8 @@ export async function GET(req:Request){
     const [rows,[total]]=await Promise.all([
       db.select().from(wfAuditTasks).where(where)
         /* Completed work reads newest first by when it was finished; the rest by due date. */
-        .orderBy(...(status==="Completed"?[desc(wfAuditTasks.completedAt)]:[desc(wfAuditTasks.due)])).limit(limit).offset(offset),
+        /* Pre-audit reports read newest first by when they were reported; the rest by due date. */
+        .orderBy(...(kind==="Pre-Audit"?[desc(wfAuditTasks.completedAt)]:[desc(wfAuditTasks.due)])).limit(limit).offset(offset),
       db.select({n:count()}).from(wfAuditTasks).where(where)]);
     return Response.json({tasks:rows,total:total?.n??0,limit,offset});
   }catch(e){return oops(e)}}
@@ -160,18 +167,11 @@ export async function POST(req:Request){
     const{actor,response}=await requireAuth(req,"read");
     if(response)return response;
     const body=await req.json() as Row;
+    if(str(body.kind,"Pre-Audit")==="Pre-Audit")return await reportWork(req,body,actor);
     if(!str(body.title))return bad("title is required");
     if(KINDS.indexOf(str(body.kind,"Pre-Audit"))<0)return bad(`kind must be one of ${KINDS.join(", ")}`);
     if(!MEETING_KINDS.includes(str(body.kind,"Pre-Audit"))&&!hasWriteRole(actor?.roles))
       return bad("Your role cannot create audit programmes.",403);
-    if(str(body.kind,"Pre-Audit")==="Pre-Audit"){
-      const missing=preAuditMissing(body);
-      if(missing.length)return bad(`${missing.join(", ")} must be filled in.`,422);
-      if(!/^\d{4}-\d{2}-\d{2}$/.test(str(body.due)))return bad("Enter the next due date as a date.",422);
-      if(!isHead(actor?.roles))return bad("Only the Audit Head adds pre-audit tasks.",403);
-      /* A new pre-audit task goes into the open pool: the auditors pick their own. */
-      Object.assign(body,{assignedTo:"",assignedEmail:"",workDescription:"",observations:"",completedOn:"",remarks:""});
-    }
     body.status="Available";
     const id=str(body.id)||`AT-${Date.now().toString(36)}`;
     /* The first occurrence's own id becomes the series id, so a recurring task can be
@@ -194,7 +194,7 @@ export async function POST(req:Request){
     await notify(invited,{
       title:attendeeIds.length
         ?`${actor?.name||"Someone"} added you to a ${row.kind.toLowerCase()}: ${row.title}`
-        :row.kind==="Pre-Audit"?`New pre-audit task open to take: ${row.title}`:`New ${row.kind} task: ${row.title}`,
+        :`New ${row.kind} task: ${row.title}`,
       body:[row.due?`Due ${row.due}`:"",row.notes].filter(Boolean).join(" · "),
       module:moduleForKind(row.kind),recordId:row.id},actor?.email,
       byRole?["Auditor","Audit Head"]:undefined);
@@ -260,71 +260,99 @@ export async function PATCH(req:Request){
     return Response.json({task:row});
   }catch(e){return oops(e)}}
 
-/* A pre-audit task moves only by these actions, each checked here:
-   take     - an auditor takes an open task; from then on only they see it
-   release  - the auditor (or the Audit Head) puts it back in the open pool
-   complete - the auditor holding it files what was done and the observations found;
-              the title, project, category and department are the task's own, the auditor
-              is whoever holds it and the date is today - none of them come from the request
-   remark   - the Audit Head adds a remark to the task */
+/* What the auditor found goes to the observation register too, against the report. A
+   resubmitted report updates the observation it raised rather than raising a second one. */
+async function syncObservation(db:Awaited<ReturnType<typeof getDb>>,task:Row,r:Report,by:string,email:string,day:string){
+  if(!r.observations)return{statements:[] as unknown[],ref:""};
+  const id=str(task.id);
+  const[held]=await db.select({id:wfObservations.id,ref:wfObservations.ref}).from(wfObservations)
+    .where(and(eq(wfObservations.taskId,id),eq(wfObservations.raisedByEmail,email))).limit(1);
+  const fields={title:r.observations.length>90?`${r.observations.slice(0,87)}…`:r.observations,detail:r.observations,
+    entity:r.entity,area:r.project,dateIdentified:day};
+  if(held)return{statements:[db.update(wfObservations).set(fields).where(eq(wfObservations.id,held.id))] as unknown[],ref:held.ref};
+  const ref=await nextObservationRef(db);
+  return{ref,statements:[db.insert(wfObservations).values({...fields,id:`OB-${Date.now().toString(36)}`,ref,deptId:"d-group",
+    taskId:id,risk:"",status:"Open",raisedBy:by,raisedByEmail:email,raisedAt:now()})] as unknown[]}}
+
+/* An auditor reports work they have finished. The auditor is whoever is signed in and the
+   date is today - neither comes from the request. It goes to the Audit Head to accept or
+   reject; the Audit Head's own work needs nobody's review and is accepted as reported. */
+async function reportWork(req:Request,body:Row,actor:{email:string;name:string;roles:string[]}|null|undefined){
+  if(!actor||!isAuditor(actor.roles))return bad("Only auditors report pre-audit work.",403);
+  const r=reportFrom(body);
+  if(typeof r==="string")return bad(r,422);
+  const db=await getDb();
+  const me=actor.name||actor.email,email=actor.email.toLowerCase(),at=now(),day=indiaToday();
+  const self=actor.roles.includes("Audit Head");
+  const id=`AT-${Date.now().toString(36)}`;
+  const row=shape({...r,id,kind:"Pre-Audit",ref:preAuditNumber(await nextPreAuditNumber(db)),
+    status:self?"Accepted":"Reported",assignedTo:me,assignedEmail:email,raisedByEmail:email,
+    completedAt:at,completedOn:day,createdAt:at,
+    reviewedBy:self?me:"",reviewedAt:self?at:"",
+    history:JSON.stringify([{at,by:me,action:"Reported"},...(self?[{at,by:me,action:"Accepted",note:"Audit Head's own work"}]:[])])});
+  const obs=await syncObservation(db,row as unknown as Row,r,me,email,day);
+  await writeWithAudit([db.insert(wfAuditTasks).values(row),...obs.statements],actorOf(req,body),"audit-task",id,
+    "Pre-audit work reported",`${row.ref} · ${row.title}${obs.ref?` · ${obs.ref}`:""}`);
+  if(!self)await notify(await emailsForRoles(["Audit Head"]),{title:`${me} reported ${row.ref}: ${row.title}`,
+    body:[r.project,r.entity,"waiting for your review"].filter(Boolean).join(" · "),
+    module:moduleForKind("Pre-Audit"),recordId:id},actor.email);
+  return Response.json({task:row},{status:201})}
+
+/* A reported pre-audit task moves only by these actions, each checked here:
+   accept   - the Audit Head accepts it; the task is closed
+   reject   - the Audit Head rejects it, with the reason; the record stays
+   resubmit - the auditor corrects a rejected report and sends it again
+   remark   - the Audit Head adds a remark */
 async function preAuditAction(req:Request,body:Row,existing:Row,
   actor:{email:string;name:string;roles:string[]}|null|undefined){
   const db=await getDb();
   const id=str(existing.id),ref=str(existing.ref)||id,action=str(body.action);
-  const me=actor?.name||actor?.email||"";
+  const me=actor?.name||actor?.email||"",at=now();
+  const steps=historyOf(existing.history);
   const after=async()=>{const[t]=await db.select().from(wfAuditTasks).where(eq(wfAuditTasks.id,id)).limit(1);
     return Response.json({task:t})};
-  if(action==="accept"||action==="take"){
-    if(!isAuditor(actor?.roles))return bad("Only auditors take pre-audit tasks.",403);
-    if(existing.status!=="Available"||str(existing.assignedEmail))
-      return bad(`${ref} was already taken by ${str(existing.assignedTo)||"another auditor"}.`,409);
-    /* Only while it is still open: two auditors taking it at once, the second one is told. */
-    const taken=await db.update(wfAuditTasks).set({status:"In Progress",assignedTo:me,
-      assignedEmail:(actor?.email||"").toLowerCase(),acceptedAt:now()})
-      .where(and(eq(wfAuditTasks.id,id),eq(wfAuditTasks.status,"Available"),eq(wfAuditTasks.assignedEmail,""))).returning();
-    if(!taken.length)return bad(`${ref} was just taken by another auditor.`,409);
-    await writeWithAudit([],actorOf(req,body),"audit-task",id,"Pre-audit task taken",`${ref} · ${me}`);
-    return Response.json({task:taken[0]})}
-  if(action==="release"){
-    if(existing.status==="Completed")return bad(`${ref} is completed.`,409);
-    if(!holds(existing,actor||undefined)&&!isHead(actor?.roles))return bad("This task is not yours to give back.",403);
-    await writeWithAudit([db.update(wfAuditTasks).set({status:"Available",assignedTo:"",assignedEmail:"",acceptedAt:""})
-      .where(eq(wfAuditTasks.id,id))],actorOf(req,body),"audit-task",id,"Pre-audit task given back",
-      `${ref} · ${str(existing.assignedTo)} → open pool`);
+  if(action==="accept"||action==="reject"){
+    if(!isHead(actor?.roles))return bad("Only the Audit Head accepts or rejects pre-audit work.",403);
+    if(existing.status!=="Reported")return bad(`${ref} is not waiting for review - it is ${str(existing.status).toLowerCase()}.`,409);
+    const reason=str(body.reason).trim();
+    if(action==="reject"&&!reason)return bad("Write the reason for rejecting it.",422);
+    if(reason.length>2000)return bad("Keep the reason under 2,000 characters.",422);
+    const accepted=action==="accept";
+    await writeWithAudit([db.update(wfAuditTasks).set({status:accepted?"Accepted":"Rejected",reviewedBy:me,reviewedAt:at,
+      rejectReason:accepted?"":reason,
+      history:JSON.stringify([...steps,{at,by:me,action:accepted?"Accepted":"Rejected",...(reason?{note:reason}:{})}])})
+      .where(eq(wfAuditTasks.id,id))],actorOf(req,body),"audit-task",id,
+      accepted?"Pre-audit work accepted":"Pre-audit work rejected",`${ref}${reason?` · ${reason.slice(0,200)}`:""}`);
+    /* The auditor hears the outcome. */
+    await notify([str(existing.assignedEmail)],{
+      title:accepted?`${me} accepted ${ref}: ${str(existing.title)}`:`${me} rejected ${ref}: ${str(existing.title)}`,
+      body:accepted?"The task is closed.":`Reason: ${reason}`,
+      module:moduleForKind("Pre-Audit"),recordId:id},actor?.email);
     return await after()}
-  if(action==="complete"){
-    if(existing.status==="Completed")return bad(`${ref} is already completed.`,409);
-    if(!holds(existing,actor||undefined))return bad("Only the auditor who took this task can complete it.",403);
-    const description=str(body.workDescription).trim(),found=str(body.observations).trim();
-    if(!description)return bad("Write what was done in the description.",422);
-    if(description.length>5000||found.length>5000)return bad("Keep the description and the observations under 5,000 characters each.",422);
-    const day=indiaToday(),at=now();
-    const statements:unknown[]=[db.update(wfAuditTasks).set({status:"Completed",completedAt:at,completedOn:day,
-      workDescription:description,observations:found}).where(eq(wfAuditTasks.id,id))];
-    /* What the auditor found goes to the observation register too, against this task. */
-    let obsRef="";
-    if(found){
-      obsRef=await nextObservationRef(db);
-      statements.push(db.insert(wfObservations).values({id:`OB-${Date.now().toString(36)}`,ref:obsRef,
-        title:found.length>90?`${found.slice(0,87)}…`:found,detail:found,deptId:"d-group",taskId:id,risk:"",
-        status:"Open",raisedBy:str(existing.assignedTo)||me,raisedByEmail:(actor?.email||"").toLowerCase(),raisedAt:at,
-        entity:str(existing.entity),area:str(existing.category),dateIdentified:day}))}
-    await writeWithAudit(statements,actorOf(req,body),"audit-task",id,"Pre-audit task completed",
-      `${ref} · ${me}${obsRef?` · ${obsRef}`:""}`);
-    await notify(await emailsForRoles(["Audit Head"]),{title:`${me} completed ${ref}: ${str(existing.title)}`,
-      body:[str(existing.entity),obsRef?`Observation ${obsRef}`:"No observations"].filter(Boolean).join(" · "),
+  if(action==="resubmit"){
+    if(!owns(existing,actor))return bad("Only the auditor who reported this can change it.",403);
+    if(existing.status!=="Rejected")return bad(`${ref} can be changed only after it is rejected.`,409);
+    const r=reportFrom(body);
+    if(typeof r==="string")return bad(r,422);
+    const day=indiaToday();
+    const obs=await syncObservation(db,existing,r,me,(actor?.email||"").toLowerCase(),day);
+    await writeWithAudit([db.update(wfAuditTasks).set({...r,status:"Reported",completedAt:at,completedOn:day,
+      history:JSON.stringify([...steps,{at,by:me,action:"Resubmitted"}])}).where(eq(wfAuditTasks.id,id)),...obs.statements],
+      actorOf(req,body),"audit-task",id,"Pre-audit work resubmitted",ref);
+    await notify(await emailsForRoles(["Audit Head"]),{title:`${me} resubmitted ${ref}: ${r.title}`,
+      body:[r.project,r.entity,"waiting for your review"].filter(Boolean).join(" · "),
       module:moduleForKind("Pre-Audit"),recordId:id},actor?.email);
     return await after()}
   if(action==="remark"){
-    if(!isHead(actor?.roles))return bad("Only the Audit Head writes remarks on pre-audit tasks.",403);
+    if(!isHead(actor?.roles))return bad("Only the Audit Head writes remarks on pre-audit work.",403);
     const text=str(body.remark).trim();
     if(!text)return bad("Write the remark first.",422);
     if(text.length>2000)return bad("Keep a remark under 2,000 characters.",422);
-    const list=[...remarksOf(existing.remarks),{by:me,at:now(),text}];
+    const list=[...remarksOf(existing.remarks),{by:me,at,text}];
     await writeWithAudit([db.update(wfAuditTasks).set({remarks:JSON.stringify(list)}).where(eq(wfAuditTasks.id,id))],
       actorOf(req,body),"audit-task",id,"Remark added",`${ref} · ${text.slice(0,200)}`);
     return await after()}
-  return bad("A pre-audit task is taken, given back, completed or remarked on - nothing else.",400)}
+  return bad("Pre-audit work is accepted, rejected, resubmitted or remarked on - nothing else.",400)}
 
 export async function DELETE(req:Request){
   try{
@@ -360,8 +388,8 @@ export async function PUT(req:Request){
       if(!str(r.title))return errors.push({row:line,reason:"title is required"});
       const kind=str(r.kind,"Pre-Audit");
       if(KINDS.indexOf(kind)<0)return errors.push({row:line,reason:`kind "${kind}" is not valid`});
+      if(kind==="Pre-Audit")return errors.push({row:line,reason:"pre-audit work is reported by the auditor, not imported"});
       good.push(shape({...r,kind,id:`AT-imp-${Date.now().toString(36)}-${i}`,
-        ...(kind==="Pre-Audit"?{status:"Available",assignedTo:"",assignedEmail:"",workDescription:"",observations:"",completedOn:"",acceptedAt:"",completedAt:""}:{}),
         ref:kind==="Pre-Audit"?preAuditNumber(++preAuditTop):str(r.ref)||`AUD-${Date.now().toString(36).toUpperCase()}-${i}`}));
     });
     if(good.length){
