@@ -240,7 +240,13 @@ export default function Home(){
      return{role:v.role,active:opens?screen!:landingFor(v.role)};
    }catch{return null}};
  const login=(u:Actor)=>{setExpired(false);setUserName(u.name);setUserEmail(u.email);setAllowedRoles(u.roles);
-   const back=savedView(u.email,u.roles);
+   /* A department head who is also a requestor starts as the department head: that view
+      holds his own requests and his department's, while the requestor view hides the
+      department's - which read as "payments not showing". Applied over a remembered
+      requestor view as well, since that is where most heads were left. */
+   const saved=savedView(u.email,u.roles);
+   const head=u.roles.includes("Department Head")&&(!saved||saved.role==="Requestor");
+   const back=head?{role:"Department Head",active:landingFor("Department Head")}:saved;
    setRole(back?.role??u.roles[0]);setActive(back?.active??landingFor(u.roles[0]))};
  useEffect(()=>{if(!userEmail||!role)return;
    try{localStorage.setItem(viewKey(userEmail),JSON.stringify({role,active}))}catch{}},[userEmail,role,active]);
