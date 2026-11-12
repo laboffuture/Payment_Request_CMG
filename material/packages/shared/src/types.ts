@@ -384,6 +384,8 @@ export interface PoDto extends Doc {
   qsByName: string | null;
   qsAt: string | null;
   qsRemark: string;
+  /** who validates after the Procurement Manager: QS, or the IT Manager for TRG-IT */
+  validator: PoValidator;
   /** management's final approval — what "Approved by" means on the paper PO */
   approvedBy: string | null;
   approvedByName: string | null;
@@ -535,6 +537,9 @@ export interface PettyGrnDto {
 }
 
 /** One purchase order raised against this MR, with its whole approval chain. */
+/** QS validates a PO after the Procurement Manager; the IT Manager does for TRG-IT. */
+export type PoValidator = 'QS' | 'IT';
+
 export interface LinkedPoDto {
   id: string;
   no: string;
@@ -550,6 +555,7 @@ export interface LinkedPoDto {
   qsByName: string | null;
   qsAt: string | null;
   qsRemark: string;
+  validator: PoValidator;
   approvedByName: string | null;
   approvedAt: string | null;
   lastComment: string;
@@ -801,7 +807,7 @@ export interface PoDetailDto extends PoDto {
   canDetach: boolean;
   canEdit: boolean;
   canApprove: boolean;
-  /** QS, on a PO the Procurement Manager has passed on */
+  /** QS (or the IT Manager for TRG-IT), on a PO the Procurement Manager has passed on */
   canValidate: boolean;
   /** management, on a PO QS has validated */
   canMgmtApprove: boolean;

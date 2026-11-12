@@ -43,12 +43,12 @@ import { logger } from '../logger.js';
 import { deleteFile, signedUrlFor, uploadBoq } from '../lib/files.js';
 import { Notification } from '../models/system.js';
 import { enqueueEmails } from '../jobs/queues.js';
-import { Company, Item, Vendor } from '../models/masters.js';
+import { Company, Item, Project, Vendor } from '../models/masters.js';
 import { Mr, MrLine } from '../models/mr.js';
 import { Grn, GrnLine } from '../models/stock.js';
 import { Po, PoAlloc, PoLine, PoRevision, VendorDoc } from '../models/po.js';
 import { Rfq } from '../models/rfq.js';
-import { isBuyer } from '@cm/shared';
+import { isBuyer, skipsQs, type PoValidator } from '@cm/shared';
 import type { Actor } from '../middleware/auth.js';
 import { sitePoIdsOf } from '../lib/siteScope.js';
 import { toCompanyDto, listVendors } from './masters.service.js';
@@ -120,6 +120,7 @@ async function toPoDto(
     qsByName: po.qsBy ? lookups.userName(po.qsBy) : null,
     qsAt: po.qsAt ? po.qsAt.toISOString() : null,
     qsRemark: po.qsRemark ?? '',
+    validator: po.validatorRole === 'IT' ? 'IT' : 'QS',
     approvedBy: po.approvedBy ? String(po.approvedBy) : null,
     approvedByName: po.approvedBy ? lookups.userName(po.approvedBy) : null,
     approvedAt: po.approvedAt ? po.approvedAt.toISOString() : null,
@@ -162,6 +163,7 @@ function listFilterFor(actor: Actor, query: PoListQuery): Record<string, unknown
 export const QUEUE_STATUS: Record<string, string> = {
   PROC_MGR: 'PENDING_APPROVAL',
   QS: 'QS_VALIDATION',
+  IT: 'IT_VALIDATION',
   MGMT: 'MGMT_APPROVAL',
 };
 
@@ -350,6 +352,10 @@ export async function getPo(actor: Actor, id: string): Promise<PoDetailDto> {
 
   return {
     ...dto,
+    // Before the Procurement Manager passes it on, say who will validate it next.
+    validator: ['DRAFT', 'PENDING_APPROVAL', 'REJECTED'].includes(po.status)
+      ? validatorForCodes(dto.projectCodes)
+      : dto.validator,
     lines: lineDtos,
     allocs: isVendor ? [] : allocDtos,
     company: company ? toCompanyDto(company) : null,
@@ -431,7 +437,9 @@ export async function getPo(actor: Actor, id: string): Promise<PoDetailDto> {
     canEdit: isBuyer(actor.role) && ['DRAFT', 'REJECTED'].includes(po.status),
     canApprove:
       actor.role === 'PROC_MGR' && po.status === 'PENDING_APPROVAL' && !isOwnPo,
-    canValidate: actor.role === 'QS' && po.status === 'QS_VALIDATION',
+    canValidate:
+      (actor.role === 'QS' && po.status === 'QS_VALIDATION') ||
+      (actor.role === 'IT' && po.status === 'IT_VALIDATION'),
     canMgmtApprove: actor.role === 'MGMT' && po.status === 'MGMT_APPROVAL',
     canRevise: isBuyer(actor.role) && ['APPROVED', 'PARTIAL'].includes(po.status),
     canCancel:
@@ -440,6 +448,7 @@ export async function getPo(actor: Actor, id: string): Promise<PoDetailDto> {
         'DRAFT',
         'PENDING_APPROVAL',
         'QS_VALIDATION',
+        'IT_VALIDATION',
         'MGMT_APPROVAL',
         'APPROVED',
         'REJECTED',
@@ -937,8 +946,20 @@ export async function submitPo(actor: Actor, id: string): Promise<void> {
 // Approve / reject / cancel / acknowledge
 // ---------------------------------------------------------------------------
 
+/** A PO is validated by the IT Manager instead of QS when everything on it is for TRG-IT. */
+export const validatorForCodes = (codes: string[]): PoValidator =>
+  codes.length > 0 && codes.every((c) => skipsQs(c)) ? 'IT' : 'QS';
+
+async function validatorForPo(poId: unknown, session: ClientSession): Promise<PoValidator> {
+  const projectIds = await PoAlloc.find({ poId }).session(session).distinct('projectId');
+  const codes = (await Project.find({ _id: { $in: projectIds } }).select('code').session(session).lean())
+    .map((p) => String(p.code ?? ''));
+  return validatorForCodes(codes);
+}
+
 /**
- * Step 1 of 3 — the Procurement Manager approves the PO and hands it to QS.
+ * Step 1 of 3 — the Procurement Manager approves the PO and hands it to QS
+ * (to the IT Manager when the whole PO is for TRG-IT).
  * Nothing is committed to the item master and no vendor is told yet: that only
  * happens once management gives the final word.
  */
@@ -957,7 +978,9 @@ export async function approvePo(
     if (String(po.createdBy) === actor.id) throw forbidden(MSG.poOwnPo);
     if (input.rv !== undefined && input.rv !== (po.rv ?? 0)) throw stale();
 
-    po.status = 'QS_VALIDATION';
+    const validator = await validatorForPo(po._id, session);
+    po.status = validator === 'IT' ? 'IT_VALIDATION' : 'QS_VALIDATION';
+    po.validatorRole = validator;
     po.procMgrBy = oid(actor.id) as never;
     po.procMgrAt = new Date();
     if (input.comment) {
@@ -972,19 +995,21 @@ export async function approvePo(
       session,
       'PO',
       po._id,
-      AUDIT.PO_PROC_MGR_APPROVED,
+      validator === 'IT' ? AUDIT.PO_PROC_MGR_APPROVED_IT : AUDIT.PO_PROC_MGR_APPROVED,
       actor.id,
       input.comment,
     );
 
     const ids = await emit(session, 'PO_QS_VALIDATION', {
-      title: `${displayPoNo(po as never)} approved by the Procurement Manager — QS to validate`,
+      title: `${displayPoNo(po as never)} approved by the Procurement Manager — ${
+        validator === 'IT' ? 'IT Manager' : 'QS'
+      } to validate`,
       body:
         `${lookups.vendorName(po.vendorId)} · ${num(po.total)}` +
         (input.comment ? `\n${actor.name}: ${input.comment}` : ''),
       link: `po:${String(po._id)}`,
       to: [
-        { role: 'QS' },
+        { role: validator },
         { userId: po.createdBy },
         ...(await requesterIdsFor(po._id, session)).map((u) => ({ userId: u })),
       ],
@@ -1008,12 +1033,14 @@ export async function validatePo(
   id: string,
   input: PoValidateInput,
 ): Promise<void> {
-  if (actor.role !== 'QS') throw forbidden(MSG.poOnlyQsValidates);
+  if (actor.role !== 'QS' && actor.role !== 'IT') throw forbidden(MSG.poOnlyQsValidates);
+  const isIt = actor.role === 'IT';
+  const who = isIt ? 'IT Manager' : 'QS';
 
   const outbox = await inTransaction(async (session) => {
     const po = await Po.findById(id).session(session);
     if (!po) throw notFound();
-    if (po.status !== 'QS_VALIDATION') throw conflict(MSG.poNotWithQs);
+    if (po.status !== (isIt ? 'IT_VALIDATION' : 'QS_VALIDATION')) throw conflict(MSG.poNotWithQs);
     if (input.rv !== undefined && input.rv !== (po.rv ?? 0)) throw stale();
 
     const lookups = await buildLookups();
@@ -1021,7 +1048,7 @@ export async function validatePo(
     po.qsAt = new Date();
     po.qsRemark = input.remark;
     po.lastCommentBy = oid(actor.id) as never;
-    po.lastCommentRole = 'QS';
+    po.lastCommentRole = actor.role;
 
     if (!input.ok) {
       // Not validated: it goes back to procurement with what is missing.
@@ -1033,13 +1060,13 @@ export async function validatePo(
         session,
         'PO',
         po._id,
-        AUDIT.PO_QS_VALIDATION_FAILED,
+        isIt ? AUDIT.PO_IT_VALIDATION_FAILED : AUDIT.PO_QS_VALIDATION_FAILED,
         actor.id,
         input.remark,
       );
 
       const ids = await emit(session, 'PO_VALIDATION_FAILED', {
-        title: `${displayPoNo(po as never)} — QS found something missing`,
+        title: `${displayPoNo(po as never)} — ${who} found something missing`,
         body: input.remark,
         link: `po:${String(po._id)}`,
         to: [
@@ -1059,13 +1086,20 @@ export async function validatePo(
     po.lastComment = input.remark;
     await po.save({ session });
 
-    await writeAudit(session, 'PO', po._id, AUDIT.PO_QS_VALIDATED, actor.id, input.remark);
+    await writeAudit(
+      session,
+      'PO',
+      po._id,
+      isIt ? AUDIT.PO_IT_VALIDATED : AUDIT.PO_QS_VALIDATED,
+      actor.id,
+      input.remark,
+    );
 
     const ids = await emit(session, 'PO_VALIDATED', {
-      title: `${displayPoNo(po as never)} validated by QS — waiting for management`,
+      title: `${displayPoNo(po as never)} validated by ${who} — waiting for management`,
       body:
         `${lookups.vendorName(po.vendorId)} · ${num(po.total)}` +
-        (input.remark ? `\nQS: ${input.remark}` : ''),
+        (input.remark ? `\n${who}: ${input.remark}` : ''),
       link: `po:${String(po._id)}`,
       to: [
         { role: 'MGMT' },
@@ -1280,6 +1314,7 @@ export async function cancelPo(actor: Actor, id: string): Promise<void> {
       'DRAFT',
       'PENDING_APPROVAL',
       'QS_VALIDATION',
+      'IT_VALIDATION',
       'MGMT_APPROVAL',
       'APPROVED',
       'REJECTED',
@@ -1366,7 +1401,7 @@ export async function deletePo(actor: Actor, id: string): Promise<{ no: string }
 // ---------------------------------------------------------------------------
 
 /** Statuses in which nobody has finally approved the PO yet. */
-const BEFORE_APPROVAL = ['DRAFT', 'PENDING_APPROVAL', 'REJECTED', 'QS_VALIDATION', 'MGMT_APPROVAL'];
+const BEFORE_APPROVAL = ['DRAFT', 'PENDING_APPROVAL', 'REJECTED', 'QS_VALIDATION', 'IT_VALIDATION', 'MGMT_APPROVAL'];
 
 const attachRole = (actor: Actor): boolean => isBuyer(actor.role) || actor.role === 'ADMIN';
 /** Papers can be added until the PO is cancelled — a later quotation or mail still belongs with it. */

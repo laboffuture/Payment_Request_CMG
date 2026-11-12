@@ -75,6 +75,7 @@ const PO_LABEL: Record<string, string> = {
   DRAFT: 'Draft',
   PENDING_APPROVAL: 'With Procurement Manager',
   QS_VALIDATION: 'With QS for validation',
+  IT_VALIDATION: 'With IT Manager for validation',
   MGMT_APPROVAL: 'With management',
   APPROVED: 'Approved',
   PARTIAL: 'Part received',
@@ -149,7 +150,7 @@ async function buildReport(
     const [awaitingQs, poApprovals, awaitingSite, invoices] = await Promise.all([
       Mr.countDocuments({ status: 'QS_PENDING' }),
       Po.countDocuments({
-        status: { $in: ['PENDING_APPROVAL', 'QS_VALIDATION', 'MGMT_APPROVAL'] },
+        status: { $in: ['PENDING_APPROVAL', 'QS_VALIDATION', 'IT_VALIDATION', 'MGMT_APPROVAL'] },
       }),
       Issue.countDocuments({ status: 'ISSUED' }),
       VendorDoc.countDocuments({ status: 'SUBMITTED' }),

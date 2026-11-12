@@ -39,6 +39,11 @@ export async function countsFor(actor: Actor): Promise<Counts> {
     counts.poValidations = await Po.countDocuments({ status: 'QS_VALIDATION' });
   }
 
+  if (role === 'IT') {
+    // TRG-IT POs the Procurement Manager has passed to the IT Manager instead of QS.
+    counts.poValidations = await Po.countDocuments({ status: 'IT_VALIDATION' });
+  }
+
   if (role === 'MGMT') {
     counts.poMgmtApprovals = await Po.countDocuments({ status: 'MGMT_APPROVAL' });
   }

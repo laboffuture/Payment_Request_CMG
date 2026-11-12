@@ -74,6 +74,8 @@ export interface IPo extends Timestamped {
   qsBy: Types.ObjectId | null;
   qsAt: Date | null;
   qsRemark: string;
+  /** who validates (validated) after the Procurement Manager: QS, or the IT Manager for TRG-IT */
+  validatorRole: 'QS' | 'IT';
   /** management's final approval — what the paper PO signs off */
   approvedBy: Types.ObjectId | null;
   approvedAt: Date | null;
@@ -117,6 +119,7 @@ const poSchema = new Schema<IPo>(
     qsBy: optionalRefTo('User'),
     qsAt: { type: Date, default: null },
     qsRemark: { type: String, default: '' },
+    validatorRole: { type: String, enum: ['QS', 'IT'], default: 'QS' },
     approvedBy: optionalRefTo('User'),
     approvedAt: { type: Date, default: null },
     lastComment: { type: String, default: '' },

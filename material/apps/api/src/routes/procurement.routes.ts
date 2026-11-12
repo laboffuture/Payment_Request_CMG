@@ -422,11 +422,11 @@ procurementRouter.post(
   }),
 );
 
-/** Step 2: QS answers "is everything I asked for on this PO?" */
+/** Step 2: QS (the IT Manager for TRG-IT) answers "is everything asked for on this PO?" */
 procurementRouter.post(
   '/pos/:id/validate',
   requireAuth,
-  authorize('QS'),
+  authorize('QS', 'IT'),
   idempotency,
   validateBody(poValidateInput),
   wrap(async (req, res) => {

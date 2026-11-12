@@ -75,6 +75,8 @@ export const PO_STATUSES = [
   'DRAFT',
   'PENDING_APPROVAL',
   'QS_VALIDATION',
+  // TRG-IT: the IT Manager validates instead of QS (QS_SKIP_PROJECT_CODES).
+  'IT_VALIDATION',
   'MGMT_APPROVAL',
   'APPROVED',
   'PARTIAL',
@@ -89,6 +91,7 @@ export const PO_ST: Record<PoStatus, ChipSpec> = {
   DRAFT: { label: 'Draft', tone: 'gry' },
   PENDING_APPROVAL: { label: 'With Procurement Manager', tone: 'amb' },
   QS_VALIDATION: { label: 'With QS for validation', tone: 'amb' },
+  IT_VALIDATION: { label: 'With IT Manager for validation', tone: 'amb' },
   MGMT_APPROVAL: { label: 'With management', tone: 'amb' },
   APPROVED: { label: 'Approved', tone: 'ac' },
   PARTIAL: { label: 'Part received', tone: 'amb' },
@@ -262,8 +265,9 @@ export const MR_TRANSITIONS: Record<MrStatus, readonly MrStatus[]> = {
  */
 export const PO_TRANSITIONS: Record<PoStatus, readonly PoStatus[]> = {
   DRAFT: ['PENDING_APPROVAL', 'CANCELLED'],
-  PENDING_APPROVAL: ['QS_VALIDATION', 'REJECTED', 'CANCELLED'],
+  PENDING_APPROVAL: ['QS_VALIDATION', 'IT_VALIDATION', 'REJECTED', 'CANCELLED'],
   QS_VALIDATION: ['MGMT_APPROVAL', 'REJECTED', 'CANCELLED'],
+  IT_VALIDATION: ['MGMT_APPROVAL', 'REJECTED', 'CANCELLED'],
   MGMT_APPROVAL: ['APPROVED', 'REJECTED', 'CANCELLED'],
   // APPROVED -> PENDING_APPROVAL is a revision (rev + 1).
   APPROVED: ['PARTIAL', 'RECEIVED', 'PENDING_APPROVAL', 'CANCELLED'],

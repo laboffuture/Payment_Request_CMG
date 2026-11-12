@@ -1260,13 +1260,14 @@ function PoProgressCard({ po }: { po: LinkedPoDto }) {
   const steps = [
     { label: 'Raised by procurement', by: po.raisedByName, at: po.raisedAt },
     { label: 'Procurement Manager', by: po.procMgrByName, at: po.procMgrAt },
-    { label: 'QS validated', by: po.qsByName, at: po.qsAt },
+    { label: `${po.validator === 'IT' ? 'IT Manager' : 'QS'} validated`, by: po.qsByName, at: po.qsAt },
     { label: 'Management approved', by: po.approvedByName, at: po.approvedAt },
   ];
 
   const waitingOn: Record<string, number> = {
     PENDING_APPROVAL: 1,
     QS_VALIDATION: 2,
+    IT_VALIDATION: 2,
     MGMT_APPROVAL: 3,
   };
   const current = waitingOn[po.status] ?? -1;
@@ -1336,7 +1337,11 @@ function PoProgressCard({ po }: { po: LinkedPoDto }) {
 
         {!stopped && po.qsRemark && po.qsAt ? (
           <div className="warn">
-            <b>QS{po.qsByName ? ` (${po.qsByName})` : ''}:</b> {po.qsRemark}
+            <b>
+              {po.validator === 'IT' ? 'IT Manager' : 'QS'}
+              {po.qsByName ? ` (${po.qsByName})` : ''}:
+            </b>{' '}
+            {po.qsRemark}
           </div>
         ) : null}
       </Stack>

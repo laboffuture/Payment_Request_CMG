@@ -357,6 +357,7 @@ const PO_HOLDER: Record<string, string> = {
   DRAFT: 'Procurement',
   PENDING_APPROVAL: 'Procurement Manager',
   QS_VALIDATION: 'QS',
+  IT_VALIDATION: 'IT Manager',
   MGMT_APPROVAL: 'Management',
   APPROVED: 'Vendor (delivery)',
   PARTIAL: 'Vendor (delivery)',

@@ -165,7 +165,7 @@ function tilesFor(
       {
         label: 'Earlier in the chain',
         value: pos.filter((p) =>
-          ['PENDING_APPROVAL', 'QS_VALIDATION'].includes(p.status),
+          ['PENDING_APPROVAL', 'QS_VALIDATION', 'IT_VALIDATION'].includes(p.status),
         ).length,
         href: '/pos',
       },
@@ -181,6 +181,10 @@ function tilesFor(
   if (role === 'OPS' || role === 'IT') {
     tiles.push(
       { label: 'MRs waiting for my approval', value: counts.pmQueue ?? 0, href: '/pm' },
+      // TRG-IT POs come to the IT Manager for validation instead of QS.
+      ...(role === 'IT'
+        ? [{ label: 'POs to validate', value: counts.poValidations ?? 0, href: '/pos/validate' }]
+        : []),
       {
         label: 'Open POs',
         value: pos.filter((p) => ['APPROVED', 'PARTIAL'].includes(p.status)).length,
@@ -194,7 +198,7 @@ function tilesFor(
       {
         label: 'POs in approval',
         value: pos.filter((p) =>
-          ['PENDING_APPROVAL', 'QS_VALIDATION', 'MGMT_APPROVAL'].includes(p.status),
+          ['PENDING_APPROVAL', 'QS_VALIDATION', 'IT_VALIDATION', 'MGMT_APPROVAL'].includes(p.status),
         ).length,
         href: '/pos',
       },
@@ -226,7 +230,7 @@ function tilesFor(
       {
         label: 'POs in approval (view only)',
         value: pos.filter((p) =>
-          ['PENDING_APPROVAL', 'QS_VALIDATION', 'MGMT_APPROVAL'].includes(p.status),
+          ['PENDING_APPROVAL', 'QS_VALIDATION', 'IT_VALIDATION', 'MGMT_APPROVAL'].includes(p.status),
         ).length,
         href: '/pos',
       },

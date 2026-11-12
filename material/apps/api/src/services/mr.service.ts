@@ -457,6 +457,12 @@ export async function getMr(actor: Actor, id: string): Promise<MrDetailDto> {
         qsByName: po.qsBy ? lookups.userName(po.qsBy) : null,
         qsAt: po.qsAt ? po.qsAt.toISOString() : null,
         qsRemark: po.qsRemark ?? '',
+        // Before the Procurement Manager passes it on, who will validate is the MR's project's rule.
+        validator: (['DRAFT', 'PENDING_APPROVAL', 'REJECTED'].includes(po.status)
+          ? skipsQs(lookups.projectCode(mr.projectId))
+          : po.validatorRole === 'IT')
+          ? ('IT' as const)
+          : ('QS' as const),
         approvedByName: po.approvedBy ? lookups.userName(po.approvedBy) : null,
         approvedAt: po.approvedAt ? po.approvedAt.toISOString() : null,
         lastComment: po.lastComment ?? '',

@@ -49,7 +49,10 @@ export default function PoDetailPage() {
 
   const approve = useAction(
     () => post(`/pos/${id}/approve`, { comment, rv: po.data?.rv }),
-    { success: 'Approved — sent to QS for validation', invalidate },
+    {
+      success: `Approved — sent to ${po.data?.validator === 'IT' ? 'the IT Manager' : 'QS'} for validation`,
+      invalidate,
+    },
   );
   const reject = useAction(() => post(`/pos/${id}/reject`, { comment, rv: po.data?.rv }), {
     success: 'PO rejected',
@@ -174,7 +177,7 @@ export default function PoDetailPage() {
         }}
       />
 
-      {/* Step 2 — QS checks the PO against what QS approved on the MRs. */}
+      {/* Step 2 — QS (the IT Manager for TRG-IT) checks the PO against what was approved on the MRs. */}
       {data.canValidate ? (
         <QsValidationPanel po={data} onValidate={() => setValidateOpen(true)} />
       ) : null}
@@ -184,7 +187,8 @@ export default function PoDetailPage() {
         <Card className="mt-[14px] noprint">
           <Stack>
             <div className="warn">
-              Validated by QS{data.qsByName ? ` (${data.qsByName})` : ''}
+              Validated by {data.validator === 'IT' ? 'the IT Manager' : 'QS'}
+              {data.qsByName ? ` (${data.qsByName})` : ''}
               {data.qsRemark ? ` — ${data.qsRemark}` : ''}. Yours is the final word:
               approving releases the PO to the vendor.
             </div>
@@ -246,7 +250,7 @@ export default function PoDetailPage() {
                   Reject PO
                 </Btn>
                 <Btn variant="primary" onClick={() => approve.mutate()}>
-                  Approve &amp; send to QS
+                  Approve &amp; send to {data.validator === 'IT' ? 'IT Manager' : 'QS'}
                 </Btn>
               </div>
             </Stack>
@@ -428,7 +432,7 @@ function ApprovalChain({ po }: { po: PoDetailDto }) {
   const steps = [
     { label: 'Raised', by: po.createdByName, at: po.createdAt },
     { label: 'Procurement Manager', by: po.procMgrByName, at: po.procMgrAt },
-    { label: 'QS validated', by: po.qsByName, at: po.qsAt },
+    { label: `${po.validator === 'IT' ? 'IT Manager' : 'QS'} validated`, by: po.qsByName, at: po.qsAt },
     { label: 'Management', by: po.approvedByName, at: po.approvedAt },
   ];
 
@@ -436,6 +440,7 @@ function ApprovalChain({ po }: { po: PoDetailDto }) {
   const waitingOn: Record<string, number> = {
     PENDING_APPROVAL: 1,
     QS_VALIDATION: 2,
+    IT_VALIDATION: 2,
     MGMT_APPROVAL: 3,
   };
   const current = waitingOn[po.status] ?? -1;
@@ -487,7 +492,11 @@ function ApprovalChain({ po }: { po: PoDetailDto }) {
 
       {po.status !== 'REJECTED' && po.qsRemark && po.qsAt ? (
         <div className="warn mb-3">
-          <b>QS{po.qsByName ? ` (${po.qsByName})` : ''}:</b> {po.qsRemark}
+          <b>
+            {po.validator === 'IT' ? 'IT Manager' : 'QS'}
+            {po.qsByName ? ` (${po.qsByName})` : ''}:
+          </b>{' '}
+          {po.qsRemark}
         </div>
       ) : null}
     </div>
@@ -549,7 +558,7 @@ function QsValidationPanel({
 
   return (
     <div className="noprint mt-[14px]">
-      <h2>QS validation</h2>
+      <h2>{po.validator === 'IT' ? 'IT Manager validation' : 'QS validation'}</h2>
       <div className="text-mut text-sm mb-2">
         Check the PO against what you approved on each MR line. Approved by the
         Procurement Manager{po.procMgrByName ? ` (${po.procMgrByName})` : ''}.

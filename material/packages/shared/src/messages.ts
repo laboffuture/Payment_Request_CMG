@@ -123,9 +123,9 @@ export const MSG = {
   poCancelHasGrn:
     'Goods have already been received against this PO — it cannot be cancelled',
   poNotWithProcMgr: 'This PO is not waiting for the Procurement Manager',
-  poNotWithQs: 'This PO is not waiting for QS validation',
+  poNotWithQs: 'This PO is not waiting for your validation',
   poNotWithMgmt: 'This PO is not waiting for management',
-  poOnlyQsValidates: 'Only QS can validate a purchase order',
+  poOnlyQsValidates: 'Only QS (or the IT Manager, for TRG-IT) can validate a purchase order',
   poOnlyMgmtApproves: 'Only management can give the final approval',
   poValidationRemark:
     'Say what is missing or wrong — procurement needs to know what to fix',

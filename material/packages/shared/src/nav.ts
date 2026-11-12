@@ -150,6 +150,8 @@ export const NAV: Record<Role, readonly NavItem[]> = {
   IT: [
     { href: '/', label: 'Home' },
     { href: '/pm', label: 'MR approvals', count: 'pmQueue' },
+    // TRG-IT POs come to the IT Manager for validation instead of QS.
+    { href: '/pos/validate', label: 'PO validation', count: 'poValidations' },
     { href: '/mrs', label: 'All MRs' },
     { href: '/pos', label: 'Purchase orders' },
     { href: '/notifications', label: 'Notifications', count: 'notifications' },
