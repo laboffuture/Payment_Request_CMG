@@ -72,6 +72,14 @@ export function MrTable({ rows }: { rows: MrDto[] }) {
     },
     { key: 'by', header: 'Raised by', render: (m) => m.createdByName },
     {
+      key: 'raised',
+      header: 'Raised on',
+      // When it was sent for approval (the date on the printed MR); a draft shows when it was started.
+      render: (m) => (
+        <span style={{ whiteSpace: 'nowrap' }}>{fmtDate(m.submittedAt ?? m.createdAt)}</span>
+      ),
+    },
+    {
       key: 'status',
       header: 'Status',
       render: (m) => <Chip spec={mrChipFor(m.status, m.projectCode)} />,
