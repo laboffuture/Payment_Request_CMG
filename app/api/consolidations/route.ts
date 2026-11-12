@@ -1,6 +1,6 @@
 import{asc,desc,eq,inArray}from"drizzle-orm";
 import{getDb}from"../../../db";
-import{paymentRequests,wfConsolidationItems,wfConsolidations,wfLogs}from"../../../db/schema";
+import{paymentRequests,wfAttachments,wfConsolidationItems,wfConsolidations,wfLogs}from"../../../db/schema";
 import{companyLock,departmentPeers,inCompany,requireAuth}from"../../../lib/auth";
 import type{Actor}from"../../../lib/auth";
 import{mayConsolidate}from"../../../lib/consolidation";
@@ -76,6 +76,8 @@ export async function GET(req:Request){
     if(response)return response;
     const db=await getDb();
     const visible=new Map((await visibleTo(db,actor)).map(r=>[r.id,r]));
+    const filesOf=new URL(req.url).searchParams.get("files");
+    if(filesOf)return batchFiles(db,visible,filesOf);
     const batches=await db.select().from(wfConsolidations).orderBy(desc(wfConsolidations.createdAt));
     const items=await db.select().from(wfConsolidationItems).orderBy(asc(wfConsolidationItems.addedAt));
     /* Which batch each request is in, for the tick boxes on the register. */
@@ -89,6 +91,22 @@ export async function GET(req:Request){
         updatedAt:b.updatedAt,payments,hidden:mine.length-payments.length}});
     return Response.json({consolidations,inBatch});
   }catch(e){return oops(e)}}
+
+/* Every document attached to the requests in one batch that this reader can see - the
+   list only, no file bytes; each file is fetched from /api/attachments?id=. The rows are
+   read for all payments and filtered here rather than with an IN list (D1 allows 100
+   bound parameters a query). */
+async function batchFiles(db:Db,visible:Map<number,typeof paymentRequests.$inferSelect>,batchId:string){
+  const[batch]=await db.select({id:wfConsolidations.id}).from(wfConsolidations).where(eq(wfConsolidations.id,batchId)).limit(1);
+  if(!batch)return bad("That consolidated payment no longer exists.",404);
+  const ids=new Set((await db.select({paymentId:wfConsolidationItems.paymentId}).from(wfConsolidationItems)
+    .where(eq(wfConsolidationItems.consolidationId,batchId))).map(r=>r.paymentId).filter(id=>visible.has(id)));
+  const rows=await db.select({id:wfAttachments.id,entityId:wfAttachments.entityId,kind:wfAttachments.kind,
+    fileName:wfAttachments.fileName,mime:wfAttachments.mime,bytes:wfAttachments.bytes,
+    uploadedBy:wfAttachments.uploadedBy,uploadedAt:wfAttachments.uploadedAt}).from(wfAttachments)
+    .where(eq(wfAttachments.entityType,"payment")).orderBy(asc(wfAttachments.uploadedAt));
+  const files=rows.filter(r=>ids.has(Number(r.entityId))).map(({entityId,...r})=>({...r,paymentId:Number(entityId)}));
+  return Response.json({files})}
 
 /* A new batch from the ticked requests, or more requests added to an existing one. */
 export async function POST(req:Request){

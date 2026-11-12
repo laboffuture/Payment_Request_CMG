@@ -42,3 +42,16 @@
 .cp-page .cp-table th:last-child,.cp-page .cp-table td:last-child{padding-right:16px}
 .cp-page .cp-table td b,.cp-page .cp-table td:nth-child(7){white-space:nowrap}
 .cp-page .cp-table th{white-space:nowrap}
+.cp-files{margin-top:14px}.cp-files .panel-head{flex-wrap:wrap;gap:10px}
+.cp-zip{display:flex;align-items:center;gap:6px;border-radius:8px;padding:9px 12px;font-size:11px;font-weight:600;cursor:pointer}
+.cp-zip svg{width:14px}.cp-zip:disabled{opacity:.6;cursor:progress}
+.cp-files-note{font-size:11px;color:var(--muted);margin:0;padding:0 16px 10px}
+.cp-page .cp-file-table td:first-child,.cp-page .cp-file-table th:first-child{width:auto}
+.cp-file-table tbody tr{cursor:default}.cp-file-table tr.cp-file-first td{border-top:1px solid var(--line)}
+.cp-page .cp-table.cp-file-table td.cp-file-req{vertical-align:top;background:#fafcfb}
+/* On wide screens the request is named once per group; phone cards name it on each card. */
+@media screen and (min-width:1025px){.cp-file-table td.cp-file-repeat>*{visibility:hidden}.cp-file-table tr:not(.cp-file-first) td.cp-file-req{border-top-color:transparent}}
+.cp-file-link{display:inline-flex;align-items:center;gap:6px;color:var(--ink);text-decoration:none;overflow-wrap:anywhere}
+.cp-file-link:hover{color:var(--green);text-decoration:underline}.cp-file-link svg{width:13px;flex:none;color:var(--muted)}
+.cp-file-dl{display:inline-flex;border:1px solid var(--line);border-radius:7px;padding:6px;color:var(--ink)}.cp-file-dl svg{width:14px}
+.cp-file-dl:hover{color:var(--green);border-color:var(--green)}

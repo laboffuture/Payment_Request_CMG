@@ -1,6 +1,8 @@
 "use client";
 import{useCallback,useEffect,useMemo,useState}from"react";
-import{ArrowLeft,Download,FileText,Layers,Pencil,Printer,Search,Trash2,X}from"lucide-react";
+import{ArrowLeft,Download,FileText,Layers,Paperclip,Pencil,Printer,Search,Trash2,X}from"lucide-react";
+import{makeZip,safeName}from"../lib/zip";
+import type{ZipEntry}from"../lib/zip";
 import{stamp}from"../lib/stamp";
 import{csv}from"./workforce-store";
 import{money,moneyList,summaryOf}from"../lib/consolidation";
@@ -120,8 +122,83 @@ function BatchDetail({batch,back,reload,flash,open}:{batch:Batch;back:()=>void;r
         <tfoot>{s.byKind.filter(k=>k.count).flatMap(k=>k.totals.map(t=><tr key={k.kind+t.currency} className="cp-sub"><td colSpan={8}>{k.label} · {t.currency} ({t.count})</td><td className="cp-amt">{money(t.currency,t.amount)}</td><td colSpan={2}/></tr>))}
           {s.totals.map(t=><tr key={t.currency}><td colSpan={8}>Total {t.currency} ({t.count}{ticked.length?" ticked":""})</td><td className="cp-amt"><b>{money(t.currency,t.amount)}</b></td><td colSpan={2}/></tr>)}</tfoot></table></div>}
     </section>
+    <BatchFiles key={batch.id+":"+rows.map(r=>r.id).join(",")} batch={batch} chosen={chosen} ticked={ticked.length>0} flash={flash}/>
     {edit&&<EditBatch batch={batch} close={()=>setEdit(false)} done={async()=>{setEdit(false);await reload();flash(`${batch.cpNo} updated`)}}/>}
   </div>}
+
+type BatchFile={id:string;paymentId:number;kind:string;fileName:string;mime:string;bytes:number;uploadedBy:string;uploadedAt:string};
+const size=(n:number)=>n>=1073741824?`${(n/1073741824).toFixed(2)} GB`:n>=1048576?`${(n/1048576).toFixed(1)} MB`:`${Math.max(Math.round(n/1024),1)} KB`;
+const fileUrl=(id:string)=>`/api/attachments?id=${encodeURIComponent(id)}`;
+
+/* Every document attached to the requests in the batch (or the ticked ones), each one to
+   open or download, and all of them together as one ZIP with a folder per request. The
+   files are only read here - nothing is copied or changed on the requests. */
+function BatchFiles({batch,chosen,ticked,flash}:{batch:Batch;chosen:BatchPayment[];ticked:boolean;flash:(m:string)=>void}){
+  const[files,setFiles]=useState<BatchFile[]|null>(null),[err,setErr]=useState(""),[progress,setProgress]=useState("");
+  /* The host remounts this (key) when the batch or its requests change, so it starts empty. */
+  useEffect(()=>{let dead=false;
+    fetch(`/api/consolidations?files=${encodeURIComponent(batch.id)}`).then(async r=>{
+      const b=await r.json().catch(()=>({})) as{files?:BatchFile[];error?:string};
+      if(!r.ok)throw new Error(b.error||"The attachments could not be loaded");
+      if(!dead)setFiles(b.files||[])})
+      .catch(e=>{if(!dead)setErr(e instanceof Error?e.message:"The attachments could not be loaded")});
+    return()=>{dead=true}},[batch.id]);
+  const byPayment=useMemo(()=>{const m=new Map<number,BatchFile[]>();for(const f of files||[])m.set(f.paymentId,[...(m.get(f.paymentId)||[]),f]);return m},[files]);
+  const groups=chosen.map(p=>({p,list:byPayment.get(p.id)||[]}));
+  const withFiles=groups.filter(g=>g.list.length);
+  const without=groups.filter(g=>!g.list.length);
+  const all=withFiles.flatMap(g=>g.list);
+  const total=all.reduce((n,f)=>n+f.bytes,0);
+
+  const downloadAll=async()=>{
+    if(!all.length||progress)return;
+    if(total>1.5*1073741824&&!confirm(`That is ${size(total)} of files. Your browser holds them all while it builds the ZIP. Tick fewer requests if it fails.\n\nGo ahead?`))return;
+    const entries:ZipEntry[]=[];const missing:string[]=[];let done=0;
+    const used=new Set<string>();
+    const nameFor=(p:BatchPayment,f:BatchFile)=>{
+      const folder=safeName(`${p.requestNo} - ${p.vendor}`);
+      const base=safeName(`${f.kind} - ${f.fileName}`);
+      const dot=base.lastIndexOf(".");const stem=dot>0?base.slice(0,dot):base,ext=dot>0?base.slice(dot):"";
+      let name=`${folder}/${base}`;for(let n=2;used.has(name.toLowerCase());n++)name=`${folder}/${stem} (${n})${ext}`;
+      used.add(name.toLowerCase());return name};
+    const jobs=withFiles.flatMap(g=>g.list.map(f=>({p:g.p,f})));
+    setProgress(`0 of ${jobs.length}`);
+    try{
+      /* Four at a time, so a large batch is quick without flooding the server. */
+      let next=0;
+      const worker=async()=>{while(next<jobs.length){const{p,f}=jobs[next++];
+        try{const r=await fetch(fileUrl(f.id));if(!r.ok)throw new Error(String(r.status));
+          entries.push({name:nameFor(p,f),data:new Uint8Array(await r.arrayBuffer()),date:f.uploadedAt?new Date(f.uploadedAt):undefined})}
+        catch{missing.push(`${p.requestNo}: ${f.kind} - ${f.fileName}`)}
+        setProgress(`${++done} of ${jobs.length}`)}};
+      await Promise.all([worker(),worker(),worker(),worker()]);
+      if(!entries.length){flash("None of the files could be downloaded. Check your connection and try again.");return}
+      entries.sort((a,b)=>a.name.localeCompare(b.name));
+      if(missing.length)entries.push({name:"Files not included.txt",data:new TextEncoder().encode(
+        `These files could not be read from storage when the ZIP was made:\r\n\r\n${missing.join("\r\n")}\r\n`)});
+      const url=URL.createObjectURL(makeZip(entries));
+      const a=document.createElement("a");a.href=url;a.download=`${batch.cpNo}-attachments-${new Date().toISOString().slice(0,10)}.zip`;
+      document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),60000);
+      flash(missing.length?`ZIP ready - ${entries.length-1} file(s); ${missing.length} could not be read (listed inside)`:`ZIP ready - ${entries.length} file(s)`)}
+    finally{setProgress("")}};
+
+  return <section className="panel table-panel cp-files"><div className="panel-head"><div><small>ATTACHMENTS</small><h2>Documents of these requests</h2></div>
+    {files&&all.length>0&&<button className="primary cp-zip" disabled={!!progress} onClick={downloadAll}><Download/>{progress?`Downloading ${progress}…`:`Download all (ZIP) · ${all.length} file${all.length===1?"":"s"}, ${size(total)}`}</button>}</div>
+    {err&&<p className="cp-error cp-files-note">{err}</p>}
+    {!files&&!err&&<p className="queue-empty">Loading attachments…</p>}
+    {files&&<>
+      <p className="cp-files-note">{all.length?`${all.length} file(s) from ${withFiles.length} of ${chosen.length} ${ticked?"ticked ":""}request(s). The ZIP has one folder per request.`:`No documents are attached to ${ticked?"the ticked":"these"} requests.`}
+        {without.length>0&&all.length>0&&<> Nothing attached to {without.slice(0,8).map(g=>g.p.requestNo).join(", ")}{without.length>8?` and ${without.length-8} more`:""}.</>}</p>
+      {all.length>0&&<div className="table-wrap"><table className="cp-table cp-file-table"><thead><tr><th>REQUEST</th><th>TYPE</th><th>FILE</th><th>SIZE</th><th>ADDED</th><th></th></tr></thead>
+        <tbody>{withFiles.flatMap(g=>g.list.map((f,i)=><tr key={f.id} className={i===0?"cp-file-first":""}>
+          <td className={i===0?"cp-file-req":"cp-file-req cp-file-repeat"}><b>{g.p.requestNo}</b><small>{g.p.vendor}</small></td>
+          <td><span className="badge">{f.kind}</span></td>
+          <td><a className="cp-file-link" href={fileUrl(f.id)} target="_blank" rel="noreferrer"><Paperclip/>{f.fileName}</a></td>
+          <td className="cp-amt">{size(f.bytes)}</td>
+          <td>{when(f.uploadedAt)}<small>{f.uploadedBy}</small></td>
+          <td><a className="cp-file-dl" href={fileUrl(f.id)} download={f.fileName} title={`Download ${f.fileName}`} aria-label={`Download ${f.fileName}`}><Download/></a></td></tr>))}</tbody></table></div>}
+    </>}
+  </section>}
 
 const stateText={ok:"Within budget",near:"Near budget",over:"Overspent"} as const;
 
