@@ -5,6 +5,7 @@ import{actorOf,bad,num,oops,page,search,str,writeWithAudit}from"../../../../lib/
 import type{Row}from"../../../../lib/workforce-api";
 import{canSeeObservations,requireAuth}from"../../../../lib/auth";
 import{emailsForEmployees,notify}from"../../../../lib/notify";
+import{nextObservationRef,remarksOf}from"../../../../lib/pre-audit";
 
 const now=()=>new Date().toISOString();
 const shape=(o:Row)=>({id:str(o.id),ref:str(o.ref),title:str(o.title),detail:str(o.detail),
@@ -15,7 +16,10 @@ const shape=(o:Row)=>({id:str(o.id),ref:str(o.ref),title:str(o.title),detail:str
   area:str(o.area),impact:str(o.impact),stakeholder:str(o.stakeholder),
   rootCause:str(o.rootCause),transactionValue:str(o.transactionValue),
   responsibility:str(o.responsibility),actionPlan:str(o.actionPlan),raisedByEmail:str(o.raisedByEmail),
-  entity:str(o.entity),dateIdentified:str(o.dateIdentified),recommendation:str(o.recommendation)});
+  entity:str(o.entity),dateIdentified:str(o.dateIdentified),recommendation:str(o.recommendation),
+  remarks:str(o.remarks)});
+/* Who writes remarks on an observation. */
+const HEAD_ROLES=["Audit Head","Administrator"];
 
 /* Tag rows are read for the page of observations being returned, never for the whole
    table, so the cost of listing does not grow with history. */
@@ -60,6 +64,9 @@ export async function GET(req:Request){
     const taggedTo=url.searchParams.get("taggedTo");
     const status=url.searchParams.get("status");
     const deptId=url.searchParams.get("deptId");
+    /* The project (vertical / entity) and the auditor who raised it, by name. */
+    const entity=url.searchParams.get("entity");
+    const raisedBy=url.searchParams.get("raisedBy");
     const q=search(url.searchParams.get("q"));
 
     // "tagged to me" resolves through the indexed join table first
@@ -74,29 +81,22 @@ export async function GET(req:Request){
       idFilter?inArray(wfObservations.id,idFilter):undefined,
       status?eq(wfObservations.status,status):undefined,
       deptId?eq(wfObservations.deptId,deptId):undefined,
-      q?or(like(wfObservations.title,q),like(wfObservations.ref,q)):undefined].filter(Boolean);
+      entity?eq(wfObservations.entity,entity):undefined,
+      raisedBy?eq(wfObservations.raisedBy,raisedBy):undefined,
+      q?or(like(wfObservations.title,q),like(wfObservations.ref,q),like(wfObservations.detail,q)):undefined].filter(Boolean);
     const where=filters.length?and(...filters):undefined;
     const [rows,[total]]=await Promise.all([
       db.select().from(wfObservations).where(where)
         .orderBy(desc(wfObservations.raisedAt)).limit(limit).offset(offset),
       db.select({n:count()}).from(wfObservations).where(where)]);
     const{tags,refs}=await decorate(rows);
+    /* The choices for the project and auditor filters: what the register holds. */
+    const facets=url.searchParams.get("facets")?{
+      entities:(await db.selectDistinct({v:wfObservations.entity}).from(wfObservations)).map(r=>r.v).filter(Boolean).sort(),
+      auditors:(await db.selectDistinct({v:wfObservations.raisedBy}).from(wfObservations)).map(r=>r.v).filter(Boolean).sort()}:undefined;
     return Response.json({observations:rows.map(r=>({...r,tags:tags.get(r.id)||[],taskRef:refs.get(r.taskId)||""})),
-      total:total?.n??0,limit,offset});
+      total:total?.n??0,limit,offset,facets});
   }catch(e){return oops(e)}}
-
-/* Observations are numbered OBS-AUD-001, -002, ... as their ref, the number people
-   read; the id behind it stays a key nothing shows. Each observation takes the next number. */
-const OBS_PREFIX="OBS-AUD-";
-const obsNumber=(n:number)=>`${OBS_PREFIX}${String(n).padStart(3,"0")}`;
-const highestObsNumber=(refs:string[])=>refs.reduce((top,ref)=>{
-  if(!ref.startsWith(OBS_PREFIX))return top;
-  const n=Number(ref.slice(OBS_PREFIX.length));
-  return Number.isFinite(n)&&n>top?n:top},0);
-async function nextObservationRef(db:Awaited<ReturnType<typeof getDb>>){
-  const rows=await db.select({ref:wfObservations.ref}).from(wfObservations);
-  return obsNumber(highestObsNumber(rows.map(r=>str(r.ref)))+1);
-}
 
 export async function POST(req:Request){
   try{
@@ -140,7 +140,18 @@ export async function PATCH(req:Request){
     const [existing]=await db.select().from(wfObservations).where(eq(wfObservations.id,id)).limit(1);
     if(!existing)return bad("Not found",404);
     const action=str(body.action);
-    let row=shape({...existing,...body,id});
+    /* The Audit Head's remarks are added to, never rewritten. */
+    if(action==="remark"){
+      if(!(actor?.roles||[]).some(r=>HEAD_ROLES.includes(r)))return bad("Only the Audit Head writes remarks on observations.",403);
+      const text=str(body.remark).trim();
+      if(!text)return bad("Write the remark first.",422);
+      if(text.length>2000)return bad("Keep a remark under 2,000 characters.",422);
+      const list=[...remarksOf(existing.remarks),{by:actor?.name||actor?.email||"",at:now(),text}];
+      await writeWithAudit([db.update(wfObservations).set({remarks:JSON.stringify(list)}).where(eq(wfObservations.id,id))],
+        actorOf(req,body),"observation",id,"Remark added",`${existing.ref} · ${text.slice(0,200)}`);
+      return Response.json({observation:{...existing,remarks:JSON.stringify(list)}})}
+    /* Remarks change only through the action above. */
+    let row=shape({...existing,...body,id,remarks:existing.remarks});
     if(action==="resolve")row={...row,status:"Resolved",resolvedAt:now(),
       resolution:str(body.resolution)||row.resolution};
     if(action==="reopen")row={...row,status:"Open",resolvedAt:"",resolution:""};

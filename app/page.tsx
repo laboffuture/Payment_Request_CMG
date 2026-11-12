@@ -20,6 +20,7 @@ import ScheduledPayments from "./ScheduledPayments";
 import ConsolidatedPayments from "./ConsolidatedPayments";
 import{BudgetBox,refreshBudgets}from"./JobBudget";
 import ObservationDesk from "./ObservationDesk";
+import PreAuditDesk from "./PreAuditDesk";
 import SettingsDesk from "./SettingsDesk";
 import{ExtraFields,packExtra,refreshFields,useExtraFields}from"./ExtraFields";
 import{FIELD_ORDER,labelFor,ruleFor}from"../lib/payment-fields";
@@ -315,10 +316,10 @@ export default function Home(){
  {active==="scheduled"&&<ScheduledPayments role={role} flash={flash}/>}
  {active==="accountsreceived"&&<AccountsReceived role={role} userEmail={userEmail} companies={companies} flash={flash}/>}
  {active==="vendors"&&<VendorMaster flash={flash}/>}
-  {active==="preaudit"&&<AuditTaskQueue title="Pre-audit tasks" kind="Pre-Audit" companies={companies} departments={departments} userName={userName} refresh={loadAuditTasks} flash={flash} create={(t)=>createAuditTask("Pre-Audit",t)} tasks={auditTasks} role={role} accept={acceptAuditTask} update={updateAuditTask}/>} 
+  {active==="preaudit"&&<PreAuditDesk role={role} departments={departments} flash={flash} changed={loadAuditTasks}/>} 
  {active==="postaudit"&&<AuditTaskQueue title="Post-audit tasks" kind="Post-Audit" companies={companies} create={(t)=>createAuditTask("Post-Audit",t)} tasks={auditTasks} role={role} accept={acceptAuditTask} update={updateAuditTask}/>} 
  {active==="specialaudit"&&<AuditTaskQueue title="Special audit tasks" kind="Special Audit" companies={companies} create={(t)=>createAuditTask("Special Audit",t)} tasks={auditTasks} role={role} accept={acceptAuditTask} update={updateAuditTask}/>} 
- {active==="observations"&&<ObservationDesk openProfile={setProfile} flash={flash} canManage={role!=="Requestor"}/>}
+ {active==="observations"&&<ObservationDesk openProfile={setProfile} flash={flash} canManage={role!=="Requestor"} head={role==="Audit Head"||role==="Administrator"}/>}
 
  {active==="meetings"&&<AuditTaskQueue title="Meetings/Tasks" kind="Meeting" companies={companies} create={(t)=>createAuditTask("Meeting",t)} tasks={auditTasks} role={role} accept={acceptAuditTask} update={updateAuditTask}/>} 
  {active==="reports"&&<ReportCentre role={role} payments={payments} tasks={auditTasks} openProfile={setProfile} flash={flash}/>}

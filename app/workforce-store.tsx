@@ -37,7 +37,9 @@ export type Observation={id:string;ref:string;title:string;detail:string;deptId:
   /* From the Audit Observation template, raised on a pre-audit task. */
   entity?:string;dateIdentified?:string;recommendation?:string;
   /* The number of the pre-audit task it was raised on, e.g. Pre-Aud-Task-001. */
-  taskRef?:string};
+  taskRef?:string;
+  /* The Audit Head's remarks, a JSON list of {by, at, text}. */
+  remarks?:string};
 export type ImportRow={line:number;name:string;employee:string;frequency:string;due:string;
   ends?:string;jd?:string;priority?:string;status?:string;qty?:number;done?:number;
   progress?:number;expectedOutput?:string;remarks?:string};
@@ -162,7 +164,8 @@ type Api={
   removeQuery:(id:string)=>Promise<unknown>;
   uploadPhoto:(employeeId:string,dataUrl:string)=>Promise<{photoAt:string}>;
   removePhoto:(employeeId:string)=>Promise<unknown>;
-  observations:(p?:ListParams&{taggedTo?:string})=>Promise<{observations:Observation[];total:number}>;
+  observations:(p?:ListParams&{taggedTo?:string;entity?:string;raisedBy?:string;facets?:string})=>Promise<{observations:Observation[];total:number;
+    facets?:{entities:string[];auditors:string[]}}>;
   observation:(id:string)=>Promise<{observation:Observation;replies:ObsReply[]}>;
   saveObservation:(o:Partial<Omit<Observation,"tags">>&{tags?:string[];action?:string},isNew:boolean)=>Promise<Observation>;
   removeObservation:(id:string)=>Promise<unknown>;

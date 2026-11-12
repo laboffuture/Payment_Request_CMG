@@ -273,3 +273,18 @@
 .wf-close-as label.on{border-color:#1b3a66;background:#eef3fb;color:#0b1d3a;box-shadow:inset 0 0 0 1px #1b3a66}
 .wf-close-as input{accent-color:#1b3a66;margin:0}
 @media(max-width:420px){.wf-close-as{grid-template-columns:1fr}}
+/* Pre-audit tasks: the completed-task filters, the locked fields of the completion
+   report, and long text clipped in the lists. */
+.pa-filters{flex-wrap:wrap;align-items:center}
+.pa-filters>label:first-child{flex:1 1 220px;min-width:200px}
+.pa-filters select{flex:0 1 210px;min-width:0;max-width:100%;text-overflow:ellipsis}
+.pa-filters label.pa-date{flex:0 0 auto;max-width:none;gap:6px;font-size:11px;color:#667085;padding:0 0 0 10px}
+.pa-filters label.pa-date input{width:auto;padding:8px 8px 8px 0;font-size:12px}
+.pa-chip{height:34px;padding:0 12px;border:1px solid #d0d7e0;border-radius:7px;background:#fff;font-size:12px;color:#344054;cursor:pointer}
+.pa-chip.on{background:#173f6d;border-color:#173f6d;color:#fff}
+.pa-clip{display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;max-width:260px;white-space:pre-wrap}
+.pa-row{cursor:pointer}
+.pa-locked{background:#f2f4f7!important;color:#344054;cursor:default}
+.pa-text span,.pa-label{display:block;font-size:12px;font-weight:600;color:#344054;margin-bottom:5px}
+.pa-text p{margin:0;padding:9px 11px;border:1px solid #e4e7ec;border-radius:8px;background:#f9fafb;font-size:13px;white-space:pre-wrap;max-height:220px;overflow-y:auto}
+@media(max-width:700px){.pa-filters select{flex:1 1 100%}.pa-filters label.pa-date{flex:1 1 45%}.pa-filters label.pa-date input{flex:1;min-width:0}}

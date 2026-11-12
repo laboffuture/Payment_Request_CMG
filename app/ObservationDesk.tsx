@@ -1,6 +1,6 @@
 "use client";
 import{useEffect,useState}from"react";
-import{MessageSquareWarning,Search,Send,Trash2,X}from"lucide-react";
+import{MessageSquareWarning,Plus,Search,Send,Trash2,X}from"lucide-react";
 import{csv,priorities,shift,stamp,today,useAsync,useWorkforce}from"./workforce-store";
 import type{Employee,Observation,Priority}from"./workforce-store";
 import{Empty,ErrorBlock,Loading,Pager}from"./WorkforceShared";
@@ -13,12 +13,15 @@ const obsTone=(s:string)=>s==="Resolved"||s==="Closed"?"green":s==="Acknowledged
 /* canManage: raising, resolving, editing and deleting belong to roles that change data.
    Everyone can read the register, and a person tagged on an observation can still reply -
    the server decides that, since tagging is exactly what makes a reply theirs to give. */
-export default function ObservationDesk({openProfile,flash,canManage=true}:{openProfile:(id:string)=>void;flash:(m:string)=>void;canManage?:boolean}){
+/* head: the Audit Head writes remarks on observations. */
+export default function ObservationDesk({openProfile,flash,canManage=true,head=false}:{openProfile:(id:string)=>void;flash:(m:string)=>void;canManage?:boolean;head?:boolean}){
   const wf=useWorkforce();
   const [raw,setRaw]=useState("");
   const [q,setQ]=useState("");
   const [status,setStatus]=useState("");
   const [mine,setMine]=useState("");
+  const [project,setProject]=useState("");
+  const [auditor,setAuditor]=useState("");
   const [offset,setOffset]=useState(0);
   const [open,setOpen]=useState<string|null>(null);
   const [compose,setCompose]=useState(false);
@@ -28,8 +31,10 @@ export default function ObservationDesk({openProfile,flash,canManage=true}:{open
      choice was applied here unseen, and an observation raised on a pre-audit task - which
      belongs to the group, not a department - vanished from the register once one was. */
   const{data,loading,error}=useAsync(()=>wf.api.observations({q,status:status||undefined,
-    taggedTo:mine||undefined,limit:LIMIT,offset}),
-    [q,status,mine,offset,wf.version]);
+    taggedTo:mine||undefined,entity:project||undefined,raisedBy:auditor||undefined,facets:"1",limit:LIMIT,offset}),
+    [q,status,mine,project,auditor,offset,wf.version]);
+  /* The project and auditor choices: what the register holds, whatever the filters. */
+  const facets=data?.facets||{entities:[],auditors:[]};
   const rows=data?.observations||[];
   const total=data?.total||0;
 
@@ -39,10 +44,11 @@ export default function ObservationDesk({openProfile,flash,canManage=true}:{open
       <div className="wf-head-tools">
         <button className="wf-small" onClick={()=>csv([["Ref","Vertical / entity","Area","Header","Summary","Potential risk or impact","Stakeholder",
           "Root cause","Recommendation","Value of transaction","Risk rating","Stakeholder response and action plan",
-          "Responsibility","Target date","Status","Tagged","Auditor / raised by","Date identified","Raised","Pre-audit task","Replies","Resolution"],
+          "Responsibility","Target date","Status","Tagged","Auditor / raised by","Date identified","Raised","Pre-audit task","Replies","Resolution","Audit Head remarks"],
           ...rows.map(o=>[o.ref,o.entity||"",o.area,o.title,o.detail,o.impact,o.stakeholder,o.rootCause,o.recommendation||"",
             o.transactionValue,o.risk,o.actionPlan,o.responsibility,o.target,o.status,
-            o.tags.map(t=>t.name).join("; "),o.raisedBy,o.dateIdentified||"",stamp(o.raisedAt),o.taskRef||o.taskId||"",o.replyCount,o.resolution])],
+            o.tags.map(t=>t.name).join("; "),o.raisedBy,o.dateIdentified||"",stamp(o.raisedAt),o.taskRef||o.taskId||"",o.replyCount,o.resolution,
+            remarksOf(o.remarks).map(r=>`${r.text} (${r.by})`).join(" | ")])],
           "observations.csv")}>
           Export page</button>
         {canManage&&<button className="primary" onClick={()=>setCompose(true)}><MessageSquareWarning/>Raise observation</button>}
@@ -52,6 +58,10 @@ export default function ObservationDesk({openProfile,flash,canManage=true}:{open
       <label><Search/><input value={raw} onChange={e=>setRaw(e.target.value)} placeholder="Search observation or reference"/></label>
       <select className="wf-select" value={status} onChange={e=>{setStatus(e.target.value);setOffset(0)}}>
         <option value="">All statuses</option>{OBS_STATUS.map(s=><option key={s}>{s}</option>)}</select>
+      <select className="wf-select" value={project} onChange={e=>{setProject(e.target.value);setOffset(0)}} aria-label="Project">
+        <option value="">All projects</option>{[...new Set([...facets.entities,project].filter(Boolean))].map(x=><option key={x}>{x}</option>)}</select>
+      <select className="wf-select" value={auditor} onChange={e=>{setAuditor(e.target.value);setOffset(0)}} aria-label="Auditor">
+        <option value="">All auditors</option>{[...new Set([...facets.auditors,auditor].filter(Boolean))].map(x=><option key={x}>{x}</option>)}</select>
       <TaggedToPicker value={mine} onChange={v=>{setMine(v);setOffset(0)}}/>
     </div>
 
@@ -63,7 +73,7 @@ export default function ObservationDesk({openProfile,flash,canManage=true}:{open
       :!rows.length?<Empty label="No observations match this filter."/>
       :<><div className="table-wrap"><table className="wf-wide"><thead><tr>
         <th>REF</th><th>OBSERVATION</th><th>TAGGED TO</th><th>RISK</th><th>TARGET</th>
-        <th>REPLIES</th><th>STATUS</th><th>ACTION</th></tr></thead>
+        <th>REPLIES</th><th>REMARKS</th><th>STATUS</th><th>ACTION</th></tr></thead>
         <tbody>{rows.map(o=><tr key={o.id} onClick={()=>setOpen(o.id)}>
           <td><b>{o.ref}</b></td>
           <td>{o.title}{o.detail&&o.detail!==o.title&&<small>{o.detail}</small>}
@@ -72,10 +82,12 @@ export default function ObservationDesk({openProfile,flash,canManage=true}:{open
           <td><div className="wf-tags">{o.tags.map(t=>
             <button key={t.id} className="wf-tag" onClick={e=>{e.stopPropagation();openProfile(t.id)}}>
               {t.name}</button>)}</div></td>
-          <td><span className={`badge ${o.risk.toLowerCase()}`}>{o.risk}</span></td>
+          <td>{o.risk?<span className={`badge ${o.risk.toLowerCase()}`}>{o.risk}</span>:<small>Not rated</small>}</td>
           <td>{o.target&&o.target<today()&&o.status!=="Resolved"&&o.status!=="Closed"
             ?<span className="badge red">{o.target}</span>:o.target||"—"}</td>
           <td>{o.replyCount}{o.lastReplyAt&&<small>last {stamp(o.lastReplyAt)}</small>}</td>
+          <td>{(()=>{const r=remarksOf(o.remarks),last=r[r.length-1];return last
+            ?<>{r.length}<small className="pa-clip">{last.text}</small></>:<small>—</small>})()}</td>
           <td><span className={`badge ${obsTone(o.status)}`}>{o.status}</span></td>
           <td><div className="wf-actions"><button onClick={e=>{e.stopPropagation();setOpen(o.id)}}>
             Open thread</button></div></td></tr>)}</tbody></table></div>
@@ -83,8 +95,11 @@ export default function ObservationDesk({openProfile,flash,canManage=true}:{open
     </section>
 
     {compose&&<ObservationEditor observation={null} close={()=>setCompose(false)} flash={flash}/>}
-    {open&&<ObservationThread canManage={canManage} id={open} close={()=>setOpen(null)} flash={flash} openProfile={openProfile}/>}
+    {open&&<ObservationThread canManage={canManage} head={head} id={open} close={()=>setOpen(null)} flash={flash} openProfile={openProfile}/>}
   </div>}
+
+type Remark={by:string;at:string;text:string};
+const remarksOf=(v?:string):Remark[]=>{try{const r=JSON.parse(v||"[]");return Array.isArray(r)?r:[]}catch{return[]}};
 
 /* Employee search used both for the "tagged to me" filter and for tagging. */
 function TaggedToPicker({value,onChange}:{value:string;onChange:(v:string)=>void}){
@@ -129,7 +144,7 @@ export function ObservationEditor({observation,close,flash}:{
       const rest=observation?{...observation,tags:undefined}:{};
       await wf.api.saveObservation({...rest,title,detail,risk,target,
         area,impact,stakeholder,rootCause,transactionValue,responsibility,actionPlan,
-        deptId:wf.dept,raisedBy:wf.actor,tags:tags.map(t=>t.id)},isNew);
+        deptId:observation?.deptId||wf.dept,raisedBy:observation?.raisedBy||wf.actor,tags:tags.map(t=>t.id)},isNew);
       flash(isNew?`Observation sent to ${tags.length} employee${tags.length===1?"":"s"}`:"Observation updated");
       close()}
     catch(err){flash(err instanceof Error?err.message:"Could not save")}
@@ -186,12 +201,13 @@ export function ObservationEditor({observation,close,flash}:{
         {busy?"Sending…":isNew?"Send to tagged employees":"Save"}</button></footer>
   </form></>}
 
-function ObservationThread({id,close,flash,openProfile,canManage=true}:{canManage?:boolean;
+function ObservationThread({id,close,flash,openProfile,canManage=true,head=false}:{canManage?:boolean;head?:boolean;
   id:string;close:()=>void;flash:(m:string)=>void;openProfile:(id:string)=>void}){
   const wf=useWorkforce();
   const [text,setText]=useState("");
   const [busy,setBusy]=useState(false);
   const [edit,setEdit]=useState(false);
+  const [remark,setRemark]=useState("");
   const{data,loading,error}=useAsync(()=>wf.api.observation(id),[id,wf.version]);
   const o=data?.observation;
   const replies=data?.replies||[];
@@ -203,6 +219,15 @@ function ObservationThread({id,close,flash,openProfile,canManage=true}:{canManag
     setBusy(true);
     try{await wf.api.addReply(id,body);setText("");flash("Reply added")}
     catch(err){flash(err instanceof Error?err.message:"Could not reply")}
+    finally{setBusy(false)}};
+
+  const addRemark=async(e:React.FormEvent)=>{
+    e.preventDefault();
+    const text=remark.trim();
+    if(!text)return;
+    setBusy(true);
+    try{await wf.api.saveObservation({id,action:"remark",remark:text} as never,false);setRemark("");flash("Remark added")}
+    catch(err){flash(err instanceof Error?err.message:"Could not save the remark")}
     finally{setBusy(false)}};
 
   const act=async(action:"resolve"|"reopen")=>{
@@ -218,7 +243,7 @@ function ObservationThread({id,close,flash,openProfile,canManage=true}:{canManag
       :error||!o?<ErrorBlock message={error||"Not found"} retry={wf.refresh}/>
       :<>
         <span className={`badge ${obsTone(o.status)}`}>{o.status}</span>{" "}
-        <span className={`badge ${o.risk.toLowerCase()}`}>{o.risk}</span>
+        {o.risk?<span className={`badge ${o.risk.toLowerCase()}`}>{o.risk}</span>:<span className="badge">Risk not rated</span>}
         <h3 className="wf-obs-title">{o.title}</h3>
         {o.detail&&o.detail!==o.title&&<p className="wf-jd">{o.detail}</p>}
         <div className="facts">
@@ -238,6 +263,15 @@ function ObservationThread({id,close,flash,openProfile,canManage=true}:{canManag
         <section><h4>Tagged employees</h4>
           <div className="wf-tags">{o.tags.map(t=>
             <button key={t.id} className="wf-tag" onClick={()=>openProfile(t.id)}>{t.name}</button>)}</div>
+        </section>
+        <section><h4>Audit Head remarks</h4>
+          <div className="pa-remarks">{remarksOf(o.remarks).length?remarksOf(o.remarks).map((r,i)=><p key={i}><b>{r.text}</b>
+              <span>{r.by} · {new Date(r.at).toLocaleString("en-GB",{day:"2-digit",month:"short",year:"numeric",hour:"2-digit",minute:"2-digit"})}</span></p>)
+            :<p className="pa-none">No remarks yet.</p>}</div>
+          {head&&<form className="wf-composer" onSubmit={addRemark}>
+            <input value={remark} onChange={e=>setRemark(e.target.value)} placeholder="Write a remark" disabled={busy}/>
+            <button className="primary" disabled={busy||!remark.trim()}><Plus/>Add remark</button>
+          </form>}
         </section>
         <section><h4>Thread</h4>
           {!replies.length&&<p className="wf-empty">No replies yet. The people tagged above can answer here.</p>}

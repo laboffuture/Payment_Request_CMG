@@ -266,9 +266,11 @@ export const wfObservations=sqliteTable("wf_observations",{
      target, the responsible person responsibility (and a tag). */
   entity:text("entity").notNull().default(""),
   dateIdentified:text("date_identified").notNull().default(""),
-  recommendation:text("recommendation").notNull().default("")},
+  recommendation:text("recommendation").notNull().default(""),
+  /* The Audit Head's remarks, as a JSON list of {by, at, text}; only ever added to. */
+  remarks:text("remarks").notNull().default("")},
   t=>[index("wf_obs_dept_idx").on(t.deptId),index("wf_obs_status_idx").on(t.status),
-      index("wf_obs_raised_idx").on(t.raisedAt),index("wf_obs_task_idx").on(t.taskId)]);
+      index("wf_obs_raised_idx").on(t.raisedAt),index("wf_obs_task_idx").on(t.taskId),index("wf_obs_entity_idx").on(t.entity)]);
 
 /* One row per tagged employee. A join table rather than a JSON column so
    "observations tagged to me" stays an indexed lookup instead of a table scan. */
@@ -382,10 +384,17 @@ export const wfAuditTasks=sqliteTable("wf_audit_tasks",{
   catalogueId:text("catalogue_id").notNull().default(""),
   /* Remarks added while the task is worked, as a JSON list of {by, at, text}. Appended to
      by the server only, so an earlier remark cannot be edited away. */
-  remarks:text("remarks").notNull().default("")},
+  remarks:text("remarks").notNull().default(""),
+  /* A pre-audit task is taken by an auditor from the open pool (assignedTo is the name,
+     assignedEmail the login) and completed with what was done, the observations found and
+     the day it was filed. */
+  assignedEmail:text("assigned_email").notNull().default(""),
+  workDescription:text("work_description").notNull().default(""),
+  observations:text("observations").notNull().default(""),
+  completedOn:text("completed_on").notNull().default("")},
   t=>[index("wf_at_kind_idx").on(t.kind),index("wf_at_status_idx").on(t.status),
       index("wf_at_company_idx").on(t.companyId),index("wf_at_assigned_idx").on(t.assignedTo),
-      index("wf_at_kind_status_idx").on(t.kind,t.status)]);
+      index("wf_at_kind_status_idx").on(t.kind,t.status),index("wf_at_completed_on_idx").on(t.completedOn)]);
 
 export const wfBatches=sqliteTable("wf_batches",{
   id:text("id").primaryKey(),
