@@ -84,7 +84,7 @@ function BatchDetail({batch,back,reload,flash,open}:{batch:Batch;back:()=>void;r
     if(!confirm(`Delete ${batch.cpNo}?\n\nOnly the batch is deleted. The ${rows.length} payment request(s) in it are not changed and can be consolidated again.`))return;
     setBusy(true);try{await send("DELETE",undefined,`?id=${encodeURIComponent(batch.id)}`);flash(`${batch.cpNo} deleted`);back();await reload()}
     catch(e){flash(e instanceof Error?e.message:"Could not delete it")}finally{setBusy(false)}};
-  const excel=()=>csv([["S.No","Request no","Payment type","Company","Department","Vendor","Project","JB code","PO no","Invoice no","Invoice date","Due","Status","Currency","Amount","TDS value","Job budget (INR)","Job spent (INR)","Budget status"],
+  const excel=()=>csv([["S.No","Request no","Payment type","Company","Department","Vendor","Project","JB code","PO no","Invoice no","Invoice date","Due","Status","Currency","Amount","TDS value","Job budget (INR)","Job raised (INR)","Budget status"],
     ...chosen.map((p,i)=>{const j=jobOf(p);return[i+1,p.requestNo,p.nature||"",p.company,p.department,p.vendor,p.project||"",p.jbCode||p.projectCode||"",p.poNumber||"",p.invoiceNumber||"",p.invoiceDate||"",
       p.due,p.status,p.currency,p.amount,p.tdsValue||"",j?j.budget:"",j?Math.round(j.spent*100)/100:"",j?stateText[j.state]:""]}),
     [],...s.byKind.filter(k=>k.count).flatMap(k=>k.totals.map(t=>["","",k.label,"","","","","","","","","","Total",t.currency,t.amount,"","","",""])),
@@ -113,7 +113,7 @@ function BatchDetail({batch,back,reload,flash,open}:{batch:Batch;back:()=>void;r
       {ticked.length>0&&<button className="cp-danger" disabled={busy} onClick={removeTicked}><X/>Take {ticked.length} out</button>}</div>
       {!rows.length?<div className="wb-empty"><FileText/><b>This batch is empty</b><span>Every request was taken out. Add more from Accounts / Audit queues → All requests, or delete it.</span></div>
       :<div className="table-wrap"><table className="cp-table"><thead><tr><th><input type="checkbox" aria-label="Tick every request" checked={all} onChange={()=>setTicked(all?[]:rows.map(r=>r.id))}/></th>
-        <th>REQUEST</th><th>COMPANY / DEPT</th><th>VENDOR</th><th>PROJECT / PO</th><th>INVOICE</th><th>DUE</th><th>STATUS</th><th>AMOUNT</th><th>BUDGET</th><th>SPENT</th></tr></thead>
+        <th>REQUEST</th><th>COMPANY / DEPT</th><th>VENDOR</th><th>PROJECT / PO</th><th>INVOICE</th><th>DUE</th><th>STATUS</th><th>AMOUNT</th><th>BUDGET</th><th>RAISED</th></tr></thead>
         <tbody>{rows.map(p=><tr key={p.id} className={ticked.includes(p.id)?"cp-ticked":""} onClick={()=>open?.(p.id)}>
           <td onClick={e=>e.stopPropagation()}><input type="checkbox" aria-label={`Tick ${p.requestNo}`} checked={ticked.includes(p.id)} onChange={()=>toggle(p.id)}/></td>
           <td><b>{p.requestNo}</b><small>{p.nature||"—"}</small></td><td>{p.company}<small>{p.department}</small></td><td>{p.vendor}</td>
@@ -278,7 +278,7 @@ function printBatch(batch:Batch,rows:BatchPayment[],jobOf:(p:BatchPayment)=>JobB
     <div class="card"><span>Total</span><b>${esc(moneyList(s.totals))}</b></div>
     <div class="card"><span>Companies · vendors</span><b>${s.byCompany.length} · ${s.byVendor.length}</b></div>${s.tds.length?`<div class="card"><span>TDS</span><b>${esc(moneyList(s.tds))}</b></div>`:""}</div>
   <div class="groups">${groups("By payment type",s.byNature)}${groups("By company",s.byCompany)}${groups("By vendor",s.byVendor)}${groups("By status",s.byStatus)}</div>
-  <h3>Payment requests</h3><table><thead><tr><th class="n">#</th><th>Request</th><th>Company / Dept</th><th>Vendor</th><th>Project / PO</th><th>Invoice</th><th>Due</th><th>Status</th><th class="r">Amount</th><th class="r">Job budget</th><th class="r">Job spent</th></tr></thead>
+  <h3>Payment requests</h3><table><thead><tr><th class="n">#</th><th>Request</th><th>Company / Dept</th><th>Vendor</th><th>Project / PO</th><th>Invoice</th><th>Due</th><th>Status</th><th class="r">Amount</th><th class="r">Job budget</th><th class="r">Job raised</th></tr></thead>
   <tbody>${body}</tbody><tfoot>${foot}</tfoot></table>
   <div class="sign"><div>Prepared by (Accounts)</div><div>Verified by (Audit)</div><div>Approved by</div><div>Released by (Finance)</div></div>
   <div class="foot"><span>${esc(batch.cpNo)} · ${rows.length} payment request(s)</span><span>Printed ${esc(stamp(new Date().toISOString()))}</span></div>
