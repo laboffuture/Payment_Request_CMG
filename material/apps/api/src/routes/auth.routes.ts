@@ -120,7 +120,7 @@ authRouter.get(
   wrap(async (req, res) => {
     const actor = actorOf(req);
     // The role in use, which the header may have switched to.
-    res.json({ ...(await meService(actor.id)), role: actor.role });
+    res.json({ ...(await meService(actor.id)), role: actor.role, qsHead: !!actor.qsHead });
   }),
 );
 

@@ -41,5 +41,7 @@ export const meResponse = z.object({
   vendorName: z.string().nullable(),
   projectIds: z.array(z.string()),
   emailOn: z.boolean(),
+  /** Head of QS: also reads the Store Stock register. */
+  qsHead: z.boolean().optional(),
 });
 export type Me = z.infer<typeof meResponse>;

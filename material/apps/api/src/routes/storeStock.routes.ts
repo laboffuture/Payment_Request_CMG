@@ -2,6 +2,8 @@ import { Router } from 'express';
 import { z } from 'zod';
 import { wrap, sendCsv } from '../lib/http.js';
 import { buildCsv, csvFilename } from '../lib/csv.js';
+import type { NextFunction, Request, Response } from 'express';
+import { forbidden } from '../lib/errors.js';
 import { actorOf, authorize, requireAuth } from '../middleware/auth.js';
 import { validateBody } from '../middleware/validate.js';
 import {
@@ -16,6 +18,13 @@ import {
 export const storeStockRouter: Router = Router();
 
 const keepers = [requireAuth, authorize('STORE', 'ADMIN')] as const;
+
+/** Reading the register: the keepers, and the head of QS (a QS who is a Department Head) - not every QS. */
+const canRead = (req: Request, _res: Response, next: NextFunction): void => {
+  const actor = req.actor;
+  next(actor && (actor.role === 'STORE' || actor.role === 'ADMIN' || actor.qsHead) ? undefined : forbidden());
+};
+const readers = [requireAuth, canRead] as const;
 
 const text = (max: number) => z.string().trim().max(max).default('');
 const entryInput = z.object({
@@ -32,7 +41,7 @@ const entryInput = z.object({
 
 storeStockRouter.get(
   '/store-stock',
-  ...keepers,
+  ...readers,
   wrap(async (_req, res) => res.json(await listStoreStock())),
 );
 
@@ -50,7 +59,7 @@ const CSV_COLUMNS = [
 
 storeStockRouter.get(
   '/store-stock/export.csv',
-  ...keepers,
+  ...readers,
   wrap(async (_req, res) => {
     const rows = (await listStoreStock()).map((r) => ({
       Code: r.code,

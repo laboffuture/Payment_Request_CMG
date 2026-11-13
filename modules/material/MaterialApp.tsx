@@ -126,8 +126,13 @@ export function MaterialProvider({role,person,children}:{role:Role|null;person:s
 export function useMaterialNav():MaterialNavItem[]{
   const{role}=useContext(MaterialContext);
   const counts=useQuery({...countsQuery(),enabled:!!role,refetchInterval:60_000});
+  const me=useQuery({...meQuery(),enabled:role==="QS"});
   if(!role)return[];
-  return NAV[role].filter(i=>i.href!=="/admin/users").map(i=>({href:i.href,
+  /* The head of QS (a QS who is also a Department Head) reads the Store Stock register too. */
+  const items=role==="QS"&&me.data?.qsHead
+    ?NAV.QS.flatMap(i=>i.href==="/inventory"?[i,{href:"/store-stock",label:"Store Stock"}]:[i])
+    :NAV[role];
+  return items.filter(i=>i.href!=="/admin/users").map((i:{href:string;label:string;count?:string})=>({href:i.href,
     label:i.href==="/"?"Material dashboard":i.label,icon:ICONS[i.href]??Package,
     count:i.count?Number((counts.data as Record<string,number>|undefined)?.[i.count]??0):0}))}
 

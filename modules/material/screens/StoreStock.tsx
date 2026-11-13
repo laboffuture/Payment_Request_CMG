@@ -13,6 +13,7 @@ import { useAction } from '@mm/lib/hooks';
 import { fmtDate, qty } from '@mm/lib/format';
 import { unitsOf, useReference } from '@mm/lib/reference';
 import { ItemSearchSelect } from '@mm/components/ItemSearchSelect';
+import { useSession } from '@mm/lib/session';
 
 /**
  * Store Stock: the register of what the main store holds, entered by hand by the
@@ -65,6 +66,9 @@ export default function StoreStockPage() {
   // null = closed; 'new' = adding; a row = editing that row
   const [editing, setEditing] = useState<StoreStockDto | 'new' | null>(null);
   const [removing, setRemoving] = useState<StoreStockDto | null>(null);
+  // The store and the administrator keep the register; the head of QS only reads it.
+  const { me } = useSession();
+  const keeper = me.role === 'STORE' || me.role === 'ADMIN';
 
   const list = useQuery({
     queryKey: ['store-stock'],
@@ -140,6 +144,8 @@ export default function StoreStockPage() {
         </span>
       ),
     },
+  ];
+  if (keeper) columns.push(
     {
       key: 'actions',
       header: '',
@@ -154,7 +160,7 @@ export default function StoreStockPage() {
         </span>
       ),
     },
-  ];
+  );
 
   const filtered = search.trim() || category;
 
@@ -197,9 +203,11 @@ export default function StoreStockPage() {
             >
               <Download size={14} aria-hidden /> Excel (CSV)
             </Btn>
-            <Btn variant="primary" onClick={() => setEditing('new')}>
-              + Add material
-            </Btn>
+            {keeper ? (
+              <Btn variant="primary" onClick={() => setEditing('new')}>
+                + Add material
+              </Btn>
+            ) : null}
           </>
         }
       />

@@ -19,6 +19,8 @@ export interface Actor {
   projectIds: string[];
   name: string;
   email: string;
+  /** A QS who is also a Department Head on the Payment login: may read the Store Stock register. */
+  qsHead?: boolean;
 }
 
 declare global {
@@ -54,8 +56,10 @@ export async function requireAuth(
     // Payment app's session for everyone who signs in there.
     let user = claims ? await User.findById(claims.sub).lean() : null;
     let role = user?.role as Role | undefined;
+    let paymentRoles: string[] = [];
     if (!user) {
       const paymentActor = await paymentActorFor(paymentSessionOf(req));
+      paymentRoles = paymentActor?.roles ?? [];
       const found = paymentActor
         ? await materialUserFor(paymentActor, String(req.get(ROLE_HEADER) ?? req.query._role ?? ''))
         : null;
@@ -83,6 +87,7 @@ export async function requireAuth(
       projectIds,
       name: user.name,
       email: user.email ?? '',
+      qsHead: role === 'QS' && paymentRoles.includes('Department Head'),
     };
     next();
   } catch (err) {
