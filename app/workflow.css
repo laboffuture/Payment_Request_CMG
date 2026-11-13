@@ -298,6 +298,8 @@
 .pa-reject{display:inline-flex;align-items:center;gap:6px;color:#b42318!important;border-color:#fecdca!important}
 .pa-reject svg,.pa-view footer svg{width:15px;height:15px}
 .pa-view footer .pa-delete{margin-right:auto}
+.pa-table th,.pa-table td{padding-left:10px!important;padding-right:10px!important}.pa-table th:first-child,.pa-table td:first-child{padding-left:18px!important}
+.pa-row td:first-child{min-width:150px}.pa-row td:first-child>b{white-space:nowrap}
 .pa-view small .badge{margin-left:4px}
 .pa-was{color:#b42318!important}
 .pa-hint{color:#667085;font-size:12px}

@@ -41,7 +41,7 @@ import {hasPaymentAccess,isPaymentRole,materialCodeFor} from "../lib/roles";
 import ResponsiveTables from "./ResponsiveTables";
 import BrandLockup from "./BrandLockup";
 type Payment={deptPriority?:string;deptPriorityBy?:string;deptPriorityAt?:string;createdAt?:string;tds?:string;nature?:string;poNumber?:string;resubmitNote?:string;resubmittedAt?:string;rejectionNote?:string;rejectedBy?:string;rejectedAt?:string;raisedBy?:string;id:number;requestNo:string;company:string;vendor:string;amount:number;currency:string;due:string;urgency:string;status:string;owner:string;department:string};
-export type AuditTask={ref?:string;remarks?:string;category?:string;entity?:string;dueRule?:string;frequency?:string;recurDay?:string;recurUntil?:string;seriesId?:string;attendees?:string;id:string;title:string;company:string;department:string;kind:"Pre-Audit"|"Post-Audit"|"Meeting"|"Special Audit"|"Task"|"Token"|"Training";status:"Available"|"Accepted"|"In Progress"|"Observation Submitted"|"Response Received"|"Completed"|"Reported"|"Rejected";due?:string;assignedTo?:string;plannedStart?:string;plannedEnd?:string;notes?:string;dataProvider?:string};
+export type AuditTask={ref?:string;remarks?:string;category?:string;entity?:string;dueRule?:string;frequency?:string;recurDay?:string;recurUntil?:string;seriesId?:string;attendees?:string;id:string;title:string;company:string;department:string;kind:"Pre-Audit"|"Post-Audit"|"Meeting"|"Special Audit"|"Task"|"Token"|"Training";status:"Available"|"Accepted"|"In Progress"|"Observation Submitted"|"Response Received"|"Completed"|"Reported"|"Rejected"|"In progress";due?:string;assignedTo?:string;plannedStart?:string;plannedEnd?:string;notes?:string;dataProvider?:string};
 type Module="material"|"dashboard"|"requests"|"payments"|"consolidated"|"scheduled"|"accountsreceived"|"preaudit"|"postaudit"|"specialaudit"|"observations"|"meetings"|"reports"|"companies"|"settings"|"users"|"imports"|"organisation"|"employees"|"vendors";
 const seed:Payment[]=[];
 const auditSeed:AuditTask[]=[];
@@ -316,7 +316,7 @@ export default function Home(){
  {active==="scheduled"&&<ScheduledPayments role={role} flash={flash}/>}
  {active==="accountsreceived"&&<AccountsReceived role={role} userEmail={userEmail} companies={companies} flash={flash}/>}
  {active==="vendors"&&<VendorMaster flash={flash}/>}
-  {active==="preaudit"&&<PreAuditDesk role={role} departments={departments} userName={userName} flash={flash} changed={loadAuditTasks}/>} 
+  {active==="preaudit"&&<PreAuditDesk role={role} departments={departments} userName={userName} userEmail={userEmail} flash={flash} changed={loadAuditTasks}/>} 
  {active==="postaudit"&&<AuditTaskQueue title="Post-audit tasks" kind="Post-Audit" companies={companies} create={(t)=>createAuditTask("Post-Audit",t)} tasks={auditTasks} role={role} accept={acceptAuditTask} update={updateAuditTask}/>} 
  {active==="specialaudit"&&<AuditTaskQueue title="Special audit tasks" kind="Special Audit" companies={companies} create={(t)=>createAuditTask("Special Audit",t)} tasks={auditTasks} role={role} accept={acceptAuditTask} update={updateAuditTask}/>} 
  {active==="observations"&&<ObservationDesk openProfile={setProfile} flash={flash} canManage={role!=="Requestor"} head={role==="Audit Head"||role==="Administrator"}/>}
