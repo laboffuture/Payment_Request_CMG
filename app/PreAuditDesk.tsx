@@ -2,7 +2,7 @@
 /* Pre-audit tasks.
 
    Nobody creates tasks here: each auditor works from their own task sheet and, once a task
-   is done, reports it - area/process, vertical, task title, department, what was done, the
+   is done, reports it - vertical, area/process, task title, department, what was done, the
    observations found and any reference files. The auditor's name and today's date are
    filled in and locked. The report goes to the Audit Head, who accepts it (the task is
    closed) or rejects it with a reason; a rejected report keeps its record and the auditor
@@ -10,10 +10,10 @@
 
    The Audit Head audits too, and reports his own work the same way - it needs nobody's
    review and is accepted as reported. He sees the whole team's reports, filtered by
-   auditor, area/process, vertical, department and date. */
+   auditor, vertical, area/process, department and date. */
 
 import{useEffect,useMemo,useRef,useState}from"react";
-import{CheckCircle2,Download,FileUp,Plus,Search,X,XCircle}from"lucide-react";
+import{CheckCircle2,Download,FileUp,Plus,Search,Trash2,X,XCircle}from"lucide-react";
 import{auditTasksApi}from"./audit-api";
 import type{AuditRow}from"./audit-api";
 import{csv,useAsync}from"./workforce-store";
@@ -77,9 +77,9 @@ export default function PreAuditDesk({role,departments,userName,flash,changed}:{
       for(let off=0;off<1000;off+=200){
         const d=await auditTasksApi.load({...filters,status:tab,limit:200,offset:off});
         all.push(...d.tasks);if(off+200>=d.total)break}
-      csv([["Task no.","Task title","Area/Process","Vertical","Department",...(head?["Task done by"]:[]),"Task completed date","Status",
+      csv([["Task no.","Task title","Vertical","Area/Process","Department",...(head?["Task done by"]:[]),"Task completed date","Status",
         "Description","Observations","Reviewed by","Reviewed on","Rejection reason"],
-        ...all.map(t=>[t.ref,t.title,t.project||"",t.entity||"",t.department,...(head?[t.assignedTo]:[]),t.completedOn||"",label(t.status),
+        ...all.map(t=>[t.ref,t.title,t.entity||"",t.project||"",t.department,...(head?[t.assignedTo]:[]),t.completedOn||"",label(t.status),
           t.workDescription||"",t.observations||"",t.reviewedBy||"",t.reviewedAt?when(t.reviewedAt):"",t.rejectReason||""])],
         `pre-audit-${tab.toLowerCase()}-${indiaToday()}.csv`);
       flash(`Downloaded ${all.length} report${all.length===1?"":"s"}`)}
@@ -102,13 +102,13 @@ export default function PreAuditDesk({role,departments,userName,flash,changed}:{
       <div className="audit-list-tabs">{tabs.map(([k,l])=>
         <button key={k} className={tab===k?"active":""} onClick={()=>{setTab(k);setOffset(0)}}>{l}<i>{counts.data?.[k]??"…"}</i></button>)}</div>
       <div className="audit-list-tools pa-filters">
-        <label><Search/><input value={raw} onChange={e=>setRaw(e.target.value)} placeholder="Search task, area/process or description"/></label>
+        <label><Search/><input value={raw} onChange={e=>setRaw(e.target.value)} placeholder="Search task, vertical, area/process or description"/></label>
         {head&&<select value={auditor} onChange={set(setAuditor)} aria-label="Auditor">
           <option value="">All auditors</option>{auditors.map(a=><option key={a}>{a}</option>)}</select>}
-        <select value={project} onChange={set(setProject)} aria-label="Area/Process">
-          <option value="">All areas/processes</option>{projects.map(p=><option key={p}>{p}</option>)}</select>
         <select value={vertical} onChange={set(setVertical)} aria-label="Vertical">
           <option value="">All verticals</option>{verticals.map(p=><option key={p}>{p}</option>)}</select>
+        <select value={project} onChange={set(setProject)} aria-label="Area/Process">
+          <option value="">All areas/processes</option>{projects.map(p=><option key={p}>{p}</option>)}</select>
         <select value={dept} onChange={set(setDept)} aria-label="Department">
           <option value="">All departments</option>{depts.map(p=><option key={p}>{p}</option>)}</select>
         <label className="pa-date">From<input type="date" value={from} max={to||undefined} onChange={set(setFrom)}/></label>
@@ -117,12 +117,12 @@ export default function PreAuditDesk({role,departments,userName,flash,changed}:{
           onClick={()=>{const d=indiaToday();setFrom(d);setTo(d);setOffset(0)}}>Today</button>
         {filtered&&<button type="button" className="pa-chip" onClick={clear}>Clear</button>}
       </div>
-      <div className="table-wrap"><table><thead><tr><th>TASK</th><th>AREA/PROCESS</th><th>VERTICAL</th><th>DEPARTMENT</th>
+      <div className="table-wrap"><table><thead><tr><th>TASK</th><th>VERTICAL</th><th>AREA/PROCESS</th><th>DEPARTMENT</th>
         {head&&<th>TASK DONE BY</th>}<th>COMPLETED ON</th><th>STATUS</th><th>ACTION</th></tr></thead>
         <tbody>{rows.map(t=><tr key={t.id} className="pa-row" onClick={()=>setViewing(t)}>
           <td><b>{t.ref}</b><small>{t.title}</small></td>
-          <td>{t.project||"—"}</td>
           <td>{t.entity||"—"}</td>
+          <td>{t.project||"—"}</td>
           <td>{t.department||"—"}</td>
           {head&&<td>{t.assignedTo||"—"}</td>}
           <td><b>{day(t.completedOn||t.completedAt)}</b></td>
@@ -152,7 +152,8 @@ export default function PreAuditDesk({role,departments,userName,flash,changed}:{
       saved={(m,next)=>{setReporting(null);flash(m);setTab(next);setOffset(0);reload()}}/>}
     {viewing&&<ReportView task={viewing} head={head} close={()=>setViewing(null)} flash={flash}
       edit={()=>{setReporting(viewing);setViewing(null)}}
-      saved={(t,m)=>{setViewing(t);flash(m);reload()}}/>}
+      saved={(t,m)=>{setViewing(t);flash(m);reload()}}
+      removed={m=>{setViewing(null);flash(m);reload()}}/>}
   </div>}
 
 /* Reporting a finished task, or correcting a rejected one. The auditor and the date are
@@ -195,12 +196,12 @@ function ReportForm({task,userName,head,verticals,catalogue,projects,departments
         <button type="button" onClick={close}><X/></button></header>
       <div className="form">
         {steps.length>0&&<div className="wide pa-rejected">{steps.map((s,i)=><p key={i}><b>Rejected by {s.by} · {when(s.at)}</b><span>{s.note}</span></p>)}</div>}
-        <label>Area/Process {req}
-          <input required list="pa-projects" value={f.project} onChange={set("project")} placeholder="Choose or type the area or process"/>
-          <datalist id="pa-projects">{projects.map(p=><option key={p} value={p}/>)}</datalist></label>
         <label>Vertical {req}
           <select required value={f.entity} onChange={set("entity")}>
             <option value="">Select vertical</option>{uniq([...verticals,f.entity]).map(v=><option key={v}>{v}</option>)}</select></label>
+        <label>Area/Process {req}
+          <input required list="pa-projects" value={f.project} onChange={set("project")} placeholder="Choose or type the area or process"/>
+          <datalist id="pa-projects">{projects.map(p=><option key={p} value={p}/>)}</datalist></label>
         <label className="wide">Task title {req}
           <input required list="pa-titles" value={f.title} onChange={set("title")} placeholder="Choose a task, or type it as it is on your sheet"/>
           <datalist id="pa-titles">{titles.map(t=><option key={t} value={t}/>)}</datalist></label>
@@ -238,9 +239,13 @@ function Locked({label,value,wide}:{label:string;value:string;wide?:boolean}){
 
 /* A report as filed, with its files and its review history. The Audit Head accepts or
    rejects one waiting for review; the auditor can correct a rejected one. */
-function ReportView({task,head,close,saved,edit,flash}:{task:AuditRow;head:boolean;close:()=>void;flash:(m:string)=>void;
-  saved:(t:AuditRow,m:string)=>void;edit:()=>void}){
-  const[rejecting,setRejecting]=useState(false),[reason,setReason]=useState("");
+function ReportView({task,head,close,saved,edit,flash,removed}:{task:AuditRow;head:boolean;close:()=>void;flash:(m:string)=>void;
+  saved:(t:AuditRow,m:string)=>void;edit:()=>void;removed:(m:string)=>void}){
+  const[rejecting,setRejecting]=useState(false),[reason,setReason]=useState(""),[deleting,setDeleting]=useState(false);
+  /* The Audit Head removes a report outright; its observation stays in the register. */
+  const remove=async()=>{setBusy(true);setErr("");
+    try{await auditTasksApi.remove(task.id);removed(`${task.ref} deleted`)}
+    catch(x){setErr(x instanceof Error?x.message:"Could not delete it");setBusy(false)}};
   const[busy,setBusy]=useState(false),[err,setErr]=useState("");
   const steps=listOf<Step>(task.history);
   const review=head&&task.status==="Reported";
@@ -256,8 +261,8 @@ function ReportView({task,head,close,saved,edit,flash}:{task:AuditRow;head:boole
       <header><div><small>{task.ref} · <span className={`badge ${tone(task.status)}`}>{label(task.status)}</span></small><h2>{task.title}</h2></div>
         <button type="button" onClick={close}><X/></button></header>
       <div className="form">
-        <Locked label="Area/Process" value={task.project||"—"}/>
         <Locked label="Vertical" value={task.entity||"—"}/>
+        <Locked label="Area/Process" value={task.project||"—"}/>
         <Locked label="Department" value={task.department||"—"}/>
         <Locked label="Task done by" value={task.assignedTo||"—"}/>
         <Locked label="Task completed date" value={day(task.completedOn||task.completedAt)}/>
@@ -270,9 +275,14 @@ function ReportView({task,head,close,saved,edit,flash}:{task:AuditRow;head:boole
             <b>{s.action}{s.note?` - ${s.note}`:""}</b><span>{s.by} · {when(s.at)}</span></p>)}</div></div>}
         {review&&rejecting&&<label className="wide">Reason for rejecting {req}
           <textarea autoFocus value={reason} onChange={e=>setReason(e.target.value)} placeholder="What is wrong or missing, so the auditor can correct it"/></label>}
+        {deleting&&<div className="wide pa-rejected"><p><b>Delete {task.ref} for good?</b>
+          <span>The report, its history and its review are removed. Any observation it raised stays in the observation register.</span></p></div>}
         {err&&<p className="wide form-error">{err}</p>}
       </div>
       <footer>
+        {head&&deleting?<><button type="button" onClick={()=>{setDeleting(false);setErr("")}}>Back</button>
+          <button type="button" className="pa-reject" disabled={busy} onClick={remove}><Trash2/>{busy?"Deleting…":"Delete"}</button></>
+        :<>{head&&!rejecting&&<button type="button" className="pa-reject pa-delete" onClick={()=>setDeleting(true)}><Trash2/>Delete</button>}
         {review?(rejecting
           ?<><button type="button" onClick={()=>{setRejecting(false);setErr("")}}>Back</button>
             <button type="button" className="pa-reject" disabled={busy||!reason.trim()} onClick={()=>decide("reject")}><XCircle/>{busy?"Saving…":"Reject"}</button></>
@@ -280,6 +290,6 @@ function ReportView({task,head,close,saved,edit,flash}:{task:AuditRow;head:boole
             <button type="button" className="primary" disabled={busy} onClick={()=>decide("accept")}><CheckCircle2/>{busy?"Saving…":"Accept"}</button></>)
         :!head&&task.status==="Rejected"
           ?<><button type="button" onClick={close}>Close</button><button type="button" className="primary" onClick={edit}>Edit &amp; resubmit</button></>
-          :<button type="button" onClick={close}>Close</button>}
+          :<button type="button" onClick={close}>Close</button>}</>}
       </footer>
     </div></>}

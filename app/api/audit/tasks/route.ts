@@ -362,11 +362,14 @@ export async function DELETE(req:Request){
     if(!id)return bad("id is required");
     /* A pre-audit task is the Audit Head's to remove. Observations raised on it stay in
        the register: they are findings, whatever happens to the task. */
-    const[task]=await (await getDb()).select({kind:wfAuditTasks.kind}).from(wfAuditTasks).where(eq(wfAuditTasks.id,id)).limit(1);
-    if(task?.kind==="Pre-Audit"&&!(actor?.roles||[]).some(r=>HEAD_ROLES.includes(r)))
+    const[task]=await (await getDb()).select({kind:wfAuditTasks.kind,ref:wfAuditTasks.ref,title:wfAuditTasks.title,
+      assignedTo:wfAuditTasks.assignedTo}).from(wfAuditTasks).where(eq(wfAuditTasks.id,id)).limit(1);
+    if(!task)return bad("That task is already gone.",404);
+    if(task.kind==="Pre-Audit"&&!isHead(actor?.roles))
       return bad("Only the Audit Head deletes pre-audit tasks.",403);
     await writeWithAudit([(await getDb()).delete(wfAuditTasks).where(eq(wfAuditTasks.id,id))],
-      actorOf(req),"audit-task",id,"Audit task deleted",id);
+      actorOf(req),"audit-task",id,"Audit task deleted",
+      [task.ref||id,task.title,task.assignedTo?`by ${task.assignedTo}`:""].filter(Boolean).join(" · "));
     return Response.json({deleted:true});
   }catch(e){return oops(e)}}
 
