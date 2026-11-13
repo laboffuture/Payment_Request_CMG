@@ -21,6 +21,8 @@ import{Pager}from"./WorkforceShared";
 import Attachments from"./Attachments";
 import{PRE_AUDIT_AREAS}from"../lib/pre-audit-areas";
 const AREAS:readonly string[]=PRE_AUDIT_AREAS;
+/* The Area/Process list as the server keeps it: the fixed areas plus what the Audit Head added. */
+const loadAreas=()=>fetch("/api/audit/areas").then(r=>r.ok?r.json():{areas:AREAS}) as Promise<{areas:string[]}>;
 
 const HEAD_ROLES=["Audit Head","Administrator"];
 const LIMIT=25;
@@ -61,9 +63,12 @@ export default function PreAuditDesk({role,departments,userName,flash,changed}:{
   const rows=list.data?.tasks||[],total=list.data?.total||0;
 
   /* The filter and form choices. */
+  const[areasVersion,setAreasVersion]=useState(0);
+  const areaList=useAsync(loadAreas,[areasVersion]);
+  const areas:readonly string[]=areaList.data?.areas||AREAS;
   const catalogue=useAsync(()=>fetch("/api/task-catalogue").then(r=>r.json()) as Promise<Catalogue&{auditors:{name:string}[]}>,[]);
   const verticals=uniq([...(catalogue.data?.tasks||[]).map(t=>t.entity),...rows.map(t=>t.entity||""),vertical]);
-  const projects=[...AREAS,...uniq([...rows.map(t=>t.project||""),project]).filter(p=>!AREAS.includes(p))];
+  const projects=[...areas,...uniq([...rows.map(t=>t.project||""),project]).filter(p=>!areas.includes(p))];
   const depts=uniq([...departments,...rows.map(t=>t.department),dept]);
   const auditors=uniq([...(catalogue.data?.auditors||[]).map(a=>a.name),...rows.map(t=>t.assignedTo),auditor]);
 
@@ -150,7 +155,7 @@ export default function PreAuditDesk({role,departments,userName,flash,changed}:{
 
     {reporting&&<ReportForm task={reporting==="new"?null:reporting} userName={userName} head={head}
       verticals={uniq((catalogue.data?.tasks||[]).map(t=>t.entity))} catalogue={catalogue.data?.tasks||[]}
-      departments={uniq(departments)} close={()=>setReporting(null)}
+      departments={uniq(departments)} areas={areas} areaAdded={()=>setAreasVersion(v=>v+1)} close={()=>setReporting(null)}
       saved={(m,next)=>{setReporting(null);flash(m);setTab(next);setOffset(0);reload()}}/>}
     {viewing&&<ReportView task={viewing} head={head} close={()=>setViewing(null)} flash={flash}
       edit={()=>{setReporting(viewing);setViewing(null)}}
@@ -161,10 +166,10 @@ export default function PreAuditDesk({role,departments,userName,flash,changed}:{
 /* Reporting a finished task, or correcting a rejected one. The auditor is filled in and
    locked - the server takes it from the sign-in. The completed date starts at today and can
    be set back for work done earlier, never forward. */
-function ReportForm({task,userName,head,verticals,catalogue,departments,close,saved}:{task:AuditRow|null;userName:string;head:boolean;
-  verticals:string[];catalogue:{entity:string;title:string}[];departments:string[];
+function ReportForm({task,userName,head,verticals,catalogue,departments,areas,areaAdded,close,saved}:{task:AuditRow|null;userName:string;head:boolean;
+  verticals:string[];catalogue:{entity:string;title:string}[];departments:string[];areas:readonly string[];areaAdded:()=>void;
   close:()=>void;saved:(m:string,tab:Status)=>void}){
-  const[f,setF]=useState({project:AREAS.includes(task?.project||"")?task!.project:"",entity:task?.entity||"",title:task?.title||"",department:task?.department||"",
+  const[f,setF]=useState({project:task?.project||"",entity:task?.entity||"",title:task?.title||"",department:task?.department||"",
     workDescription:task?.workDescription||"",observations:task?.observations||"",
     completedOn:task?.completedOn||indiaToday()});
   const[files,setFiles]=useState<File[]>([]);
@@ -173,9 +178,22 @@ function ReportForm({task,userName,head,verticals,catalogue,departments,close,sa
   const set=(k:keyof typeof f)=>(e:React.ChangeEvent<HTMLInputElement|HTMLSelectElement|HTMLTextAreaElement>)=>setF(x=>({...x,[k]:e.target.value}));
   const titles=useMemo(()=>uniq(catalogue.filter(t=>!f.entity||t.entity===f.entity).map(t=>t.title)),[catalogue,f.entity]);
   const steps=listOf<Step>(task?.history).filter(s=>s.action==="Rejected");
+  /* A report filed under an area no longer on the list has to be given one from it. */
+  const area=areas.includes(f.project)?f.project:"";
+  /* The Audit Head adds a missing area/process; it goes on the list for everyone. */
+  const[adding,setAdding]=useState(false),[newArea,setNewArea]=useState(""),[addBusy,setAddBusy]=useState(false);
+  const addArea=async()=>{const name=newArea.trim();if(!name)return;setAddBusy(true);setErr("");
+    try{const res=await fetch("/api/audit/areas",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({name})});
+      const d=await res.json().catch(()=>({})) as {added?:string;error?:string};
+      if(!res.ok)throw new Error(d.error||"Could not add it");
+      setF(x=>({...x,project:d.added||name}));setAdding(false);setNewArea("");areaAdded()}
+    catch(x){setErr(x instanceof Error?x.message:"Could not add it")}
+    finally{setAddBusy(false)}};
 
   const submit=async(e:React.FormEvent)=>{
-    e.preventDefault();setBusy(true);setErr("");
+    e.preventDefault();
+    if(!area){setErr("Choose the area/process from the list.");return}
+    setBusy(true);setErr("");
     try{
       const t=task?await auditTasksApi.update({id:task.id,action:"resubmit",...f} as never)
         :await auditTasksApi.create({kind:"Pre-Audit",...f} as never);
@@ -203,9 +221,15 @@ function ReportForm({task,userName,head,verticals,catalogue,departments,close,sa
         <label>Vertical {req}
           <select required value={f.entity} onChange={set("entity")}>
             <option value="">Select vertical</option>{uniq([...verticals,f.entity]).map(v=><option key={v}>{v}</option>)}</select></label>
-        <label>Area/Process {req}
-          <select required value={f.project} onChange={set("project")}>
-            <option value="">Select area/process</option>{AREAS.map(a=><option key={a}>{a}</option>)}</select></label>
+        <div className="pa-area"><span className="pa-area-head"><span>Area/Process {req}</span>
+          {head&&!adding&&<button type="button" className="pa-add" onClick={()=>{setAdding(true);setErr("")}}><Plus/>Add new</button>}</span>
+          {adding?<span className="pa-add-row">
+            <input autoFocus value={newArea} maxLength={80} onChange={e=>setNewArea(e.target.value)} placeholder="New area or process"
+              onKeyDown={e=>{if(e.key==="Enter"){e.preventDefault();addArea()}if(e.key==="Escape"){setAdding(false);setNewArea("")}}}/>
+            <button type="button" className="primary" disabled={addBusy||!newArea.trim()} onClick={addArea}>{addBusy?"Adding…":"Add"}</button>
+            <button type="button" onClick={()=>{setAdding(false);setNewArea("")}}>Cancel</button></span>
+          :<select required value={area} onChange={set("project")} aria-label="Area/Process">
+            <option value="">Select area/process</option>{areas.map(a=><option key={a}>{a}</option>)}</select>}</div>
         <label className="wide">Task title {req}
           <input required list="pa-titles" value={f.title} onChange={set("title")} placeholder="Choose a task, or type it as it is on your sheet"/>
           <datalist id="pa-titles">{titles.map(t=><option key={t} value={t}/>)}</datalist></label>

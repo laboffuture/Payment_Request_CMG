@@ -7,8 +7,7 @@ import{actorOf,bad,oops,page,search,str,writeWithAudit}from"../../../../lib/work
 import type{Row}from"../../../../lib/workforce-api";
 import{pendingDues,recurs,todayIso}from"../../../../lib/recurrence";
 import{AUDITOR_ROLES}from"../../../../lib/auditors";
-import{indiaToday,nextObservationRef,remarksOf}from"../../../../lib/pre-audit";
-import{PRE_AUDIT_AREAS}from"../../../../lib/pre-audit-areas";
+import{indiaToday,nextObservationRef,preAuditAreas,remarksOf}from"../../../../lib/pre-audit";
 
 /* Tasks, tokens and training were screens of their own. They are raised from the
    meeting form now, which is why the kind says which of them it is. */
@@ -40,14 +39,14 @@ const owns=(t:Row,actor?:{email:string}|null)=>!!actor?.email&&str(t.assignedEma
    files are optional; the rest is required. */
 type Report={project:string;entity:string;title:string;department:string;workDescription:string;observations:string;
   completedOn:string};
-function reportFrom(body:Row):Report|string{
+function reportFrom(body:Row,areas:string[]):Report|string{
   const r={project:str(body.project).trim(),entity:str(body.entity).trim(),title:str(body.title).trim(),
     department:str(body.department).trim(),workDescription:str(body.workDescription).trim(),observations:str(body.observations).trim(),
     completedOn:str(body.completedOn).trim()||indiaToday()};
   const missing=([["project","Area/Process"],["entity","Vertical"],["title","Task title"],["department","Department"],
     ["workDescription","Description"]] as const).filter(([k])=>!r[k]).map(([,l])=>l);
   if(missing.length)return`${missing.join(", ")} must be filled in.`;
-  if(!(PRE_AUDIT_AREAS as readonly string[]).includes(r.project))return"Choose the area/process from the list.";
+  if(!areas.includes(r.project))return"Choose the area/process from the list.";
   /* Work done earlier can be reported late, so the auditor sets the date - but not in the future. */
   if(!/^\d{4}-\d{2}-\d{2}$/.test(r.completedOn)||Number.isNaN(Date.parse(r.completedOn)))return"Give the task completed date.";
   if(r.completedOn>indiaToday())return"The task completed date cannot be in the future.";
@@ -287,9 +286,9 @@ async function syncObservation(db:Awaited<ReturnType<typeof getDb>>,task:Row,r:R
    reject; the Audit Head's own work needs nobody's review and is accepted as reported. */
 async function reportWork(req:Request,body:Row,actor:{email:string;name:string;roles:string[]}|null|undefined){
   if(!actor||!isAuditor(actor.roles))return bad("Only auditors report pre-audit work.",403);
-  const r=reportFrom(body);
-  if(typeof r==="string")return bad(r,422);
   const db=await getDb();
+  const r=reportFrom(body,await preAuditAreas(db));
+  if(typeof r==="string")return bad(r,422);
   const me=actor.name||actor.email,email=actor.email.toLowerCase(),at=now();
   const self=actor.roles.includes("Audit Head");
   const id=`AT-${Date.now().toString(36)}`;
@@ -340,7 +339,7 @@ async function preAuditAction(req:Request,body:Row,existing:Row,
   if(action==="resubmit"){
     if(!owns(existing,actor))return bad("Only the auditor who reported this can change it.",403);
     if(existing.status!=="Rejected")return bad(`${ref} can be changed only after it is rejected.`,409);
-    const r=reportFrom(body);
+    const r=reportFrom(body,await preAuditAreas(db));
     if(typeof r==="string")return bad(r,422);
     const obs=await syncObservation(db,existing,r,me,(actor?.email||"").toLowerCase(),r.completedOn);
     await writeWithAudit([db.update(wfAuditTasks).set({...r,status:"Reported",completedAt:at,
