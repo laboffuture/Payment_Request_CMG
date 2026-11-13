@@ -41,10 +41,10 @@ type Report={project:string;entity:string;title:string;department:string;workDes
 function reportFrom(body:Row):Report|string{
   const r={project:str(body.project).trim(),entity:str(body.entity).trim(),title:str(body.title).trim(),
     department:str(body.department).trim(),workDescription:str(body.workDescription).trim(),observations:str(body.observations).trim()};
-  const missing=([["project","Project"],["entity","Vertical"],["title","Task title"],["department","Department"],
+  const missing=([["project","Area/Process"],["entity","Vertical"],["title","Task title"],["department","Department"],
     ["workDescription","Description"]] as const).filter(([k])=>!r[k]).map(([,l])=>l);
   if(missing.length)return`${missing.join(", ")} must be filled in.`;
-  if(r.title.length>300||r.project.length>300)return"Keep the project and the task title under 300 characters.";
+  if(r.title.length>300||r.project.length>300)return"Keep the area/process and the task title under 300 characters.";
   if(r.workDescription.length>5000||r.observations.length>5000)return"Keep the description and the observations under 5,000 characters each.";
   return r}
 type Step={at:string;by:string;action:string;note?:string};

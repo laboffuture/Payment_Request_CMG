@@ -2,7 +2,7 @@
 /* Pre-audit tasks.
 
    Nobody creates tasks here: each auditor works from their own task sheet and, once a task
-   is done, reports it - project, vertical, task title, department, what was done, the
+   is done, reports it - area/process, vertical, task title, department, what was done, the
    observations found and any reference files. The auditor's name and today's date are
    filled in and locked. The report goes to the Audit Head, who accepts it (the task is
    closed) or rejects it with a reason; a rejected report keeps its record and the auditor
@@ -10,7 +10,7 @@
 
    The Audit Head audits too, and reports his own work the same way - it needs nobody's
    review and is accepted as reported. He sees the whole team's reports, filtered by
-   auditor, project, vertical, department and date. */
+   auditor, area/process, vertical, department and date. */
 
 import{useEffect,useMemo,useRef,useState}from"react";
 import{CheckCircle2,Download,FileUp,Plus,Search,X,XCircle}from"lucide-react";
@@ -19,7 +19,6 @@ import type{AuditRow}from"./audit-api";
 import{csv,useAsync}from"./workforce-store";
 import{Pager}from"./WorkforceShared";
 import Attachments from"./Attachments";
-import type{Job}from"../lib/jobs";
 
 const HEAD_ROLES=["Audit Head","Administrator"];
 const LIMIT=25;
@@ -38,7 +37,7 @@ const label=(s:string)=>s==="Reported"?"Waiting for review":s;
 type Status="Reported"|"Accepted"|"Rejected";
 type Catalogue={tasks:{entity:string;title:string}[]};
 
-export default function PreAuditDesk({role,departments,jobs,userName,flash,changed}:{role:string;departments:string[];jobs:Job[];
+export default function PreAuditDesk({role,departments,userName,flash,changed}:{role:string;departments:string[];
   userName:string;flash:(m:string)=>void;changed?:()=>void}){
   const head=HEAD_ROLES.includes(role);
   const[tab,setTab]=useState<Status>("Reported");
@@ -62,7 +61,7 @@ export default function PreAuditDesk({role,departments,jobs,userName,flash,chang
   /* The filter and form choices. */
   const catalogue=useAsync(()=>fetch("/api/task-catalogue").then(r=>r.json()) as Promise<Catalogue&{auditors:{name:string}[]}>,[]);
   const verticals=uniq([...(catalogue.data?.tasks||[]).map(t=>t.entity),...rows.map(t=>t.entity||""),vertical]);
-  const projects=uniq([...jobs.map(j=>j.project),...rows.map(t=>t.project||""),project]);
+  const projects=uniq([...rows.map(t=>t.project||""),project]);
   const depts=uniq([...departments,...rows.map(t=>t.department),dept]);
   const auditors=uniq([...(catalogue.data?.auditors||[]).map(a=>a.name),...rows.map(t=>t.assignedTo),auditor]);
 
@@ -78,7 +77,7 @@ export default function PreAuditDesk({role,departments,jobs,userName,flash,chang
       for(let off=0;off<1000;off+=200){
         const d=await auditTasksApi.load({...filters,status:tab,limit:200,offset:off});
         all.push(...d.tasks);if(off+200>=d.total)break}
-      csv([["Task no.","Task title","Project","Vertical","Department",...(head?["Task done by"]:[]),"Task completed date","Status",
+      csv([["Task no.","Task title","Area/Process","Vertical","Department",...(head?["Task done by"]:[]),"Task completed date","Status",
         "Description","Observations","Reviewed by","Reviewed on","Rejection reason"],
         ...all.map(t=>[t.ref,t.title,t.project||"",t.entity||"",t.department,...(head?[t.assignedTo]:[]),t.completedOn||"",label(t.status),
           t.workDescription||"",t.observations||"",t.reviewedBy||"",t.reviewedAt?when(t.reviewedAt):"",t.rejectReason||""])],
@@ -103,11 +102,11 @@ export default function PreAuditDesk({role,departments,jobs,userName,flash,chang
       <div className="audit-list-tabs">{tabs.map(([k,l])=>
         <button key={k} className={tab===k?"active":""} onClick={()=>{setTab(k);setOffset(0)}}>{l}<i>{counts.data?.[k]??"…"}</i></button>)}</div>
       <div className="audit-list-tools pa-filters">
-        <label><Search/><input value={raw} onChange={e=>setRaw(e.target.value)} placeholder="Search task, project or description"/></label>
+        <label><Search/><input value={raw} onChange={e=>setRaw(e.target.value)} placeholder="Search task, area/process or description"/></label>
         {head&&<select value={auditor} onChange={set(setAuditor)} aria-label="Auditor">
           <option value="">All auditors</option>{auditors.map(a=><option key={a}>{a}</option>)}</select>}
-        <select value={project} onChange={set(setProject)} aria-label="Project">
-          <option value="">All projects</option>{projects.map(p=><option key={p}>{p}</option>)}</select>
+        <select value={project} onChange={set(setProject)} aria-label="Area/Process">
+          <option value="">All areas/processes</option>{projects.map(p=><option key={p}>{p}</option>)}</select>
         <select value={vertical} onChange={set(setVertical)} aria-label="Vertical">
           <option value="">All verticals</option>{verticals.map(p=><option key={p}>{p}</option>)}</select>
         <select value={dept} onChange={set(setDept)} aria-label="Department">
@@ -118,7 +117,7 @@ export default function PreAuditDesk({role,departments,jobs,userName,flash,chang
           onClick={()=>{const d=indiaToday();setFrom(d);setTo(d);setOffset(0)}}>Today</button>
         {filtered&&<button type="button" className="pa-chip" onClick={clear}>Clear</button>}
       </div>
-      <div className="table-wrap"><table><thead><tr><th>TASK</th><th>PROJECT</th><th>VERTICAL</th><th>DEPARTMENT</th>
+      <div className="table-wrap"><table><thead><tr><th>TASK</th><th>AREA/PROCESS</th><th>VERTICAL</th><th>DEPARTMENT</th>
         {head&&<th>TASK DONE BY</th>}<th>COMPLETED ON</th><th>STATUS</th><th>ACTION</th></tr></thead>
         <tbody>{rows.map(t=><tr key={t.id} className="pa-row" onClick={()=>setViewing(t)}>
           <td><b>{t.ref}</b><small>{t.title}</small></td>
@@ -149,7 +148,7 @@ export default function PreAuditDesk({role,departments,jobs,userName,flash,chang
 
     {reporting&&<ReportForm task={reporting==="new"?null:reporting} userName={userName} head={head}
       verticals={uniq((catalogue.data?.tasks||[]).map(t=>t.entity))} catalogue={catalogue.data?.tasks||[]}
-      projects={uniq(jobs.map(j=>j.project))} departments={uniq(departments)} close={()=>setReporting(null)}
+      projects={projects} departments={uniq(departments)} close={()=>setReporting(null)}
       saved={(m,next)=>{setReporting(null);flash(m);setTab(next);setOffset(0);reload()}}/>}
     {viewing&&<ReportView task={viewing} head={head} close={()=>setViewing(null)} flash={flash}
       edit={()=>{setReporting(viewing);setViewing(null)}}
@@ -196,8 +195,8 @@ function ReportForm({task,userName,head,verticals,catalogue,projects,departments
         <button type="button" onClick={close}><X/></button></header>
       <div className="form">
         {steps.length>0&&<div className="wide pa-rejected">{steps.map((s,i)=><p key={i}><b>Rejected by {s.by} · {when(s.at)}</b><span>{s.note}</span></p>)}</div>}
-        <label>Project {req}
-          <input required list="pa-projects" value={f.project} onChange={set("project")} placeholder="Choose or type the project"/>
+        <label>Area/Process {req}
+          <input required list="pa-projects" value={f.project} onChange={set("project")} placeholder="Choose or type the area or process"/>
           <datalist id="pa-projects">{projects.map(p=><option key={p} value={p}/>)}</datalist></label>
         <label>Vertical {req}
           <select required value={f.entity} onChange={set("entity")}>
@@ -257,7 +256,7 @@ function ReportView({task,head,close,saved,edit,flash}:{task:AuditRow;head:boole
       <header><div><small>{task.ref} · <span className={`badge ${tone(task.status)}`}>{label(task.status)}</span></small><h2>{task.title}</h2></div>
         <button type="button" onClick={close}><X/></button></header>
       <div className="form">
-        <Locked label="Project" value={task.project||"—"}/>
+        <Locked label="Area/Process" value={task.project||"—"}/>
         <Locked label="Vertical" value={task.entity||"—"}/>
         <Locked label="Department" value={task.department||"—"}/>
         <Locked label="Task done by" value={task.assignedTo||"—"}/>
