@@ -87,8 +87,10 @@ export async function listPool(query: PoolQuery): Promise<PoolRowDto[]> {
   const answered = new Map(described.map((l) => [String(l._id), l]));
   // Drawings and BOQ sheets on the MR, so the buyer can open them from the pool.
   const withFiles = await Mr.find({ _id: { $in: [...new Set(rows.map((r) => r.mr.id))] } })
-    .select('boqFiles boq')
+    .select('boqFiles boq deliverTo')
     .lean();
+  // Where the site engineer asked for it to go, so the buyer can set the PO to match.
+  const deliverTo = new Map(withFiles.map((m) => [String(m._id), m.deliverTo ?? '']));
   const attachments = new Map(
     withFiles.map((m) => [String(m._id), (m.boqFiles ?? []).length || (m.boq ? 1 : 0)]),
   );
@@ -139,6 +141,7 @@ export async function listPool(query: PoolQuery): Promise<PoolRowDto[]> {
           ? lookups.userName(answered.get(row.line.id)!.qsReplyBy)
           : '',
         attachments: attachments.get(row.mr.id) ?? 0,
+        mrDeliverTo: deliverTo.get(row.mr.id) ?? '',
         // A pool line is never held, so this is Pending, On enquiry or Part ordered.
         status: materialStatusOf({
           hold: null,

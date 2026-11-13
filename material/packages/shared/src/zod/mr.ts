@@ -1,6 +1,6 @@
 import { z } from 'zod';
 import { isoDate, objectId, qty, unitName } from './common.js';
-import { REQUEST_TYPES } from '../enums.js';
+import { DELIVER_TO, REQUEST_TYPES } from '../enums.js';
 import { MSG } from '../messages.js';
 
 /**
@@ -55,6 +55,8 @@ export const upsertMrInput = z.object({
   /** only required on submit — a draft may be saved without one */
   requiredDate: isoDate.or(z.literal('')).optional().default(''),
   remarks: z.string().trim().max(2000).optional().default(''),
+  /** the site engineer's choice: deliver to the site or into the store ('' = not chosen) */
+  deliverTo: z.enum(DELIVER_TO).or(z.literal('')).optional().default(''),
   lines: z.array(mrLineInput).default([]),
   /** true = submit to the Project Manager, false = save as a draft */
   submit: z.boolean().default(false),
@@ -71,6 +73,11 @@ export const reviewedLine = z.object({
   qty: qty,
   measurement: z.string().trim().max(120).optional().default(''),
   unit: unitName.optional(),
+  /**
+   * QS may correct the site engineer's description while approving; left out, it stays
+   * as it is. The PM's approval ignores it.
+   */
+  description: z.string().trim().min(1, MSG.mrDescriptionRequired).max(400).optional(),
   /** drop this line from the request entirely */
   rejected: z.boolean().optional().default(false),
   remark: z.string().trim().max(250).optional().default(''),

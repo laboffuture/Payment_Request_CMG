@@ -19,6 +19,8 @@ export interface PoDraftRow {
   description?: string;
   /** what the site engineer wrote on the MR line — reference only */
   mrDescription?: string;
+  /** where the site engineer asked for it to go: SITE, STORE or '' — reference only */
+  mrDeliverTo?: string;
   /** the size asked for; the same item in another measurement is a separate PO line */
   measurement?: string;
   unit: string;

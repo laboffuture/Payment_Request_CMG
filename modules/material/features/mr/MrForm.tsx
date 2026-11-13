@@ -11,6 +11,8 @@ import {
   MSG,
   REQUEST_TYPES,
   REQUEST_TYPE_LABELS,
+  DELIVER_TO_LABELS,
+  asksDeliverTo,
   isToolsProjectCode,
   type BoqFileDto,
   type ItemDto,
@@ -111,6 +113,8 @@ export function MrForm({ existing }: { existing?: MrDetailDto }) {
   const [projectId, setProjectId] = useState(existing?.projectId ?? '');
   const [requiredDate, setRequiredDate] = useState(existing?.requiredDate ?? '');
   const [remarks, setRemarks] = useState(existing?.remarks ?? '');
+  // Where the site engineer wants it: the site, or into the store. Asked of them alone.
+  const [deliverTo, setDeliverTo] = useState<'' | 'SITE' | 'STORE'>(existing?.deliverTo ?? '');
   const [lines, setLines] = useState<FormLine[]>(
     existing?.lines.map((l) => ({
       id: l.id,
@@ -152,6 +156,7 @@ export function MrForm({ existing }: { existing?: MrDetailDto }) {
     projectId,
     requiredDate,
     remarks,
+    deliverTo,
     submit,
     rv: existing?.rv,
     lines: lines
@@ -271,6 +276,7 @@ export function MrForm({ existing }: { existing?: MrDetailDto }) {
       }
       const active = lines.filter((l) => !l.rejected);
       if (!active.length) return toast(MSG.mrNoLines);
+      if (asksWhere && !deliverTo) return toast('Choose where it is to be delivered - site or store');
       if (active.some((l) => !(Number(l.qty) > 0))) return toast(MSG.mrQtyRequired);
       if (subContract && active.some((l) => !l.itemId && !l.newItemName.trim())) {
         return toast('Give every line of work a heading');
@@ -301,6 +307,7 @@ export function MrForm({ existing }: { existing?: MrDetailDto }) {
   // Tools & Assets always goes to the tools project - chosen here, not picked.
   const toolsProject = reference.projects.find((p) => isToolsProjectCode(p.code)) ?? null;
   const toolsRequest = requestType === 'TOOLS';
+  const asksWhere = me.role === 'SITE' && !!requestType && asksDeliverTo(requestType);
   const chooseType = (type: RequestType | '') => {
     setRequestType(type);
     if (type === 'TOOLS') setProjectId(toolsProject?.id ?? '');
@@ -330,7 +337,11 @@ export function MrForm({ existing }: { existing?: MrDetailDto }) {
           {/* The same project, chosen by whichever the engineer knows — the
               two lists are the same projects and stay in step. Code, name and
               date sit on one line on a wide screen. */}
-          <div className="grid gap-3 items-end desk:grid-cols-[1fr_1fr_2fr_1fr]">
+          <div
+            className={`grid gap-3 items-end ${
+              asksWhere ? 'desk:grid-cols-[1fr_1fr_2fr_1fr_1fr]' : 'desk:grid-cols-[1fr_1fr_2fr_1fr]'
+            }`}
+          >
             <label className="field">
               Type of request *
               <select
@@ -387,6 +398,20 @@ export function MrForm({ existing }: { existing?: MrDetailDto }) {
                 onChange={(e) => setRequiredDate(e.target.value)}
               />
             </label>
+
+            {asksWhere ? (
+              <label className="field">
+                Deliver to *
+                <select
+                  value={deliverTo}
+                  onChange={(e) => setDeliverTo(e.target.value as '' | 'SITE' | 'STORE')}
+                >
+                  <option value="">Select</option>
+                  <option value="SITE">{DELIVER_TO_LABELS.SITE}</option>
+                  <option value="STORE">{DELIVER_TO_LABELS.STORE}</option>
+                </select>
+              </label>
+            ) : null}
           </div>
 
           <div className="flex flex-wrap justify-between gap-x-6 gap-y-1 text-mut text-sm">

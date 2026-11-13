@@ -96,6 +96,9 @@ function MrDocument({ doc }: { doc: MrPrintDto }) {
         <Field label="Date" value={fmtDate(mr.submittedAt ?? mr.createdAt)} />
         <Field label="Job No." value={mr.projectCode} />
         <Field label="Job Name" value={mr.projectName.split(' · ').slice(1).join(' · ')} />
+        {mr.deliverTo ? (
+          <Field label="Deliver to" value={mr.deliverTo === 'SITE' ? 'Site' : 'Store'} />
+        ) : null}
       </div>
 
       <table className="w-full border-collapse text-[13px]">

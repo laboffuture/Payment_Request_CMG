@@ -5,6 +5,8 @@ import {
   earliestRequiredDate,
   isBuyer,
   isPettyCash,
+  asksDeliverTo,
+  type DeliverTo,
   skipsQs,
   MSG,
   type MapNewItemInput,
@@ -76,13 +78,21 @@ function lineUnit(line: Record<string, any>, lookups: Lookups): string {
   return item ? item.unit : line.newUnit || '';
 }
 
+/** The site engineer's description, when QS or the material admin has since corrected it; '' otherwise. */
+function correctedFrom(line: Record<string, any>): string {
+  const was = line.requestedDescription ?? '';
+  return was && was !== (line.description ?? '') ? was : '';
+}
+
 /**
- * True once a PM or QS has altered the quantity, the measurement or the unit.
- * requestedQty is only filled on submit, so a draft never counts as changed.
+ * True once a PM or QS has altered the quantity, the measurement, the unit or (QS and the
+ * material admin) the description. requestedQty is only filled on submit, so a draft never
+ * counts as changed.
  */
 function approverChanged(line: Record<string, any>): boolean {
   if (line.requestedQty === null || line.requestedQty === undefined) return false;
   return (
+    !!correctedFrom(line) ||
     num(line.qty) !== num(line.requestedQty) ||
     (line.measurement ?? '') !== (line.requestedMeasurement ?? '') ||
     (line.unit ?? '') !== (line.requestedUnit ?? '')
@@ -111,6 +121,7 @@ export function toMrLineDto(line: Record<string, any>, lookups: Lookups): MrLine
     requestedQty: num(line.requestedQty ?? line.qty),
     requestedMeasurement: line.requestedMeasurement ?? line.measurement ?? '',
     requestedUnit: line.requestedUnit ?? '',
+    requestedDescription: correctedFrom(line),
     // What the site engineer sees at a glance: "an approver touched this line".
     changed: approverChanged(line),
     boqRef: line.boqRef ?? '',
@@ -160,6 +171,7 @@ export function toMrDto(
     requiredDate: mr.requiredDate,
     remarks: mr.remarks ?? '',
     requestType: mr.requestType ?? 'MATERIAL',
+    deliverTo: mr.deliverTo ?? '',
     status: mr.status,
     createdBy: String(mr.createdBy),
     createdByName: lookups.userName(mr.createdBy),
@@ -264,6 +276,10 @@ const canEdit = (actor: Actor, mr: Record<string, any>): boolean =>
 const ADMIN_EDITABLE = ['PM_PENDING', 'QS_PENDING', 'SENT_BACK'];
 const canAdminEdit = (actor: Actor, mr: Record<string, any>): boolean =>
   actor.role === 'ADMIN' && ADMIN_EDITABLE.includes(mr.status);
+
+/** Where the site engineer wants it delivered - asked of them alone, for material and tools. */
+const deliverToFrom = (actor: Actor, input: UpsertMrInput): DeliverTo | '' =>
+  actor.role === 'SITE' && asksDeliverTo(input.requestType) ? input.deliverTo || '' : '';
 
 /** QS may close an MR as already purchased while it waits for QS, or once approved and open. */
 const canQsClose = (actor: Actor, mr: Record<string, any>): boolean =>
@@ -607,6 +623,10 @@ async function validateMrInput(
   if (active.some((l) => !l.description?.trim())) {
     throw badRequest(MSG.mrDescriptionRequired);
   }
+  // The site engineer says where a material or tools request is to be delivered.
+  if (actor.role === 'SITE' && asksDeliverTo(input.requestType) && !input.deliverTo) {
+    throw badRequest('Choose where it is to be delivered - site or store');
+  }
 
   // The same item may be on an MR more than once — the same glass in two sizes
   // is two lines, each with its own measurement, quantity and description.
@@ -647,6 +667,7 @@ async function newMrDocument(
         requiredDate: input.requiredDate,
         remarks: input.remarks,
         requestType: input.requestType,
+        deliverTo: deliverToFrom(actor, input),
         status: input.submit ? submittedStatus(actor, deptApproved) : 'DRAFT',
         createdBy: actor.id,
         submittedAt: input.submit ? new Date() : null,
@@ -712,12 +733,17 @@ async function writeLines(
           requestedQty: num(line.qty),
           requestedMeasurement: line.measurement ?? '',
           requestedUnit: line.unit ?? '',
+          requestedDescription: line.description ?? '',
         }
       : {};
 
     if (line.id) {
       const existing = await MrLine.findOne({ _id: line.id, mrId: mr._id }).session(session);
       if (existing) {
+        // The material admin correcting the description: the site engineer's own words stay on record.
+        if (adminEdit && !existing.requestedDescription && (existing.description ?? '') !== payload.description) {
+          existing.requestedDescription = existing.description ?? '';
+        }
         Object.assign(existing, payload, asRequested);
         await existing.save({ session });
         keep.push(existing._id);
@@ -821,6 +847,9 @@ export async function updateMr(
     mr.requiredDate = input.requiredDate;
     mr.remarks = input.remarks;
     mr.requestType = input.requestType;
+    // Only the site engineer chooses it; anyone else editing the MR leaves it as it was.
+    if (actor.role === 'SITE') mr.deliverTo = deliverToFrom(actor, input) as never;
+    else if (!asksDeliverTo(input.requestType)) mr.deliverTo = '' as never;
     // A numbered request whose type is changed keeps its number but takes the
     // matching start: MR- for most requests, SUB- for a sub-contractor request.
     if (mr.no) mr.no = mrNoFor(mr.no, mr.requestType);
@@ -1083,10 +1112,13 @@ async function applyReviewedLines(
     qty: number;
     measurement: string;
     unit?: string;
+    description?: string;
     rejected: boolean;
     remark: string;
   }[],
   session: ClientSession,
+  /** QS may correct the description too; the PM may not */
+  descriptions = false,
 ): Promise<{ changed: number; kept: number; rejected: string[]; lookups: Lookups }> {
   const byId = new Map(lines.map((l) => [String(l._id), l]));
   const lookups = await buildLookups();
@@ -1114,8 +1146,17 @@ async function applyReviewedLines(
     const wasQty = num(line.qty);
     const wasMeasurement = line.measurement ?? '';
     const wasUnit = line.unit ?? '';
+    const wasDescription = line.description ?? '';
 
     line.qty = num(row.qty);
+    if (descriptions && row.description !== undefined && !row.description.trim()) {
+      throw badRequest(MSG.mrDescriptionRequired);
+    }
+    if (descriptions && row.description !== undefined && row.description !== wasDescription) {
+      // The site engineer's own words stay on record beside the correction.
+      if (!line.requestedDescription) line.requestedDescription = wasDescription;
+      line.description = row.description;
+    }
     line.measurement = row.measurement ?? '';
     if (row.unit) line.unit = await knownUnit(row.unit);
     if (row.remark) line.remarks = row.remark;
@@ -1123,7 +1164,8 @@ async function applyReviewedLines(
     if (
       wasQty !== num(line.qty) ||
       wasMeasurement !== line.measurement ||
-      wasUnit !== (line.unit ?? '')
+      wasUnit !== (line.unit ?? '') ||
+      wasDescription !== (line.description ?? '')
     ) {
       changed += 1;
     }
@@ -1574,11 +1616,12 @@ export async function qsApprove(
       }
     }
 
-    // The same quantity / measurement / unit edits the PM could make.
+    // The same quantity / measurement / unit edits the PM could make, and the description.
     const { changed, rejected } = await applyReviewedLines(
       active,
       input.lines,
       session,
+      true,
     );
 
     for (const row of input.lines) {

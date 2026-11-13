@@ -96,6 +96,11 @@ export default function MrDetailPage() {
             <div className="mt-2 text-ink">
               Required date (all items): <b>{fmtDate(data.requiredDate)}</b>{' '}
               {data.overdue ? <Tag label="OVERDUE" tone="red" /> : null}
+              {data.deliverTo ? (
+                <>
+                  {' '}· Deliver to: <b>{data.deliverTo === 'SITE' ? 'Site' : 'Store'}</b>
+                </>
+              ) : null}
             </div>
           </>
         }
@@ -350,6 +355,9 @@ function LinesTable({
       render: (l) => (
         <span className="whitespace-pre-line">
           {l.description || '—'}
+          {l.requestedDescription ? (
+            <span className="block text-xs text-mut mt-1">Site engineer wrote: {l.requestedDescription}</span>
+          ) : null}
           {l.rate ? (
             <span className="block text-xs text-mut mt-1">
               Rate {money(l.rate)} per {l.unit} · Amount {money(l.rate * l.qty)}
@@ -398,6 +406,7 @@ function LinesTable({
           <b>{l.name}</b>
           <div className="text-mut text-xs">
             {l.description ? <div>{l.description}</div> : null}
+            {l.requestedDescription ? <div>Site engineer wrote: {l.requestedDescription}</div> : null}
             {l.unit}
             {l.measurement ? ` · ${l.measurement}` : ''}
             {l.qsRemark ? ` · QS: ${l.qsRemark}` : ''}
@@ -750,6 +759,8 @@ function NewItemPanel({ lines, mrId }: { lines: MrLineDetailDto[]; mrId: string 
 
 interface ReviewRow {
   qty: string;
+  /** QS may correct the site engineer's description; the PM's review leaves it alone */
+  description: string;
   measurement: string;
   unit: string;
   rejected: boolean;
@@ -762,6 +773,7 @@ const reviewFrom = (lines: MrLineDetailDto[]): Record<string, ReviewRow> =>
       line.id,
       {
         qty: String(line.qty ?? ''),
+        description: line.description ?? '',
         measurement: line.measurement ?? '',
         unit: line.unit || 'Nos',
         rejected: false,
@@ -770,20 +782,25 @@ const reviewFrom = (lines: MrLineDetailDto[]): Record<string, ReviewRow> =>
     ]),
   );
 
-const reviewPayload = (review: Record<string, ReviewRow>) =>
+const reviewPayload = (review: Record<string, ReviewRow>, descriptions = false) =>
   Object.entries(review).map(([id, row]) => ({
     id,
     qty: Number(row.qty) || 0,
+    ...(descriptions ? { description: row.description.trim() } : {}),
     measurement: row.measurement,
     unit: row.unit as Unit,
     rejected: row.rejected,
     remark: row.remark,
   }));
 
-/** The editable Qty / Unit / Measurement columns both approvers get. */
+/**
+ * The editable Qty / Unit / Measurement columns both approvers get. QS (descriptions = true)
+ * may also correct the item description the site engineer wrote.
+ */
 function reviewColumns(
   review: Record<string, ReviewRow>,
   patch: (id: string, change: Partial<ReviewRow>) => void,
+  descriptions = false,
 ): Column<MrLineDetailDto>[] {
   return [
     {
@@ -792,8 +809,22 @@ function reviewColumns(
       render: (l) => (
         <span>
           <b>{l.name}</b>
+          {descriptions ? (
+            <textarea
+              aria-label={`Description for ${l.name}`}
+              className="block w-full min-w-[220px] mt-1 text-sm"
+              rows={2}
+              maxLength={400}
+              disabled={review[l.id]?.rejected}
+              value={review[l.id]?.description ?? ''}
+              onChange={(e) => patch(l.id, { description: e.target.value })}
+            />
+          ) : null}
+          {descriptions && l.requestedDescription ? (
+            <div className="text-mut text-xs">Site engineer wrote: {l.requestedDescription}</div>
+          ) : null}
           <div className="text-mut text-xs">
-            {l.description ? <div className="text-ink">{l.description}</div> : null}
+            {!descriptions && l.description ? <div className="text-ink">{l.description}</div> : null}
             asked {qty(l.requestedQty)} {l.requestedUnit || l.unit}
             {l.requestedMeasurement ? ` · ${l.requestedMeasurement}` : ''}
             {l.remarks ? ` · ${l.remarks}` : ''}
@@ -1008,7 +1039,7 @@ function QsPanel({ mr }: { mr: MrDetailDto }) {
     setSplit((rows) => ({ ...rows, [id]: { ...rows[id]!, ...change } }));
 
   const columns: Column<MrLineDetailDto>[] = [
-    ...reviewColumns(review, patchReview).slice(0, 4),
+    ...reviewColumns(review, patchReview, true).slice(0, 4),
     {
       key: 'avail',
       header: 'Store available',
@@ -1083,7 +1114,7 @@ function QsPanel({ mr }: { mr: MrDetailDto }) {
       ),
     },
     qsActionColumn(mr, (queriedIds) =>
-      reviewPayload(review)
+      reviewPayload(review, true)
         .filter((line) => !queriedIds.includes(line.id))
         .map((line) => ({
           ...line,
@@ -1116,8 +1147,8 @@ function QsPanel({ mr }: { mr: MrDetailDto }) {
       />
       <div className="text-mut text-sm mt-2">
         {petty
-          ? 'Changing a quantity, a unit or a measurement here is shown to the site engineer and to the Project Manager.'
-          : 'Rule: from store + for PO ≤ the quantity you approve, and from store ≤ available stock. Changing a quantity, a unit or a measurement here is shown to the site engineer and to the Project Manager.'}
+          ? 'Changing a description, a quantity, a unit or a measurement here is shown to the site engineer and to the Project Manager.'
+          : 'Rule: from store + for PO ≤ the quantity you approve, and from store ≤ available stock. Changing a description, a quantity, a unit or a measurement here is shown to the site engineer and to the Project Manager.'}
       </div>
       <QsDecisionPanel mr={mr} pending={0} review={{ review, split }} />
     </>
@@ -1147,7 +1178,7 @@ function QsDecisionPanel({
       post(`/mrs/${mr.id}/qs-approve`, {
         rv: mr.rv,
         comment,
-        lines: reviewPayload(review?.review ?? {}).map((line) => ({
+        lines: reviewPayload(review?.review ?? {}, true).map((line) => ({
           ...line,
           storeQty: Number(review?.split[line.id]?.storeQty) || 0,
           poQty: Number(review?.split[line.id]?.poQty) || 0,

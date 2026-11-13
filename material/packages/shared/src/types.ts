@@ -179,6 +179,8 @@ export interface MrLineDto {
   requestedQty: number;
   requestedMeasurement: string;
   requestedUnit: string;
+  /** the site engineer's own description, when QS or the material admin has corrected it */
+  requestedDescription: string;
   /** true when an approver changed the quantity, measurement or unit */
   changed: boolean;
   boqRef: string;
@@ -202,6 +204,8 @@ export interface MrDto extends Doc {
   projectName: string;
   requiredDate: string;
   remarks: string;
+  /** the site engineer's choice: SITE or STORE; '' when not asked or not chosen */
+  deliverTo: DeliverTo | '';
   status: MrStatus;
   createdBy: string;
   createdByName: string;
@@ -618,6 +622,8 @@ export interface PoolRowDto {
   itemName: string;
   /** what the site engineer wrote on the MR line — a reference for procurement */
   mrDescription: string;
+  /** where the site engineer asked for it to be delivered: SITE, STORE or '' (not asked) */
+  mrDeliverTo: DeliverTo | '';
   /** the size asked for; the same item in another measurement is a separate product */
   measurement: string;
   unit: string;

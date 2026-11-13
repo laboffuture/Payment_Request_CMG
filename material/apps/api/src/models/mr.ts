@@ -1,5 +1,6 @@
 import { Schema, Types } from 'mongoose';
 import {
+  DELIVER_TO,
   MR_LINE_STATUSES,
   MR_STATUSES,
   NEW_ITEM_STATUSES,
@@ -10,6 +11,7 @@ import {
   type NewItemStatus,
   type ProcHold,
   type RequestType,
+  type DeliverTo,
 } from '@cm/shared';
 import {
   defineModel,
@@ -35,6 +37,8 @@ export interface IMr extends Timestamped {
   remarks: string;
   /** material, tools or services - the same process for each */
   requestType: RequestType;
+  /** the site engineer's choice: deliver to the site or into the store ('' = not asked) */
+  deliverTo: DeliverTo | '';
   status: MrStatus;
   createdBy: Types.ObjectId;
   submittedAt: Date | null;
@@ -93,6 +97,7 @@ const mrSchema = new Schema<IMr>(
     requiredDate: { type: String, default: '' },
     remarks: { type: String, default: '' },
     requestType: { type: String, enum: REQUEST_TYPES, default: 'MATERIAL', index: true },
+    deliverTo: { type: String, enum: [...DELIVER_TO, ''], default: '' },
     status: {
       type: String,
       enum: MR_STATUSES,
@@ -160,6 +165,8 @@ export interface IMrLine extends Timestamped {
   requestedQty: number;
   requestedMeasurement: string;
   requestedUnit: string;
+  /** the site engineer's own description, kept once QS or the material admin corrects it */
+  requestedDescription: string;
   /** sub-contract work: the rate the site puts on it, per unit */
   rate: number;
   boqRef: string;
@@ -207,6 +214,7 @@ const mrLineSchema = new Schema<IMrLine>(
     requestedQty: qtyField(false),
     requestedMeasurement: { type: String, default: '' },
     requestedUnit: { type: String, default: '' },
+    requestedDescription: { type: String, default: '' },
     rate: { type: Number, default: 0 },
     boqRef: { type: String, default: '', maxlength: 30 },
     remarks: { type: String, default: '', maxlength: 250 },

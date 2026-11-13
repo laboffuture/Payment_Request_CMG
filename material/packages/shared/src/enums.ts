@@ -318,6 +318,14 @@ export const REQUEST_TYPE_LABELS: Record<RequestType, string> = {
 export const isPettyCash = (type: string | null | undefined): boolean => type === 'PETTY_CASH';
 
 /**
+ * Where the site engineer wants the material delivered: to the site, or into the store.
+ * Asked of material and tools requests only, and only of the site engineer who raises it.
+ */
+export const DELIVER_TO_LABELS: Record<DeliverTo, string> = { SITE: 'Site', STORE: 'Store' };
+export const asksDeliverTo = (type: string | null | undefined): boolean =>
+  type === 'MATERIAL' || type === 'TOOLS' || !type;
+
+/**
  * A Tools & Assets request always goes to this one project - it is chosen for the
  * engineer, not picked. Matched without spacing, hyphens or case, so
  * "TRG- TOOLS & ASSET" and "TRG TOOLS & ASSET" are the same project.

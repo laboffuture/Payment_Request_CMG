@@ -427,6 +427,7 @@ function StepPickItems({
     itemCode: r.itemCode,
     itemName: r.itemName,
     mrDescription: r.mrDescription,
+    mrDeliverTo: r.mrDeliverTo,
     measurement: r.measurement,
     unit: r.unit,
     projectCode: r.projectCode,
@@ -657,6 +658,8 @@ function StepVendorPrices({
   onNext: () => void;
 }) {
   const reference = useReference();
+  // What the site engineers asked for on these MRs, one entry per MR.
+  const asked = [...new Map(rows.filter((r) => r.mrDeliverTo).map((r) => [r.mrNo, r.mrDeliverTo!])).entries()];
   const [taxForAll, setTaxForAll] = useState(String(DEFAULT_PO_GST_PCT));
 
   return (
@@ -704,6 +707,11 @@ function StepVendorPrices({
                 <option value="STORE">Main store</option>
                 <option value="SITE">Direct to site (one project only)</option>
               </select>
+              {asked.length ? (
+                <span className="text-mut text-xs">
+                  Site engineer asked: {asked.map(([mr, to]) => `${to === 'SITE' ? 'Site' : 'Store'} (${mr})`).join(', ')}
+                </span>
+              ) : null}
             </label>
 
             <label className="field">
