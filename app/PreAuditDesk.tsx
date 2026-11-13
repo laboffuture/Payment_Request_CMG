@@ -3,9 +3,9 @@
 
    Nobody creates tasks here: each auditor works from their own task sheet and, once a task
    is done, reports it - vertical, area/process, task title, department, what was done, the
-   observations found and any reference files. The auditor's name and today's date are
-   filled in and locked. The report goes to the Audit Head, who accepts it (the task is
-   closed) or rejects it with a reason; a rejected report keeps its record and the auditor
+   observations found and any reference files. The auditor's name is filled in and
+   locked; the completed date can be set back for work done earlier. The report goes to
+   the Audit Head, who accepts it (the task is closed) or rejects it with a reason; a rejected report keeps its record and the auditor
    corrects it and sends it again.
 
    The Audit Head audits too, and reports his own work the same way - it needs nobody's
@@ -19,6 +19,8 @@ import type{AuditRow}from"./audit-api";
 import{csv,useAsync}from"./workforce-store";
 import{Pager}from"./WorkforceShared";
 import Attachments from"./Attachments";
+import{PRE_AUDIT_AREAS}from"../lib/pre-audit-areas";
+const AREAS:readonly string[]=PRE_AUDIT_AREAS;
 
 const HEAD_ROLES=["Audit Head","Administrator"];
 const LIMIT=25;
@@ -61,7 +63,7 @@ export default function PreAuditDesk({role,departments,userName,flash,changed}:{
   /* The filter and form choices. */
   const catalogue=useAsync(()=>fetch("/api/task-catalogue").then(r=>r.json()) as Promise<Catalogue&{auditors:{name:string}[]}>,[]);
   const verticals=uniq([...(catalogue.data?.tasks||[]).map(t=>t.entity),...rows.map(t=>t.entity||""),vertical]);
-  const projects=uniq([...rows.map(t=>t.project||""),project]);
+  const projects=[...AREAS,...uniq([...rows.map(t=>t.project||""),project]).filter(p=>!AREAS.includes(p))];
   const depts=uniq([...departments,...rows.map(t=>t.department),dept]);
   const auditors=uniq([...(catalogue.data?.auditors||[]).map(a=>a.name),...rows.map(t=>t.assignedTo),auditor]);
 
@@ -148,7 +150,7 @@ export default function PreAuditDesk({role,departments,userName,flash,changed}:{
 
     {reporting&&<ReportForm task={reporting==="new"?null:reporting} userName={userName} head={head}
       verticals={uniq((catalogue.data?.tasks||[]).map(t=>t.entity))} catalogue={catalogue.data?.tasks||[]}
-      projects={projects} departments={uniq(departments)} close={()=>setReporting(null)}
+      departments={uniq(departments)} close={()=>setReporting(null)}
       saved={(m,next)=>{setReporting(null);flash(m);setTab(next);setOffset(0);reload()}}/>}
     {viewing&&<ReportView task={viewing} head={head} close={()=>setViewing(null)} flash={flash}
       edit={()=>{setReporting(viewing);setViewing(null)}}
@@ -156,13 +158,15 @@ export default function PreAuditDesk({role,departments,userName,flash,changed}:{
       removed={m=>{setViewing(null);flash(m);reload()}}/>}
   </div>}
 
-/* Reporting a finished task, or correcting a rejected one. The auditor and the date are
-   filled in and locked - the server takes them from the sign-in and the clock. */
-function ReportForm({task,userName,head,verticals,catalogue,projects,departments,close,saved}:{task:AuditRow|null;userName:string;head:boolean;
-  verticals:string[];catalogue:{entity:string;title:string}[];projects:string[];departments:string[];
+/* Reporting a finished task, or correcting a rejected one. The auditor is filled in and
+   locked - the server takes it from the sign-in. The completed date starts at today and can
+   be set back for work done earlier, never forward. */
+function ReportForm({task,userName,head,verticals,catalogue,departments,close,saved}:{task:AuditRow|null;userName:string;head:boolean;
+  verticals:string[];catalogue:{entity:string;title:string}[];departments:string[];
   close:()=>void;saved:(m:string,tab:Status)=>void}){
-  const[f,setF]=useState({project:task?.project||"",entity:task?.entity||"",title:task?.title||"",department:task?.department||"",
-    workDescription:task?.workDescription||"",observations:task?.observations||""});
+  const[f,setF]=useState({project:AREAS.includes(task?.project||"")?task!.project:"",entity:task?.entity||"",title:task?.title||"",department:task?.department||"",
+    workDescription:task?.workDescription||"",observations:task?.observations||"",
+    completedOn:task?.completedOn||indiaToday()});
   const[files,setFiles]=useState<File[]>([]);
   const[busy,setBusy]=useState(false),[err,setErr]=useState("");
   const input=useRef<HTMLInputElement>(null);
@@ -200,8 +204,8 @@ function ReportForm({task,userName,head,verticals,catalogue,projects,departments
           <select required value={f.entity} onChange={set("entity")}>
             <option value="">Select vertical</option>{uniq([...verticals,f.entity]).map(v=><option key={v}>{v}</option>)}</select></label>
         <label>Area/Process {req}
-          <input required list="pa-projects" value={f.project} onChange={set("project")} placeholder="Choose or type the area or process"/>
-          <datalist id="pa-projects">{projects.map(p=><option key={p} value={p}/>)}</datalist></label>
+          <select required value={f.project} onChange={set("project")}>
+            <option value="">Select area/process</option>{AREAS.map(a=><option key={a}>{a}</option>)}</select></label>
         <label className="wide">Task title {req}
           <input required list="pa-titles" value={f.title} onChange={set("title")} placeholder="Choose a task, or type it as it is on your sheet"/>
           <datalist id="pa-titles">{titles.map(t=><option key={t} value={t}/>)}</datalist></label>
@@ -210,7 +214,8 @@ function ReportForm({task,userName,head,verticals,catalogue,projects,departments
             <option value="">{departments.length?"Select department":"Loading departments…"}</option>
             {uniq([...departments,f.department]).map(d=><option key={d}>{d}</option>)}</select></label>
         <Locked label="Task done by" value={task?.assignedTo||userName||"You"}/>
-        <Locked label="Task completed date" value={day(indiaToday())}/>
+        <label>Task completed date {req}
+          <input required type="date" value={f.completedOn} max={indiaToday()} onChange={set("completedOn")}/></label>
         <label className="wide">Description {req}
           <textarea required value={f.workDescription} onChange={set("workDescription")}
             placeholder="What was checked, against what evidence, and the result"/></label>
@@ -266,6 +271,7 @@ function ReportView({task,head,close,saved,edit,flash,removed}:{task:AuditRow;he
         <Locked label="Department" value={task.department||"—"}/>
         <Locked label="Task done by" value={task.assignedTo||"—"}/>
         <Locked label="Task completed date" value={day(task.completedOn||task.completedAt)}/>
+        <Locked label="Reported on" value={when(task.completedAt||"")}/>
         <Locked label="Reviewed" value={task.status!=="Reported"&&task.reviewedBy?`${task.reviewedBy} · ${when(task.reviewedAt||"")}`:"Not yet"}/>
         <div className="wide pa-text"><span>Description</span><p>{task.workDescription||"—"}</p></div>
         <div className="wide pa-text"><span>Observations</span><p>{task.observations||"None"}</p></div>
