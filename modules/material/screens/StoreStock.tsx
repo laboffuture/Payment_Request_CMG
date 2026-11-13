@@ -66,9 +66,10 @@ export default function StoreStockPage() {
   // null = closed; 'new' = adding; a row = editing that row
   const [editing, setEditing] = useState<StoreStockDto | 'new' | null>(null);
   const [removing, setRemoving] = useState<StoreStockDto | null>(null);
-  // The store and the administrator keep the register; the head of QS only reads it.
+  // The store and the administrator keep the register; the head of QS edits and deletes entries too.
   const { me } = useSession();
   const keeper = me.role === 'STORE' || me.role === 'ADMIN';
+  const editor = keeper || !!me.qsHead;
 
   const list = useQuery({
     queryKey: ['store-stock'],
@@ -145,7 +146,7 @@ export default function StoreStockPage() {
       ),
     },
   ];
-  if (keeper) columns.push(
+  if (editor) columns.push(
     {
       key: 'actions',
       header: '',

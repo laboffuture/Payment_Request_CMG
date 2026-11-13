@@ -19,12 +19,16 @@ export const storeStockRouter: Router = Router();
 
 const keepers = [requireAuth, authorize('STORE', 'ADMIN')] as const;
 
-/** Reading the register: the keepers, and the head of QS (a QS who is a Department Head) - not every QS. */
-const canRead = (req: Request, _res: Response, next: NextFunction): void => {
+/**
+ * Reading, editing and deleting entries: the keepers, and the head of QS (a QS who is a
+ * Department Head) - not every QS. Adding new entries stays with the keepers.
+ */
+const keeperOrQsHead = (req: Request, _res: Response, next: NextFunction): void => {
   const actor = req.actor;
   next(actor && (actor.role === 'STORE' || actor.role === 'ADMIN' || actor.qsHead) ? undefined : forbidden());
 };
-const readers = [requireAuth, canRead] as const;
+const readers = [requireAuth, keeperOrQsHead] as const;
+const editors = readers;
 
 const text = (max: number) => z.string().trim().max(max).default('');
 const entryInput = z.object({
@@ -90,7 +94,7 @@ storeStockRouter.post(
 
 storeStockRouter.put(
   '/store-stock/:id',
-  ...keepers,
+  ...editors,
   validateBody(entryInput.extend({ rv: z.coerce.number().int().min(0) })),
   wrap(async (req, res) => {
     res.json(await updateStoreStock(actorOf(req), req.params.id!, req.body));
@@ -99,7 +103,7 @@ storeStockRouter.put(
 
 storeStockRouter.delete(
   '/store-stock/:id',
-  ...keepers,
+  ...editors,
   wrap(async (req, res) => {
     res.json(await deleteStoreStock(req.params.id!));
   }),
