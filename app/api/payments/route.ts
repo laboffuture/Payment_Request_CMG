@@ -136,12 +136,22 @@ export async function GET(req:Request){
         if(remark)latest.set(l.recordId,{remark,by:l.actor});
       }
     }
+    /* When each request was released - the dashboard counts spend by the week money went
+       out, not the week it was asked for. From the activity log; the last release wins. */
+    const releasedAt=new Map<number,string>();
+    if(mine.some(r=>r.status==="Payment Released"||r.status===EXPENSES_BOOKED)){
+      const logs=await db.select({recordId:auditLogs.recordId,at:auditLogs.createdAt}).from(auditLogs)
+        .where(and(eq(auditLogs.action,"Status changed"),like(auditLogs.newValue,"Payment Released%")))
+        .orderBy(asc(auditLogs.id)).catch(()=>[]);
+      for(const l of logs)releasedAt.set(l.recordId,String(l.at||""));
+    }
     /* Whether this reader may decide each request waiting for management, so the screen offers
        Approve only to the managers named for its company. The PATCH checks it again. */
     const setting=mine.some(r=>r.status===MANAGEMENT_APPROVAL)?await managementSetting():null;
     return Response.json({payments:mine.map(r=>({...r,
       canApprove:!!setting&&r.status===MANAGEMENT_APPROVAL&&mayApprove(setting,r.company,actor),
-      latestRemark:latest.get(r.id)?.remark||"",latestRemarkBy:latest.get(r.id)?.by||""}))});
+      latestRemark:latest.get(r.id)?.remark||"",latestRemarkBy:latest.get(r.id)?.by||"",
+      releasedAt:r.status==="Payment Released"||r.status===EXPENSES_BOOKED?releasedAt.get(r.id)||r.lastActionAt||"":""}))});
   }catch{return Response.json({payments:[]})}}
 
 export async function POST(req:Request){

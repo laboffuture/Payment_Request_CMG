@@ -10,6 +10,7 @@ import PaymentWorkbench from "./PaymentWorkbench";
 import RequestorWorkspace from "./RequestorWorkspace";
 import AccessSetup from "./AccessSetup";
 import RoleDashboard from "./RoleDashboard";
+import DashboardBreakdowns,{BREAKDOWN_ROLES}from"./DashboardBreakdowns";
 import LoginOverlay,{type Actor} from "./LoginOverlay";
 import ImportCentre from "./ImportCentre";
 import AuditTaskQueue from "./AuditTaskQueue";
@@ -308,7 +309,10 @@ export default function Home(){
  <MaterialLanding code={matCode} active={active==="material"} onOpen={openMaterial} onLeave={leaveMaterial}/>
  {active==="material"&&<MaterialScreen/>}
  
- {active==="dashboard"&&(role==="Requestor"?<RequestorDashboard rows={mine} open={openRequest} create={()=>setForm(true)} go={setActive}/>:role==="Accountant"||role==="Auditor"?<RoleDashboard role={role} payments={filtered} auditTasks={auditTasks} open={openRequest} go={setActive}/>:<Dashboard payments={filtered} go={setActive}/>)}
+ {active==="dashboard"&&(role==="Requestor"?<RequestorDashboard rows={mine} open={openRequest} create={()=>setForm(true)} go={setActive}/>:(()=>{
+   const main=role==="Accountant"||role==="Auditor"?<RoleDashboard role={role} payments={filtered} auditTasks={auditTasks} open={openRequest} go={setActive}/>:<Dashboard payments={filtered} go={setActive}/>;
+   /* The breakdown tabs sit over the existing dashboard for the roles that read the money. */
+   return BREAKDOWN_ROLES.includes(role)?<DashboardBreakdowns payments={filtered} open={p=>openRequest(p as Payment)}>{main}</DashboardBreakdowns>:main})())}
  {active==="dashboard"&&visible.some(n=>n.id==="organisation")&&<div className="page wf-dash-wrap"><WorkforceOverview openProfile={setProfile} go={()=>setActive("organisation")}/></div>}
  {active==="requests"&&<RequestorWorkspace rows={role==="Requestor"?mine:filtered} open={openRequest} create={()=>setForm(true)} scope={role==="Department Head"?"department":"own"}/>}
  {active==="payments"&&<PaymentWorkbench departments={departments} companies={companies.map(c=>c.name)} onDelete={removeRequest} rows={filtered} role={role} search={search} setSearch={setSearch} open={openRequest} create={()=>setForm(true)}/>}
