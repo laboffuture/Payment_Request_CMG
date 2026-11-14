@@ -1,6 +1,7 @@
 "use client";
 import{useEffect,useMemo,useState}from"react";
-import{AlertTriangle,Search,Wallet,X}from"lucide-react";
+import{AlertTriangle,Download,Search,Wallet,X}from"lucide-react";
+import{csv}from"./workforce-store";
 import{BUDGET_CURRENCY,inr,jobKey,short,stateOf}from"../lib/budget";
 import type{JobBudget}from"../lib/budget";
 
@@ -65,19 +66,19 @@ export function BudgetBadge({code}:{code?:string}){
   return <span className={`badge ${j.state==="over"?"red":"amber"} jb-badge`} title={`${j.code}: spent ${inr(j.spent)} of ${inr(j.budget)}`}>
     {j.state==="over"?"Overspent":"Near budget"}</span>}
 
-function useFiltered(jobs:JobBudget[]){
+function useFiltered(jobs:JobBudget[],extra?:(rows:JobBudget[])=>React.ReactNode){
   const[q,setQ]=useState(""),[only,setOnly]=useState("all");
   const rows=jobs.filter(j=>(only==="all"||j.state===only)&&(!q.trim()||[j.code,j.project,j.location].some(x=>x.toLowerCase().includes(q.trim().toLowerCase()))))
     .sort((a,b)=>({over:0,near:1,ok:2}[a.state]-{over:0,near:1,ok:2}[b.state])||b.spent-a.spent);
   const tools=<div className="jb-tools"><label><Search/><input value={q} onChange={e=>setQ(e.target.value)} placeholder="Search code, project or location"/></label>
-    <select value={only} onChange={e=>setOnly(e.target.value)}><option value="all">All jobs</option><option value="over">Overspent</option><option value="near">Near budget</option><option value="ok">Within budget</option></select></div>;
+    <select value={only} onChange={e=>setOnly(e.target.value)}><option value="all">All jobs</option><option value="over">Overspent</option><option value="near">Near budget</option><option value="ok">Within budget</option></select>{extra?.(rows)}</div>;
   return{rows,tools}}
 
 function Totals({jobs}:{jobs:JobBudget[]}){
   const t=jobs.reduce((a,j)=>({budget:a.budget+j.budget,spent:a.spent+j.spent}),{budget:0,spent:0});
   const over=jobs.filter(j=>j.state==="over").length,near=jobs.filter(j=>j.state==="near").length;
   return <div className="jb-totals"><article><span>Total budget</span><b>{short(t.budget)}</b><small>{jobs.length} jobs</small></article>
-    <article><span>Total spent</span><b>{short(t.spent)}</b><small>{t.budget?Math.round(t.spent/t.budget*100):0}% of budget</small></article>
+    <article><span>Total requested</span><b>{short(t.spent)}</b><small>{t.budget?Math.round(t.spent/t.budget*100):0}% of budget</small></article>
     <article className={over?"over":""}><span>Overspent</span><b>{over}</b><small>{near} near budget</small></article></div>}
 
 function Row({j,children}:{j:JobBudget;children?:React.ReactNode}){
@@ -88,15 +89,22 @@ function Row({j,children}:{j:JobBudget;children?:React.ReactNode}){
     <td className={`num ${j.balance<0?"neg":""}`} title={inr(j.balance)}>{j.balance<0?"−":""}{short(Math.abs(j.balance))}</td>
     <td><Bar j={j}/><em className={`jb-state ${j.state}`}>{label[j.state]}</em></td></tr>}
 
-const head=<thead><tr><th>JOB</th><th className="num">BUDGET</th><th className="num">SPENT</th><th className="num">RELEASED</th><th className="num">BALANCE</th><th>STATUS</th></tr></thead>;
+const head=<thead><tr><th>JOB</th><th className="num">BUDGET</th><th className="num">REQUESTED</th><th className="num">RELEASED</th><th className="num">BALANCE</th><th>STATUS</th></tr></thead>;
 
-/* Every job's budget and spend, for accounts, audit and finance. Read only. */
+/* The jobs in view as a spreadsheet, full rupee figures rather than the short form on screen. */
+const downloadBudgets=(rows:JobBudget[])=>csv([
+  ["Job code","Project","Location","Budget (INR)","Requested (INR)","% of budget","Requests","Released (INR)","In process (INR)","Balance (INR)","Status"],
+  ...rows.map(j=>[j.code,j.project,j.location,j.budget,j.spent,pct(j),j.requests,j.released,j.inProcess,j.balance,label[j.state]])],
+  `project-budgets-${new Date().toISOString().slice(0,10)}.csv`);
+
+/* Every job's budget and requests, for accounts, audit and finance. Read only. */
 export function ProjectBudgets({close}:{close:()=>void}){
   const{data}=useBudgets();
   useEffect(()=>{refreshBudgets()},[]);
-  const{rows,tools}=useFiltered(data?.jobs||[]);
+  const{rows,tools}=useFiltered(data?.jobs||[],shown=><button className="jb-export" disabled={!shown.length} onClick={()=>downloadBudgets(shown)}
+    title={shown.length?`Download these ${shown.length} jobs to open in Excel`:"No jobs to download"}><Download/>Download Excel</button>);
   return <><button className="overlay" aria-label="Close" onClick={close}/><section className="modal jb-modal">
-    <header><div><small>INR · SPENT = EVERY REQUEST BOOKED TO THE JOB EXCEPT REJECTED</small><h2>Project budgets</h2></div><button onClick={close}><X/></button></header>
+    <header><div><small>INR · REQUESTED = EVERY REQUEST BOOKED TO THE JOB EXCEPT REJECTED</small><h2>Project budgets</h2></div><button onClick={close}><X/></button></header>
     <div className="jb-modal-body">{!data?<p className="queue-empty">Loading…</p>:<><Totals jobs={data.jobs}/>{tools}
       <div className="table-wrap"><table className="jb-table">{head}<tbody>{rows.map(j=><Row key={j.code} j={j}/>)}</tbody></table></div>
       {data.otherCurrency>0&&<p className="jb-none">{data.otherCurrency} request(s) booked to a job in another currency are not counted.</p>}</>}</div>
@@ -118,7 +126,7 @@ export function JobBudgetEditor(){
   if(!data)return <p className="settings-note">Loading budgets…</p>;
   return <div className="jb-editor">
     <div className="panel-head"><div><small>BUDGETS</small><h2>Budget and spend by job</h2></div></div>
-    <p className="settings-note">Every job starts with a budget of {short(data.defaultBudget)} ({inr(data.defaultBudget)}). Spent is every INR payment
+    <p className="settings-note">Every job starts with a budget of {short(data.defaultBudget)} ({inr(data.defaultBudget)}). Requested is every INR payment
       request booked to the job's JB code, except rejected ones. A job whose spend passes its budget shows as Overspent on the
       payment form, the request panel and the queues.</p>
     <Totals jobs={data.jobs}/>{tools}

@@ -32,6 +32,7 @@
 .jb-tools label{flex:1;min-width:200px;display:flex;align-items:center;gap:6px;border:1px solid var(--line);border-radius:8px;padding:0 10px;background:#fff}
 .jb-tools label svg{width:14px;color:var(--muted)}.jb-tools input{border:0;outline:0;padding:9px 0;width:100%;font-size:12px}
 .jb-tools select{border:1px solid var(--line);border-radius:8px;padding:8px 10px;background:#fff;font-size:12px}
+.jb-export{display:inline-flex;align-items:center;gap:6px;border:1px solid var(--line);border-radius:8px;padding:8px 12px;background:#fff;font-size:12px;font-weight:600;color:var(--ink,#0f172a);cursor:pointer}.jb-export svg{width:14px}.jb-export:disabled{opacity:.5;cursor:default}
 .jb-table{min-width:760px}.jb-table tbody tr{cursor:default}.jb-table td{vertical-align:top}
 .jb-table .num{text-align:right;white-space:nowrap}.jb-table tr.over td:first-child{box-shadow:inset 3px 0 var(--red)}
 .jb-table tr.near td:first-child{box-shadow:inset 3px 0 var(--amber)}
