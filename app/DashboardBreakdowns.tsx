@@ -10,7 +10,7 @@ import{csv}from"./workforce-store";
    them - a department head his department, everyone else in these roles the register
    (narrowed by the company picker) - so nothing here widens anybody's view. */
 
-export const BREAKDOWN_ROLES=["Accountant","Auditor","Department Head","Administrator","Management"];
+export const BREAKDOWN_ROLES=["Accountant","Auditor","Department Head","Audit Head","Finance","Administrator","Management"];
 
 type Row={id:number;requestNo:string;company:string;vendor:string;amount:number;currency:string;status:string;
   department:string;nature?:string;jbCode?:string;projectCode?:string;project?:string;createdAt?:string;
