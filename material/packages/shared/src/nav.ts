@@ -121,6 +121,8 @@ export const NAV: Record<Role, readonly NavItem[]> = {
     { href: '/admin/notification-rules', label: 'Notification settings' },
     { href: '/admin/email', label: 'Email settings' },
     { href: '/mrs', label: 'All MRs' },
+    // Procurement's consolidation, to check only: no enquiry, query, rejection or PO from here.
+    { href: '/pool', label: 'Consolidate MRs' },
     // What has arrived at site: store issues to accept and POs delivered straight to site.
     { href: '/receive', label: 'Receive at site', count: 'receive' },
     // POs delivered to the main store, received the same way the storekeeper does.

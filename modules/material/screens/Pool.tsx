@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from 'react';
 import { useRouter } from '@mm/lib/nav';
+import { useSession } from '@mm/lib/session';
 import { useQuery } from '@tanstack/react-query';
 import { Download } from 'lucide-react';
 import {
@@ -43,6 +44,10 @@ const productKey = (r: { itemId: string; measurement?: string; unit?: string }) 
   `${r.itemId}|${measurementKey(r.measurement)}|${(r.unit ?? '').toLowerCase()}`;
 
 export default function PoolPage() {
+  // Procurement acts on the lines; the material admin only looks (to check), so no enquiry,
+  // query, rejection or PO from here. The server refuses those for the admin as well.
+  const { me } = useSession();
+  const viewOnly = me.role !== 'PROC' && me.role !== 'PROC_MGR';
   const router = useRouter();
   const toast = useToast();
   const reference = useReference();
@@ -374,7 +379,11 @@ export default function PoolPage() {
     <>
       <PageHeader
         title="Consolidate MRs"
-        subtitle="QS-approved PO quantities from every project. Tick lines from any MR — full or part qty — then send one enquiry or raise one PO."
+        subtitle={
+          viewOnly
+            ? 'QS-approved PO quantities from every project - view only. Tick lines to see the site-wise analysis; enquiries and POs are raised by procurement.'
+            : 'QS-approved PO quantities from every project. Tick lines from any MR — full or part qty — then send one enquiry or raise one PO.'
+        }
         actions={
           <>
             <input
@@ -509,6 +518,7 @@ export default function PoolPage() {
           </div>
           <div className="flex flex-wrap gap-[10px]">
             <Btn onClick={() => setAnalysisOpen(true)}>Analysis</Btn>
+            {viewOnly ? null : (<>
             <Btn disabled={!summary.lines} onClick={() => setSendBack('QUERY')}>
               Send query
             </Btn>
@@ -521,6 +531,7 @@ export default function PoolPage() {
             <Btn variant="primary" disabled={!summary.lines} onClick={() => setRfqOpen(true)}>
               Send enquiry
             </Btn>
+            </>)}
           </div>
         </StickyActionBar>
         </>

@@ -115,10 +115,11 @@ function unwrapPayload(req: Request, _res: Response, next: NextFunction): void {
 // Consolidation — prototype VIEWS.pool
 // ---------------------------------------------------------------------------
 
+// The material admin looks too - read only, for checking; acting on lines stays with procurement.
 procurementRouter.get(
   '/pool',
   requireAuth,
-  authorize('PROC'),
+  authorize('PROC', 'ADMIN'),
   wrap(async (req, res) => {
     res.json(await listPool(poolQuery.parse(req.query)));
   }),
@@ -202,7 +203,7 @@ procurementRouter.get(
 procurementRouter.post(
   '/pool/analysis',
   requireAuth,
-  authorize('PROC'),
+  authorize('PROC', 'ADMIN'),
   validateBody(poolAnalysisInput),
   wrap(async (req, res) => {
     res.json(await poolAnalysis(req.body));
