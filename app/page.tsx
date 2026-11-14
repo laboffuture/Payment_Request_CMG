@@ -34,7 +34,7 @@ import {WorkforceProvider} from "./workforce-store";
 import OrgChart from "./OrgChart";
 import EmployeeDirectory from "./EmployeeDirectory";
 import {EmployeeProfile} from "./EmployeeProfile";
-import {WorkforceOverview,WorkforceReports} from "./WorkforceReports";
+import {WorkforceReports} from "./WorkforceReports";
 import {auditTasksApi,companiesApi} from "./audit-api";
 import {MaterialProvider,MaterialScreen} from "../modules/material/MaterialApp";
 import {MaterialLanding,MaterialSideNav,MaterialTitle} from "../modules/material/ShellParts";
@@ -313,7 +313,6 @@ export default function Home(){
    const main=role==="Accountant"||role==="Auditor"?<RoleDashboard role={role} payments={filtered} auditTasks={auditTasks} open={openRequest} go={setActive}/>:<Dashboard payments={filtered} go={setActive}/>;
    /* The breakdown tabs sit over the existing dashboard for the roles that read the money. */
    return BREAKDOWN_ROLES.includes(role)?<DashboardBreakdowns payments={filtered} open={p=>openRequest(p as Payment)}>{main}</DashboardBreakdowns>:main})())}
- {active==="dashboard"&&visible.some(n=>n.id==="organisation")&&<div className="page wf-dash-wrap"><WorkforceOverview openProfile={setProfile} go={()=>setActive("organisation")}/></div>}
  {active==="requests"&&<RequestorWorkspace rows={role==="Requestor"?mine:filtered} open={openRequest} create={()=>setForm(true)} scope={role==="Department Head"?"department":"own"}/>}
  {active==="payments"&&<PaymentWorkbench departments={departments} companies={companies.map(c=>c.name)} onDelete={removeRequest} rows={filtered} role={role} search={search} setSearch={setSearch} open={openRequest} create={()=>setForm(true)}/>}
  {active==="consolidated"&&<ConsolidatedPayments flash={flash} open={id=>{const p=payments.find(x=>x.id===id);if(p)openRequest(p)}}/>}
