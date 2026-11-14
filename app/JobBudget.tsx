@@ -34,7 +34,7 @@ function Bar({j,extra=0}:{j:JobBudget;extra?:number}){
   const more=j.budget>0?Math.min(100-used,extra/j.budget*100):0;
   return <div className={`jb-bar ${j.state}`}><i style={{width:`${used}%`}}/>{more>0&&<i className="jb-add" style={{width:`${more}%`}}/>}</div>}
 
-/* The job's budget, spent and balance. With an amount (the request being raised or read),
+/* The job's budget, requested (every request booked to it, except rejected ones) and balance. With an amount (the request being raised or read),
    says whether this request takes the job over its budget. */
 export function BudgetBox({code,amount,currency,own=false}:{code?:string;amount?:number;currency?:string;own?:boolean}){
   const{data,find}=useBudgets();
@@ -49,12 +49,12 @@ export function BudgetBox({code,amount,currency,own=false}:{code?:string;amount?
     <div className="jb-top"><span><Wallet/>Budget · {j.code}</span><em className={`jb-state ${j.state}`}>{label[j.state]}</em></div>
     <Bar j={j} extra={add}/>
     <dl><div><dt>Budget</dt><dd title={inr(j.budget)}>{short(j.budget)}</dd></div>
-      <div><dt>Spent</dt><dd title={inr(j.spent)}>{short(j.spent)} <small>({pct(j)}%)</small></dd></div>
+      <div><dt>Requested</dt><dd title={inr(j.spent)}>{short(j.spent)} <small>({pct(j)}%)</small></dd></div>
       <div><dt>{j.balance<0?"Overspent by":"Balance"}</dt><dd className={j.balance<0?"neg":""} title={inr(Math.abs(j.balance))}>{short(Math.abs(j.balance))}</dd></div></dl>
     <p className="jb-split">Released {short(j.released)} · In process {short(j.inProcess)} · {j.requests} request(s)</p>
     {add>0&&<p className={`jb-warn ${afterState}`}>{afterState==="over"
       ?<><AlertTriangle/>This request takes {j.code} over budget by {inr(after-j.budget)}.</>
-      :<>After this request: spent {short(after)}, balance {short(j.budget-after)}.</>}</p>}
+      :<>After this request: requested {short(after)}, balance {short(j.budget-after)}.</>}</p>}
     {!!currency&&currency!==BUDGET_CURRENCY&&<p className="jb-none">Budgets are in INR; this {currency} request is not counted.</p>}
   </div>}
 
