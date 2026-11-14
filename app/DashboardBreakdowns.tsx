@@ -129,13 +129,15 @@ function Breakdown({tab,payments,open}:{tab:Tab;payments:Row[];open:(p:Row)=>voi
     <div className="bd-head"><div><small>DASHBOARD · {tab.label.toUpperCase()}</small><h2>{tab.label}</h2><p>{tab.note}</p></div>
       <div className="bd-tools"><label><Search/><input value={q} onChange={e=>setQ(e.target.value)} placeholder={`Search ${tab.name.toLowerCase()}`} aria-label={`Search ${tab.name.toLowerCase()}`}/></label>
         <button className="bd-export" disabled={!shown.length} onClick={download} title={shown.length?"Download these figures to open in Excel":"Nothing to download"}><Download/>Download Excel</button></div></div>
+    {!words.length&&<Charts tab={tab} groups={groups} pick={key=>{setOpenKey(key);
+      requestAnimationFrame(()=>document.querySelector(`[data-group="${CSS.escape(key)}"]`)?.scrollIntoView({behavior:"smooth",block:"center"}))}}/>}
     <p className="bd-count">{shown.length} {shown.length===1?"row":"rows"} · {covered} request{covered===1?"":"s"}</p>
     {!shown.length?<p className="queue-empty">{groups.length?"Nothing matches that search.":"No requests here yet."}</p>:
     <div className="panel table-panel bd-panel"><div className="table-wrap"><table className="bd-table">
       <thead><tr><th>{tab.name.toUpperCase()}</th><th className="num">{isWeek?"RAISED":"REQUESTS"}</th><th className="num">REQUESTED</th><th className="num">RELEASED</th>{!isWeek&&<th className="num">IN PROCESS</th>}<th className="num">REJECTED</th></tr></thead>
       <tbody>{shown.map(g=>{const f=figures(g);const on=openKey===g.key;
         const list=[...g.rows].sort((a,b)=>b.id-a.id);
-        return[<tr key={g.key} className={`bd-group${on?" open":""}${g.last?" bd-muted":""}`} onClick={()=>setOpenKey(on?"":g.key)} aria-expanded={on}>
+        return[<tr key={g.key} data-group={g.key} className={`bd-group${on?" open":""}${g.last?" bd-muted":""}`} onClick={()=>setOpenKey(on?"":g.key)} aria-expanded={on}>
           <td><span className="bd-name">{on?<ChevronDown/>:<ChevronRight/>}<b>{g.label}</b></span>{g.sub&&<small>{g.sub}</small>}</td>
           <td className="num">{f.count}{isWeek&&f.paidCount?<small>{f.paidCount} released</small>:null}</td>
           <td className="num"><Amount m={f.asked}/></td><td className="num"><Amount m={f.paid}/></td>
@@ -149,3 +151,126 @@ function Breakdown({tab,payments,open}:{tab:Tab;payments:Row[];open:(p:Row)=>voi
             <td><span className={`badge ${isRejected(p)?"red":isReleased(p)?"green":"amber"}`}>{p.status}</span></td></tr>)}</tbody></table></td></tr>]})}</tbody>
     </table></div></div>}
   </div>}
+
+/* ---------------- charts ----------------
+   Above each tab's table: what the money looks like at a glance. Amounts are drawn in one
+   currency at a time (picked when there is more than one), never added across currencies.
+   Blue is money paid out, orange is money still to go; the share donut counts requests.
+   Colours are the validated categorical slots; the lighter ones always sit beside a
+   written value, and the table underneath holds every figure. */
+const C={paid:"#2a78d6",open:"#eb6834",other:"#a3aca9",slots:["#2a78d6","#eb6834","#1baf7a","#eda100","#e87ba4","#6250d6"]};
+type Tip={x:number;y:number;title:string;lines:[string,string,string?][]}|null;
+
+function useTip(){
+  const[tip,setTip]=useState<Tip>(null);
+  const at=(e:React.MouseEvent,t:Omit<NonNullable<Tip>,"x"|"y">)=>{
+    const box=(e.currentTarget as HTMLElement).closest(".bd-chart")!.getBoundingClientRect();
+    setTip({...t,x:e.clientX-box.left,y:e.clientY-box.top})};
+  const view=tip&&<div className="bd-tip" style={{left:tip.x,top:tip.y}} role="status">
+    <b>{tip.title}</b>{tip.lines.map(([k,v,c])=><span key={k}>{c&&<i style={{background:c}}/>}{k}<em>{v}</em></span>)}</div>;
+  return{at,clear:()=>setTip(null),view}}
+
+function CurrencyPick({list,value,set}:{list:string[];value:string;set:(c:string)=>void}){
+  if(list.length<2)return <span className="bd-cur">{value}</span>;
+  return <select className="bd-cur" value={value} onChange={e=>set(e.target.value)} aria-label="Currency shown in the chart">{list.map(c=><option key={c}>{c}</option>)}</select>}
+
+const currenciesOf=(rows:Row[])=>{const n=new Map<string,number>();
+  for(const p of live(rows)){const c=(p.currency||"INR").toUpperCase();n.set(c,(n.get(c)||0)+1)}
+  return Array.from(n.entries()).sort((a,b)=>a[0]==="INR"?-1:b[0]==="INR"?1:b[1]-a[1]).map(([c])=>c)};
+const inCur=(rows:Row[],c:string)=>rows.filter(p=>(p.currency||"INR").toUpperCase()===c).reduce((n,p)=>n+(Number(p.amount)||0),0);
+
+function Charts({tab,groups,pick}:{tab:Tab;groups:Group[];pick:(key:string)=>void}){
+  const named=groups.filter(g=>!g.last);
+  const hidden=groups.filter(g=>g.last).reduce((n,g)=>n+g.rows.length,0);
+  const byCount=tab.id==="currency";
+  const curs=useMemo(()=>currenciesOf(named.flatMap(g=>g.rows)),[named]);
+  const[cur,setCur]=useState("");const c=curs.includes(cur)?cur:curs[0]||"INR";
+  if(!named.length)return null;
+  if(tab.id==="weekly")return <div className="bd-charts one"><Weekly groups={named} cur={c} curs={curs} setCur={setCur} pick={pick}/></div>;
+  return <div className="bd-charts">
+    <TopBars tab={tab} groups={named} cur={c} curs={curs} setCur={setCur} byCount={byCount} pick={pick} hidden={hidden}/>
+    {/* Hundreds of vendors make a share of "Other"; what the vendor payments are for reads better. */}
+    {tab.id==="vendor"
+      ?<Share tab={tab} groups={by(named.flatMap(g=>g.rows),p=>p.nature||"",k=>k,undefined,"Nature not given")} pick={()=>{}}
+        title="What vendor payments are for" note="By nature of payment, number of requests, not counting rejected" hidden={0}/>
+      :<Share tab={tab} groups={named} pick={pick} hidden={hidden}/>}</div>}
+
+/* Top ten by money asked: released and still in process, stacked. */
+function TopBars({tab,groups,cur,curs,setCur,byCount,pick,hidden}:{tab:Tab;groups:Group[];cur:string;curs:string[];setCur:(c:string)=>void;byCount:boolean;pick:(k:string)=>void;hidden:number}){
+  const{at,clear,view}=useTip();
+  const fmt=(n:number)=>byCount?`${n}`:one(cur,n);
+  const bars=groups.map(g=>{const a=live(g.rows);const rel=a.filter(isReleased),pro=a.filter(p=>!isReleased(p));
+      return{g,paid:byCount?rel.length:inCur(rel,cur),open:byCount?pro.length:inCur(pro,cur)}})
+    .filter(b=>b.paid+b.open>0).sort((x,y)=>y.paid+y.open-(x.paid+x.open)).slice(0,10);
+  const max=Math.max(1,...bars.map(b=>b.paid+b.open));
+  const total=bars.length;
+  return <section className="bd-chart" onMouseLeave={clear}>
+    <header><div><h3>{byCount?"Requests by country":`Top ${total} by amount requested`}</h3>
+      <p>{byCount?"Requests released and still in process (not counting rejected)":`In ${cur}, not counting rejected requests`}{hidden&&tab.id!=="currency"?` · ${hidden} request${hidden===1?"":"s"} with no ${tab.name.toLowerCase()} left out`:""}</p></div>
+      {!byCount&&<CurrencyPick list={curs} value={cur} set={setCur}/>}</header>
+    <div className="bd-legend"><span><i style={{background:C.paid}}/>Released</span><span><i style={{background:C.open}}/>In process</span></div>
+    {!bars.length?<p className="bd-none">Nothing in {cur} here.</p>:
+    <ul className="bd-bars">{bars.map(b=><li key={b.g.key}>
+      <button type="button" onClick={()=>pick(b.g.key)} title={`Show ${b.g.label} in the table`}>
+        <span className="bd-bar-label">{b.g.label}</span>
+        <span className="bd-track" onMouseMove={e=>at(e,{title:b.g.label,lines:[["Released",fmt(b.paid),C.paid],["In process",fmt(b.open),C.open],[byCount?"Total requests":"Requested",fmt(b.paid+b.open)]]})}>
+          {b.paid>0&&<i className="bd-seg" style={{width:`${b.paid/max*100}%`,background:C.paid}}/>}
+          {b.open>0&&<i className="bd-seg" style={{width:`${b.open/max*100}%`,background:C.open}}/>}
+        </span>
+        <span className="bd-bar-val">{fmt(b.paid+b.open)}</span></button></li>)}</ul>}
+    {view}</section>}
+
+/* Share of requests: the five largest and everything else. */
+function Share({tab,groups,pick,hidden,title,note}:{tab:Tab;groups:Group[];pick:(k:string)=>void;hidden:number;title?:string;note?:string}){
+  const clickable=!title;
+  const{at,clear,view}=useTip();
+  const[hot,setHot]=useState("");
+  const all=groups.map(g=>({key:g.key,label:g.label,n:live(g.rows).length})).filter(s=>s.n>0).sort((a,b)=>b.n-a.n);
+  const top=all.slice(0,5),rest=all.slice(5).reduce((n,s)=>n+s.n,0);
+  const slices=[...top.map((s,i)=>({...s,color:C.slots[i]})),...(rest?[{key:"",label:`Other (${all.length-5})`,n:rest,color:C.other}]:[])];
+  const total=slices.reduce((n,s)=>n+s.n,0)||1;
+  const pctOf=(n:number)=>{const v=n/total*100;return v>0&&v<1?"<1%":`${Math.round(v)}%`};
+  const R=62,r=40,cx=70,cy=70;
+  let a0=-Math.PI/2;
+  const arc=(s:number,e:number)=>{const big=e-s>Math.PI?1:0,p=(t:number,rr:number)=>`${cx+rr*Math.cos(t)} ${cy+rr*Math.sin(t)}`;
+    return`M${p(s,R)}A${R} ${R} 0 ${big} 1 ${p(e,R)}L${p(e,r)}A${r} ${r} 0 ${big} 0 ${p(s,r)}Z`};
+  return <section className="bd-chart" onMouseLeave={()=>{clear();setHot("")}}>
+    <header><div><h3>{title||"Share of requests"}</h3><p>{note||`By number of requests, not counting rejected${hidden&&tab.id!=="currency"?` · ${hidden} with no ${tab.name.toLowerCase()} left out`:""}`}</p></div></header>
+    <div className="bd-donut">
+      <svg viewBox="0 0 140 140" role="img" aria-label={`Share of requests by ${tab.name.toLowerCase()}`}>
+        {slices.length===1?<circle cx={cx} cy={cy} r={(R+r)/2} fill="none" stroke={slices[0].color} strokeWidth={R-r}/>:
+        slices.map(s=>{const a1=a0+s.n/total*Math.PI*2;const d=arc(a0,a1);a0=a1;
+          return <path key={s.key||"other"} d={d} fill={s.color} stroke="#fff" strokeWidth={2} opacity={hot&&hot!==s.label?.45:1}
+            onMouseMove={e=>{setHot(s.label);at(e,{title:s.label,lines:[["Requests",`${s.n}`,s.color],["Share",pctOf(s.n)]]})}}
+            onClick={()=>clickable&&s.key&&pick(s.key)} style={{cursor:clickable&&s.key?"pointer":"default"}}/>})}
+        <text x={cx} y={cy-2} textAnchor="middle" className="bd-donut-n">{total}</text>
+        <text x={cx} y={cy+13} textAnchor="middle" className="bd-donut-l">requests</text>
+      </svg>
+      <ul className="bd-keys">{slices.map(s=><li key={s.key||"other"} onMouseEnter={()=>setHot(s.label)} onMouseLeave={()=>setHot("")}>
+        <button type="button" disabled={!clickable||!s.key} onClick={()=>s.key&&pick(s.key)}><i style={{background:s.color}}/><span>{s.label}</span>
+          <em>{s.n} · {pctOf(s.n)}</em></button></li>)}</ul>
+    </div>{view}</section>}
+
+/* The last twelve weeks: asked for that week beside paid out that week. */
+function Weekly({groups,cur,curs,setCur,pick}:{groups:Group[];cur:string;curs:string[];setCur:(c:string)=>void;pick:(k:string)=>void}){
+  const{at,clear,view}=useTip();
+  const weeks=groups.slice(0,12).reverse().map(g=>{const w=g as Group&{raised:Row[];paid:Row[]};
+    return{g,asked:inCur(live(w.raised),cur),paid:inCur(w.paid,cur),start:g.key}});
+  const max=Math.max(1,...weeks.flatMap(w=>[w.asked,w.paid]));
+  const step=(()=>{const raw=max/4,mag=10**Math.floor(Math.log10(raw)),n=raw/mag;return(n<=1?1:n<=2?2:n<=5?5:10)*mag})();
+  const top=Math.max(step,Math.ceil(max/step)*step);
+  const ticks=Array.from({length:Math.round(top/step)+1},(_,i)=>i*step);
+  return <section className="bd-chart" onMouseLeave={clear}>
+    <header><div><h3>Requested and released, week by week</h3><p>Last {weeks.length} weeks in {cur}, Monday to Sunday · requested does not count rejected</p></div>
+      <CurrencyPick list={curs} value={cur} set={setCur}/></header>
+    <div className="bd-legend"><span><i style={{background:C.open}}/>Requested</span><span><i style={{background:C.paid}}/>Released</span></div>
+    <div className="bd-cols">
+      <div className="bd-axis">{[...ticks].reverse().map(t=><span key={t}>{one(cur,t).replace(/\.00 /," ")}</span>)}</div>
+      <div className="bd-plot">
+        {ticks.map(t=><i key={t} className="bd-grid" style={{bottom:`${t/top*100}%`}}/>)}
+        {weeks.map(w=><button type="button" key={w.start} className="bd-week" onClick={()=>pick(w.g.key)}
+          onMouseMove={e=>at(e,{title:w.g.label,lines:[["Requested",one(cur,w.asked),C.open],["Released",one(cur,w.paid),C.paid]]})}>
+          <span className="bd-pair"><i style={{height:`${w.asked/top*100}%`,background:C.open}}/><i style={{height:`${w.paid/top*100}%`,background:C.paid}}/></span>
+          <small>{fmtDay(w.start).slice(0,6)}</small></button>)}
+      </div>
+    </div>{view}</section>}
