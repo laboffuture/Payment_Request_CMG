@@ -42,8 +42,8 @@ function Mrs() {
   const [projectId, setProjectId] = useState('');
   const [search, setSearch] = useState('');
 
-  // Only a site engineer has drafts of their own.
-  const tabs = TABS.filter((t) => t.value !== 'DRAFT' || me.role === 'SITE');
+  // Only a site engineer and the administrator keep drafts of their own here.
+  const tabs = TABS.filter((t) => t.value !== 'DRAFT' || me.role === 'SITE' || me.role === 'ADMIN');
 
   const params = new URLSearchParams();
   if (status) params.set('status', status);
@@ -99,7 +99,7 @@ function Mrs() {
               ))}
             </select>
 
-            {(me.role === 'SITE' || me.role === 'PM') ? (
+            {(me.role === 'SITE' || me.role === 'PM' || me.role === 'ADMIN') ? (
               <Btn variant="primary" onClick={() => router.push('/mrs/new')}>
                 + New request
               </Btn>

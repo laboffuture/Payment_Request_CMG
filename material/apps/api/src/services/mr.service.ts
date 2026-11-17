@@ -211,8 +211,9 @@ function listFilterFor(
 
   if (actor.role === 'SITE') {
     filter.createdBy = oid(actor.id);
-  } else if (actor.role === 'PM') {
-    // A Project Manager raises requests too: every submitted MR, and his own drafts.
+  } else if (actor.role === 'PM' || actor.role === 'ADMIN') {
+    // A Project Manager and the material administrator raise requests too: every submitted
+    // MR, and their own drafts.
     filter.$or = [{ status: { $ne: 'DRAFT' } }, { createdBy: oid(actor.id) }];
   } else {
     filter.status = { $ne: 'DRAFT' };
@@ -277,9 +278,15 @@ const ADMIN_EDITABLE = ['PM_PENDING', 'QS_PENDING', 'SENT_BACK'];
 const canAdminEdit = (actor: Actor, mr: Record<string, any>): boolean =>
   actor.role === 'ADMIN' && ADMIN_EDITABLE.includes(mr.status);
 
-/** Where the site engineer wants it delivered - asked of them alone, for material and tools. */
+/**
+ * The material administrator raises an MR the way a site engineer does: picked from the item
+ * master, asked where to deliver, sent to the Project Manager.
+ */
+const raisesLikeSite = (actor: Actor): boolean => actor.role === 'SITE' || actor.role === 'ADMIN';
+
+/** Where the requester wants it delivered - asked of a site engineer or the administrator. */
 const deliverToFrom = (actor: Actor, input: UpsertMrInput): DeliverTo | '' =>
-  actor.role === 'SITE' && asksDeliverTo(input.requestType) ? input.deliverTo || '' : '';
+  raisesLikeSite(actor) && asksDeliverTo(input.requestType) ? input.deliverTo || '' : '';
 
 /** QS may close an MR as already purchased while it waits for QS, or once approved and open. */
 const canQsClose = (actor: Actor, mr: Record<string, any>): boolean =>
@@ -624,7 +631,7 @@ async function validateMrInput(
     throw badRequest(MSG.mrDescriptionRequired);
   }
   // The site engineer says where a material or tools request is to be delivered.
-  if (actor.role === 'SITE' && asksDeliverTo(input.requestType) && !input.deliverTo) {
+  if (raisesLikeSite(actor) && asksDeliverTo(input.requestType) && !input.deliverTo) {
     throw badRequest('Choose where it is to be delivered - site or store');
   }
 
@@ -701,7 +708,9 @@ async function writeLines(
     // the rule) can stay while the MR is edited; a fresh one is refused.
     // Sub-contract work is typed in line by line (heading, description, quantity, rate, per):
     // it is not in the item master, so each line arrives as a new item for QS to clear.
-    if (isNewItem && (actor.role === 'SITE' || actor.role === 'PM') && input.requestType !== 'SUB_CONTRACTOR') {
+    // The administrator correcting someone else's MR is not held to it.
+    const masterOnly = actor.role === 'SITE' || actor.role === 'PM' || (actor.role === 'ADMIN' && !adminEdit);
+    if (isNewItem && masterOnly && input.requestType !== 'SUB_CONTRACTOR') {
       const already = line.id
         ? await MrLine.exists({ _id: line.id, mrId: mr._id, itemId: null }).session(session)
         : null;
@@ -847,8 +856,9 @@ export async function updateMr(
     mr.requiredDate = input.requiredDate;
     mr.remarks = input.remarks;
     mr.requestType = input.requestType;
-    // Only the site engineer chooses it; anyone else editing the MR leaves it as it was.
-    if (actor.role === 'SITE') mr.deliverTo = deliverToFrom(actor, input) as never;
+    // Only the requester chooses it (a site engineer, or the administrator on their own MR);
+    // the administrator correcting someone else's MR leaves it as it was.
+    if (actor.role === 'SITE' || (actor.role === 'ADMIN' && !adminEdit)) mr.deliverTo = deliverToFrom(actor, input) as never;
     else if (!asksDeliverTo(input.requestType)) mr.deliverTo = '' as never;
     // A numbered request whose type is changed keeps its number but takes the
     // matching start: MR- for most requests, SUB- for a sub-contractor request.

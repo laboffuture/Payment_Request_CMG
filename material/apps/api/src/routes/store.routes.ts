@@ -100,7 +100,7 @@ storeRouter.post(
 storeRouter.post(
   '/mrs/:id/petty-grn',
   requireAuth,
-  authorize('SITE', 'PM'),
+  authorize('SITE', 'PM', 'ADMIN'),
   receiptUpload,
   unwrapPayload,
   idempotency,

@@ -307,7 +307,7 @@ export function MrForm({ existing }: { existing?: MrDetailDto }) {
   // Tools & Assets always goes to the tools project - chosen here, not picked.
   const toolsProject = reference.projects.find((p) => isToolsProjectCode(p.code)) ?? null;
   const toolsRequest = requestType === 'TOOLS';
-  const asksWhere = me.role === 'SITE' && !!requestType && asksDeliverTo(requestType);
+  const asksWhere = (me.role === 'SITE' || (me.role === 'ADMIN' && !adminEdit)) && !!requestType && asksDeliverTo(requestType);
   const chooseType = (type: RequestType | '') => {
     setRequestType(type);
     if (type === 'TOOLS') setProjectId(toolsProject?.id ?? '');

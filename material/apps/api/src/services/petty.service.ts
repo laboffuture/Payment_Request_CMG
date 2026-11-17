@@ -140,12 +140,12 @@ export async function pettyReject(
 
 /**
  * Who may post the GRN, once procurement has approved: a site engineer on the project, or
- * the Project Manager who raised the request himself.
+ * the Project Manager or the material administrator who raised the request themselves.
  */
 export const canPostPettyGrn = (actor: Actor, mr: Record<string, any>): boolean =>
   mr.status === 'GRN_PENDING' &&
   ((actor.role === 'SITE' && canSeeProject(actor, String(mr.projectId))) ||
-    (actor.role === 'PM' && String(mr.createdBy) === actor.id));
+    ((actor.role === 'PM' || actor.role === 'ADMIN') && String(mr.createdBy) === actor.id));
 
 /**
  * The site engineer's GRN for what was bought with petty cash. The bill or a photo is
