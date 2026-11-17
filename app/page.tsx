@@ -24,7 +24,7 @@ import ObservationDesk from "./ObservationDesk";
 import PreAuditDesk from "./PreAuditDesk";
 import SettingsDesk from "./SettingsDesk";
 import{ExtraFields,packExtra,refreshFields,useExtraFields}from"./ExtraFields";
-import{FIELD_ORDER,labelFor,ruleFor}from"../lib/payment-fields";
+import{FIELD_ORDER,labelFor,ruleFor,fieldsFor,choicesFor}from"../lib/payment-fields";
 import{distinct,jobFor,parseJobs}from"../lib/jobs";
 import{defaultCurrencyFor}from"../lib/payment-stages";
 import type{Job}from"../lib/jobs";
@@ -501,6 +501,9 @@ function PaymentForm({close,added,companies,departments,natures,currencies,tdsCh
    type is not carried into another that hides it. The server clears them too. */
  useEffect(()=>{setV(c=>{const next={...c} as Record<string,string>;let touched=false;
    for(const f of FIELD_ORDER)if(ruleFor(c.nature,f)==="H"&&next[f]){next[f]="";touched=true}
+   /* A mode this type does not offer (petty cash: cash or online) is cleared, not carried. */
+   const modes=choicesFor(c.nature,"paymentMode");
+   if(modes&&next.paymentMode&&!modes.includes(next.paymentMode)){next.paymentMode="";touched=true}
    return touched?(next as typeof c):c})},[v.nature]);
  /* Suggestions for the vendor field, from the register. The field stays an ordinary
     text box - a vendor nobody has paid before has to be typeable, and whatever is typed
@@ -536,13 +539,13 @@ function PaymentForm({close,added,companies,departments,natures,currencies,tdsCh
    They upload here, once the request exists and has the id they hang off, so everyone
    who opens it afterwards sees the same list. */
 for(const file of files){try{const dataUrl=await asDataUrl(file);await fetch("/api/attachments",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({entityType:"payment",entityId:String(p.id),kind:"Other",fileName:file.name,dataUrl})});}catch{}}setSaving(false);refreshBudgets();added(p)};return <><button className="overlay" onClick={close}/><form className="modal" onSubmit={submit}><header><div><small>NEW REQUEST</small><h2>Create payment request</h2></div><button type="button" onClick={close}><X/></button></header><div className="form">
- {FIELD_ORDER.map(key=>{
+ {fieldsFor(v.nature).map(key=>{
    const need=ruleFor(v.nature,key);
    if(need==="H"||key==="description")return null;
    const must=need==="M";
    const choices=key==="company"?companies.map(c=>c.name):key==="department"?departments
      :key==="nature"?natures:key==="tds"?tdsChoices:key==="currency"?currencies
-     :key==="paymentMode"?modeChoices:key==="paymentTerms"?termsChoices
+     :key==="paymentMode"?(choicesFor(v.nature,"paymentMode")||modeChoices):key==="paymentTerms"?termsChoices
      /* The job register drives all three. A code names one project at one site, so
         choosing the code fills the other two rather than leaving them to be matched by
         hand; they stay dropdowns so a job the register does not hold can still be picked

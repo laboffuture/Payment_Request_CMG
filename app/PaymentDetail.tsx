@@ -1,7 +1,7 @@
 "use client";
 import{BudgetBox}from"./JobBudget";
 import{DEPT_PRIORITIES,DEPT_PRIORITY_ROLES,EXPENSES_BOOKED,FINANCE_STAGES,PAID_STAGES,STAGES as stages,priorityOpen,stageIndex}from"../lib/payment-stages";
-import{FIELD_ORDER,labelFor,ruleFor}from"../lib/payment-fields";
+import{FIELD_ORDER,labelFor,ruleFor,fieldsFor,choicesFor}from"../lib/payment-fields";
 import type{FieldKey}from"../lib/payment-fields";
 import{useEffect,useMemo,useState}from"react";
 import{AlertTriangle,Check,Clock3,FileCheck2,HelpCircle,Paperclip,ShieldCheck,X}from"lucide-react";
@@ -297,7 +297,7 @@ export default function PaymentDetail({payment:p,busy=false,role,onClose,onActio
           Drawn from the same field rules as the original form, so the type still decides
           what is asked for. */}
       <div className="wf-fix-fields">
-        {FIELD_ORDER.map(key=>{
+        {fieldsFor(edit.nature||"").map(key=>{
           const need=ruleFor(edit.nature||"",key);
           /* description is drawn here too. It is mandatory in the base rules, so leaving it
              out made a form that demanded something it never showed. */
@@ -305,7 +305,7 @@ export default function PaymentDetail({payment:p,busy=false,role,onClose,onActio
           const must=need==="M";
           const choices=key==="company"?companies.map(c=>c.name):key==="department"?departments
             :key==="nature"?natures:key==="tds"?tdsChoices:key==="currency"?currencies
-            :key==="paymentMode"?modeChoices
+            :key==="paymentMode"?(choicesFor(edit.nature||"","paymentMode")||modeChoices)
             :key==="paymentTerms"?termsChoices
             /* The job register, as on the new-request form. A request raised before the
                job fields existed arrives here without them, and a free-text box would

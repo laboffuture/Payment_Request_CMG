@@ -42,7 +42,24 @@ const BASE:Record<FieldKey,Need>={
 const JOB_FIELDS={jbCode:"C",project:"C",jobLocation:"C"} as const;
 
 type Rule={need:Partial<Record<FieldKey,Need>>;labels?:Partial<Record<FieldKey,string>>;
-  departments:string};
+  departments:string;
+  /* The order the form asks in, when a type wants its own; the rest follow, hidden or not. */
+  order?:FieldKey[];
+  /* A dropdown narrowed for this type, in place of the administrator's list. */
+  choices?:Partial<Record<FieldKey,string[]>>};
+
+/* Both kinds of petty cash ask the same thing, in this order: who holds the cash, how it is
+   paid, the job it is for, when it is needed, how much, why, and the supporting documents.
+   Everything is required; nothing else is asked. */
+const PETTY_CASH:Rule={
+  departments:"Project / Operations",
+  labels:{vendor:"Beneficiary / Custodian",due:"Required by",amount:"Amount requested",
+    description:"Purpose",documents:"Supporting documents"},
+  order:["company","department","nature","vendor","paymentMode","project","jbCode","jobLocation",
+    "due","currency","amount","description"],
+  choices:{paymentMode:["Cash","Online transaction"]},
+  need:{tds:"C",jbCode:"M",project:"M",jobLocation:"M",paymentMode:"M",due:"M",currency:"M",
+    amount:"M",description:"M",documents:"M",vendor:"M"}};
 
 export const PAYMENT_TYPES:Record<string,Rule>={
   "Vendor Payment":{
@@ -64,9 +81,8 @@ export const PAYMENT_TYPES:Record<string,Rule>={
     need:{tds:"C",poNumber:"M",projectCode:"M",paymentTerms:"M",...JOB_FIELDS}},
   /* The remaining natures tied to a job. They ask for the job details and little else:
      petty cash and labour payments are settled against a job rather than an invoice. */
-  "Project Petty Cash":{
-    departments:"Project / Operations",
-    need:{tds:"C",...JOB_FIELDS}},
+  "Project Petty Cash":PETTY_CASH,
+  "Petty Cash-IOU":PETTY_CASH,
   "OT Labour Payment":{
     departments:"Project / Operations / HR",
     labels:{vendor:"Paid to",period:"Overtime period"},
@@ -134,6 +150,15 @@ export const FIELD_ORDER:FieldKey[]=["company","department","nature","vendor",
   /* The job details sit together, after the invoice fields and before the money. */
   "jbCode","project","jobLocation",
   "amount","due","currency","paymentMode","description"];
+
+/* The fields in the order this type's form draws them. */
+export const fieldsFor=(nature:string):FieldKey[]=>{
+  const own=PAYMENT_TYPES[nature]?.order;
+  return own?[...own,...FIELD_ORDER.filter(f=>!own.includes(f))]:FIELD_ORDER};
+
+/* This type's own list for a dropdown, or null to use the administrator's. */
+export const choicesFor=(nature:string,field:FieldKey):string[]|null=>
+  PAYMENT_TYPES[nature]?.choices?.[field]??null;
 
 /* Fields the server checks on a new request. Documents are uploaded after the request
    exists, so they are required by the form rather than here. */
