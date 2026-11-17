@@ -12,7 +12,7 @@ export type Need="M"|"C"|"H";
 export type FieldKey="company"|"department"|"nature"|"tds"|"vendor"|"poNumber"|"amount"
   |"due"|"currency"|"paymentMode"|"projectCode"|"paymentTerms"|"invoiceNumber"
   |"invoiceDate"|"period"|"jbCode"|"project"|"jobLocation"
-  |"description"|"documents";
+  |"description"|"documents"|"advance";
 
 /* Always required, whatever the type. */
 const BASE:Record<FieldKey,Need>={
@@ -25,7 +25,9 @@ const BASE:Record<FieldKey,Need>={
   /* Hidden by default. Only the natures tied to a job ask for these, and hidden means the
      server clears the value rather than trusting it - so a job number typed under one
      nature cannot travel into another that has nothing to do with a job. */
-  jbCode:"H",project:"H",jobLocation:"H"};
+  jbCode:"H",project:"H",jobLocation:"H",
+  /* Asked only of a petty cash expense submission. */
+  advance:"H"};
 
 /* The job details, as the natures tied to project work ask for them. Written once and
    spread into each, so the five cannot drift apart - which is the whole reason they are
@@ -46,7 +48,9 @@ type Rule={need:Partial<Record<FieldKey,Need>>;labels?:Partial<Record<FieldKey,s
   /* The order the form asks in, when a type wants its own; the rest follow, hidden or not. */
   order?:FieldKey[];
   /* A dropdown narrowed for this type, in place of the administrator's list. */
-  choices?:Partial<Record<FieldKey,string[]>>};
+  choices?:Partial<Record<FieldKey,string[]>>;
+  /* An expense submission: the amount is the total of an expense breakup, not typed. */
+  expenses?:boolean};
 
 /* Both kinds of petty cash ask the same thing, in this order: who holds the cash, how it is
    paid, the job it is for, when it is needed, how much, why, and the supporting documents.
@@ -60,6 +64,19 @@ const PETTY_CASH:Rule={
   choices:{paymentMode:["Cash","Online transaction"]},
   need:{tds:"C",jbCode:"M",project:"M",jobLocation:"M",paymentMode:"M",due:"M",currency:"M",
     amount:"M",description:"M",documents:"M",vendor:"M"}};
+
+/* Accounting for petty cash already advanced: the same details, with the advance received in
+   place of the date it is required by, and the amount is the total of the expense breakup -
+   each line dated, categorised, described and with its bill. Accounts see what is still
+   payable to the employee: the total less the advance. */
+const EXPENSE_SUBMISSION:Rule={
+  ...PETTY_CASH,
+  expenses:true,
+  labels:{vendor:"Beneficiary / Custodian",advance:"Advance amount received",amount:"Total expenses",
+    description:"Remarks"},
+  order:["company","department","nature","vendor","paymentMode","project","jbCode","jobLocation",
+    "advance","currency","amount","description"],
+  need:{...PETTY_CASH.need,due:"H",advance:"M",documents:"H"}};
 
 export const PAYMENT_TYPES:Record<string,Rule>={
   "Vendor Payment":{
@@ -83,6 +100,8 @@ export const PAYMENT_TYPES:Record<string,Rule>={
      petty cash and labour payments are settled against a job rather than an invoice. */
   "Project Petty Cash":PETTY_CASH,
   "Petty Cash-IOU":PETTY_CASH,
+  "Project Petty Cash - Expense Submission":EXPENSE_SUBMISSION,
+  "Petty Cash-IOU - Expense Submission":EXPENSE_SUBMISSION,
   "OT Labour Payment":{
     departments:"Project / Operations / HR",
     labels:{vendor:"Paid to",period:"Overtime period"},
@@ -120,7 +139,7 @@ const LABELS:Record<FieldKey,string>={
   projectCode:"Project code",paymentTerms:"Payment terms",
   invoiceNumber:"Invoice number",invoiceDate:"Invoice date",period:"Period",
   jbCode:"JB code",project:"Project",jobLocation:"Job location",
-  description:"Description",documents:"Supporting documents"};
+  description:"Description",documents:"Supporting documents",advance:"Advance amount received"};
 
 export const ruleFor=(nature:string,field:FieldKey):Need=>
   PAYMENT_TYPES[nature]?.need[field]??BASE[field];
@@ -149,7 +168,10 @@ export const FIELD_ORDER:FieldKey[]=["company","department","nature","vendor",
   "poNumber","invoiceNumber","invoiceDate","paymentTerms","period",
   /* The job details sit together, after the invoice fields and before the money. */
   "jbCode","project","jobLocation",
-  "amount","due","currency","paymentMode","description"];
+  "amount","due","advance","currency","paymentMode","description"];
+
+/* A petty cash expense submission - its amount is the total of its expense breakup. */
+export const isExpenseSubmission=(nature:string)=>!!PAYMENT_TYPES[nature]?.expenses;
 
 /* The fields in the order this type's form draws them. */
 export const fieldsFor=(nature:string):FieldKey[]=>{

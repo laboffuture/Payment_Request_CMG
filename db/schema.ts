@@ -23,6 +23,9 @@ export const paymentRequests=sqliteTable("payment_requests",{id:integer("id").pr
   /* The accounts voucher, recorded when finance books the request as an expense instead. */
   voucherNumber:text("voucher_number").notNull().default(""),
   extra:text("extra").notNull().default(""),
+  /* petty cash expense submission: the advance received, and the breakup as a JSON list */
+  advance:text("advance_amount").notNull().default(""),
+  expenseLines:text("expense_lines").notNull().default(""),
   projectCode:text("project_code").notNull().default(""),
   invoiceNumber:text("invoice_number").notNull().default(""),
   invoiceDate:text("invoice_date").notNull().default(""),

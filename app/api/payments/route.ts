@@ -4,7 +4,8 @@ import{auditLogs,paymentRequests,wfAttachments}from"../../../db/schema";
 import{deleteFile}from"../../../lib/storage";
 import{companyLock,departmentPeers,hasWriteRole,inCompany,requireAuth}from"../../../lib/auth";
 import{emailsForRoles,notify,rolesActingOn}from"../../../lib/notify";
-import{FIELD_ORDER,REQUIRED_ON_SAVE,labelFor,ruleFor}from"../../../lib/payment-fields";
+import{FIELD_ORDER,REQUIRED_ON_SAVE,labelFor,ruleFor,isExpenseSubmission}from"../../../lib/payment-fields";
+import{checkExpenseLines}from"../../../lib/expense-lines";
 import{EXPENSES_BOOKED,FINANCE_STAGES,MANAGEMENT_APPROVAL,MANAGEMENT_ROLES,PAID_STAGES,approversOf,needsManagementApproval}from"../../../lib/payment-stages";
 import type{ManagementSetting}from"../../../lib/payment-stages";
 import{managementSetting,managementUsers}from"../../../lib/app-settings";
@@ -159,6 +160,18 @@ export async function POST(req:Request){
     const{actor,response}=await requireAuth(req,"read");
     if(response)return response;
     const p=(await req.json()) as typeof paymentRequests.$inferInsert&{amount?:number};
+    /* An expense submission's amount is the total of its breakup, worked out here rather than
+       taken from the browser; any other request carries no breakup and no advance. */
+    if(isExpenseSubmission(String(p.nature||""))){
+      const{lines,error}=checkExpenseLines((p as {expenseLines?:unknown}).expenseLines);
+      if(error)return bad(error,422);
+      const advance=Number(p.advance);
+      if(String(p.advance??"").trim()===""||!Number.isFinite(advance)||advance<0)
+        return bad("Enter the advance amount received (0 if none).",422);
+      p.advance=String(Math.round(advance*100)/100);
+      p.expenseLines=JSON.stringify(lines);
+      p.amount=Math.round(lines.reduce((t,l)=>t+l.amount,0)*100)/100;
+    }else{p.expenseLines="";p.advance=""}
     const amount=Number(p.amount);
     /* The beneficiary is not named here any more: whether a request needs one depends on
        its payment type, and the rules below decide it. A statutory payment has no vendor
@@ -418,6 +431,16 @@ export async function PATCH(req:Request){
       const nature=String(sent.nature??old.nature??"");
       for(const key of FIELD_ORDER){
         if(!(key in sent))continue;
+        /* An expense submission's total comes from its breakup, which a correction does not
+           change - nor may the type be switched to or from one, which would strand it. */
+        if(key==="amount"&&isExpenseSubmission(nature))continue;
+        if(key==="nature"&&isExpenseSubmission(String(sent.nature??""))!==isExpenseSubmission(String(old.nature??"")))
+          return bad("An expense submission cannot be changed to another type, or another type to one. Raise a new request instead.",422);
+        if(key==="advance"&&isExpenseSubmission(nature)){
+          const n=Number(String(sent.advance??"").trim());
+          if(String(sent.advance??"").trim()===""||!Number.isFinite(n)||n<0)
+            return bad("Enter the advance amount received (0 if none).",422);
+        }
         const need=ruleFor(nature,key);
         const value=need==="H"?"":String(sent[key]??"").trim();
         if(need==="M"&&!value)

@@ -10,7 +10,7 @@ import type{Row}from"../../../lib/workforce-api";
    attached — a payment request often carries an invoice, a purchase order and a
    delivery order together, and nothing should force a choice between them. */
 export const ATTACH_KINDS=["Invoice","Proforma invoice","Purchase order","Delivery order",
-  "Quotation","Contract","Bank/payment proof","Statement","Reconciliation","Photo","Other"];
+  "Quotation","Contract","Bank/payment proof","Statement","Reconciliation","Photo","Bill","Other"];
 const ENTITIES=["payment","batch","ticket","task","observation","employee","audit-task","query","training","planning","procurement","completion","collection","receivable"];
 const ALLOWED_MIME=[/^image\//,/^application\/pdf$/,/^application\/vnd\./,/^application\/msword$/,
   /^text\/csv$/,/^text\/plain$/,/^application\/zip$/,/^application\/vnd\.ms-excel$/];

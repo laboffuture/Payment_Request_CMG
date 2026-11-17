@@ -1,7 +1,9 @@
 "use client";
 import{BudgetBox}from"./JobBudget";
 import{DEPT_PRIORITIES,DEPT_PRIORITY_ROLES,EXPENSES_BOOKED,FINANCE_STAGES,PAID_STAGES,STAGES as stages,priorityOpen,stageIndex}from"../lib/payment-stages";
-import{FIELD_ORDER,labelFor,ruleFor,fieldsFor,choicesFor}from"../lib/payment-fields";
+import{FIELD_ORDER,labelFor,ruleFor,fieldsFor,choicesFor,isExpenseSubmission}from"../lib/payment-fields";
+import{ExpenseBreakupView}from"./ExpenseBreakup";
+import{payableToEmployee,readExpenseLines}from"../lib/expense-lines";
 import type{FieldKey}from"../lib/payment-fields";
 import{useEffect,useMemo,useState}from"react";
 import{AlertTriangle,Check,Clock3,FileCheck2,HelpCircle,Paperclip,ShieldCheck,X}from"lucide-react";
@@ -9,7 +11,7 @@ import Attachments,{asDataUrl,type Attachment}from"./Attachments";
 import{stamp as stampAt}from"../lib/stamp";
 import{distinct,jobFor}from"../lib/jobs";
 import type{Job}from"../lib/jobs";
-type Payment={canApprove?:boolean;jbCode?:string;projectCode?:string;invoiceNumber?:string;invoiceDate?:string;paymentTerms?:string;period?:string;extra?:string;tds?:string;nature?:string;poNumber?:string;resubmitNote?:string;resubmittedAt?:string;rejectionNote?:string;rejectedBy?:string;rejectedAt?:string;raisedBy?:string;tdsPercent?:string;tdsValue?:string;
+type Payment={advance?:string;expenseLines?:string;canApprove?:boolean;jbCode?:string;projectCode?:string;invoiceNumber?:string;invoiceDate?:string;paymentTerms?:string;period?:string;extra?:string;tds?:string;nature?:string;poNumber?:string;resubmitNote?:string;resubmittedAt?:string;rejectionNote?:string;rejectedBy?:string;rejectedAt?:string;raisedBy?:string;tdsPercent?:string;tdsValue?:string;
   /* The note left by whoever moved the request last. This panel declares its own Payment
      type rather than sharing page.tsx's, so a field added there does not arrive here. */
   deptPriority?:string;deptPriorityBy?:string;deptPriorityAt?:string;lastActionNote?:string;lastActionBy?:string;utrNumber?:string;voucherNumber?:string;id:number;requestNo:string;company:string;vendor:string;amount:number;currency:string;due:string;urgency:string;status:string;owner:string;department:string};
@@ -302,6 +304,8 @@ export default function PaymentDetail({payment:p,busy=false,role,onClose,onActio
           /* description is drawn here too. It is mandatory in the base rules, so leaving it
              out made a form that demanded something it never showed. */
           if(need==="H")return null;
+          /* An expense submission's total is its breakup's, shown above; not corrected here. */
+          if(key==="amount"&&isExpenseSubmission(edit.nature||""))return null;
           const must=need==="M";
           const choices=key==="company"?companies.map(c=>c.name):key==="department"?departments
             :key==="nature"?natures:key==="tds"?tdsChoices:key==="currency"?currencies
@@ -372,7 +376,7 @@ export default function PaymentDetail({payment:p,busy=false,role,onClose,onActio
       {!!p.invoiceNumber&&<div><dt>Invoice</dt><dd>{p.invoiceNumber}{p.invoiceDate?` · ${p.invoiceDate}`:""}</dd></div>}
       {!!p.paymentTerms&&<div><dt>Payment terms</dt><dd>{p.paymentTerms}</dd></div>}
       {!!p.period&&<div><dt>Period</dt><dd>{p.period}</dd></div>}{(()=>{try{return(JSON.parse(p.extra||"[]") as {id:string;label:string;value:string}[])
-  .map(x=><div key={x.id}><dt>{x.label}</dt><dd>{x.value}</dd></div>)}catch{return null}})()}<div><dt>Due</dt><dd>{p.due}</dd></div><div><dt>Owner</dt><dd>{p.owner}</dd></div></dl></div>{!!(p.jbCode||p.projectCode)&&<BudgetBox code={p.jbCode||p.projectCode} amount={p.amount} currency={p.currency} own={p.status!=="Rejected"&&p.status!=="Audit Rejected"}/>}<div className="wf-stage">{stages.map((s,i)=><div className={i<active?"past":i===active?"now":""} key={s}><i>{i<active?<Check/>:i+1}</i><span>{s}</span></div>)}</div><DeptPriority p={p} role={role} onSaved={onPriority}/><section className="wf-work"><div className="wf-title"><div><small>CURRENT ACTION</small><h4>{title}</h4></div><span className="badge amber">{role}</span></div>
+  .map(x=><div key={x.id}><dt>{x.label}</dt><dd>{x.value}</dd></div>)}catch{return null}})()}{!!p.due&&<div><dt>Due</dt><dd>{p.due}</dd></div>}{isExpenseSubmission(p.nature||"")&&<><div><dt>Advance received</dt><dd>{p.currency} {(Number(p.advance)||0).toLocaleString()}</dd></div><div><dt>{payableToEmployee(p.advance||0,readExpenseLines(p.expenseLines))<0?"Employee to return":"Payable to employee"}</dt><dd>{p.currency} {Math.abs(payableToEmployee(p.advance||0,readExpenseLines(p.expenseLines))).toLocaleString()}</dd></div></>}<div><dt>Owner</dt><dd>{p.owner}</dd></div></dl></div>{!!p.expenseLines&&<ExpenseBreakupView raw={p.expenseLines} advance={p.advance||""} currency={p.currency} paymentId={p.id}/>}{!!(p.jbCode||p.projectCode)&&<BudgetBox code={p.jbCode||p.projectCode} amount={p.amount} currency={p.currency} own={p.status!=="Rejected"&&p.status!=="Audit Rejected"}/>}<div className="wf-stage">{stages.map((s,i)=><div className={i<active?"past":i===active?"now":""} key={s}><i>{i<active?<Check/>:i+1}</i><span>{s}</span></div>)}</div><DeptPriority p={p} role={role} onSaved={onPriority}/><section className="wf-work"><div className="wf-title"><div><small>CURRENT ACTION</small><h4>{title}</h4></div><span className="badge amber">{role}</span></div>
    {/* Everything said about this request so far, newest first, above whatever is asked
        of the reader now - the reason accounts sent it on is what audit reads it by. */}
    {!!remarks.length&&<div className="wf-remarks"><small>REMARKS SO FAR</small>

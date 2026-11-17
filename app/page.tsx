@@ -24,7 +24,9 @@ import ObservationDesk from "./ObservationDesk";
 import PreAuditDesk from "./PreAuditDesk";
 import SettingsDesk from "./SettingsDesk";
 import{ExtraFields,packExtra,refreshFields,useExtraFields}from"./ExtraFields";
-import{FIELD_ORDER,labelFor,ruleFor,fieldsFor,choicesFor}from"../lib/payment-fields";
+import{FIELD_ORDER,labelFor,ruleFor,fieldsFor,choicesFor,isExpenseSubmission}from"../lib/payment-fields";
+import{ExpenseBreakupEditor,ExpenseSummary,blankExpenseRow,billName,type ExpenseRow}from"./ExpenseBreakup";
+import{expenseTotal}from"../lib/expense-lines";
 import{distinct,jobFor,parseJobs}from"../lib/jobs";
 import{defaultCurrencyFor}from"../lib/payment-stages";
 import type{Job}from"../lib/jobs";
@@ -491,7 +493,11 @@ function PaymentForm({close,added,companies,departments,natures,currencies,tdsCh
      any field by key, so these worked without being here - but only at runtime, and the
      type then disagreed with what the form actually holds. paymentMode was in that state
      too. */
-  paymentMode:"",jbCode:"",project:"",jobLocation:""});const[extra,setExtra]=useState<Record<string,string>>({});const[vendorHints,setVendorHints]=useState<string[]>([]);const[failed,setFailed]=useState("");const[vendorOpen,setVendorOpen]=useState(false);const[files,setFiles]=useState<File[]>([]);const[saving,setSaving]=useState(false);useEffect(()=>{if(natures.length&&!natures.includes(v.nature))
+  paymentMode:"",jbCode:"",project:"",jobLocation:"",advance:""});
+ /* A petty cash expense submission: its breakup, one line per bill. */
+ const expenses=isExpenseSubmission(v.nature);
+ const[rows,setRows]=useState<ExpenseRow[]>(()=>[blankExpenseRow()]);
+ const total=expenseTotal(rows);const[extra,setExtra]=useState<Record<string,string>>({});const[vendorHints,setVendorHints]=useState<string[]>([]);const[failed,setFailed]=useState("");const[vendorOpen,setVendorOpen]=useState(false);const[files,setFiles]=useState<File[]>([]);const[saving,setSaving]=useState(false);useEffect(()=>{if(natures.length&&!natures.includes(v.nature))
   setV(c=>({...c,nature:natures[0]}))},[natures,v.nature]);
  useEffect(()=>{if(currencies.length&&!currencies.includes(v.currency))
   setV(c=>({...c,currency:defaultCurrencyFor(c.company,currencies)||currencies[0]}))},[currencies,v.currency]);
@@ -515,9 +521,16 @@ function PaymentForm({close,added,companies,departments,natures,currencies,tdsCh
      .then(r=>r.json() as Promise<{vendors?:{name:string}[]}>)
      .then(d=>{if(live)setVendorHints((d.vendors||[]).map(x=>x.name))}).catch(()=>{})},200);
    return()=>{live=false;clearTimeout(t)}},[v.vendor]);
-  const submit=async(e:any)=>{e.preventDefault();if(saving)return;setSaving(true);setFailed("");
+  const submit=async(e:any)=>{e.preventDefault();if(saving)return;
+ /* Every expense line carries its bill. */
+ if(expenses){const missing=rows.findIndex(r=>!r.file);
+   if(missing>=0){setFailed(`Expense ${missing+1}: upload the bill.`);return}
+   if(!(total>0)){setFailed("Add the expenses - the total must be above zero.");return}}
+ setSaving(true);setFailed("");
  /* The number comes back from the server, which owns it. */
- let p:any={...v,extra:packExtra(extraFields,extra),amount:Number(v.amount),
+ let p:any={...v,extra:packExtra(extraFields,extra),amount:expenses?total:Number(v.amount),
+   ...(expenses?{expenseLines:rows.map((r,i)=>({date:r.date,category:r.category,description:r.description,
+     amount:Number(r.amount),bill:billName(i+1,r.file!)}))}:{}),
    status:"Submitted",owner:"Accountant queue",urgency:"Normal"};
  try{
    const r=await fetch("/api/payments",{method:"POST",headers:{"content-type":"application/json"},
@@ -538,7 +551,9 @@ function PaymentForm({close,added,companies,departments,natures,currencies,tdsCh
    ever reached the server and Accounts and Audit opened the request to find it empty.
    They upload here, once the request exists and has the id they hang off, so everyone
    who opens it afterwards sees the same list. */
-for(const file of files){try{const dataUrl=await asDataUrl(file);await fetch("/api/attachments",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({entityType:"payment",entityId:String(p.id),kind:"Other",fileName:file.name,dataUrl})});}catch{}}setSaving(false);refreshBudgets();added(p)};return <><button className="overlay" onClick={close}/><form className="modal" onSubmit={submit}><header><div><small>NEW REQUEST</small><h2>Create payment request</h2></div><button type="button" onClick={close}><X/></button></header><div className="form">
+for(const file of files){try{const dataUrl=await asDataUrl(file);await fetch("/api/attachments",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({entityType:"payment",entityId:String(p.id),kind:"Other",fileName:file.name,dataUrl})});}catch{}}
+/* Each expense line's bill, under the name its line records. */
+if(expenses)for(const [i,r] of rows.entries()){if(!r.file)continue;try{const dataUrl=await asDataUrl(r.file);await fetch("/api/attachments",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({entityType:"payment",entityId:String(p.id),kind:"Bill",fileName:billName(i+1,r.file),dataUrl})});}catch{}}setSaving(false);refreshBudgets();added(p)};return <><button className="overlay" onClick={close}/><form className={expenses?"modal xb-modal":"modal"} onSubmit={submit}><header><div><small>NEW REQUEST</small><h2>Create payment request</h2></div><button type="button" onClick={close}><X/></button></header><div className="form">
  {fieldsFor(v.nature).map(key=>{
    const need=ruleFor(v.nature,key);
    if(need==="H"||key==="description")return null;
@@ -553,6 +568,9 @@ for(const file of files){try{const dataUrl=await asDataUrl(file);await fetch("/a
      :key==="jbCode"?jobs.map(j=>j.code)
      :key==="project"?distinct(jobs,"project")
      :key==="jobLocation"?distinct(jobs,"location"):null;
+   /* The total of the breakup below, not typed. */
+   if(key==="amount"&&expenses)return <label key={key}>{labelFor(v.nature,key)}
+     <input readOnly tabIndex={-1} className="xb-total" value={total.toLocaleString("en-IN",{minimumFractionDigits:2,maximumFractionDigits:2})}/></label>;
    return <label className={key==="vendor"?"wide vendor-field":""} key={key}>
      {labelFor(v.nature,key)}{!must&&<i className="field-optional">optional</i>}
      {choices
@@ -575,7 +593,8 @@ for(const file of files){try{const dataUrl=await asDataUrl(file);await fetch("/a
           autoComplete={key==="vendor"?"off":undefined}
           onFocus={key==="vendor"?()=>setVendorOpen(true):undefined}
           onBlur={key==="vendor"?()=>setTimeout(()=>setVendorOpen(false),120):undefined}
-          type={key==="amount"?"number":key==="due"||key==="invoiceDate"?"date":"text"}
+          type={key==="amount"||key==="advance"?"number":key==="due"||key==="invoiceDate"?"date":"text"}
+          {...(key==="advance"?{min:"0",step:"0.01"}:{})}
           onChange={e=>{setV({...v,[key]:e.target.value});if(key==="vendor")setVendorOpen(true)}}/>}
      {/* Drawn here rather than left to the browser's own suggestion box, which filters
          the list again by its own rules and is inconsistent about capitals. Whatever the
@@ -587,13 +606,15 @@ for(const file of files){try{const dataUrl=await asDataUrl(file);await fetch("/a
            <b>{n}</b></button>)}</div>}
      {key==="jbCode"&&!!v.jbCode&&<BudgetBox code={v.jbCode} amount={Number(v.amount)||0} currency={v.currency}/>}
    </label>})}
+ {expenses&&<ExpenseBreakupEditor rows={rows} setRows={setRows} currency={v.currency}/>}
+ {expenses&&<ExpenseSummary advance={Number(v.advance)||0} total={total} currency={v.currency}/>}
  <ExtraFields form="payment" values={extra} onChange={setExtra}/>
  <label className="wide">{labelFor(v.nature,"description")}
    <textarea required={ruleFor(v.nature,"description")==="M"} value={v.description}
      onChange={e=>setV({...v,description:e.target.value})}/></label>
  {!!failed&&<p className="wide form-error">{failed}</p>}
- <FilePicker className="wide" files={files} onChange={setFiles} label={labelFor(v.nature,"documents")}
-   required={ruleFor(v.nature,"documents")==="M"}/></div><footer><button type="button" onClick={close}>Cancel</button><button className="primary" disabled={saving}>{saving?"Submitting…":"Submit to accountant"}</button></footer></form></>}
+ {ruleFor(v.nature,"documents")!=="H"&&<FilePicker className="wide" files={files} onChange={setFiles} label={labelFor(v.nature,"documents")}
+   required={ruleFor(v.nature,"documents")==="M"}/>}</div><footer><button type="button" onClick={close}>Cancel</button><button className="primary" disabled={saving}>{saving?"Submitting…":"Submit to accountant"}</button></footer></form></>}
 
 /* Report centre: the payment and audit report, and the workforce report, under one
    menu entry.

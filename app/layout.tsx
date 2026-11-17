@@ -37,6 +37,7 @@ import "./consolidated.css";
 import "./budget.css";
 /* The dashboard breakdown tabs. */
 import "./breakdowns.css";
+import "./expense.css";
 /* There was no viewport tag at all, so phones laid the page out at about 980px and then
    zoomed out: the 49 media queries in these stylesheets were mostly never reaching the
    breakpoints they were written for. This is the one line that makes the mobile work
