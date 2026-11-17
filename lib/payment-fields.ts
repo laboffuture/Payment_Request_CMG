@@ -78,6 +78,13 @@ const EXPENSE_SUBMISSION:Rule={
     "advance","currency","amount","description"],
   need:{...PETTY_CASH.need,due:"H",advance:"M",documents:"H"}};
 
+/* An IOU is cash advanced to a person, not to a job: the same questions without the project,
+   JB code and job location. */
+const NO_JOB={jbCode:"H",project:"H",jobLocation:"H"} as const;
+const withoutJob=(rule:Rule):Rule=>({...rule,
+  order:rule.order?.filter(f=>f!=="jbCode"&&f!=="project"&&f!=="jobLocation"),
+  need:{...rule.need,...NO_JOB}});
+
 export const PAYMENT_TYPES:Record<string,Rule>={
   "Vendor Payment":{
     departments:"Procurement / Project / Admin / IT / Sales / Other",
@@ -99,9 +106,9 @@ export const PAYMENT_TYPES:Record<string,Rule>={
   /* The remaining natures tied to a job. They ask for the job details and little else:
      petty cash and labour payments are settled against a job rather than an invoice. */
   "Project Petty Cash":PETTY_CASH,
-  "Petty Cash-IOU":PETTY_CASH,
+  "Petty Cash-IOU":withoutJob(PETTY_CASH),
   "Project Petty Cash - Expense Submission":EXPENSE_SUBMISSION,
-  "Petty Cash-IOU - Expense Submission":EXPENSE_SUBMISSION,
+  "Petty Cash-IOU - Expense Submission":withoutJob(EXPENSE_SUBMISSION),
   "OT Labour Payment":{
     departments:"Project / Operations / HR",
     labels:{vendor:"Paid to",period:"Overtime period"},
