@@ -143,7 +143,10 @@ export function MrForm({ existing }: { existing?: MrDetailDto }) {
   // Petty cash is bought at site and sub-contract work is not stock: neither comes from the store.
   const storeMatters = requestType !== 'SUB_CONTRACTOR' && requestType !== 'PETTY_CASH';
   const inStore = useStoreAvailable(storeMatters);
-  const addItem = () => (subContract ? setLines((rows) => [...rows, blankWork()]) : setPickerOpen(true));
+  // Every request picks from the item master; a sub-contractor request may also type in a line
+  // of work that is not in it.
+  const addItem = () => setPickerOpen(true);
+  const addWork = () => setLines((rows) => [...rows, blankWork()]);
   // Which line the picker is replacing (QS queried it), or null to add a new line.
   const [replaceAt, setReplaceAt] = useState<number | null>(null);
   // The bill of quantities is optional — the MR is raised with or without it.
@@ -435,9 +438,12 @@ export function MrForm({ existing }: { existing?: MrDetailDto }) {
 
       <div className="flex items-center justify-between gap-3 flex-wrap mt-[22px] mb-3">
         <h2 className="!m-0">Items ({active.length})</h2>
-        <Btn variant="primary" onClick={addItem}>
-          + Add item
-        </Btn>
+        <div className="flex gap-2 flex-wrap">
+          {subContract ? <Btn onClick={addWork}>+ Add work (not in item master)</Btn> : null}
+          <Btn variant="primary" onClick={addItem}>
+            + Add item
+          </Btn>
+        </div>
       </div>
 
       <div className="grid gap-3 items-start xl:grid-cols-2">
@@ -461,7 +467,7 @@ export function MrForm({ existing }: { existing?: MrDetailDto }) {
         {!active.length ? (
           <div className="text-mut text-center rounded-card border border-dashed border-line bg-white py-6 xl:col-span-2">
             {subContract ? (
-              <>No work yet — use <b>+ Add item</b> to add a line of work.</>
+              <>No items yet — use <b>+ Add item</b> to pick from the item master, or <b>+ Add work</b> to type in work that is not in it.</>
             ) : (
               <>No items yet — use <b>+ Add item</b> to pick from the item master.</>
             )}
@@ -470,12 +476,19 @@ export function MrForm({ existing }: { existing?: MrDetailDto }) {
       </div>
 
       {active.length ? (
-        <Btn
-          className="w-full my-3 border-[1.5px] border-ac text-ac"
-          onClick={addItem}
-        >
-          + Add another item
-        </Btn>
+        <div className="flex gap-3 my-3">
+          <Btn
+            className="flex-1 border-[1.5px] border-ac text-ac"
+            onClick={addItem}
+          >
+            + Add another item
+          </Btn>
+          {subContract ? (
+            <Btn className="flex-1 border-[1.5px] border-ac text-ac" onClick={addWork}>
+              + Add work (not in item master)
+            </Btn>
+          ) : null}
+        </div>
       ) : (
         <div className="h-3" />
       )}
