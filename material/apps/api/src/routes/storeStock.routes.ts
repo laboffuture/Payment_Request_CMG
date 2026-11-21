@@ -4,7 +4,7 @@ import { wrap, sendCsv } from '../lib/http.js';
 import { buildCsv, csvFilename } from '../lib/csv.js';
 import type { NextFunction, Request, Response } from 'express';
 import { forbidden } from '../lib/errors.js';
-import { actorOf, authorize, requireAuth } from '../middleware/auth.js';
+import { actorOf, requireAuth } from '../middleware/auth.js';
 import { validateBody } from '../middleware/validate.js';
 import {
   createStoreStock,
@@ -17,11 +17,9 @@ import {
 /** Store Stock register - kept by the store and the administrator. */
 export const storeStockRouter: Router = Router();
 
-const keepers = [requireAuth, authorize('STORE', 'ADMIN')] as const;
-
 /**
- * Reading, editing and deleting entries: the keepers, and the head of QS (a QS who is a
- * Department Head) - not every QS. Adding new entries stays with the keepers.
+ * Reading, adding, editing and deleting entries: the store, the administrator and the head
+ * of QS (a QS who is a Department Head) - not every QS.
  */
 const keeperOrQsHead = (req: Request, _res: Response, next: NextFunction): void => {
   const actor = req.actor;
@@ -85,7 +83,7 @@ storeStockRouter.get(
 
 storeStockRouter.post(
   '/store-stock',
-  ...keepers,
+  ...editors,
   validateBody(entryInput),
   wrap(async (req, res) => {
     res.status(201).json(await createStoreStock(actorOf(req), req.body));

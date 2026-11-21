@@ -66,7 +66,7 @@ export default function StoreStockPage() {
   // null = closed; 'new' = adding; a row = editing that row
   const [editing, setEditing] = useState<StoreStockDto | 'new' | null>(null);
   const [removing, setRemoving] = useState<StoreStockDto | null>(null);
-  // The store and the administrator keep the register; the head of QS edits and deletes entries too.
+  // The store and the administrator keep the register; the head of QS adds, edits and deletes entries too.
   const { me } = useSession();
   const keeper = me.role === 'STORE' || me.role === 'ADMIN';
   const editor = keeper || !!me.qsHead;
@@ -204,7 +204,7 @@ export default function StoreStockPage() {
             >
               <Download size={14} aria-hidden /> Excel (CSV)
             </Btn>
-            {keeper ? (
+            {editor ? (
               <Btn variant="primary" onClick={() => setEditing('new')}>
                 + Add material
               </Btn>
