@@ -1,0 +1,77 @@
+/* Laptops: 1025 to 1440 px wide.
+
+   The registers were sized for a big monitor. Their minimum widths (1040 to 1320 px),
+   roomy cell padding and the 272 px sidebar meant a 1280 or 1366 laptop always had to
+   scroll sideways, and the Status and Action columns sat off the right edge. Here the
+   frame is a little tighter, tables fit the space they have and wrap their text, and
+   a register that still cannot fit keeps its last column (the buttons) in view.
+
+   Loaded last. Phones and tablets (up to 1024 px) are mobile.css. The material registers'
+   rules at the end apply on every screen wide enough to show them as tables. */
+
+/* Every desktop width: the users table scrolls instead of cutting off its buttons, and
+   the people in the organisation chart (indented 22 px inline) stay inside their panel. */
+@media screen and (min-width: 1025px) {
+  .access-page .user-table { overflow-x: auto; }
+  .wf-tree .wf-person { width: calc(100% - 22px); }
+}
+
+@media screen and (min-width: 1025px) and (max-width: 1440px) {
+  /* ------------------------------------------------------------ the frame */
+  .shell > .side { width: 248px; padding-left: 12px; padding-right: 12px; }
+  .shell > main { margin-left: 248px; width: calc(100% - 248px); }
+  .shell > main > header { padding: 0 20px; }
+  .page { padding: 20px 16px 36px; }
+
+  /* ------------------------------------------------------------ payment registers
+     No fixed minimum: columns take what their content needs and wrap the rest. */
+  .shell main table { min-width: 0; }
+  .wb-panel table, .wb-panel table.wb-cols11, .rq-table table, table.wf-wide,
+  .audit-list table, .user-table table { min-width: 0 !important; }
+  .shell main th, .shell main td { padding-left: 9px; padding-right: 9px; }
+  .shell main th:first-child, .shell main td:first-child { padding-left: 14px; }
+  .shell main th:last-child, .shell main td:last-child { padding-right: 14px; }
+  .rq-table th, .wb-panel table.wb-cols11 th { white-space: normal; }
+  .wb-panel table.wb-cols11 th { letter-spacing: .03em; overflow-wrap: normal; word-break: normal; }
+  table.wf-wide td:first-child { white-space: nowrap; }
+  .access-page .user-table td:last-child { min-width: 190px; }
+  .wb-panel table.wb-cols11 th, .wb-panel table.wb-cols11 td { padding-left: 7px; padding-right: 7px; }
+  .access-page .user-table th, .access-page .user-table td { padding-left: 10px; padding-right: 10px; }
+
+  /* ------------------------------------------------------------ what still has to scroll
+     The last column - the row's buttons - stays pinned at the right edge. */
+  .table-wrap > table > thead > tr > th:last-child,
+  .table-wrap > table > tbody > tr > td:last-child {
+    position: sticky; right: 0; z-index: 1; background: #fff;
+  }
+  .table-wrap > table > thead > tr > th:last-child { background: #f7f9f8; }
+  .table-wrap > table > tbody > tr:hover > td:last-child { background: #f7fbf9; }
+}
+
+/* Material registers from 861 px up (below that they are cards). Between 861 and
+   1024 px the sidebar is a slide-in menu and mobile.css turns off the table scrolling meant
+   for the payment cards - the material tables, still tables there, lost their right-hand
+   columns. They scroll again, with their buttons pinned. */
+@media screen and (min-width: 861px) {
+  .mm .table-wrap { overflow-x: auto !important; }
+  .mm .t td, .mm .t th { padding-left: 8px; padding-right: 8px; }
+  .mm .t td:first-child, .mm .t th:first-child { padding-left: 14px; }
+  .mm .t td:last-child, .mm .t th:last-child { padding-right: 14px; }
+  /* Codes stay on one line up to 15 characters; longer ones - the
+     longest item code is 46 characters and made the column 355 px - wrap at their hyphens.
+     A PO's list of MRs wraps between the numbers. */
+  .mm .t td:first-child > span.font-mono { display: inline-block; min-width: 15ch; white-space: normal; }
+  .mm .t td.font-mono.text-xs { white-space: normal; }
+  /* a code shown beside something else (the item master link in Store Stock) may wrap */
+  .mm .t td:not(:first-child) span.font-mono { white-space: normal; }
+  /* the second column (the project code on the MR lists) may wrap at its hyphens */
+  .mm .t td:nth-child(2) > span[style*="nowrap"] { white-space: normal !important; }
+  .mm .t td > span.whitespace-nowrap:only-child { white-space: normal; }
+  /* a touch smaller type in the material registers, as the payment ones already are */
+  .mm .t td { font-size: 11.5px; }
+  .mm .t td .font-mono, .mm .t td.font-mono { font-size: 11px; }
+
+  .mm .table-wrap > table > thead > tr > th:last-child,
+  .mm .table-wrap > table > tbody > tr > td:last-child { position: sticky; right: 0; z-index: 1; background: #fff; }
+  .mm .table-wrap > table > thead > tr > th:last-child { background: #f7f9fb; }
+}

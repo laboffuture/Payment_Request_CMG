@@ -153,3 +153,52 @@
   .shell table:not(.t) td::before { flex-basis: 40%; }
   .metrics { grid-template-columns: 1fr 1fr !important; }
 }
+
+/* Card cells: the column name on the left, the cell's content flowing as ordinary text on
+   the right. A cell holding several pieces (the request number, its priority and date) used
+   to lay them side by side as flex items, squeezing "Normal priority" into a column one
+   letter wide; and a long vendor name was cut off rather than wrapped. */
+@media screen and (max-width: 1024px) {
+  .shell table:not(.t) td[data-label]:not([data-label=""]):not([data-span]):not(:has(> button)) {
+    display: block; position: relative; white-space: normal !important;
+    padding-left: calc(36% + 22px) !important; min-height: 30px;
+  }
+  .shell table:not(.t) td[data-label]:not([data-label=""]):not([data-span]):not(:has(> button))::before {
+    position: absolute; left: 14px; top: 9px; width: 36%;
+  }
+  .shell table:not(.t) td[data-label]:not([data-label=""]) > b,
+  .shell table:not(.t) td[data-label]:not([data-label=""]) > span:not(.badge),
+  .shell table:not(.t) td[data-label]:not([data-label=""]) > small {
+    white-space: normal; overflow: visible; text-overflow: clip; max-width: 100%;
+  }
+}
+
+/* Four places where something sat off the edge on a phone or tablet. */
+@media screen and (max-width: 1024px) {
+  /* the dashboard's Open requests legend: one column, so the counts are not cut off */
+  .shell .panel.risk .legend { grid-template-columns: 1fr; }
+}
+@media screen and (max-width: 700px) {
+  /* My payment requests: the From and To dates each take a line - To was off the screen */
+  .rq-tools .rq-dates { flex-wrap: wrap; }
+}
+@media screen and (max-width: 860px) {
+  /* material cards: a long item code (up to 46 characters) wraps instead of running out */
+  .mm .t td .font-mono, .mm .t td.font-mono { white-space: normal !important; overflow-wrap: anywhere; }
+}
+/* Vendor master and Accounts Receivable: their five columns need about 730 px, so on a
+   tablet the status was cut off. Below 760 px of list width they stack, as on a phone. */
+@container (max-width: 760px) {
+  .recv-cols { display: none; }
+  .recv-row { grid-template-columns: 1fr auto; row-gap: .35rem; }
+  .recv-desc, .recv-nums { grid-column: 1 / -1; white-space: normal; }
+  .recv-ref { grid-column: 1; grid-row: 1; }
+  .recv-row .recv-tag, .recv-row .vm-tag { grid-column: 2; grid-row: 1; justify-self: end; }
+  .recv-row.with-del { grid-template-columns: 1fr auto auto; }
+  .recv-row.with-del .recv-del { grid-column: 3; grid-row: 1; }
+  .recv-amt { grid-column: 1 / -1; text-align: right; }
+}
+/* the expense breakup's inputs fill their card cell rather than keeping a desktop width */
+@media screen and (max-width: 1024px) {
+  .xb-table input:not([type=file]), .xb-table select { min-width: 0 !important; width: 100%; }
+}
