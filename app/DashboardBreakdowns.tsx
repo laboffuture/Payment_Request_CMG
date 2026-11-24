@@ -14,7 +14,8 @@ export const BREAKDOWN_ROLES=["Accountant","Auditor","Department Head","Audit He
 
 type Row={id:number;requestNo:string;company:string;vendor:string;amount:number;currency:string;status:string;
   department:string;nature?:string;jbCode?:string;projectCode?:string;project?:string;createdAt?:string;
-  releasedAt?:string;due?:string};
+  releasedAt?:string;due?:string;jobLocation?:string;invoiceNumber?:string;invoiceDate?:string;poNumber?:string;
+  tdsValue?:string;utrNumber?:string;raisedBy?:string;description?:string};
 type Group={key:string;label:string;sub?:string;rows:Row[];last?:boolean};
 
 const isRejected=(p:Row)=>p.status==="Rejected"||p.status==="Audit Rejected";
@@ -83,6 +84,19 @@ const TABS:Tab[]=[
   groups:rows=>by(rows.filter(isStatutory),p=>p.company||"")},
 ];
 
+/* Request by request, for the reports downloaded from a tab: one job (or vendor, week...)
+   with its totals underneath, or every group one after another. */
+const REQUEST_HEAD=["Request no","Raised on","Released on","Entity","Department","Vendor / beneficiary","Nature",
+  "Job code","Project","Job location","Invoice no","Invoice date","PO no","Currency","Amount","TDS value","Status",
+  "UTR / reference","Raised by","Description"];
+const requestCells=(p:Row)=>[p.requestNo,dayOf(p.createdAt),isReleased(p)?dayOf(p.releasedAt):"",p.company||"",p.department||"",
+  p.vendor||"",p.nature||"",jobOf(p),p.project||"",p.jobLocation||"",p.invoiceNumber||"",p.invoiceDate||"",p.poNumber||"",
+  (p.currency||"INR").toUpperCase(),Number(p.amount)||0,p.tdsValue||"",p.status||"",p.utrNumber||"",p.raisedBy||"",
+  (p.description||"").replace(/\s+/g," ").trim()];
+const newestFirst=(rows:Row[])=>[...rows].sort((a,b)=>(b.createdAt||"").localeCompare(a.createdAt||"")||b.id-a.id);
+const slugOf=(s:string)=>s.toLowerCase().replace(/[^a-z0-9]+/g,"-").replace(/^-|-$/g,"").slice(0,60)||"report";
+const today=()=>new Date().toISOString().slice(0,10);
+
 function weekly(rows:Row[]):(Group&{raised:Row[];paid:Row[]})[]{
   const m=new Map<string,{raised:Row[];paid:Row[]}>();
   const at=(w:string)=>m.get(w)||m.set(w,{raised:[],paid:[]}).get(w)!;
@@ -123,26 +137,42 @@ function Breakdown({tab,payments,open}:{tab:Tab;payments:Row[];open:(p:Row)=>voi
       for(const c of order(new Map(Array.from(cs).map(c=>[c,0]))).map(([c])=>c))
         out.push([g.label,...(tab.id==="project"||tab.id==="recurring"?[g.sub||""]:[]),c,f.count,f.asked.get(c)||0,f.paid.get(c)||0,
           ...(isWeek?[]:[f.process.get(c)||0]),f.rejected])}
-    const slug=tab.label.toLowerCase().replace(/[^a-z0-9]+/g,"-").replace(/^-|-$/g,"");
-    csv(out,`dashboard-${slug}-${new Date().toISOString().slice(0,10)}.csv`)};
+    csv(out,`dashboard-${slugOf(tab.label)}-${today()}.csv`)};
+  /* Every request in the groups shown, group by group. */
+  const downloadAll=()=>{
+    const out:(string|number)[][]=[[tab.name,...REQUEST_HEAD]];
+    for(const g of shown)for(const p of newestFirst(g.rows))out.push([g.label,...requestCells(p)]);
+    csv(out,`${slugOf(tab.label)}-every-request-${today()}.csv`)};
+  /* One group's own report: its requests, then its totals in each currency. */
+  const downloadOne=(g:Group)=>{const f=figures(g);
+    const out:(string|number)[][]=[[`${tab.name}: ${g.label}`],...(g.sub?[[g.sub]]:[]),[`Downloaded ${fmtDay(today())}`],[],REQUEST_HEAD];
+    for(const p of newestFirst(g.rows))out.push(requestCells(p));
+    out.push([],[`Requests: ${f.count}`,`Rejected: ${f.rejected}`]);
+    out.push(["Currency","Requested (not counting rejected)","Released","In process"]);
+    const cs=order(new Map([...f.asked.keys(),...f.paid.keys(),...f.process.keys()].map(c=>[c,0])));
+    for(const[c]of cs)out.push([c,f.asked.get(c)||0,f.paid.get(c)||0,f.process.get(c)||0]);
+    csv(out,`${slugOf(tab.name)}-${slugOf(g.label)}-${today()}.csv`)};
   return <div className="page bd-page">
     <div className="bd-head"><div><small>DASHBOARD · {tab.label.toUpperCase()}</small><h2>{tab.label}</h2><p>{tab.note}</p></div>
       <div className="bd-tools"><label><Search/><input value={q} onChange={e=>setQ(e.target.value)} placeholder={`Search ${tab.name.toLowerCase()}`} aria-label={`Search ${tab.name.toLowerCase()}`}/></label>
-        <button className="bd-export" disabled={!shown.length} onClick={download} title={shown.length?"Download these figures to open in Excel":"Nothing to download"}><Download/>Download Excel</button></div></div>
+        <button className="bd-export" disabled={!shown.length} onClick={download} title={shown.length?"Download these figures to open in Excel":"Nothing to download"}><Download/>Download summary</button>
+        <button className="bd-export" disabled={!shown.length} onClick={downloadAll} title={shown.length?`Every request, ${tab.name.toLowerCase()} by ${tab.name.toLowerCase()}, to open in Excel`:"Nothing to download"}><Download/>Download every request</button></div></div>
     {!words.length&&<Charts tab={tab} groups={groups} pick={key=>{setOpenKey(key);
       requestAnimationFrame(()=>document.querySelector(`[data-group="${CSS.escape(key)}"]`)?.scrollIntoView({behavior:"smooth",block:"center"}))}}/>}
     <p className="bd-count">{shown.length} {shown.length===1?"row":"rows"} · {covered} request{covered===1?"":"s"}</p>
     {!shown.length?<p className="queue-empty">{groups.length?"Nothing matches that search.":"No requests here yet."}</p>:
     <div className="panel table-panel bd-panel"><div className="table-wrap"><table className="bd-table">
-      <thead><tr><th>{tab.name.toUpperCase()}</th><th className="num">{isWeek?"RAISED":"REQUESTS"}</th><th className="num">REQUESTED</th><th className="num">RELEASED</th>{!isWeek&&<th className="num">IN PROCESS</th>}<th className="num">REJECTED</th></tr></thead>
+      <thead><tr><th>{tab.name.toUpperCase()}</th><th className="num">{isWeek?"RAISED":"REQUESTS"}</th><th className="num">REQUESTED</th><th className="num">RELEASED</th>{!isWeek&&<th className="num">IN PROCESS</th>}<th className="num">REJECTED</th><th className="bd-rep-h">REPORT</th></tr></thead>
       <tbody>{shown.map(g=>{const f=figures(g);const on=openKey===g.key;
         const list=[...g.rows].sort((a,b)=>b.id-a.id);
         return[<tr key={g.key} data-group={g.key} className={`bd-group${on?" open":""}${g.last?" bd-muted":""}`} onClick={()=>setOpenKey(on?"":g.key)} aria-expanded={on}>
           <td><span className="bd-name">{on?<ChevronDown/>:<ChevronRight/>}<b>{g.label}</b></span>{g.sub&&<small>{g.sub}</small>}</td>
           <td className="num">{f.count}{isWeek&&f.paidCount?<small>{f.paidCount} released</small>:null}</td>
           <td className="num"><Amount m={f.asked}/></td><td className="num"><Amount m={f.paid}/></td>
-          {!isWeek&&<td className="num"><Amount m={f.process}/></td>}<td className="num">{f.rejected||"—"}</td></tr>,
-        on&&<tr key={g.key+":list"} className="bd-list-row"><td colSpan={isWeek?5:6}><table className="bd-list"><thead><tr><th>REQUEST</th><th>RAISED</th>{isWeek&&<th>RELEASED</th>}<th>VENDOR</th><th>NATURE</th><th>DEPARTMENT</th><th className="num">AMOUNT</th><th>STATUS</th></tr></thead>
+          {!isWeek&&<td className="num"><Amount m={f.process}/></td>}<td className="num">{f.rejected||"—"}</td>
+          <td className="bd-rep"><button type="button" className="bd-rep-btn" onClick={e=>{e.stopPropagation();downloadOne(g)}}
+            title={`Download every request for ${g.label}, with its totals`} aria-label={`Download the report for ${g.label}`}><Download/>Report</button></td></tr>,
+        on&&<tr key={g.key+":list"} className="bd-list-row"><td colSpan={isWeek?6:7}><table className="bd-list"><thead><tr><th>REQUEST</th><th>RAISED</th>{isWeek&&<th>RELEASED</th>}<th>VENDOR</th><th>NATURE</th><th>DEPARTMENT</th><th className="num">AMOUNT</th><th>STATUS</th></tr></thead>
           <tbody>{list.map(p=><tr key={p.id} onClick={e=>{e.stopPropagation();open(p)}} title="Open this request">
             <td><b>{p.requestNo}</b>{tab.id!=="project"&&jobOf(p)?<small>{jobOf(p)}</small>:null}</td><td>{dayOf(p.createdAt)?fmtDay(dayOf(p.createdAt)):"—"}</td>
             {isWeek&&<td>{isReleased(p)&&dayOf(p.releasedAt)?fmtDay(dayOf(p.releasedAt)):"—"}</td>}

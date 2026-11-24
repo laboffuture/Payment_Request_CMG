@@ -79,3 +79,10 @@ span.bd-cur{border:0;padding:5px 0;color:var(--muted)}
 .bd-tip em{margin-left:auto;font-style:normal;font-weight:600;color:var(--ink);padding-left:12px}
 @media (max-width:900px){.bd-charts{grid-template-columns:minmax(0,1fr)}}
 @media (max-width:520px){.bd-donut{flex-direction:column;align-items:stretch}.bd-donut svg{align-self:center}.bd-bars button{grid-template-columns:minmax(70px,34%) 1fr auto;gap:6px}.bd-week small{font-size:8px;transform:rotate(-40deg);transform-origin:center}}
+/* each row's own report download */
+.bd-rep-h{text-align:right}
+.bd-rep{text-align:right;white-space:nowrap}
+.bd-rep-btn{display:inline-flex;align-items:center;gap:5px;border:1px solid var(--line);border-radius:7px;padding:5px 9px;background:#fff;font-size:11px;font-weight:600;color:var(--ink);cursor:pointer}
+.bd-rep-btn svg{width:13px}
+.bd-rep-btn:hover{border-color:#1f7a5a;color:#1f7a5a}
+@media (max-width:760px){.bd-tools{flex-wrap:wrap}.bd-tools label{min-width:0;flex:1 1 100%}}
