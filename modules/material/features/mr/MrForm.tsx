@@ -815,7 +815,6 @@ function LineCard({
         </span>
         <textarea
           rows={2}
-          maxLength={400}
           placeholder="What exactly is needed — grade, finish, make, where it goes"
           className={line.description.trim() ? '' : 'border-[#C98A3E]'}
           value={line.description}
@@ -1089,7 +1088,6 @@ function WorkCard({
         </span>
         <textarea
           rows={2}
-          maxLength={400}
           placeholder="Scope of the work - material, finish, where it goes"
           className={line.description.trim() ? '' : 'border-[#C98A3E]'}
           value={line.description}

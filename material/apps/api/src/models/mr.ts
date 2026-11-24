@@ -208,7 +208,7 @@ const mrLineSchema = new Schema<IMrLine>(
     newSpec: { type: String, default: '' },
     newStatus: { type: String, enum: NEW_ITEM_STATUSES, default: 'NONE', index: true },
     qty: qtyField(),
-    description: { type: String, default: '', maxlength: 400 },
+    description: { type: String, default: '', maxlength: 5000 },
     measurement: { type: String, default: '', maxlength: 120 },
     unit: { type: String, default: '' },
     requestedQty: qtyField(false),

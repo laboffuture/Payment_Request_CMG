@@ -176,7 +176,7 @@ const poLineSchema = new Schema<IPoLine>(
     qty: qtyField(),
     rate: moneyField(true),
     gstPct: { type: Number, default: 0, min: 0 },
-    description: { type: String, default: '', maxlength: 400 },
+    description: { type: String, default: '', maxlength: 5000 },
     measurement: { type: String, default: '' },
     unit: { type: String, default: '' },
   },

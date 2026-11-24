@@ -814,7 +814,6 @@ function reviewColumns(
               aria-label={`Description for ${l.name}`}
               className="block w-full min-w-[220px] mt-1 text-sm"
               rows={2}
-              maxLength={400}
               disabled={review[l.id]?.rejected}
               value={review[l.id]?.description ?? ''}
               onChange={(e) => patch(l.id, { description: e.target.value })}

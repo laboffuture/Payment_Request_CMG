@@ -32,7 +32,7 @@ export const mrLineInput = z
      * submit — unlike remarks, which are an aside. It is what the approvers,
      * the buyer and the vendor all read on the paper form.
      */
-    description: z.string().trim().max(400).optional().default(''),
+    description: z.string().trim().max(5000).optional().default(''),
     /** free text: "2400 × 1200 × 12.5 mm", "M20", "6 m lengths" … */
     measurement: z.string().trim().max(120).optional().default(''),
     /** the unit this line is ordered in; defaults to the item's own unit */
@@ -77,7 +77,7 @@ export const reviewedLine = z.object({
    * QS may correct the site engineer's description while approving; left out, it stays
    * as it is. The PM's approval ignores it.
    */
-  description: z.string().trim().min(1, MSG.mrDescriptionRequired).max(400).optional(),
+  description: z.string().trim().min(1, MSG.mrDescriptionRequired).max(5000).optional(),
   /** drop this line from the request entirely */
   rejected: z.boolean().optional().default(false),
   remark: z.string().trim().max(250).optional().default(''),

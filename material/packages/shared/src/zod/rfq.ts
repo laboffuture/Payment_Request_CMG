@@ -44,7 +44,7 @@ export const procHoldAnswerInput = z.object({
       itemId: objectId,
       unit: unitName,
       measurement: z.string().trim().max(120).default(''),
-      description: z.string().trim().max(500).default(''),
+      description: z.string().trim().max(5000).default(''),
     })
     .optional(),
 });

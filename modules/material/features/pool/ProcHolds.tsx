@@ -275,7 +275,6 @@ function AnswerModal({ hold, onClose }: { hold: ProcHoldDto; onClose: () => void
             Description
             <textarea
               rows={2}
-              maxLength={500}
               value={material.description}
               onChange={(e) => change({ description: e.target.value })}
             />
