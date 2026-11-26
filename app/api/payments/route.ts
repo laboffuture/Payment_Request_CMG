@@ -1,6 +1,6 @@
 import{and,asc,desc,eq,like}from"drizzle-orm";
 import{getDb}from"../../../db";
-import{auditLogs,paymentRequests,wfAttachments}from"../../../db/schema";
+import{auditLogs,paymentReleases,paymentRequests,wfAttachments}from"../../../db/schema";
 import{deleteFile}from"../../../lib/storage";
 import{companyLock,departmentPeers,hasWriteRole,inCompany,requireAuth}from"../../../lib/auth";
 import{emailsForRoles,notify,rolesActingOn}from"../../../lib/notify";
@@ -146,12 +146,24 @@ export async function GET(req:Request){
         .orderBy(asc(auditLogs.id)).catch(()=>[]);
       for(const l of logs)releasedAt.set(l.recordId,String(l.at||""));
     }
+    /* The payments made against each request, oldest first - several when it was paid in
+       parts. Read whole and grouped here, for the same reason as the trail above. A release
+       recorded this way also gives the day the money went out. */
+    type Release=typeof paymentReleases.$inferSelect;
+    const releases=new Map<number,Release[]>();
+    if(mine.some(r=>r.paidAmount>0||r.status==="Payment Released")){
+      const ids=new Set(mine.map(r=>r.id));
+      const all=await db.select().from(paymentReleases).orderBy(asc(paymentReleases.id)).catch(()=>[] as Release[]);
+      for(const r of all)if(ids.has(r.paymentId))(releases.get(r.paymentId)||releases.set(r.paymentId,[]).get(r.paymentId)!).push(r);
+      for(const[id,rs]of releases)if(rs.length)releasedAt.set(id,rs.reduce((a,r)=>r.paidOn>a?r.paidOn:a,""));
+    }
     /* Whether this reader may decide each request waiting for management, so the screen offers
        Approve only to the managers named for its company. The PATCH checks it again. */
     const setting=mine.some(r=>r.status===MANAGEMENT_APPROVAL)?await managementSetting():null;
     return Response.json({payments:mine.map(r=>({...r,
       canApprove:!!setting&&r.status===MANAGEMENT_APPROVAL&&mayApprove(setting,r.company,actor),
       latestRemark:latest.get(r.id)?.remark||"",latestRemarkBy:latest.get(r.id)?.by||"",
+      releases:releases.get(r.id)||[],
       releasedAt:r.status==="Payment Released"||r.status===EXPENSES_BOOKED?releasedAt.get(r.id)||r.lastActionAt||"":""}))});
   }catch{return Response.json({payments:[]})}}
 
@@ -422,6 +434,8 @@ export async function PATCH(req:Request){
     if(status===EXPENSES_BOOKED&&old.status!==EXPENSES_BOOKED){
       if(!FINANCE_STAGES.includes(old.status))
         return bad(`${old.requestNo} is at "${old.status}" - an expense is booked from finance release.`,422);
+      if(Number(old.paidAmount)>0)
+        return bad(`Part of ${old.requestNo} has already been paid - release the rest instead of booking it as an expense.`,422);
       if(!String(edits.voucherNumber??old.voucherNumber??"").trim())
         return bad("Enter the voucher number to book the expense.",422);
     }

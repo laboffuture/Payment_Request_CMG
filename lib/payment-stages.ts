@@ -85,3 +85,19 @@ export const DEPT_PRIORITIES=["Critical","High","Medium"] as const;
 export const DEPT_PRIORITY_ROLES=["Department Head","Administrator"];
 const PRIORITY_CLOSED=["Management Approval","Rejected","Payment Released","Expenses Booked","Reconciliation","Audit Closed"];
 export const priorityOpen=(status:string)=>!PRIORITY_CLOSED.includes(status);
+
+/* Paying a request in parts. What has been paid against a request so far: all of it once it
+   is released or booked (requests released in one go before part payments existed carry no
+   paid amount), otherwise the total of the part payments recorded on it. */
+export const RELEASED="Payment Released";
+type PaidFacts={status:string;amount:number|string;paidAmount?:number|string|null};
+const cents=(n:number)=>Math.round(n*100)/100;
+export const paidOf=(p:PaidFacts)=>PAID_STAGES.includes(p.status)?cents(Number(p.amount)||0)
+  :cents(Math.min(Number(p.paidAmount)||0,Number(p.amount)||0));
+/* Still to pay. Nothing once released, booked or rejected. */
+export const remainingOf=(p:PaidFacts)=>PAID_STAGES.includes(p.status)||p.status==="Rejected"?0
+  :cents(Math.max(0,(Number(p.amount)||0)-(Number(p.paidAmount)||0)));
+/* Paid in part and still waiting for the rest. */
+export const isPartPaid=(p:PaidFacts)=>!PAID_STAGES.includes(p.status)&&(Number(p.paidAmount)||0)>0;
+/* One payment made against a request, as the screens get it. */
+export type PartPayment={id:number;amount:number;paidOn:string;utrNumber:string;note:string;createdBy:string;createdAt:string};

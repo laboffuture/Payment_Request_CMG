@@ -6,12 +6,12 @@ import {csv} from "./workforce-store";
 import{amountColumn,paymentReport}from"../lib/payment-report";
 import type{ReportRow}from"../lib/payment-report";
 import {useEffect,useMemo,useRef,useState} from "react";
-import{STAGES,stageIndex}from"../lib/payment-stages";
+import{STAGES,isPartPaid,remainingOf,stageIndex}from"../lib/payment-stages";
 import{CONSOLIDATION_ROLES,moneyList,totalsOf}from"../lib/consolidation";
 import type{BatchPayment}from"../lib/consolidation";
 import{MoveToConsolidated,loadConsolidations}from"./ConsolidatedPayments";
 import{BudgetBadge,ProjectBudgets}from"./JobBudget";
-type Payment={jbCode?:string;project?:string;deptPriority?:string;deptPriorityBy?:string;id:number;requestNo:string;company:string;vendor:string;amount:number;currency:string;due:string;urgency:string;status:string;owner:string;department:string;nature?:string;tds?:string;tdsPercent?:string;tdsValue?:string;projectCode?:string;invoiceNumber?:string;invoiceDate?:string;paymentTerms?:string;period?:string;lastActionBy?:string;lastActionNote?:string;latestRemark?:string;latestRemarkBy?:string;lastActionAt?:string;rejectionNote?:string;resubmitNote?:string;poNumber?:string;raisedBy?:string;createdAt?:string};
+type Payment={paidAmount?:number;jbCode?:string;project?:string;deptPriority?:string;deptPriorityBy?:string;id:number;requestNo:string;company:string;vendor:string;amount:number;currency:string;due:string;urgency:string;status:string;owner:string;department:string;nature?:string;tds?:string;tdsPercent?:string;tdsValue?:string;projectCode?:string;invoiceNumber?:string;invoiceDate?:string;paymentTerms?:string;period?:string;lastActionBy?:string;lastActionNote?:string;latestRemark?:string;latestRemarkBy?:string;lastActionAt?:string;rejectionNote?:string;resubmitNote?:string;poNumber?:string;raisedBy?:string;createdAt?:string};
 const queues=[
  ["All","All requests"],["Management","Management approval"],["AccountsAvailable","Accounts available"],["AccountsMine","My Accounts tasks"],["AuditAvailable","Audit available"],["AuditMine","My Audit tasks"],["Observations","Audit observations & queries"],["Recheck","Audit reconfirmation"],["Finance","Finance release"],["Closed","Completed"],["Rejected","Rejected"]
 ] as const;
@@ -88,7 +88,7 @@ export default function PaymentWorkbench({rows,role,search,setSearch,open,create
               {p.lastActionAt&&<small>{new Date(p.lastActionAt).toLocaleDateString("en-GB",{day:"numeric",month:"short"})}</small>}</td>
             <td className="wb-remark" title={p.lastActionNote||p.latestRemark||p.rejectionNote||p.resubmitNote||""}>
               {p.lastActionNote||p.latestRemark||p.rejectionNote||p.resubmitNote||"—"}</td>
-            <td><span className={`badge ${statusTone(p.status)}`}>{p.status}</span></td><td><div className="stage-track" title={`${STAGES[stageIndex(p.status)]} — step ${stageIndex(p.status)+1} of ${STAGES.length}`}>
+            <td><span className={`badge ${statusTone(p.status)}`}>{p.status}</span>{isPartPaid(p)&&<small className="part-paid">Part paid · {p.currency} {remainingOf(p).toLocaleString("en-IN")} left</small>}</td><td><div className="stage-track" title={`${STAGES[stageIndex(p.status)]} — step ${stageIndex(p.status)+1} of ${STAGES.length}`}>
               {STAGES.map((st,i)=><i key={st} className={i<=stageIndex(p.status)?"on":""}/>)}
               <small>{STAGES[stageIndex(p.status)]}</small></div></td><td><div className="wb-row-actions"><Next status={p.status}/>{role==="Administrator"&&onDelete&&<button className="wb-delete" title="Delete this request" onClick={e=>{e.stopPropagation();onDelete(p)}}><Trash2/></button>}</div></td></tr>)}</tbody></table>{!shown.length&&<div className="wb-empty"><CheckCircle2/><b>No items in this queue</b><span>There is nothing requiring action here.</span></div>}</div>
   </section>

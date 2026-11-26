@@ -44,7 +44,22 @@ export const paymentRequests=sqliteTable("payment_requests",{id:integer("id").pr
      given, and setting it changes neither the status nor the owner. */
   deptPriority:text("dept_priority").notNull().default(""),
   deptPriorityBy:text("dept_priority_by").notNull().default(""),
-  deptPriorityAt:text("dept_priority_at").notNull().default("")});
+  deptPriorityAt:text("dept_priority_at").notNull().default(""),
+  /* Paid so far when finance pays a request in parts - the total of its payment_releases.
+     0 on requests released in one go before part payments existed; their status says paid. */
+  paidAmount:real("paid_amount").notNull().default(0)});
+/* Each payment made against a request: how much, the day it was paid and the bank's
+   reference. A request is released once these add up to its amount. */
+export const paymentReleases=sqliteTable("payment_releases",{
+  id:integer("id").primaryKey({autoIncrement:true}),
+  paymentId:integer("payment_id").notNull(),
+  amount:real("amount").notNull(),
+  paidOn:text("paid_on").notNull(),
+  utrNumber:text("utr_number").notNull().default(""),
+  note:text("note").notNull().default(""),
+  createdBy:text("created_by").notNull().default(""),
+  createdAt:text("created_at").notNull().default(sql`CURRENT_TIMESTAMP`)},
+  t=>[index("payment_releases_payment_idx").on(t.paymentId)]);
 /* Master data an administrator maintains from the Settings screen.
 
    setting_options holds the choices behind a dropdown; which dropdowns exist is a

@@ -1,6 +1,7 @@
 "use client";
 import{BudgetBox}from"./JobBudget";
-import{DEPT_PRIORITIES,DEPT_PRIORITY_ROLES,EXPENSES_BOOKED,FINANCE_STAGES,PAID_STAGES,STAGES as stages,priorityOpen,stageIndex}from"../lib/payment-stages";
+import{DEPT_PRIORITIES,DEPT_PRIORITY_ROLES,EXPENSES_BOOKED,FINANCE_STAGES,PAID_STAGES,STAGES as stages,paidOf,priorityOpen,remainingOf,stageIndex}from"../lib/payment-stages";
+import type{PartPayment}from"../lib/payment-stages";
 import{FIELD_ORDER,labelFor,ruleFor,fieldsFor,choicesFor,isExpenseSubmission}from"../lib/payment-fields";
 import{ExpenseBreakupView}from"./ExpenseBreakup";
 import{payableToEmployee,readExpenseLines}from"../lib/expense-lines";
@@ -14,7 +15,7 @@ import type{Job}from"../lib/jobs";
 type Payment={advance?:string;expenseLines?:string;canApprove?:boolean;jbCode?:string;projectCode?:string;invoiceNumber?:string;invoiceDate?:string;paymentTerms?:string;period?:string;extra?:string;tds?:string;nature?:string;poNumber?:string;resubmitNote?:string;resubmittedAt?:string;rejectionNote?:string;rejectedBy?:string;rejectedAt?:string;raisedBy?:string;tdsPercent?:string;tdsValue?:string;
   /* The note left by whoever moved the request last. This panel declares its own Payment
      type rather than sharing page.tsx's, so a field added there does not arrive here. */
-  deptPriority?:string;deptPriorityBy?:string;deptPriorityAt?:string;lastActionNote?:string;lastActionBy?:string;utrNumber?:string;voucherNumber?:string;id:number;requestNo:string;company:string;vendor:string;amount:number;currency:string;due:string;urgency:string;status:string;owner:string;department:string};
+  deptPriority?:string;deptPriorityBy?:string;deptPriorityAt?:string;lastActionNote?:string;lastActionBy?:string;utrNumber?:string;voucherNumber?:string;paidAmount?:number;releases?:PartPayment[];id:number;requestNo:string;company:string;vendor:string;amount:number;currency:string;due:string;urgency:string;status:string;owner:string;department:string};
 /* The badge was hardcoded blue, so a rejected request looked the same as one in
    progress. Colour follows the status. */
 const statusTone=(s:string)=>s==="Query Raised"||s==="Audit Query"?"amber":/reject|query/i.test(s)?"red"
@@ -74,7 +75,7 @@ function DeptPriority({p,role,onSaved}:{p:Payment;role:string;onSaved?:(saved:Pa
     {error&&<p className="wf-priority-error" role="alert">{error}</p>}
   </section>}
 
-export default function PaymentDetail({payment:p,busy=false,role,onClose,onAction,onDelete,onPriority,userEmail="",userName="",companies=[],departments=[],natures=[],currencies=[],tdsChoices=[],termsChoices=[],modeChoices=[],jobs=[]}:{payment:Payment;busy?:boolean;role:string;onClose:()=>void;onAction:(s:string,note?:string,fields?:Record<string,string>)=>void;onDelete?:()=>void;onPriority?:(saved:Partial<Payment>&{id:number})=>void;userEmail?:string;userName?:string;companies?:{id:string;name:string}[];departments?:string[];natures?:string[];currencies?:string[];tdsChoices?:string[];termsChoices?:string[];modeChoices?:string[];jobs?:Job[]}){
+export default function PaymentDetail({payment:p,busy=false,role,onClose,onAction,onDelete,onPriority,onReleased,userEmail="",userName="",companies=[],departments=[],natures=[],currencies=[],tdsChoices=[],termsChoices=[],modeChoices=[],jobs=[]}:{payment:Payment;busy?:boolean;role:string;onClose:()=>void;onAction:(s:string,note?:string,fields?:Record<string,string>)=>void;onDelete?:()=>void;onPriority?:(saved:Partial<Payment>&{id:number})=>void;onReleased?:(saved:Partial<Payment>&{id:number},message:string)=>void;userEmail?:string;userName?:string;companies?:{id:string;name:string}[];departments?:string[];natures?:string[];currencies?:string[];tdsChoices?:string[];termsChoices?:string[];modeChoices?:string[];jobs?:Job[]}){
  const isPrivileged=["Administrator","Audit Head","Management","Accountant","Auditor","Finance"].includes(role);
  const isOwnRequest=!p.raisedBy||!userEmail||p.raisedBy.trim().toLowerCase()===userEmail.trim().toLowerCase();
  const mayRemoveAttachment=(a:Attachment)=>{
@@ -98,7 +99,7 @@ export default function PaymentDetail({payment:p,busy=false,role,onClose,onActio
    fetch(`/api/payments?history=${encodeURIComponent(String(p.id))}`)
      .then(r=>r.ok?r.json() as Promise<{history?:Entry[]}>:{history:[]})
      .then(b=>{if(!dead)setHistory(b.history||[])}).catch(()=>{});
-   return()=>{dead=true}},[p.id,p.status,p.deptPriority]);
+   return()=>{dead=true}},[p.id,p.status,p.deptPriority,p.paidAmount]);
  const remarks=history.map(readEntry).filter(e=>e.remark).reverse();
  /* A query audit raised goes back to audit when it is answered - the server decides that;
     this only names it on the button. */
@@ -177,9 +178,20 @@ export default function PaymentDetail({payment:p,busy=false,role,onClose,onActio
  const[closeAs,setCloseAs]=useState<"release"|"book">("release"),[voucher,setVoucher]=useState("");
  /* The proof goes up first, so a failed upload stops the release rather than leaving a
     released request with no proof and nobody told. */
+ /* Paying in parts: how much is paid now and the day it was paid. It starts at what is
+    left, so a request paid in one go is released exactly as before. */
+ const total=Number(p.amount)||0,paidSoFar=paidOf(p as {status:string;amount:number;paidAmount?:number}),
+   left=remainingOf(p as {status:string;amount:number;paidAmount?:number});
+ const[todayIn]=useState(()=>new Date(Date.now()+330*60000).toISOString().slice(0,10));
+ const[payNow,setPayNow]=useState(()=>String(left||"")),[paidOn,setPaidOn]=useState(todayIn),[paying,setPaying]=useState(false);
+ const payNum=Math.round((Number(payNow)||0)*100)/100;
+ const leftAfter=Math.round((left-payNum)*100)/100;
+ const payProblem=!(payNum>0)?"Enter the amount paid":payNum>left+0.001?`Only ${p.currency} ${fmtAmt(left)} is left to pay`
+   :!paidOn?"Enter the date it was paid":paidOn>todayIn?"The date paid cannot be in the future":"";
  const release=async()=>{
    setReleaseErr("");
    const booking=closeAs==="book";
+   if(!booking&&payProblem){setReleaseErr(payProblem+".");return}
    if(booking&&!voucher.trim()){setReleaseErr("Enter the voucher number to book the expense.");return}
    if(!booking&&!utr.trim()){setReleaseErr("Enter the UTR number to release the payment.");return}
    if(releaseFile){
@@ -189,8 +201,16 @@ export default function PaymentDetail({payment:p,busy=false,role,onClose,onActio
        if(!r.ok){const b=await r.json().catch(()=>({})) as {error?:string};throw new Error(b.error||"upload refused")}}
      catch(e){setReleaseErr(`The proof did not upload (${e instanceof Error?e.message:"error"}). Try again, or go ahead without it.`);return}
    }
-   if(booking)onAction(EXPENSES_BOOKED,withNote(),{voucherNumber:voucher.trim()});
-   else onAction("Payment Released",withNote(),{utrNumber:utr.trim()})};
+   if(booking){onAction(EXPENSES_BOOKED,withNote(),{voucherNumber:voucher.trim()});return}
+   setPaying(true);
+   try{const r=await fetch("/api/payments/release",{method:"POST",headers:{"content-type":"application/json"},
+       body:JSON.stringify({id:p.id,amount:payNum,paidOn,utrNumber:utr.trim(),note:withNote()||""})});
+     const b=await r.json().catch(()=>({})) as {payment?:Partial<Payment>&{id:number};full?:boolean;left?:number;error?:string};
+     if(!r.ok||!b.payment){setReleaseErr(b.error||"The payment could not be recorded. Try again.");setPaying(false);return}
+     /* A part payment leaves the request where it is, so the form is cleared for the next one. */
+     setUtr("");setReleaseFile(null);setStageNote("");setPayNow(String(b.left||""));setPaidOn(todayIn);setPaying(false);
+     onReleased?.(b.payment,b.full?`${p.requestNo} released`:`${p.currency} ${fmtAmt(payNum)} paid on ${p.requestNo} - ${p.currency} ${fmtAmt(b.left||0)} still to pay`)}
+   catch{setReleaseErr("The payment could not be recorded. Check the connection and try again.");setPaying(false)}};
 
  /* TDS is an accounts determination, not something a requestor asserts, which is why it
     left the request form and arrives here instead. Whatever the requestor answered before
@@ -262,10 +282,25 @@ export default function PaymentDetail({payment:p,busy=false,role,onClose,onActio
     saved. The UTR is the bank's reference for the payment; remarks go into the trail. */
  if(approved&&(can("Accountant")||can("Finance")))action=<><div className="wf-success"><FileCheck2/><div><b>Approved by Auditor</b>
    <p>Release the payment with its UTR number, or book it as an expense with the voucher number. Attach the proof if you have it, and any remarks.</p></div></div>
-   <div className="wf-close-as" role="radiogroup" aria-label="How is this request closed">
+   {paidSoFar>0?<div className="wf-callout"><Clock3/>Part paid: {p.currency} {fmtAmt(paidSoFar)} of {p.currency} {fmtAmt(total)} has gone out. Release the rest, in one payment or more.</div>
+   :<div className="wf-close-as" role="radiogroup" aria-label="How is this request closed">
      <label className={closeAs==="release"?"on":""}><input type="radio" name="closeAs" checked={closeAs==="release"} onChange={()=>{setCloseAs("release");setReleaseErr("")}}/>Payment released</label>
      <label className={closeAs==="book"?"on":""}><input type="radio" name="closeAs" checked={closeAs==="book"} onChange={()=>{setCloseAs("book");setReleaseErr("")}}/>Expenses booked</label>
-   </div>
+   </div>}
+   {closeAs==="release"&&<div className="wf-pay">
+     <div className="wf-pay-pair">
+       <label className="wf-note">Amount paid ({p.currency}) <i className="wf-req" aria-hidden="true">*</i>
+         <input type="number" min="0.01" step="0.01" max={left} inputMode="decimal" required value={payNow} onChange={e=>setPayNow(e.target.value)}/></label>
+       <label className="wf-note">Paid on <i className="wf-req" aria-hidden="true">*</i>
+         <input type="date" required max={todayIn} value={paidOn} onChange={e=>setPaidOn(e.target.value)}/></label></div>
+     <dl className="wf-pay-sum">
+       <div><dt>Request amount</dt><dd>{p.currency} {fmtAmt(total)}</dd></div>
+       <div><dt>Paid before</dt><dd>{p.currency} {fmtAmt(paidSoFar)}</dd></div>
+       <div><dt>Paying now</dt><dd>{p.currency} {fmtAmt(payNum>0?payNum:0)}</dd></div>
+       <div className={leftAfter>0.001?"left":"done"}><dt>Remaining after this</dt><dd>{p.currency} {fmtAmt(Math.max(0,leftAfter))}</dd></div>
+     </dl>
+     <p className="wf-pay-note">{payProblem&&payNow!==""?payProblem+".":leftAfter>0.001?"This is a part payment: the request stays at Ready to Release until the rest is paid.":"This pays the request in full and marks it Payment Released."}</p>
+   </div>}
    {closeAs==="release"
      ?<label className="wf-note">UTR number <i className="wf-req" aria-hidden="true">*</i><input className="wf-utr" required value={utr} onChange={e=>setUtr(e.target.value)} placeholder="Bank reference for this payment"/></label>
      :<label className="wf-note">Voucher No <i className="wf-req" aria-hidden="true">*</i><input className="wf-utr" required value={voucher} onChange={e=>setVoucher(e.target.value)} placeholder="Accounts voucher number for this expense"/></label>}
@@ -277,7 +312,7 @@ export default function PaymentDetail({payment:p,busy=false,role,onClose,onActio
    <div className="wf-actions">{adminReject&&rejectForm(false,["reject"])}
    {!sendBack&&(closeAs==="book"
      ?<button className="wf-primary" disabled={!voucher.trim()} title={voucher.trim()?"":"Enter the voucher number first"} onClick={release}>Mark as Expenses Booked</button>
-     :<button className="wf-primary" disabled={!utr.trim()} title={utr.trim()?"":"Enter the UTR number first"} onClick={release}>Mark as Released</button>)}</div></>;
+     :<button className="wf-primary" disabled={!utr.trim()||!!payProblem||paying} title={!utr.trim()?"Enter the UTR number first":payProblem} onClick={release}>{paying?"Saving…":leftAfter>0.001?"Record part payment":paidSoFar>0?"Pay the rest - mark as Released":"Mark as Released"}</button>)}</div></>;
  if(p.status==="Rejected")action=<><div className="wf-observation"><X/><div>
    <small>REQUEST REJECTED</small>
    <b>{p.rejectionNote||"No reason was recorded."}</b>
@@ -376,7 +411,7 @@ export default function PaymentDetail({payment:p,busy=false,role,onClose,onActio
       {!!p.invoiceNumber&&<div><dt>Invoice</dt><dd>{p.invoiceNumber}{p.invoiceDate?` · ${p.invoiceDate}`:""}</dd></div>}
       {!!p.paymentTerms&&<div><dt>Payment terms</dt><dd>{p.paymentTerms}</dd></div>}
       {!!p.period&&<div><dt>Period</dt><dd>{p.period}</dd></div>}{(()=>{try{return(JSON.parse(p.extra||"[]") as {id:string;label:string;value:string}[])
-  .map(x=><div key={x.id}><dt>{x.label}</dt><dd>{x.value}</dd></div>)}catch{return null}})()}{!!p.due&&<div><dt>Due</dt><dd>{p.due}</dd></div>}{isExpenseSubmission(p.nature||"")&&<><div><dt>Advance received</dt><dd>{p.currency} {(Number(p.advance)||0).toLocaleString()}</dd></div><div><dt>{payableToEmployee(p.advance||0,readExpenseLines(p.expenseLines))<0?"Employee to return":"Payable to employee"}</dt><dd>{p.currency} {Math.abs(payableToEmployee(p.advance||0,readExpenseLines(p.expenseLines))).toLocaleString()}</dd></div></>}<div><dt>Owner</dt><dd>{p.owner}</dd></div></dl></div>{!!p.expenseLines&&<ExpenseBreakupView raw={p.expenseLines} advance={p.advance||""} currency={p.currency} paymentId={p.id}/>}{!!(p.jbCode||p.projectCode)&&<BudgetBox code={p.jbCode||p.projectCode} amount={p.amount} currency={p.currency} own={p.status!=="Rejected"&&p.status!=="Audit Rejected"}/>}<div className="wf-stage">{stages.map((s,i)=><div className={i<active?"past":i===active?"now":""} key={s}><i>{i<active?<Check/>:i+1}</i><span>{s}</span></div>)}</div><DeptPriority p={p} role={role} onSaved={onPriority}/><section className="wf-work"><div className="wf-title"><div><small>CURRENT ACTION</small><h4>{title}</h4></div><span className="badge amber">{role}</span></div>
+  .map(x=><div key={x.id}><dt>{x.label}</dt><dd>{x.value}</dd></div>)}catch{return null}})()}{!!p.due&&<div><dt>Due</dt><dd>{p.due}</dd></div>}{isExpenseSubmission(p.nature||"")&&<><div><dt>Advance received</dt><dd>{p.currency} {(Number(p.advance)||0).toLocaleString()}</dd></div><div><dt>{payableToEmployee(p.advance||0,readExpenseLines(p.expenseLines))<0?"Employee to return":"Payable to employee"}</dt><dd>{p.currency} {Math.abs(payableToEmployee(p.advance||0,readExpenseLines(p.expenseLines))).toLocaleString()}</dd></div></>}<div><dt>Owner</dt><dd>{p.owner}</dd></div></dl></div>{!!p.expenseLines&&<ExpenseBreakupView raw={p.expenseLines} advance={p.advance||""} currency={p.currency} paymentId={p.id}/>}{!!(p.jbCode||p.projectCode)&&<BudgetBox code={p.jbCode||p.projectCode} amount={p.amount} currency={p.currency} own={p.status!=="Rejected"&&p.status!=="Audit Rejected"}/>}<div className="wf-stage">{stages.map((s,i)=><div className={i<active?"past":i===active?"now":""} key={s}><i>{i<active?<Check/>:i+1}</i><span>{s}</span></div>)}</div><DeptPriority p={p} role={role} onSaved={onPriority}/>{(p.releases?.length||paidSoFar>0&&!PAID_STAGES.includes(p.status))?<PaymentsMade p={p} paid={paidSoFar} left={left}/>:null}<section className="wf-work"><div className="wf-title"><div><small>CURRENT ACTION</small><h4>{title}</h4></div><span className="badge amber">{role}</span></div>
    {/* Everything said about this request so far, newest first, above whatever is asked
        of the reader now - the reason accounts sent it on is what audit reads it by. */}
    {!!remarks.length&&<div className="wf-remarks"><small>REMARKS SO FAR</small>
@@ -398,3 +433,19 @@ export default function PaymentDetail({payment:p,busy=false,role,onClose,onActio
     action alone and the server checks the role again. */}
 {role==="Administrator"&&onDelete&&<section className="wf-danger-zone"><h4>Administrator</h4><p>Deleting removes this request and its documents for everybody. Rejecting it instead keeps the record and the audit trail.</p><button type="button" className="wf-delete-request" onClick={onDelete}><X/>Delete this request</button></section>}</div></aside></>
 }
+
+function fmtAmt(n:number){return(Number(n)||0).toLocaleString("en-IN",{minimumFractionDigits:0,maximumFractionDigits:2})}
+const dayText=(d:string)=>{const t=new Date(d+"T00:00:00Z");return Number.isFinite(t.getTime())?t.toLocaleDateString("en-GB",{day:"2-digit",month:"short",year:"numeric",timeZone:"UTC"}):d};
+
+/* The payments made against a request, with what is still to pay. */
+function PaymentsMade({p,paid,left}:{p:{currency:string;amount:number;status:string;releases?:PartPayment[]};paid:number;left:number}){
+  const rows=p.releases||[];
+  const done=PAID_STAGES.includes(p.status);
+  return <section className="wf-paid" aria-label="Payments made">
+    <div className="wf-paid-head"><small>PAYMENTS MADE</small>
+      <b>{p.currency} {fmtAmt(paid)} paid of {p.currency} {fmtAmt(Number(p.amount)||0)}</b>
+      <span className={`badge ${done||left<=0.001?"green":"amber"}`}>{done||left<=0.001?"Paid in full":`${p.currency} ${fmtAmt(left)} still to pay`}</span></div>
+    {rows.length>0&&<div className="wf-paid-scroll"><table><thead><tr><th>#</th><th>Paid on</th><th className="num">Amount</th><th>UTR</th><th>Recorded by</th></tr></thead>
+      <tbody>{rows.map((r,i)=><tr key={r.id}><td>{i+1}</td><td>{dayText(r.paidOn)}</td><td className="num">{p.currency} {fmtAmt(r.amount)}</td>
+        <td>{r.utrNumber||"—"}</td><td>{r.createdBy||"—"}{r.note?<small>{r.note}</small>:null}</td></tr>)}</tbody></table></div>}
+  </section>}

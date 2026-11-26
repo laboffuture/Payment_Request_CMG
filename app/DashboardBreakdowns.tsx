@@ -15,14 +15,22 @@ export const BREAKDOWN_ROLES=["Accountant","Auditor","Department Head","Audit He
 type Row={id:number;requestNo:string;company:string;vendor:string;amount:number;currency:string;status:string;
   department:string;nature?:string;jbCode?:string;projectCode?:string;project?:string;createdAt?:string;
   releasedAt?:string;due?:string;jobLocation?:string;invoiceNumber?:string;invoiceDate?:string;poNumber?:string;
-  tdsValue?:string;utrNumber?:string;raisedBy?:string;description?:string};
+  tdsValue?:string;utrNumber?:string;raisedBy?:string;description?:string;
+  /* paid so far on a request paid in parts, and each payment with the day it was made */
+  paidAmount?:number;releases?:{amount:number;paidOn:string}[]};
 type Group={key:string;label:string;sub?:string;rows:Row[];last?:boolean};
 
 const isRejected=(p:Row)=>p.status==="Rejected"||p.status==="Audit Rejected";
 const isReleased=(p:Row)=>p.status==="Payment Released"||p.status==="Expenses Booked";
+/* What has gone out on a request: all of it once released, the part payments before that. */
+const paidOf=(p:Row)=>{const a=Number(p.amount)||0;return isReleased(p)?a:Math.min(a,Number(p.paidAmount)||0)};
+const isPartPaid=(p:Row)=>!isReleased(p)&&(Number(p.paidAmount)||0)>0;
 
 /* Stored times are UTC ("2026-11-05 11:25:40" or ISO); weeks and months are India time. */
-const when=(s?:string)=>{if(!s)return null;const t=new Date(s.includes("T")?s:s.replace(" ","T")+"Z").getTime();
+const when=(s?:string)=>{if(!s)return null;
+  /* a day on its own (the date a payment was made) is already India's day */
+  if(/^\d{4}-\d{2}-\d{2}$/.test(s)){const d=new Date(s+"T00:00:00Z");return Number.isFinite(d.getTime())?d:null}
+  const t=new Date(s.includes("T")?s:s.replace(" ","T")+"Z").getTime();
   return Number.isFinite(t)?new Date(t+330*60000):null};
 const dayOf=(s?:string)=>when(s)?.toISOString().slice(0,10)||"";
 const monthOf=(s?:string)=>dayOf(s).slice(0,7);
@@ -35,7 +43,8 @@ const COUNTRY:Record<string,string>={INR:"India",AED:"UAE",SAR:"Saudi Arabia",QR
 
 /* Amounts never add across currencies: each figure is a list, one per currency. */
 type Money=Map<string,number>;
-const sum=(rows:Row[])=>{const m:Money=new Map();for(const p of rows){const c=(p.currency||"INR").toUpperCase();m.set(c,(m.get(c)||0)+(Number(p.amount)||0))}return m};
+const sum=(rows:Row[],value:(p:Row)=>number=p=>Number(p.amount)||0)=>{const m:Money=new Map();
+  for(const p of rows){const c=(p.currency||"INR").toUpperCase();m.set(c,(m.get(c)||0)+value(p))}return m};
 const one=(c:string,n:number)=>{const a=Math.abs(n);
   const v=c==="INR"?(a>=1e7?`${(n/1e7).toFixed(2)} Cr`:a>=1e5?`${(n/1e5).toFixed(2)} L`:Math.round(n).toLocaleString("en-IN"))
     :Math.round(n).toLocaleString("en-IN");
@@ -87,11 +96,12 @@ const TABS:Tab[]=[
 /* Request by request, for the reports downloaded from a tab: one job (or vendor, week...)
    with its totals underneath, or every group one after another. */
 const REQUEST_HEAD=["Request no","Raised on","Released on","Entity","Department","Vendor / beneficiary","Nature",
-  "Job code","Project","Job location","Invoice no","Invoice date","PO no","Currency","Amount","TDS value","Status",
+  "Job code","Project","Job location","Invoice no","Invoice date","PO no","Currency","Amount","Paid so far","Still to pay","TDS value","Status",
   "UTR / reference","Raised by","Description"];
 const requestCells=(p:Row)=>[p.requestNo,dayOf(p.createdAt),isReleased(p)?dayOf(p.releasedAt):"",p.company||"",p.department||"",
   p.vendor||"",p.nature||"",jobOf(p),p.project||"",p.jobLocation||"",p.invoiceNumber||"",p.invoiceDate||"",p.poNumber||"",
-  (p.currency||"INR").toUpperCase(),Number(p.amount)||0,p.tdsValue||"",p.status||"",p.utrNumber||"",p.raisedBy||"",
+  (p.currency||"INR").toUpperCase(),Number(p.amount)||0,paidOf(p),isRejected(p)?0:Math.round(((Number(p.amount)||0)-paidOf(p))*100)/100,
+  p.tdsValue||"",isPartPaid(p)?`${p.status} (part paid)`:p.status||"",p.utrNumber||"",p.raisedBy||"",
   (p.description||"").replace(/\s+/g," ").trim()];
 const newestFirst=(rows:Row[])=>[...rows].sort((a,b)=>(b.createdAt||"").localeCompare(a.createdAt||"")||b.id-a.id);
 const slugOf=(s:string)=>s.toLowerCase().replace(/[^a-z0-9]+/g,"-").replace(/^-|-$/g,"").slice(0,60)||"report";
@@ -101,10 +111,13 @@ function weekly(rows:Row[]):(Group&{raised:Row[];paid:Row[]})[]{
   const m=new Map<string,{raised:Row[];paid:Row[]}>();
   const at=(w:string)=>m.get(w)||m.set(w,{raised:[],paid:[]}).get(w)!;
   for(const p of rows){const w=weekOf(p.createdAt);if(w)at(w).raised.push(p);
-    if(isReleased(p)){const r=weekOf(p.releasedAt);if(r)at(r).paid.push(p)}}
+    /* Money out in the week it was paid: each part payment on its own day, and a request
+       released in one go before part payments existed on the day it was released. */
+    if(p.releases?.length){for(const r of p.releases){const w2=weekOf(r.paidOn);if(w2)at(w2).paid.push({...p,amount:Number(r.amount)||0})}}
+    else if(isReleased(p)){const r=weekOf(p.releasedAt);if(r)at(r).paid.push(p)}}
   return Array.from(m.entries()).sort((a,b)=>b[0].localeCompare(a[0])).map(([w,g])=>{
     const end=new Date(new Date(w+"T00:00:00Z").getTime()+6*864e5).toISOString().slice(0,10);
-    return{key:w,label:`${fmtDay(w)} – ${fmtDay(end)}`,rows:Array.from(new Set([...g.raised,...g.paid])),raised:g.raised,paid:g.paid}})}
+    return{key:w,label:`${fmtDay(w)} – ${fmtDay(end)}`,rows:Array.from(new Map([...g.raised,...g.paid].map(p=>[p.id,rows.find(x=>x.id===p.id)||p])).values()),raised:g.raised,paid:g.paid}})}
 
 export default function DashboardBreakdowns({payments,open,children}:{payments:Row[];open:(p:Row)=>void;children:ReactNode}){
   const[tab,setTab]=useState("overview");
@@ -124,10 +137,12 @@ function Breakdown({tab,payments,open}:{tab:Tab;payments:Row[];open:(p:Row)=>voi
   const shown=groups.filter(g=>!words.length||words.every(w=>`${g.label} ${g.sub||""}`.toLowerCase().includes(w)));
   const covered=new Set(groups.flatMap(g=>g.rows.map(p=>p.id))).size;
   const figures=(g:Group)=>{const w=g as Group&{raised?:Row[];paid?:Row[]};
-    const raised=isWeek?w.raised!:g.rows,paid=isWeek?w.paid!:g.rows.filter(isReleased);
+    const raised=isWeek?w.raised!:g.rows;
     const asked=live(raised);
-    return{count:raised.length,asked:sum(asked),paid:sum(paid),paidCount:paid.length,
-      process:sum(asked.filter(p=>!isReleased(p))),rejected:raised.filter(isRejected).length}};
+    /* Released is what has gone out - part payments included; in process is the rest. */
+    const paid=isWeek?sum(w.paid!):sum(asked,paidOf);
+    return{count:raised.length,asked:sum(asked),paid,paidCount:isWeek?new Set(w.paid!.map(p=>p.id)).size:asked.filter(isReleased).length,
+      process:sum(asked,p=>(Number(p.amount)||0)-paidOf(p)),rejected:raised.filter(isRejected).length}};
   const download=()=>{
     const head=[tab.name,...(tab.id==="project"||tab.id==="recurring"?["Detail"]:[]),"Currency",isWeek?"Requests raised":"Requests",
       "Requested (not counting rejected)","Released",...(isWeek?[]:["In process"]),"Rejected requests"];
@@ -178,7 +193,8 @@ function Breakdown({tab,payments,open}:{tab:Tab;payments:Row[];open:(p:Row)=>voi
             {isWeek&&<td>{isReleased(p)&&dayOf(p.releasedAt)?fmtDay(dayOf(p.releasedAt)):"—"}</td>}
             <td>{p.vendor||"—"}</td><td>{p.nature||"—"}</td><td>{p.department||"—"}</td>
             <td className="num">{one((p.currency||"INR").toUpperCase(),Number(p.amount)||0)}</td>
-            <td><span className={`badge ${isRejected(p)?"red":isReleased(p)?"green":"amber"}`}>{p.status}</span></td></tr>)}</tbody></table></td></tr>]})}</tbody>
+            <td><span className={`badge ${isRejected(p)?"red":isReleased(p)?"green":"amber"}`}>{p.status}</span>
+              {isPartPaid(p)&&<small>Paid {one((p.currency||"INR").toUpperCase(),paidOf(p))} · {one((p.currency||"INR").toUpperCase(),(Number(p.amount)||0)-paidOf(p))} left</small>}</td></tr>)}</tbody></table></td></tr>]})}</tbody>
     </table></div></div>}
   </div>}
 
@@ -230,7 +246,9 @@ function TopBars({tab,groups,cur,curs,setCur,byCount,pick,hidden}:{tab:Tab;group
   const{at,clear,view}=useTip();
   const fmt=(n:number)=>byCount?`${n}`:one(cur,n);
   const bars=groups.map(g=>{const a=live(g.rows);const rel=a.filter(isReleased),pro=a.filter(p=>!isReleased(p));
-      return{g,paid:byCount?rel.length:inCur(rel,cur),open:byCount?pro.length:inCur(pro,cur)}})
+      const mine=a.filter(p=>(p.currency||"INR").toUpperCase()===cur);
+      const out=mine.reduce((n,p)=>n+paidOf(p),0),all=mine.reduce((n,p)=>n+(Number(p.amount)||0),0);
+      return{g,paid:byCount?rel.length:out,open:byCount?pro.length:all-out}})
     .filter(b=>b.paid+b.open>0).sort((x,y)=>y.paid+y.open-(x.paid+x.open)).slice(0,10);
   const max=Math.max(1,...bars.map(b=>b.paid+b.open));
   const total=bars.length;

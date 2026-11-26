@@ -22,7 +22,7 @@ export async function GET(req:Request){
         .where(eq(settingOptions.listId,"payment.job")).orderBy(asc(settingOptions.position)),
       db.select().from(wfJobBudgets),
       db.select({jbCode:paymentRequests.jbCode,projectCode:paymentRequests.projectCode,amount:paymentRequests.amount,
-        currency:paymentRequests.currency,status:paymentRequests.status}).from(paymentRequests)]);
+        currency:paymentRequests.currency,status:paymentRequests.status,paidAmount:paymentRequests.paidAmount}).from(paymentRequests)]);
     const budgetOf=new Map(saved.map(b=>[b.code,b.budget]));
     const jobs=new Map<string,JobBudget>();
     const add=(code:string,project="",location="")=>{const k=jobKey(code);if(!k)return;
@@ -37,7 +37,9 @@ export async function GET(req:Request){
       if(p.currency!==BUDGET_CURRENCY){otherCurrency+=1;continue}
       const amt=Number(p.amount)||0;
       j.spent+=amt;j.requests+=1;
-      if(isReleased(p.status))j.released+=amt;else j.inProcess+=amt;
+      /* A request paid in parts counts what has gone out as released and the rest as in process. */
+      const paid=isReleased(p.status)?amt:Math.min(amt,Number(p.paidAmount)||0);
+      j.released+=paid;j.inProcess+=amt-paid;
     }
     for(const j of jobs.values()){j.balance=j.budget-j.spent;j.state=stateOf(j.budget,j.spent)}
     return Response.json({defaultBudget:DEFAULT_JOB_BUDGET,currency:BUDGET_CURRENCY,otherCurrency,jobs:[...jobs.values()]});
