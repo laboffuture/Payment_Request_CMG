@@ -95,6 +95,8 @@ export async function renderPoHtml(poId: string): Promise<{ html: string; no: st
     _id: { $in: [...new Set(allocs.map((a) => String(a.projectId)))] },
   }).lean();
 
+  // An order placed only against sub-contractor requests (SUB-...) is a subcontractor order.
+  const sub = mrs.length > 0 && mrs.every((m) => String(m.no ?? '').startsWith('SUB-'));
   const displayNo = po.no + (num(po.rev) > 0 ? ` Rev ${po.rev}` : '');
   // The order's own currency — a billing entity's default is only the starting point.
   const currency = po.currency || company?.currency || '';
@@ -241,7 +243,7 @@ export async function renderPoHtml(poId: string): Promise<{ html: string; no: st
       </div>
     </div>
     <div class="pv" style="text-align:right">
-      <b style="font-size:19px">PURCHASE ORDER</b>
+      <b style="font-size:19px">${sub ? 'SUBCONTRACTOR ORDER' : 'PURCHASE ORDER'}</b>
       <span>Status: ${esc(chipFor(PO_ST, po.status).label)}</span>
     </div>
   </div>
@@ -257,7 +259,7 @@ export async function renderPoHtml(poId: string): Promise<{ html: string; no: st
     ])}
     ${info([
       ['Order No', displayNo],
-      ['PO Date', fmtDate(po.createdAt)],
+      [sub ? 'Order Date' : 'PO Date', fmtDate(po.createdAt)],
       ['Project No', projectCodes],
       ['Project Name', projectNames],
       ['Delivery Address', deliveryAddress],

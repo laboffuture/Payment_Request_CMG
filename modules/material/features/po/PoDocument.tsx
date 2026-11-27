@@ -115,6 +115,10 @@ export function PoDocument({ preview }: { preview: PoDocumentData }) {
     .map((code) => reference.projects.find((p) => p.code === code)?.name ?? '')
     .filter(Boolean);
   const charges = (preview.charges ?? []).filter((c) => c.amount);
+  // An order placed only against sub-contractor requests (SUB-...) is a subcontractor order.
+  const mrNos = lines.flatMap((l) => l.mrNos ?? []);
+  const sub = mrNos.length > 0 && mrNos.every((no) => no.startsWith('SUB-'));
+  const displayNo = sub && preview.displayNo === 'PO-(new)' ? 'SUB-(new)' : preview.displayNo;
 
   const split = taxMode === 'CGST_SGST';
   const span = COLUMNS.length - 1;
@@ -166,7 +170,7 @@ export function PoDocument({ preview }: { preview: PoDocumentData }) {
         </div>
 
         <div className="po-doc-title">
-          <b className="text-xl">PURCHASE ORDER</b>
+          <b className="text-xl">{sub ? 'SUBCONTRACTOR ORDER' : 'PURCHASE ORDER'}</b>
           <span>Status: {chipFor(PO_ST, preview.status).label}</span>
         </div>
       </div>
@@ -185,8 +189,8 @@ export function PoDocument({ preview }: { preview: PoDocumentData }) {
         />
         <InfoRows
           rows={[
-            ['Order No', <span key="no" className="font-mono">{preview.displayNo}</span>],
-            ['PO Date', fmtDate(preview.date ?? new Date().toISOString())],
+            ['Order No', <span key="no" className="font-mono">{displayNo}</span>],
+            [sub ? 'Order Date' : 'PO Date', fmtDate(preview.date ?? new Date().toISOString())],
             ['Project No', projectCodes.join(', ')],
             ['Project Name', projectNames.join(', ')],
             ['Delivery Address', deliveryAddress],
